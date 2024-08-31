@@ -6,7 +6,7 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
-  <title>AaronSpindler.com-{% block title %}{% endblock title %}</title>
+  <title>AaronSpindler.com - {% block title %}{% endblock title %}</title>
   <meta name="description" content="Aaron Spindler's personal website">
   <meta name="author" content="Aaron Spindler">
   {% comment %} <link rel="shortcut icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}"> {% endcomment %}
@@ -20,34 +20,26 @@
   <table class="header">
     <tr>
       <td colspan="2" rowspan="2" class="width-auto">
-        <h1 class="title">The Monospace Web</h1>
-        <span class="subtitle">A minimalist design exploration</span>
+        <h1 class="title">AARON SPINDLER</h1>
+        <span class="subtitle">An engineer, father, and husband</span>
       </td>
-      <th>Version</th>
-      <td class="width-min">v0.1.1</td>
+      <th>Github</th>
+      <td class="width-min"><a href="https://github.com/aaronspindler">/aaronspindler</a></td>
     </tr>
     <tr>
-      <th>Updated</th>
-      <td class="width-min"><time style="white-space: pre;">2024-08-26</time></td>
-    </tr>
-    <tr>
-      <th class="width-min">Author</th>
-      <td class="width-auto"><a href="https://wickstrom.tech"><cite>Oskar
-  Wickström</cite></a></td>
-      <th class="width-min">License</th>
-      <td>MIT</td>
+      <th>X</th>
+      <td class="width-min"><a href="https://x.com/aaron_spindler">/aaron_spindler</a></td>
     </tr>
   </table>
 
-  <div class="container">
-    {% block content %}
-    {% endblock content %}
-  </div>
+  {% block content %}
+  {% endblock content %}
 
   <footer class="footer">
-    <div class="container">
-      <span class="text-muted"></span>
-    </div>
+    <br>
+    <p>
+      &copy; {% now "Y" %} Spindlers. All rights reserved.
+    </p>
   </footer>
 
   {% block javascript %}
