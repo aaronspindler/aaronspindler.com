@@ -13,7 +13,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 SECRET_KEY = env("SECRET_KEY", default="fake_secret_key_switch_me_123451231")
 DEBUG = env("DEBUG", False)
 
-ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1"]
+ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1", "aaronspindler-web.spindlers.dev"]
 
 
 INSTALLED_APPS = [
@@ -52,18 +52,6 @@ MIDDLEWARE = [
 MESSAGE_STORAGE = "django.contrib.messages.storage.fallback.FallbackStorage"
 
 DATABASES = {"default": env.db()}
-
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": env("REDIS_URL"),
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "CONNECTION_POOL_KWARGS": {"ssl_cert_reqs": None},
-        },
-        "KEY_PREFIX": "teambio",
-    }
-}
 
 ROOT_URLCONF = "config.urls"
 
