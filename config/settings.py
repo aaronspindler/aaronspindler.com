@@ -13,7 +13,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 SECRET_KEY = env("SECRET_KEY", default="fake_secret_key_switch_me_123451231")
 DEBUG = env("DEBUG", False)
 
-ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1", "aaronspindler-web.spindlers.dev"]
+ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1", "aaronspindler-web.spindlers.dev", "aaronspindler.com", "www.aaronspindler.com"]
 
 
 INSTALLED_APPS = [
