@@ -33,9 +33,6 @@
                     <tr>
                             <td><a href="{% url 'render_blog_template' post.template_name %}">{{ post.blog_title }}</a></td>
                         <td>{{ post.created_at }}</td>
-                        <td>
-                            {{ post.blog_content|striptags|truncatechars:75|safe }}
-                        </td>
                     </tr>
                 {% endfor %}
             </tbody>
