@@ -2,12 +2,10 @@ asgiref==3.8.1
 certifi==2024.7.4
 cffi==1.16.0
 charset-normalizer==3.3.2
-crispy-bootstrap5==2023.10
 cryptography==42.0.4
 defusedxml==0.7.1
 Django==5.1
 django-allauth==0.61.1
-django-crispy-forms==2.1
 django-debug-toolbar==4.2.0
 django-environ==0.11.2
 gunicorn==22.0.0
