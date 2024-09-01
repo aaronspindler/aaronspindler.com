@@ -6,7 +6,7 @@ def track_page_visit(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         PageVisit.objects.create(
-            ip_address=request.META.get('REMOTE_ADDR'),
+            ip_address=request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR')).split(',')[0].strip(),
             page_name=request.path
         )
 
