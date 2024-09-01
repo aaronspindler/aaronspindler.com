@@ -26,7 +26,23 @@
         to apply my diverse tech experience in the healthcare sector.
     </p>
     <h2 id="blog">Blog</h2>
-    <p>Coming soon...</p>
+    {% if blog_posts %}
+        <table class="blog-posts-table">
+            <tbody>
+                {% for post in blog_posts %}
+                    <tr>
+                            <td><a href="{% url 'render_blog_template' post.template_name %}">{{ post.blog_title }}</a></td>
+                        <td>{{ post.created_at }}</td>
+                        <td>
+                            {{ post.blog_content|striptags|truncatechars:75|safe }}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No blog posts available at the moment.</p>
+    {% endif %}
 
     <h2 id="projects">Projects</h2>
     <p>Coming soon...</p>

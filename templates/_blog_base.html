@@ -18,10 +18,26 @@
 
 <body>
   {% include '_header.html' %}
-
-  {% block content %}
-  {% endblock content %}
-
+  <div class="back-button">
+    <a href="{% url 'home' %}#blog">Back</a>
+    <br>
+  </div>
+  <table class="blog-metadata">
+    <tr>
+      <td colspan="2">{{ blog_title|safe }}</td>
+    </tr>
+    <tr>
+      <th>Created</th>
+      <td>{{ created_at }}</td>
+    </tr>
+    {% if updated_at != created_at %}
+    <tr>
+      <th>Updated</th>
+      <td>{{ updated_at }}</td>
+    </tr>
+    {% endif %}
+  </table>
+  {{ blog_content|safe }}
   {% include '_footer.html' %}
 
   {% block javascript %}
