@@ -15,7 +15,7 @@ def home(request):
         if template_name.endswith('.html'):
             template_name = template_name.split('.')[0]
             blog_posts.append(get_blog_from_template_name(template_name))
-    print(blog_posts)
+    blog_posts.sort(key=lambda x: x['timestamp'], reverse=True)
     return render(request, "pages/home.html", {"blog_posts": blog_posts})
 
 
