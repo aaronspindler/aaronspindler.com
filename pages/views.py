@@ -1,13 +1,12 @@
+from django.http import HttpResponse
 from django.template import TemplateDoesNotExist
 from django.shortcuts import render
 
-from pages.decorators import track_page_visit
 from pages.utils import get_blog_from_template_name
 
 import os
 from django.conf import settings
 
-@track_page_visit
 def home(request):
     blog_posts = []
     blog_templates_path = os.path.join(settings.BASE_DIR, 'templates', 'blog')
@@ -19,10 +18,18 @@ def home(request):
     return render(request, "pages/home.html", {"blog_posts": blog_posts})
 
 
-@track_page_visit
 def render_blog_template(request, template_name):
     try:
         blog_data = get_blog_from_template_name(template_name)
         return render(request, "_blog_base.html", blog_data)
     except TemplateDoesNotExist:
         return render(request, "404.html")
+
+def robotstxt(request):
+    lines = [
+        "User-Agent: *",
+        "Disallow: /admin/",
+        "Disallow: /admin/*",
+    ]
+
+    return HttpResponse("\n".join(lines), content_type="text/plain")
