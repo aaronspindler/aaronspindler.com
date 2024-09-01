@@ -6,8 +6,13 @@ from pages.utils import get_blog_from_template_name
 
 import os
 from django.conf import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def home(request):
+    logger.info("Home page requested")
     blog_posts = []
     blog_templates_path = os.path.join(settings.BASE_DIR, 'templates', 'blog')
     for template_name in os.listdir(blog_templates_path):
