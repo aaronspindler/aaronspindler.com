@@ -3,14 +3,10 @@
 <html lang="en">
 
 <head>
-  <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-  <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
-  <title>AaronSpindler.com - {% block title %}{% endblock title %}</title>
-  <meta name="description" content="Aaron Spindler's personal website">
-  <meta name="author" content="Aaron Spindler">
+  {% include '_meta.html' %}
   {% comment %} <link rel="shortcut icon" type="image/x-icon" href="{% static 'images/favicon.ico' %}"> {% endcomment %}
-
+  <title>AaronSpindler.com - {{ blog_title }}</title>
+  
   {% block css %}
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
   {% endblock %}
