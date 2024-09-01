@@ -5,16 +5,15 @@
 
 {% block content %}
 <div class="content">
-    <nav id="TOC" role="doc-toc">
-        <h2 id="toc-title">Contents</h2>
+    <ul class="tree">
+        <li><p style="margin:0;" >Menu</p></li>
         <ul class="incremental">
             <li><a href="#about" id="toc-about">About me</a></li>
             <li><a href="#blog" id="toc-blog">Blog</a></li>
             <li><a href="#projects" id="toc-projects">Projects</a></li>
-            <li><a href="#books" id="toc-books">Books</a></li>
             <li><a href="#photos" id="toc-photos">Photos</a></li>
+            <li><a href="#books" id="toc-books">Books</a></li>
         </ul>
-    </nav>
     <h2 id="about">About me</h2>
     <p>
         From an early age, I've been passionate about technology and problem-solving. 
@@ -42,12 +41,47 @@
     {% endif %}
 
     <h2 id="projects">Projects</h2>
-    <p>Coming soon...</p>
-
-    <h2 id="books">Books</h2>
-    <p>Coming soon...</p>
+    {% if projects %}
+        <table class="projects-table">
+            <tbody>
+                {% for project in projects %}
+                    <tr>
+                        <td><a href="{{ project.link }}">{{ project.name }}</a></td>
+                        <td>{{ project.description }}</td>
+                        <td>{{ project.tech|join:", " }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No projects available at the moment.</p>
+    {% endif %}
 
     <h2 id="photos">Photos</h2>
     <p>Coming soon...</p>
+
+    <h2 id="books">Books</h2>
+    {% if books %}
+        <table class="books-table">
+            <tbody>
+                {% for book in books %}
+                    {% if forloop.counter0|divisibleby:3 %}
+                        <tr>
+                    {% endif %}
+                    <td style="width: 33%; vertical-align: top;">
+                        <img src="{% static book.cover_image %}" alt="{{ book.name }}" width="150" height="225" loading="lazy">
+                        {% if book.favourite_quote %}
+                            <p>"{{ book.favourite_quote }}"</p>
+                        {% endif %}
+                    </td>
+                    {% if forloop.counter|divisibleby:3 or forloop.last %}
+                        </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No books available at the moment.</p>
+    {% endif %}
 </div>
 {% endblock content %}
