@@ -2,6 +2,7 @@ from django.http import HttpResponse
 from django.template import TemplateDoesNotExist
 from django.shortcuts import render
 
+from pages.models import PageVisit
 from pages.utils import get_blog_from_template_name, get_books
 
 import os
@@ -62,6 +63,8 @@ def home(request):
 def render_blog_template(request, template_name):
     try:
         blog_data = get_blog_from_template_name(template_name)
+        views = PageVisit.objects.filter(page_name=f'/b/{template_name}/').values_list('pk', flat=True).count()
+        blog_data['views'] = views
         return render(request, "_blog_base.html", blog_data)
     except TemplateDoesNotExist:
         return render(request, "404.html")

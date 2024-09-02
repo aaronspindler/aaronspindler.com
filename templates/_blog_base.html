@@ -31,6 +31,10 @@
       <td>{{ updated_at }}</td>
     </tr>
     {% endif %}
+    <tr>
+      <th>Times Read</th>
+      <td>{{ views }}</td>
+    </tr>
   </table>
   {{ blog_content|safe }}
   {% include '_footer.html' %}
