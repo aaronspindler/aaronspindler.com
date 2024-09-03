@@ -1,0 +1,15 @@
+{% extends 'admin/change_list.html' %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    <li>
+        <a href="{% url 'admin:pages_pagevisit_geolocate_ips' %}">
+            Geolocate IP addresses
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'admin:pages_pagevisit_clean_local_ips' %}">
+            Clean local IP addresses
+        </a>
+    </li>
+{% endblock %}

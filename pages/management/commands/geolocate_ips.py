@@ -8,9 +8,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         ips = list(PageVisit.objects.filter(geo_data__isnull=True).values_list('ip_address', flat=True).distinct())
-        ips.remove('127.0.0.1')
-        ips.remove('10.0.2.2')
-        ips.remove('10.0.1.5')
+        ips_to_remove = ['127.0.0.1', '10.0.2.2', '10.0.1.5']
+        ips = [ip for ip in ips if ip not in ips_to_remove]
         
         print(f"Geolocating {len(ips)} IP addresses")
         print(ips)
