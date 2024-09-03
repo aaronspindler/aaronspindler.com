@@ -2,6 +2,11 @@ from django.contrib import admin
 from django.shortcuts import redirect
 from .models import PageVisit
 from django.urls import path
+from pages.models import PageVisit
+import requests
+import json
+
+LOCAL_IPS = ['127.0.0.1', '10.0.2.2', '10.0.1.5']
 
 @admin.register(PageVisit)
 class PageVisitAdmin(admin.ModelAdmin):
@@ -34,14 +39,29 @@ class PageVisitAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def geolocate_ips(self, request):
-        from django.core.management import call_command
-        call_command('geolocate_ips')
-        self.message_user(request, "Geolocation process initiated.")
+        ips = list(PageVisit.objects.filter(geo_data__isnull=True).values_list('ip_address', flat=True).distinct())
+        ips = [ip for ip in ips if ip not in LOCAL_IPS]
+        
+        print(f"Geolocating {len(ips)} IP addresses")
+        print(ips)
+        
+        for i in range(0, len(ips), 100):
+            chunk = ips[i:i+100]
+            formatted_chunk = json.dumps(chunk)
+            try:
+                response = requests.post('http://ip-api.com/batch', data=formatted_chunk)
+                data = response.json()
+                for response in data:
+                    if response['status'] == 'success':
+                        ip = response.pop('query')
+                        response.pop('status')
+                        PageVisit.objects.filter(ip_address=ip).update(geo_data=response)
+            except Exception as e:
+                print(f"Error geolocating chunk {i//100 + 1}: {e}")
         return redirect('admin:pages_pagevisit_changelist')
     
     def clean_local_ips(self, request):
-        from .models import PageVisit
-        PageVisit.objects.filter(ip_address__in=['127.0.0.1', '10.0.2.2', '10.0.1.5']).delete()
+        PageVisit.objects.filter(ip_address__in=LOCAL_IPS).delete()
         self.message_user(request, "Local IP addresses cleaned.")
         return redirect('admin:pages_pagevisit_changelist')
 
