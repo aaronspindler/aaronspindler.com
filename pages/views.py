@@ -45,6 +45,12 @@ def home(request):
         "link": "https://github.com/aaronspindler/Poseidon",
         "tech": ["Python", "Django", "PostgreSQL", "C#", "Prophet", "Various ML/AI models"]
     })
+    projects.append({
+        "name": "Spindlers",
+        "description": "Spindlers is a full service technology consulting company, specializing in custom software solutions, web development, and bringing small/medium businesses into the digital age.",
+        "link": "https://spindlers.co",
+        "tech": ["Software Development", "Web Design", "Graphic Design", "SEO", "Marketing", "Consulting"]
+    })
     
     # Books
     books = get_books()
