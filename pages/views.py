@@ -40,6 +40,12 @@ def home(request):
         "tech": ["Python", "Django", "PostgreSQL", "HTML", "JavaScript"]
     })
     projects.append({
+        "name": "ActionsUptime",
+        "description": "ActionsUptime is a platform to help you monitor your GitHub Actions and get notifications when they fail.",
+        "link": "https://actionsuptime.com",
+        "tech": ["Django", "PostgreSQL", "Celery", "Redis"]
+    })
+    projects.append({
         "name": "Poseidon",
         "description": "Poseidon is a tool to help explore financial data, generate insights, and make trading decisions.",
         "link": "https://github.com/aaronspindler/Poseidon",
