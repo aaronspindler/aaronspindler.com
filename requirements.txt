@@ -11,6 +11,7 @@ gunicorn==23.0.0
 idna==3.8
 oauthlib==3.2.2
 packaging==24.1
+pillow==10.4.0
 psycopg==3.2.1
 psycopg-binary==3.2.1
 pycparser==2.22

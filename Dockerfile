@@ -31,7 +31,7 @@ COPY . /code/
 # Expose port 8000
 EXPOSE 80
 
-RUN python manage.py collectstatic --no-input
+RUN python manage.py collectstatic_optimize
 RUN python manage.py migrate --no-input
 
 # Use gunicorn on port 8000
