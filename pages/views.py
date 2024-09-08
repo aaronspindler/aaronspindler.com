@@ -28,7 +28,7 @@ def home(request):
     for template_name in os.listdir(blog_templates_path):
         if template_name.endswith('.html'):
             template_name = template_name.split('.')[0]
-            blog_posts.append(get_blog_from_template_name(template_name))
+            blog_posts.append(get_blog_from_template_name(template_name, load_content=False))
     blog_posts.sort(key=lambda x: x['created_timestamp'], reverse=True)
     
     # Projects
