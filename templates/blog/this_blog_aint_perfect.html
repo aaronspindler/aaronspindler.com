@@ -2,12 +2,29 @@
 
 <p>I have been writing with this blog framework that I built for a few days now. It's not perfect, but it's mine.</p>
 
-<p>Why is it not perfect?</p>
+<p>I will continue to improve it, and will hopefully track it in here by crossing items off the not-perfect list.</p>
+
+<h2>Why is it not perfect?</h2>
 <ul>
-    <li>I don't like the way the blog posts look on the main page</li>
-    <li>I want to be able to add a "featured image" to the top of the blog post</li>
-    <li>I want to be able to add a "featured image" to the top of the blog post</li>
-    <li>I want to be able to add a "featured image" to the top of the blog post</li>
-    <li>I want to be able to add a "featured image" to the top of the blog post</li>
-    <li>I want to be able to add a "featured image" to the top of the blog post</li>
+    <li>There is not a good way of getting a created/updated date for blog posts because of the way git handles the files on push to the server.
+        <ul>
+            <li>Every time I push a change to the server, the created and updated dates are the date of the push on the server. This is not the date of the last change to the file, it's the date of the push.</li>
+        </ul>
+    </li>
+    <li>There is no built-in commenting system.</li>
+    <li>Titles cannot be whatever I want. They must be the name of the file.
+        <ul>
+            <li>I cannot easily control the capitalization of the title, since I am using <code>.title()</code></li>
+        </ul>
+    </li>
+</ul>
+
+<h2>Why is it almost perfect?</h2>
+<ul>
+    <li>I get to write in just basic HTML. No complicated templating engine.</li>
+    <li>There is built in traceability. Every change to a blog post is tracked on github.</li>
+    <li>It is incredibly fast.</li>
+    <li>No subscription fees.</li>
+    <li>No bullshit analytics.</li>
+    <li>No paywall</li>
 </ul>
