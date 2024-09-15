@@ -22,6 +22,7 @@ def get_blog_from_template_name(template_name, load_content=True):
         "template_name": template_name,
         "blog_title": blog_title,
         "blog_content": blog_content,
+        "github_link": f"https://github.com/aaronspindler/aaronspindler.com/commits/main/templates/blog/{template_name}.html"
     }
 
 def get_books():
