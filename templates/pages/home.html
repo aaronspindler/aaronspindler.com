@@ -31,7 +31,6 @@
                 {% for post in blog_posts %}
                     <tr>
                             <td><a href="{% url 'render_blog_template' post.template_name %}">{{ post.blog_title }}</a></td>
-                        <td>{{ post.created_at }}</td>
                     </tr>
                 {% endfor %}
             </tbody>

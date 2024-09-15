@@ -22,16 +22,6 @@
       <td colspan="2">{{ blog_title|safe }}</td>
     </tr>
     <tr>
-      <th>Created</th>
-      <td>{{ created_at }}</td>
-    </tr>
-    {% if updated_at != created_at %}
-    <tr>
-      <th>Updated</th>
-      <td>{{ updated_at }}</td>
-    </tr>
-    {% endif %}
-    <tr>
       <th>Times Read</th>
       <td>{{ views }}</td>
     </tr>
