@@ -64,3 +64,9 @@ jobs:
           server: '${{ secrets.CAPROVER_SERVER }}'
           app: '${{ secrets.CAPROVER_WEB_APP_NAME }}'
           token: '${{ secrets.CAPROVER_WEB_APP_TOKEN }}'
+      - name: Deploy web app (new)
+        uses: caprover/deploy-from-github@v1.0.1
+        with:
+          server: '${{ secrets.NEW_CAPROVER_SERVER }}'
+          app: '${{ secrets.CAPROVER_WEB_APP_NAME }}'
+          token: '${{ secrets.NEW_CAPROVER_WEB_APP_TOKEN }}'
