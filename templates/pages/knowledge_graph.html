@@ -1,0 +1,648 @@
+{% extends "_base.html" %}
+
+{% block title %}Knowledge Graph - Aaron Spindler{% endblock %}
+
+{% block extra_css %}
+<style>
+    .knowledge-graph-container {
+        width: 100%;
+        height: 600px;
+        min-height: 400px;
+        background: #0a0a0a;
+        border: 1px solid #222;
+        border-radius: 4px;
+        position: relative;
+        overflow: hidden;
+        margin-top: 20px;
+    }
+
+
+    .graph-loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 18px;
+        z-index: 5;
+    }
+
+    .svg-tooltip {
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+
+    .svg-tooltip.visible {
+        opacity: 1;
+    }
+
+    .tooltip-background {
+        fill: rgba(0, 0, 0, 0.9);
+        stroke: #4fc3f7;
+        stroke-width: 1;
+        rx: 6;
+        ry: 6;
+        filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+    }
+
+    .tooltip-arrow {
+        fill: rgba(0, 0, 0, 0.9);
+        stroke: #4fc3f7;
+        stroke-width: 1;
+    }
+
+    svg {
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+    }
+
+    svg:active {
+        cursor: grabbing;
+    }
+
+    .node {
+        stroke: #fff;
+        stroke-width: 1.5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .node:hover {
+        stroke-width: 3px;
+    }
+
+    .node.blog-post {
+        fill: #4fc3f7;
+    }
+
+    .node.external {
+        fill: #ff9800;
+    }
+
+    .link {
+        stroke: #666;
+        stroke-opacity: 0.6;
+        stroke-width: 1;
+    }
+
+    .link.internal {
+        stroke: #4fc3f7;
+        stroke-width: 2;
+    }
+
+    .link.external {
+        stroke: #ff9800;
+    }
+
+    .node-label {
+        fill: white !important;
+        color: white !important;
+        font-family: 'Arial', sans-serif;
+        font-size: 11px;
+        text-anchor: middle;
+        pointer-events: none;
+        user-select: none;
+    }
+
+    /* Ensure all SVG text elements are white */
+    svg text {
+        fill: white !important;
+        color: white !important;
+    }
+
+    .page-header h1 {
+        color: white;
+        margin-bottom: 10px;
+        font-size: 2.5em;
+        font-weight: normal;
+    }
+
+    .page-header p {
+        color: #999;
+        font-size: 0.95em;
+        line-height: 1.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Knowledge Graph</h1>
+    <p>Interactive visualization of blog post connections. Drag to pan, scroll to zoom, click nodes to navigate.</p>
+</div>
+
+<div class="knowledge-graph-container">
+    <div class="graph-loading" id="loading">
+        Loading knowledge graph...
+    </div>
+    
+
+
+    <svg id="knowledge-graph-svg" style="background-color: #0a0a0a;"></svg>
+</div>
+{% endblock %}
+
+{% block javascript %}
+{{ block.super }}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+class KnowledgeGraphVisualization {
+    constructor() {
+        this.svg = d3.select("#knowledge-graph-svg");
+        this.container = d3.select(".knowledge-graph-container");
+        this.loading = d3.select("#loading");
+        
+        // Get container dimensions
+        const containerRect = this.container.node().getBoundingClientRect();
+        this.width = containerRect.width || 800;
+        this.height = containerRect.height || 600;
+        
+        console.log('[DEBUG] Container dimensions:', this.width, 'x', this.height);
+        
+        this.showLabels = true;
+        this.showExternal = true;
+        
+        this.setupSVG();
+        this.loadData();
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            this.handleResize();
+        });
+    }
+    
+    setupSVG() {
+        this.svg.attr("viewBox", [0, 0, this.width, this.height])
+            .attr("width", this.width)
+            .attr("height", this.height);
+        
+        // Create zoom behavior
+        this.zoom = d3.zoom()
+            .scaleExtent([0.1, 4])
+            .on("zoom", (event) => {
+                this.g.attr("transform", event.transform);
+            });
+        
+        this.svg.call(this.zoom);
+        
+        // Create main group for all graph elements
+        this.g = this.svg.append("g");
+        
+        // Create tooltip group (will be populated when showing tooltip)
+        this.tooltipGroup = this.svg.append("g")
+            .attr("class", "svg-tooltip");
+        
+        console.log('[DEBUG] SVG setup complete. Width:', this.width, 'Height:', this.height);
+    }
+    
+    async loadData(forceRefresh = false) {
+        console.log('[DEBUG] loadData called, forceRefresh:', forceRefresh);
+        try {
+            this.loading.style("display", "block");
+            
+            const url = forceRefresh ?
+                '/api/knowledge-graph/?refresh=true' :
+                '/api/knowledge-graph/';
+            
+            console.log('[DEBUG] Fetching from URL:', url);
+            const response = await fetch(url);
+            console.log('[DEBUG] Response status:', response.status, 'OK:', response.ok);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log('[DEBUG] API result:', result);
+            
+            if (result.status === 'success') {
+                console.log('[DEBUG] Success! Nodes:', result.data.nodes?.length, 'Edges:', result.data.edges?.length);
+                this.renderGraph(result.data);
+            } else {
+                console.error('API error:', result.error);
+            }
+        } catch (error) {
+            console.error('[DEBUG] Failed to load graph data:', error);
+            console.error('[DEBUG] Error stack:', error.stack);
+        } finally {
+            this.loading.style("display", "none");
+        }
+    }
+    
+    renderGraph(data) {
+        console.log('[DEBUG] renderGraph called with data:', data);
+        
+        // Clear existing elements
+        this.g.selectAll("*").remove();
+        
+        const { nodes, edges } = data;
+        console.log('[DEBUG] Nodes:', nodes, 'Edges:', edges);
+        
+        if (!nodes || nodes.length === 0) {
+            console.log('[DEBUG] No nodes found!');
+            return;
+        }
+        
+        console.log('[DEBUG] Starting D3 force simulation...');
+        
+        // Initialize node positions to ensure they start within view
+        nodes.forEach((node, i) => {
+            const angle = (i / nodes.length) * 2 * Math.PI;
+            const radius = Math.min(this.width, this.height) * 0.3;
+            node.x = this.width / 2 + radius * Math.cos(angle);
+            node.y = this.height / 2 + radius * Math.sin(angle);
+        });
+        
+        // Create force simulation
+        this.simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(edges).id(d => d.id).distance(100))
+            .force("charge", d3.forceManyBody().strength(-300))
+            .force("center", d3.forceCenter(this.width / 2, this.height / 2))
+            .force("collision", d3.forceCollide().radius(25))
+            .force("x", d3.forceX(this.width / 2).strength(0.1))
+            .force("y", d3.forceY(this.height / 2).strength(0.1));
+        
+        console.log('[DEBUG] Creating links for edges:', edges.length);
+        // Create links
+        this.link = this.g.append("g")
+            .attr("class", "links")
+            .selectAll("line")
+            .data(edges)
+            .enter().append("line")
+            .attr("class", d => `link ${d.type}`)
+            .attr("stroke", d => d.type === 'internal' ? '#4fc3f7' : '#ff9800')
+            .attr("stroke-opacity", 0.6)
+            .attr("stroke-width", d => d.type === 'internal' ? 2 : 1);
+        
+        console.log('[DEBUG] Created links:', this.link.size());
+        
+        console.log('[DEBUG] Creating nodes for:', nodes.length, 'nodes');
+        // Create nodes
+        this.node = this.g.append("g")
+            .attr("class", "nodes")
+            .selectAll("circle")
+            .data(nodes)
+            .enter().append("circle")
+            .attr("class", d => `node ${d.type === 'blog_post' ? 'blog-post' : d.type}`)
+            .attr("r", d => this.getNodeRadius(d))
+            .attr("fill", d => d.type === 'blog_post' ? '#4fc3f7' : '#ff9800')
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 1.5)
+            .call(this.createDragBehavior());
+        
+        console.log('[DEBUG] Created nodes:', this.node.size());
+        
+        // Create labels
+        this.labels = this.g.append("g")
+            .selectAll("text")
+            .data(nodes)
+            .enter().append("text")
+            .attr("class", "node-label")
+            .text(d => this.getNodeLabel(d))
+            .style("display", this.showLabels ? "block" : "none");
+        
+        // Add event handlers with enhanced features
+        this.node
+            .on("mouseover", (event, d) => {
+                this.showEnhancedTooltip(event, d);
+                this.highlightConnections(d);
+            })
+            .on("mouseout", (event, d) => {
+                this.hideTooltip();
+                this.clearHighlights();
+            })
+            .on("click", (event, d) => {
+                this.handleEnhancedNodeClick(event, d);
+            });
+        
+        // Update positions on simulation tick
+        let tickCount = 0;
+        this.simulation.on("tick", () => {
+            if (tickCount < 5) {
+                console.log('[DEBUG] Tick', tickCount, '- sample node:', {
+                    id: nodes[0].id,
+                    x: nodes[0].x,
+                    y: nodes[0].y,
+                    vx: nodes[0].vx,
+                    vy: nodes[0].vy
+                });
+                console.log('[DEBUG] Sample link:', {
+                    source: typeof edges[0].source === 'object' ? edges[0].source.id : edges[0].source,
+                    target: typeof edges[0].target === 'object' ? edges[0].target.id : edges[0].target
+                });
+            }
+            tickCount++;
+            
+            this.link
+                .attr("x1", d => d.source.x || 0)
+                .attr("y1", d => d.source.y || 0)
+                .attr("x2", d => d.target.x || 0)
+                .attr("y2", d => d.target.y || 0);
+            
+            this.node
+                .attr("cx", d => d.x || 0)
+                .attr("cy", d => d.y || 0);
+            
+            this.labels
+                .attr("x", d => d.x || 0)
+                .attr("y", d => (d.y || 0) + 4);
+        });
+        
+        // Check initial data
+        console.log('[DEBUG] Initial nodes data:', nodes.map(n => ({id: n.id, type: n.type})));
+        console.log('[DEBUG] Initial edges data:', edges.map(e => ({source: e.source, target: e.target, type: e.type})));
+        
+        // Force initial positions
+        this.simulation.alpha(1).restart();
+        console.log('[DEBUG] SVG dimensions:', this.width, 'x', this.height);
+        console.log('[DEBUG] Graph container g transform:', this.g.attr("transform"));
+        
+        // Check if elements are actually in the DOM
+        setTimeout(() => {
+            console.log('[DEBUG] Actual DOM nodes count:', this.svg.selectAll('circle.node').size());
+            console.log('[DEBUG] Actual DOM links count:', this.svg.selectAll('line.link').size());
+            console.log('[DEBUG] First node element:', this.svg.select('circle.node').node());
+        }, 1000);
+        
+        this.updateExternalVisibility();
+    }
+    
+    getNodeRadius(node) {
+        if (node.type === 'blog_post') {
+            const connections = (node.in_degree || 0) + (node.out_degree || 0);
+            return Math.max(8, Math.min(20, 8 + connections * 2));
+        }
+        return 6;
+    }
+    
+    getNodeLabel(node) {
+        if (node.type === 'blog_post') {
+            // Show entry number for blog posts
+            const entryMatch = node.id.match(/^(\d{4})/);
+            return entryMatch ? entryMatch[1] : node.label.substring(0, 10);
+        }
+        return node.domain || node.label.substring(0, 10);
+    }
+    
+    createDragBehavior() {
+        return d3.drag()
+            .on("start", (event, d) => {
+                if (!event.active) this.simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            })
+            .on("drag", (event, d) => {
+                d.fx = event.x;
+                d.fy = event.y;
+            })
+            .on("end", (event, d) => {
+                if (!event.active) this.simulation.alphaTarget(0);
+                d.fx = null;
+                d.fy = null;
+            });
+    }
+    
+    showEnhancedTooltip(event, node) {
+        // Clear existing tooltip content
+        this.tooltipGroup.selectAll("*").remove();
+        
+        // Enhanced tooltip content
+        const title = node.type === 'blog_post' ? node.label : node.domain;
+        const subtitle = node.type === 'blog_post' ?
+            `Connections: ${(node.in_degree || 0) + (node.out_degree || 0)}` :
+            'External Link';
+        
+        // Get node position in SVG coordinates
+        const nodeX = node.x || 0;
+        const nodeY = node.y || 0;
+        
+        // Create temporary text elements to measure dimensions
+        const tempTitle = this.tooltipGroup.append("text")
+            .style("font-weight", "bold")
+            .text(title)
+            .style("opacity", 0);
+        
+        const tempSubtitle = this.tooltipGroup.append("text")
+            .style("font-size", "11px")
+            .text(subtitle)
+            .style("opacity", 0);
+        
+        const titleBBox = tempTitle.node().getBBox();
+        const subtitleBBox = tempSubtitle.node().getBBox();
+        
+        tempTitle.remove();
+        tempSubtitle.remove();
+        
+        // Calculate tooltip dimensions
+        const padding = 12;
+        const lineHeight = 18;
+        const tooltipWidth = Math.max(titleBBox.width, subtitleBBox.width) + padding * 2;
+        const tooltipHeight = titleBBox.height + subtitleBBox.height + padding * 2 + 4;
+        
+        // Position tooltip above the node with better positioning
+        let tooltipX = nodeX - tooltipWidth / 2;
+        let tooltipY = nodeY - this.getNodeRadius(node) - tooltipHeight - 15;
+        
+        // Ensure tooltip stays within viewport
+        tooltipX = Math.max(10, Math.min(tooltipX, this.width - tooltipWidth - 10));
+        tooltipY = Math.max(10, tooltipY);
+        
+        // Create enhanced tooltip background with glow
+        this.tooltipGroup.append("rect")
+            .attr("class", "tooltip-background")
+            .attr("x", tooltipX)
+            .attr("y", tooltipY)
+            .attr("width", tooltipWidth)
+            .attr("height", tooltipHeight)
+            .style("filter", "url(#glow)");
+        
+        // Create tooltip arrow
+        const arrowSize = 8;
+        const arrowX = nodeX;
+        const arrowY = tooltipY + tooltipHeight;
+        
+        this.tooltipGroup.append("polygon")
+            .attr("class", "tooltip-arrow")
+            .attr("points", `${arrowX},${arrowY + arrowSize} ${arrowX - arrowSize},${arrowY} ${arrowX + arrowSize},${arrowY}`)
+            .style("filter", "url(#glow)");
+        
+        // Create title text
+        this.tooltipGroup.append("text")
+            .attr("x", tooltipX + tooltipWidth / 2)
+            .attr("y", tooltipY + padding + titleBBox.height)
+            .style("font-weight", "bold")
+            .style("font-size", "13px")
+            .text(title);
+        
+        // Create subtitle text
+        this.tooltipGroup.append("text")
+            .attr("x", tooltipX + tooltipWidth / 2)
+            .attr("y", tooltipY + padding + titleBBox.height + lineHeight)
+            .style("font-size", "11px")
+            .style("opacity", "0.8")
+            .text(subtitle);
+        
+        // Show tooltip with enhanced animation
+        this.tooltipGroup.classed("visible", true);
+    }
+    
+    hideTooltip() {
+        this.tooltipGroup.classed("visible", false);
+    }
+    
+    handleEnhancedNodeClick(event, node) {
+        // Create ripple effect
+        this.createRippleEffect(node.x, node.y);
+        
+        // Enhanced click handling
+        if (node.type === 'blog_post') {
+            // Navigate to blog post with smooth transition
+            setTimeout(() => {
+                window.open(`/b/${node.id}/`, '_blank');
+            }, 200);
+        } else if (node.url) {
+            // Open external link
+            setTimeout(() => {
+                window.open(node.url, '_blank');
+            }, 200);
+        }
+    }
+    
+    createRippleEffect(x, y) {
+        // Create effects group if it doesn't exist
+        if (!this.effectsGroup) {
+            this.effectsGroup = this.g.append("g").attr("class", "effects");
+        }
+        
+        const ripple = this.effectsGroup.append("circle")
+            .attr("class", "ripple-effect")
+            .attr("cx", x)
+            .attr("cy", y)
+            .attr("r", 0);
+        
+        // Animate ripple
+        ripple.transition()
+            .duration(1000)
+            .ease(d3.easeCircleOut)
+            .attr("r", 50)
+            .style("opacity", 0)
+            .remove();
+    }
+    
+    highlightConnections(targetNode) {
+        // Clear previous highlights
+        this.clearHighlights();
+        
+        // Find connected nodes and links
+        const connectedNodeIds = new Set();
+        
+        // Get the edges data from the simulation
+        const edges = this.simulation ? this.simulation.force("link").links() : [];
+        
+        edges.forEach((edge, i) => {
+            const sourceId = edge.source.id || edge.source;
+            const targetId = edge.target.id || edge.target;
+            
+            if (sourceId === targetNode.id || targetId === targetNode.id) {
+                connectedNodeIds.add(sourceId);
+                connectedNodeIds.add(targetId);
+            }
+        });
+        
+        // Highlight connected nodes
+        this.node.classed("highlighted", d => connectedNodeIds.has(d.id));
+        if (this.labels) {
+            this.labels.classed("highlighted", d => connectedNodeIds.has(d.id));
+        }
+        
+        // Highlight connected links
+        this.link.classed("highlighted", d => {
+            const sourceId = d.source.id || d.source;
+            const targetId = d.target.id || d.target;
+            return (sourceId === targetNode.id || targetId === targetNode.id);
+        });
+    }
+    
+    clearHighlights() {
+        if (this.node) {
+            this.node.classed("highlighted", false);
+        }
+        if (this.labels) {
+            this.labels.classed("highlighted", false);
+        }
+        if (this.link) {
+            this.link.classed("highlighted", false);
+        }
+    }
+    
+    updateLabelsVisibility() {
+        if (this.labels) {
+            this.labels.style("display", this.showLabels ? "block" : "none");
+        }
+    }
+    
+    updateExternalVisibility() {
+        if (this.node && this.link) {
+            this.node
+                .style("display", d => {
+                    if (d.type === 'external' && !this.showExternal) {
+                        return "none";
+                    }
+                    return "block";
+                });
+            
+            this.link
+                .style("display", d => {
+                    if (d.type === 'external' && !this.showExternal) {
+                        return "none";
+                    }
+                    if (!this.showExternal) {
+                        // Hide links to external nodes
+                        const sourceExternal = d.source.type === 'external';
+                        const targetExternal = d.target.type === 'external';
+                        if (sourceExternal || targetExternal) {
+                            return "none";
+                        }
+                    }
+                    return "block";
+                });
+            
+            this.labels
+                .style("display", d => {
+                    if (d.type === 'external' && !this.showExternal) {
+                        return "none";
+                    }
+                    return this.showLabels ? "block" : "none";
+                });
+        }
+    }
+    
+    handleResize() {
+        this.width = this.container.node().clientWidth;
+        this.height = this.container.node().clientHeight;
+        
+        this.svg.attr("viewBox", [0, 0, this.width, this.height]);
+        
+        if (this.simulation) {
+            this.simulation
+                .force("center", d3.forceCenter(this.width / 2, this.height / 2))
+                .alpha(0.3)
+                .restart();
+        }
+    }
+}
+
+// Initialize the visualization when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('[DEBUG] DOMContentLoaded - Initializing KnowledgeGraphVisualization');
+    try {
+        new KnowledgeGraphVisualization();
+    } catch (error) {
+        console.error('[DEBUG] Failed to initialize visualization:', error);
+        console.error('[DEBUG] Error stack:', error.stack);
+    }
+});
+</script>
+{% endblock %}

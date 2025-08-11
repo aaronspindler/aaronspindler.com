@@ -1,13 +1,17 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.template import TemplateDoesNotExist
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 
 from pages.models import PageVisit
 from pages.utils import get_blog_from_template_name, get_books
+from pages.knowledge_graph import build_knowledge_graph, get_post_graph, clear_knowledge_graph_cache
 
 import os
 from django.conf import settings
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -80,3 +84,101 @@ def render_blog_template(request, template_name):
         return render(request, "_blog_base.html", blog_data)
     except TemplateDoesNotExist:
         return render(request, "404.html")
+
+
+def knowledge_graph_page(request):
+    """Render the knowledge graph visualization page."""
+    logger.info("Knowledge graph page requested")
+    return render(request, "pages/knowledge_graph.html")
+
+
+@require_http_methods(["GET", "POST"])
+@csrf_exempt
+def knowledge_graph_api(request):
+    """API endpoint for knowledge graph data."""
+    try:
+        if request.method == "POST":
+            # Handle POST requests for specific operations
+            data = json.loads(request.body) if request.body else {}
+            operation = data.get('operation', 'full_graph')
+            
+            if operation == 'refresh':
+                graph_data = build_knowledge_graph(force_refresh=True)
+            elif operation == 'post_graph':
+                template_name = data.get('template_name')
+                depth = data.get('depth', 1)
+                if not template_name:
+                    return JsonResponse({'error': 'template_name required for post_graph operation'}, status=400)
+                graph_data = get_post_graph(template_name, depth)
+            else:
+                graph_data = build_knowledge_graph()
+        else:
+            # GET request - return full graph
+            force_refresh = request.GET.get('refresh', '').lower() == 'true'
+            template_name = request.GET.get('post')
+            
+            if template_name:
+                depth = int(request.GET.get('depth', 1))
+                graph_data = get_post_graph(template_name, depth)
+            else:
+                graph_data = build_knowledge_graph(force_refresh)
+        
+        # Add metadata
+        response_data = {
+            'status': 'success',
+            'data': graph_data,
+            'metadata': {
+                'nodes_count': len(graph_data.get('nodes', [])),
+                'edges_count': len(graph_data.get('edges', [])),
+                'has_errors': bool(graph_data.get('errors', []))
+            }
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error in knowledge graph API: {str(e)}")
+        return JsonResponse({
+            'status': 'error',
+            'error': str(e)
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def clear_cache_endpoint(request):
+    """
+    Endpoint to clear knowledge graph cache.
+    Secured with a simple authorization token.
+    """
+    try:
+        # Check for authorization token
+        auth_token = request.headers.get('X-Cache-Clear-Token') or request.POST.get('token')
+        expected_token = os.getenv('CACHE_CLEAR_TOKEN')
+        
+        if not expected_token:
+            return JsonResponse({
+                'status': 'error',
+                'error': 'Cache clearing not configured'
+            }, status=503)
+        
+        if not auth_token or auth_token != expected_token:
+            return JsonResponse({
+                'status': 'error',
+                'error': 'Unauthorized'
+            }, status=401)
+        
+        # Clear the cache
+        clear_knowledge_graph_cache()
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Knowledge graph cache cleared successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error clearing cache via endpoint: {str(e)}")
+        return JsonResponse({
+            'status': 'error',
+            'error': str(e)
+        }, status=500)
