@@ -69,6 +69,17 @@
     stroke: #ff6b6b;
 }
 
+/* External link node specific styles */
+.node.external_link {
+    stroke-dasharray: 3,3;
+    stroke-width: 2px;
+}
+
+.node.external_link:hover {
+    stroke-width: 4px;
+    stroke: var(--text-color);
+}
+
 .link {
     transition: stroke-opacity 0.2s ease;
 }
@@ -76,6 +87,12 @@
 .link.highlighted {
     stroke-opacity: 1;
     stroke-width: 3px;
+}
+
+/* External link edge specific styles */
+.link.external {
+    stroke-dasharray: 5,5;
+    stroke-opacity: 0.8;
 }
 
 /* Node labels */
@@ -162,7 +179,7 @@ class HomepageKnowledgeGraph {
         // Constants
         this.COLORS = {
             blogPost: '#4fc3f7',
-            external: '#ff9800',
+            externalLink: '#ff9800',
             highlight: '#ff6b6b',
             white: '#fff'
         };
@@ -299,7 +316,7 @@ class HomepageKnowledgeGraph {
             .data(edges)
             .enter().append("line")
             .attr("class", d => `link ${d.type}`)
-            .attr("stroke", d => d.type === 'internal' ? this.COLORS.blogPost : this.COLORS.external)
+            .attr("stroke", d => d.type === 'internal' ? this.COLORS.blogPost : this.COLORS.externalLink)
             .attr("stroke-opacity", 0.6)
             .attr("stroke-width", d => d.type === 'internal' ? 2 : 1);
     }
@@ -312,7 +329,7 @@ class HomepageKnowledgeGraph {
             .enter().append("circle")
             .attr("class", d => `node ${d.type === 'blog_post' ? 'blog-post' : d.type}`)
             .attr("r", d => this.getNodeRadius(d))
-            .attr("fill", d => d.type === 'blog_post' ? this.COLORS.blogPost : this.COLORS.external)
+            .attr("fill", d => d.type === 'blog_post' ? this.COLORS.blogPost : this.COLORS.externalLink)
             .attr("stroke", this.COLORS.white)
             .attr("stroke-width", 1.5)
             .call(this.createDragBehavior());
@@ -369,6 +386,9 @@ class HomepageKnowledgeGraph {
         if (node.type === 'blog_post') {
             const connections = (node.in_degree || 0) + (node.out_degree || 0);
             return Math.max(6, Math.min(16, 6 + connections * 1.5));
+        } else if (node.type === 'external_link') {
+            // External links get a smaller, consistent radius
+            return 8;
         }
         return 5;
     }
@@ -377,6 +397,9 @@ class HomepageKnowledgeGraph {
         if (node.type === 'blog_post') {
             const entryMatch = node.id.match(/^(\d{4})/);
             return entryMatch ? entryMatch[1] : node.label.substring(0, 8);
+        } else if (node.type === 'external_link') {
+            // For external links, show the domain name (truncated if too long)
+            return node.domain ? node.domain.substring(0, 12) : node.label.substring(0, 8);
         }
         return node.domain || node.label.substring(0, 8);
     }
@@ -404,8 +427,17 @@ class HomepageKnowledgeGraph {
         this.tooltipGroup.selectAll("*").remove();
         
         // Enhanced tooltip content
-        const title = node.type === 'blog_post' ? node.label : node.domain;
-        const subtitle = node.type === 'blog_post' ? '' : 'External Link';
+        let title, subtitle;
+        if (node.type === 'blog_post') {
+            title = node.label;
+            subtitle = '';
+        } else if (node.type === 'external_link') {
+            title = node.domain || node.label;
+            subtitle = 'External Link';
+        } else {
+            title = node.label;
+            subtitle = '';
+        }
         
         // Get node position in SVG coordinates
         const nodeX = node.x || 0;

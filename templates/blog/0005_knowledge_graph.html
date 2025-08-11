@@ -1,0 +1,134 @@
+<h1>Building a Knowledge Graph for My Blog</h1>
+
+<p>I've been working on something that I think is pretty cool: a knowledge graph that automatically maps the connections between my blog posts and external resources. It's not just a fancy visualization—it's a tool that helps me (and hopefully you) understand how ideas connect across different posts and see the broader web of knowledge I'm building.</p>
+
+<h2>What is a Knowledge Graph?</h2>
+
+<p>A knowledge graph is essentially a network representation of how different pieces of information relate to each other. In my case, it's a visual map showing:</p>
+
+<ul>
+    <li>How my blog posts link to each other</li>
+    <li>What external resources I reference</li>
+    <li>Which posts are most connected</li>
+    <li>The overall structure of knowledge I'm building</li>
+</ul>
+
+<p>Think of it like a mind map, but generated automatically by analyzing the actual links in my content.</p>
+
+<h2>How It Works</h2>
+
+<p>The system works by parsing every blog post and extracting two types of links:</p>
+
+<h3>Internal Links</h3>
+<p>These are links between my own blog posts, like when I reference <a href="/b/0002_cut_out_the_bloat/">cutting out the bloat</a> or discuss <a href="/b/0001_what_even_is_this?/">what this blog even is</a>. The system automatically detects these using a pattern like <code>/b/NNNN_title/</code> and creates connections between posts.</p>
+
+<h3>External Links</h3>
+<p>These are links to external resources—books, articles, tools, and other websites that I reference. For example, when I talk about <a href="https://www.amazon.com/Django-3-Example-Antonio-Mele/dp/1789958656">Django 3 By Example</a> or reference <a href="https://www.amazon.com/Principles-Life-Work-Ray-Dalio/dp/1501124021">Ray Dalio's Principles</a>, these get tracked and visualized.</p>
+
+<h2>Sample Links to Demonstrate Functionality</h2>
+
+<p>Let me show you how this works with some examples from my existing content:</p>
+
+<h3>Internal Blog Connections</h3>
+<p>In my post about <a href="/b/0002_cut_out_the_bloat/">cutting out the bloat</a>, I reference the philosophy of keeping things simple. This creates a connection to my post about <a href="/b/0004_this_blog_aint_perfect/">why this blog framework isn't perfect</a>, where I discuss the trade-offs of simplicity.</p>
+
+<p>Similarly, my <a href="/b/0001_what_even_is_this?/">first blog post</a> sets the foundation that connects to everything else, creating a hub of connections.</p>
+
+<h3>External Resource Connections</h3>
+<p>When I write about programming, I often reference books like <a href="https://www.amazon.com/Cracking-Coding-Interview-Programming-Questions/dp/0984782850">Cracking the Coding Interview</a> or <a href="https://www.amazon.com/Healthy-Programmer-Getting-Health-Happier/dp/1680501226">The Healthy Programmer</a>. These external links get tracked and show up in the graph as nodes representing different domains of knowledge.</p>
+
+<p>For productivity and philosophy, I reference works like <a href="https://www.amazon.com/Long-Range-Handbook-Strategic-Planning/dp/0991663648">The Long Range Handbook</a>.</p>
+
+<h2>Technical Implementation</h2>
+
+<p>Building this wasn't just about creating a pretty visualization. I had to solve several technical challenges:</p>
+
+<h3>1. Link Parsing</h3>
+<p>The system uses BeautifulSoup to parse HTML content and extract links with context. It's smart enough to distinguish between internal blog links and external URLs, and it captures the surrounding text to provide context for each connection.</p>
+
+<h3>2. Graph Building</h3>
+<p>Using D3.js for visualization, the system creates a force-directed graph where:</p>
+<ul>
+    <li>Blog posts are represented as blue nodes</li>
+    <li>External domains are represented as orange nodes</li>
+    <li>Connections are shown as lines between nodes</li>
+    <li>Node sizes reflect how connected each post is</li>
+</ul>
+
+<h3>3. Caching and Performance</h3>
+<p>Since parsing HTML and building graphs can be expensive, I implemented a caching system that:</p>
+<ul>
+    <li>Stores parsed link data for 24 hours</li>
+    <li>Only re-parses when files actually change</li>
+    <li>Provides an API endpoint for the frontend to consume</li>
+</ul>
+
+<h2>What the Graph Reveals</h2>
+
+<p>Looking at the knowledge graph, I can see patterns I wouldn't have noticed otherwise:</p>
+
+<ul>
+    <li><strong>Hub Posts:</strong> Some posts like my first one act as central nodes with many connections</li>
+    <li><strong>Knowledge Clusters:</strong> Programming posts tend to cluster together, while philosophy and productivity posts form their own groups</li>
+    <li><strong>External Influences:</strong> I can see which external resources I reference most frequently</li>
+    <li><strong>Gaps:</strong> Posts with few connections might indicate areas where I could add more cross-references</li>
+</ul>
+
+<h2>Future Enhancements</h2>
+
+<p>This is just the beginning. I'm thinking about adding:</p>
+
+<ul>
+    <li><strong>Semantic Analysis:</strong> Using NLP to detect conceptual connections beyond just explicit links</li>
+    <li><strong>Time-based Visualization:</strong> Showing how the knowledge graph evolves over time</li>
+    <li><strong>Search Integration:</strong> Using the graph to improve search results and suggest related content</li>
+    <li><strong>Interactive Exploration:</strong> Allowing users to explore connections and discover new content paths</li>
+</ul>
+
+<h2>Why This Matters</h2>
+
+<p>Beyond the technical achievement, this knowledge graph serves several important purposes:</p>
+
+<ul>
+    <li><strong>Content Discovery:</strong> Readers can see how ideas connect and discover related content</li>
+    <li><strong>Quality Assurance:</strong> I can identify posts that need better cross-referencing</li>
+    <li><strong>Knowledge Mapping:</strong> It helps me understand the structure of what I'm building</li>
+    <li><strong>Community Building:</strong> Shows the interconnected nature of knowledge and ideas</li>
+</ul>
+
+<h2>Try It Out</h2>
+
+<p>You can see the knowledge graph in action on my <a href="/">homepage</a>. It's interactive—you can:</p>
+
+<ul>
+    <li>Hover over nodes to see details</li>
+    <li>Click on blog post nodes to navigate to those posts</li>
+    <li>Click on external nodes to visit those resources</li>
+    <li>Drag nodes around to explore different layouts</li>
+    <li>Zoom in and out to see the full picture</li>
+</ul>
+
+<p>The graph updates automatically as I add new posts and links, so it's always current with my latest content.</p>
+
+<h2>Lessons Learned</h2>
+
+<p>Building this feature taught me several valuable lessons:</p>
+
+<ul>
+    <li><strong>Start Simple:</strong> I began with basic link extraction and gradually added complexity</li>
+    <li><strong>Performance Matters:</strong> Caching and optimization are crucial for user experience</li>
+    <li><strong>Visualization is Powerful:</strong> Seeing connections visually reveals patterns that text alone can't show</li>
+    <li><strong>Automation is Key:</strong> The system works without manual intervention, making it sustainable</li>
+</ul>
+
+<h2>Conclusion</h2>
+
+<p>This knowledge graph represents more than just a technical feature—it's a reflection of how I think about knowledge and learning. Knowledge isn't isolated facts; it's a network of interconnected ideas that build upon each other.</p>
+
+<p>By making these connections visible, I hope to help readers (and myself) better understand the relationships between different concepts and discover new paths of exploration. It's like having a map of a vast library where you can see not just what's on each shelf, but how the books relate to each other.</p>
+
+<p>As I continue to write and build this blog, the knowledge graph will grow and evolve, becoming an increasingly valuable tool for navigating the ideas and insights I'm sharing. It's a living, breathing representation of the intellectual journey I'm on, and I'm excited to see where it leads.</p>
+
+<p>If you're interested in the technical details or want to build something similar, feel free to explore the code or reach out. The beauty of building in public is that we can all learn from each other's experiments and discoveries.</p>
+
+<p>Now, go explore the knowledge graph and see what connections you can discover!</p>

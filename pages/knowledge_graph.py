@@ -511,9 +511,38 @@ class GraphBuilder:
                 nodes[source_post]['out_degree'] += 1
                 nodes[target]['in_degree'] += 1
             
-            # Process external links for metrics
+            # Process external links - add them as nodes and edges
             for link in links_data['external_links']:
                 domain = link['domain']
+                external_node_id = f"external_{domain}"
+                
+                # Add external domain as a node if it doesn't exist
+                if external_node_id not in nodes:
+                    nodes[external_node_id] = {
+                        'id': external_node_id,
+                        'label': domain,
+                        'type': 'external_link',
+                        'url': link['url'],
+                        'domain': domain,
+                        'in_degree': 0,
+                        'out_degree': 0,
+                        'total_links': 0
+                    }
+                
+                # Add edge from blog post to external link
+                edges.append({
+                    'source': source_post,
+                    'target': external_node_id,
+                    'type': 'external',
+                    'text': link['text'],
+                    'context': link['context']
+                })
+                
+                # Update degrees
+                nodes[source_post]['out_degree'] += 1
+                nodes[external_node_id]['in_degree'] += 1
+                
+                # Track domain counts for metrics
                 if domain not in external_domains:
                     external_domains[domain] = 0
                 external_domains[domain] += 1
