@@ -10,7 +10,6 @@
         <ul class="incremental">
             <li><a href="#about" id="toc-about">About me</a></li>
             <li><a href="#blog" id="toc-blog">Blog</a></li>
-            <li><a href="{% url 'knowledge_graph_page' %}">Knowledge Graph</a></li>
             <li><a href="#projects" id="toc-projects">Projects</a></li>
             <li><a href="#photos" id="toc-photos">Photos</a></li>
             <li><a href="#books" id="toc-books">Books</a></li>
@@ -27,6 +26,7 @@
     </p>
     <h2 id="blog">Blog</h2>
     {% if blog_posts %}
+        {% include 'components/knowledge_graph_component.html' %}
         <table class="blog-posts-table">
             <tbody>
                 {% for post in blog_posts %}

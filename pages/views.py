@@ -85,13 +85,6 @@ def render_blog_template(request, template_name):
     except TemplateDoesNotExist:
         return render(request, "404.html")
 
-
-def knowledge_graph_page(request):
-    """Render the knowledge graph visualization page."""
-    logger.info("Knowledge graph page requested")
-    return render(request, "pages/knowledge_graph.html")
-
-
 @require_http_methods(["GET", "POST"])
 @csrf_exempt
 def knowledge_graph_api(request):

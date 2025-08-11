@@ -1,28 +1,34 @@
-{% extends "_base.html" %}
+{% load static %}
 
-{% block title %}Knowledge Graph{% endblock %}
-
-{% block content %}
-<div>
-    <h1>Knowledge Graph</h1>
-</div>
-
-<div id="knowledge-graph-container">
-    <div id="loading">
-        Loading knowledge graph...
+<div class="knowledge-graph-section">
+    <div id="knowledge-graph-container">
+        <div id="loading">
+            Loading knowledge graph...
+        </div>
+        <svg id="knowledge-graph-svg"></svg>
     </div>
-    <svg id="knowledge-graph-svg"></svg>
 </div>
 
 <style>
-/* Knowledge Graph specific styles */
+/* Knowledge Graph Component Styles */
+.knowledge-graph-section {
+    margin: 1rem 0 2rem 0;
+}
+
+.blog-description {
+    color: var(--text-color-alt);
+    margin-bottom: 1.5rem;
+    font-style: italic;
+}
+
 #knowledge-graph-container {
     position: relative;
     width: 100%;
-    height: 600px;
+    height: 400px;
     border: 1px solid var(--background-color-alt);
     border-radius: 8px;
     overflow: hidden;
+    margin-bottom: 1rem;
 }
 
 #loading {
@@ -73,7 +79,7 @@
 /* Node labels */
 .node-label {
     font-family: var(--font-family);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: var(--font-weight-medium);
     text-anchor: middle;
     pointer-events: none;
@@ -121,6 +127,8 @@
     stroke-linecap: round;
 }
 
+
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     #knowledge-graph-container {
@@ -130,15 +138,13 @@
     .node-label {
         font-size: 10px;
     }
+    
+
 }
 </style>
-{% endblock %}
 
-{% block javascript %}
-{{ block.super }}
-<script src="https://d3js.org/d3.v7.min.js"></script>
 <script>
-class KnowledgeGraphVisualization {
+class HomepageKnowledgeGraph {
     constructor() {
         this.svg = d3.select("#knowledge-graph-svg");
         this.container = d3.select("#knowledge-graph-container");
@@ -147,7 +153,7 @@ class KnowledgeGraphVisualization {
         // Get container dimensions
         const containerRect = this.container.node().getBoundingClientRect();
         this.width = containerRect.width || 800;
-        this.height = containerRect.height || 600;
+        this.height = containerRect.height || 500;
         
         this.showLabels = true;
         this.showExternal = true;
@@ -161,9 +167,9 @@ class KnowledgeGraphVisualization {
         };
         
         this.FORCE_CONFIG = {
-            linkDistance: 100,
-            chargeStrength: -300,
-            collisionRadius: 25,
+            linkDistance: 80,
+            chargeStrength: -250,
+            collisionRadius: 20,
             centerStrength: 0.1
         };
         
@@ -185,7 +191,7 @@ class KnowledgeGraphVisualization {
         
         // Create zoom behavior
         this.zoom = d3.zoom()
-            .scaleExtent([0.1, 4])
+            .scaleExtent([0.1, 3])
             .on("zoom", (event) => {
                 this.g.attr("transform", event.transform);
             });
@@ -199,6 +205,8 @@ class KnowledgeGraphVisualization {
         this.tooltipGroup = this.svg.append("g")
             .attr("class", "svg-tooltip");
     }
+    
+
     
     async loadData(forceRefresh = false) {
         try {
@@ -259,7 +267,7 @@ class KnowledgeGraphVisualization {
     }
     
     initializeNodePositions(nodes) {
-        const radius = Math.min(this.width, this.height) * 0.3;
+        const radius = Math.min(this.width, this.height) * 0.25;
         const centerX = this.width / 2;
         const centerY = this.height / 2;
         
@@ -359,17 +367,17 @@ class KnowledgeGraphVisualization {
     getNodeRadius(node) {
         if (node.type === 'blog_post') {
             const connections = (node.in_degree || 0) + (node.out_degree || 0);
-            return Math.max(8, Math.min(20, 8 + connections * 2));
+            return Math.max(6, Math.min(16, 6 + connections * 1.5));
         }
-        return 6;
+        return 5;
     }
     
     getNodeLabel(node) {
         if (node.type === 'blog_post') {
             const entryMatch = node.id.match(/^(\d{4})/);
-            return entryMatch ? entryMatch[1] : node.label.substring(0, 10);
+            return entryMatch ? entryMatch[1] : node.label.substring(0, 8);
         }
-        return node.domain || node.label.substring(0, 10);
+        return node.domain || node.label.substring(0, 8);
     }
     
     createDragBehavior() {
@@ -599,7 +607,7 @@ class KnowledgeGraphVisualization {
             
             this.labels
                 .style("display", d => {
-                    if (d.type === 'external' && !this.showExternal) {
+                    if (d.type === 'external' && !this.showLabels) {
                         return "none";
                     }
                     return this.showLabels ? "block" : "none";
@@ -625,10 +633,9 @@ class KnowledgeGraphVisualization {
 // Initialize the visualization when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     try {
-        new KnowledgeGraphVisualization();
+        new HomepageKnowledgeGraph();
     } catch (error) {
-        console.error('Failed to initialize visualization:', error);
+        console.error('Failed to initialize homepage knowledge graph:', error);
     }
 });
 </script>
-{% endblock %}
