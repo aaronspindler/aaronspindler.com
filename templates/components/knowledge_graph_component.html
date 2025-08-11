@@ -15,6 +15,8 @@
     margin: 1rem 0 2rem 0;
 }
 
+
+
 .blog-description {
     color: var(--text-color-alt);
     margin-bottom: 1.5rem;
@@ -155,8 +157,7 @@ class HomepageKnowledgeGraph {
         this.width = containerRect.width || 800;
         this.height = containerRect.height || 500;
         
-        this.showLabels = true;
-        this.showExternal = true;
+        // Visibility properties removed - no longer needed without UI controls
         
         // Constants
         this.COLORS = {
@@ -212,9 +213,11 @@ class HomepageKnowledgeGraph {
         try {
             this.loading.style("display", "block");
             
+            // Add timestamp to prevent caching
+            const timestamp = Date.now();
             const url = forceRefresh ?
-                '/api/knowledge-graph/?refresh=true' :
-                '/api/knowledge-graph/';
+                `/api/knowledge-graph/?refresh=true&t=${timestamp}` :
+                `/api/knowledge-graph/?t=${timestamp}`;
             
             const response = await fetch(url);
             
@@ -262,8 +265,6 @@ class HomepageKnowledgeGraph {
         
         // Start simulation
         this.simulation.alpha(1).restart();
-        
-        this.updateExternalVisibility();
     }
     
     initializeNodePositions(nodes) {
@@ -330,7 +331,7 @@ class HomepageKnowledgeGraph {
             .style("stroke-linejoin", "round")
             .style("paint-order", "stroke")
             .text(d => this.getNodeLabel(d))
-            .style("display", this.showLabels ? "block" : "none");
+            .style("display", "block");  // Always show labels
     }
     
     addEventHandlers() {
@@ -573,47 +574,7 @@ class HomepageKnowledgeGraph {
         }
     }
     
-    updateLabelsVisibility() {
-        if (this.labels) {
-            this.labels.style("display", this.showLabels ? "block" : "none");
-        }
-    }
-    
-    updateExternalVisibility() {
-        if (this.node && this.link) {
-            this.node
-                .style("display", d => {
-                    if (d.type === 'external' && !this.showExternal) {
-                        return "none";
-                    }
-                    return "block";
-                });
-            
-            this.link
-                .style("display", d => {
-                    if (d.type === 'external' && !this.showExternal) {
-                        return "none";
-                    }
-                    if (!this.showExternal) {
-                        // Hide links to external nodes
-                        const sourceExternal = d.source.type === 'external';
-                        const targetExternal = d.target.type === 'external';
-                        if (sourceExternal || targetExternal) {
-                            return "none";
-                        }
-                    }
-                    return "block";
-                });
-            
-            this.labels
-                .style("display", d => {
-                    if (d.type === 'external' && !this.showLabels) {
-                        return "none";
-                    }
-                    return this.showLabels ? "block" : "none";
-                });
-        }
-    }
+    // Visibility toggle methods removed - no longer needed without UI controls
     
     handleResize() {
         this.width = this.container.node().clientWidth;
@@ -627,10 +588,12 @@ class HomepageKnowledgeGraph {
                 .alpha(0.3)
                 .restart();
         }
+            }
     }
-}
+    
 
-// Initialize the visualization when the page loads
+    
+    // Initialize the visualization when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     try {
         new HomepageKnowledgeGraph();
