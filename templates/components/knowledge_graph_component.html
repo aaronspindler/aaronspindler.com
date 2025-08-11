@@ -1,5 +1,8 @@
 {% load static %}
 
+<!-- Knowledge Graph CSS -->
+<link rel="stylesheet" href="{% static 'css/knowledge_graph.css' %}">
+
 <div class="knowledge-graph-section">
     <div id="knowledge-graph-container">
         <div id="loading">
@@ -8,178 +11,6 @@
         <svg id="knowledge-graph-svg"></svg>
     </div>
 </div>
-
-<style>
-/* Knowledge Graph Component Styles */
-.knowledge-graph-section {
-    margin: 1rem 0 2rem 0;
-}
-
-.blog-description {
-    color: var(--text-color-alt);
-    margin-bottom: 1.5rem;
-    font-style: italic;
-}
-
-#knowledge-graph-container {
-    position: relative;
-    width: 100%;
-    height: 400px;
-    border: 1px solid var(--background-color-alt);
-    border-radius: 8px;
-    overflow: hidden;
-    margin-bottom: 1rem;
-}
-
-#loading {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: var(--background-color);
-    color: var(--text-color);
-    padding: 1rem;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    z-index: 10;
-    display: none;
-}
-
-#knowledge-graph-svg {
-    width: 100%;
-    height: 100%;
-    background: var(--background-color);
-}
-
-/* Node and link styles */
-.node {
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.node:hover {
-    stroke-width: 3px;
-    stroke: var(--text-color);
-}
-
-.node.highlighted {
-    stroke-width: 3px;
-    stroke: #ff6b6b;
-}
-
-/* External link node specific styles */
-.node.external_link {
-    stroke-dasharray: 3,3;
-    stroke-width: 2px;
-}
-
-.node.external_link:hover {
-    stroke-width: 4px;
-    stroke: var(--text-color);
-}
-
-.link {
-    transition: stroke-opacity 0.2s ease;
-}
-
-.link.highlighted {
-    stroke-opacity: 1;
-    stroke-width: 3px;
-}
-
-/* External link edge specific styles */
-.link.external {
-    stroke-dasharray: 5,5;
-    stroke-opacity: 0.8;
-}
-
-/* Node labels */
-.node-label {
-    font-family: var(--font-family);
-    font-size: 11px;
-    font-weight: var(--font-weight-medium);
-    text-anchor: middle;
-    pointer-events: none;
-    fill: var(--text-color);
-    stroke: var(--background-color);
-    stroke-width: 3px;
-    stroke-linejoin: round;
-    paint-order: stroke;
-}
-
-/* Blog post number labels - distinct styling */
-.node-label.blog-post-number {
-    font-weight: bold;
-    font-size: 13px;
-    fill: #2196F3;
-    stroke: var(--background-color);
-    stroke-width: 4px;
-    letter-spacing: 0.5px;
-}
-
-.node-label.highlighted {
-    fill: #ff6b6b;
-    stroke: var(--background-color);
-}
-
-.node-label.blog-post-number.highlighted {
-    fill: #ff6b6b;
-    font-weight: bold;
-}
-
-/* Tooltip styles */
-.svg-tooltip {
-    pointer-events: none;
-}
-
-.tooltip-background {
-    fill: var(--background-color);
-    stroke: var(--text-color);
-    stroke-width: 1px;
-    rx: 6;
-    ry: 6;
-}
-
-.tooltip-arrow {
-    fill: var(--background-color);
-    stroke: var(--text-color);
-    stroke-width: 1px;
-}
-
-.svg-tooltip text {
-    dominant-baseline: middle;
-    text-anchor: middle;
-}
-
-.svg-tooltip.hidden {
-    opacity: 0;
-    pointer-events: none;
-}
-
-/* Effects */
-.ripple-effect {
-    fill: none;
-    stroke: var(--text-color);
-    stroke-width: 2px;
-    opacity: 0.6;
-}
-
-/* Force simulation adjustments */
-.links line {
-    stroke-linecap: round;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    #knowledge-graph-container {
-        height: 400px;
-    }
-    
-    .node-label {
-        font-size: 10px;
-    }
-}
-</style>
 
 <script>
 class HomepageKnowledgeGraph {
@@ -191,14 +22,15 @@ class HomepageKnowledgeGraph {
             DEFAULT_HEIGHT: 500,
             
             // Tooltip settings
-            TOOLTIP_PADDING: 16,
-            TOOLTIP_LINE_HEIGHT: 20,
-            TOOLTIP_MAX_WIDTH: 350,
-            TOOLTIP_BLOG_MAX_WIDTH: 450,
-            TOOLTIP_MIN_WIDTH: 80,
-            TOOLTIP_ARROW_SIZE: 8,
-            TOOLTIP_OFFSET: 15,
-            TOOLTIP_MARGIN: 15,
+            TOOLTIP_PADDING: 20,
+            TOOLTIP_LINE_HEIGHT: 22,
+            TOOLTIP_MAX_WIDTH: 380,
+            TOOLTIP_BLOG_MAX_WIDTH: 480,
+            TOOLTIP_MIN_WIDTH: 100,
+            TOOLTIP_ARROW_SIZE: 10,
+            TOOLTIP_OFFSET: 20,
+            TOOLTIP_MARGIN: 20,
+            TOOLTIP_ANIMATION_DURATION: 250,
             
             // Font sizes
             TITLE_FONT_SIZE: '16px',
@@ -212,8 +44,8 @@ class HomepageKnowledgeGraph {
             NODE_CONNECTION_MULTIPLIER: 1.5,
             
             // Text display settings
-            LABEL_MAX_LENGTH: 12,
-            LABEL_SHORT_LENGTH: 8,
+            LABEL_MAX_LENGTH: 26,
+            LABEL_SHORT_LENGTH: 18,
             BLOG_ENTRY_PATTERN: /^(\d{4})/,
             
             // Animation settings
@@ -232,11 +64,11 @@ class HomepageKnowledgeGraph {
         this.width = containerRect.width || this.CONFIG.DEFAULT_WIDTH;
         this.height = containerRect.height || this.CONFIG.DEFAULT_HEIGHT;
         
-        // Colors
+        // Colors - grayscale
         this.COLORS = {
-            blogPost: '#4fc3f7',
-            externalLink: '#ff9800',
-            highlight: '#ff6b6b',
+            blogPost: '#666',
+            externalLink: '#999',
+            highlight: '#333',
             white: '#fff'
         };
         
@@ -280,20 +112,7 @@ class HomepageKnowledgeGraph {
         this.tooltipGroup = this.svg.append("g")
             .attr("class", "svg-tooltip");
         
-        // Add SVG filter for glow effect
-        this.svg.append("defs").append("filter")
-            .attr("id", "glow")
-            .attr("x", "-50%")
-            .attr("y", "-50%")
-            .attr("width", "200%")
-            .attr("height", "200%")
-            .append("feGaussianBlur")
-            .attr("stdDeviation", "2")
-            .attr("result", "coloredBlur");
-        
-        this.svg.select("#glow").append("feMerge")
-            .append("feMergeNode")
-            .attr("in", "coloredBlur");
+        // No complex filters or gradients needed for simple tooltips
     }
     
     async loadData(forceRefresh = false) {
@@ -418,13 +237,7 @@ class HomepageKnowledgeGraph {
                 return "node-label";
             })
             .attr("fill", "currentColor")
-            .style("fill", d => {
-                // Different color for blog post numbers
-                if (d.type === 'blog_post') {
-                    return "#2196F3";
-                }
-                return "var(--text-color)";
-            })
+            .style("fill", "var(--text-color)")
             .style("stroke", "var(--background-color)")
             .style("stroke-width", d => d.type === 'blog_post' ? "4px" : "3px")
             .style("stroke-linejoin", "round")
@@ -436,18 +249,15 @@ class HomepageKnowledgeGraph {
     addEventHandlers() {
         this.node
             .on("mouseover", (event, d) => {
-                console.log('Mouseover on node:', d.id, d);
-                this.showEnhancedTooltip(event, d);
+                this.showTooltip(event, d);
                 this.highlightConnections(d);
             })
             .on("mouseout", (event, d) => {
-                console.log('Mouseout from node:', d.id);
                 this.hideTooltip();
                 this.clearHighlights();
             })
             .on("click", (event, d) => {
-                console.log('Click on node:', d.id);
-                this.handleEnhancedNodeClick(event, d);
+                this.handleNodeClick(event, d);
             });
     }
     
@@ -510,201 +320,84 @@ class HomepageKnowledgeGraph {
             });
     }
     
-    // Tooltip methods
-    showEnhancedTooltip(event, node) {
+    // Simple tooltip methods
+    showTooltip(event, node) {
         // Clear existing tooltip content
         this.tooltipGroup.selectAll("*").remove();
         
-        const tooltipContent = this.prepareTooltipContent(node);
-        const dimensions = this.calculateTooltipDimensions(tooltipContent, node);
-        const position = this.calculateTooltipPosition(node, dimensions);
+        // Prepare simple content
+        let label = node.label;
         
-        this.renderTooltip(position, dimensions, tooltipContent);
-        
-        // Show tooltip - remove hidden class and reset opacity
-        this.tooltipGroup.classed("hidden", false);
-        this.tooltipGroup.classed("visible", true);
-        this.tooltipGroup.style("opacity", 1);
-    }
-    
-    prepareTooltipContent(node) {
-        let title, subtitle;
-        
+        // For blog posts, strip the number prefix and format the title
         if (node.type === 'blog_post') {
-            title = node.label;
-            subtitle = '';
-        } else if (node.type === 'external_link') {
-            title = node.domain || node.label;
-            subtitle = 'External Link';
-        } else {
-            title = node.label;
-            subtitle = '';
-        }
-        
-        return { title, subtitle };
-    }
-    
-    calculateTooltipDimensions(content, node) {
-        // Set max width based on node type
-        const maxWidth = node.type === 'blog_post' ?
-            this.CONFIG.TOOLTIP_BLOG_MAX_WIDTH :
-            this.CONFIG.TOOLTIP_MAX_WIDTH;
-        
-        // Calculate wrapped text dimensions
-        const titleLines = this.wrapText(content.title, maxWidth - this.CONFIG.TOOLTIP_PADDING * 2);
-        const subtitleLines = content.subtitle ?
-            this.wrapText(content.subtitle, maxWidth - this.CONFIG.TOOLTIP_PADDING * 2) : [];
-        
-        // Store wrapped lines for later use
-        content.titleLines = titleLines;
-        content.subtitleLines = subtitleLines;
-        
-        // Calculate dimensions based on wrapped text
-        const lineHeight = 20;
-        const titleHeight = titleLines.length * lineHeight;
-        const subtitleHeight = subtitleLines.length * lineHeight;
-        
-        const tooltipHeight = titleHeight +
-            (content.subtitle ? subtitleHeight + 10 : 0) +
-            this.CONFIG.TOOLTIP_PADDING * 2 + 8;
-        
-        return {
-            width: maxWidth,
-            height: tooltipHeight,
-            titleHeight: titleHeight,
-            subtitleHeight: subtitleHeight,
-            lineHeight: lineHeight
-        };
-    }
-    
-    wrapText(text, maxWidth) {
-        // Simple text wrapping algorithm
-        const words = text.split(' ');
-        const lines = [];
-        let currentLine = '';
-        
-        // Approximate character width
-        const charWidth = 8;
-        const maxCharsPerLine = Math.floor(maxWidth / charWidth);
-        
-        words.forEach(word => {
-            const testLine = currentLine ? currentLine + ' ' + word : word;
-            if (testLine.length <= maxCharsPerLine) {
-                currentLine = testLine;
-            } else {
-                if (currentLine) {
-                    lines.push(currentLine);
-                }
-                currentLine = word;
+            // Remove the leading numbers and underscore more robustly
+            // Handles formats like "0001_title", "1_title", or even just starts with the title
+            label = label.replace(/^\d{1,4}[_\-\s]*/, '');
+            // Replace underscores with spaces and format title
+            label = label.replace(/_/g, ' ');
+            // Remove the file extension if present
+            label = label.replace(/\.html?$/i, '');
+            // Trim any leading/trailing whitespace
+            label = label.trim();
+            // Capitalize first letter if needed
+            if (label.length > 0) {
+                label = label.charAt(0).toUpperCase() + label.slice(1);
             }
-        });
-        
-        if (currentLine) {
-            lines.push(currentLine);
+        } else if (node.type === 'external_link' && node.domain) {
+            label = node.domain;
         }
         
-        return lines.length > 0 ? lines : [text];
-    }
-    
-    calculateTooltipPosition(node, dimensions) {
+        // Calculate text dimensions
+        const padding = 8;
+        const textLength = label.length * 7; // Approximate character width
+        const tooltipWidth = Math.min(200, Math.max(textLength + padding * 2, 60));
+        const tooltipHeight = 24;
+        
+        // Calculate position
         const nodeX = node.x || 0;
         const nodeY = node.y || 0;
+        const nodeRadius = this.getNodeRadius(node);
         
-        // Position tooltip above the node
-        let tooltipX = nodeX - dimensions.width / 2;
-        let tooltipY = nodeY - this.getNodeRadius(node) - dimensions.height - this.CONFIG.TOOLTIP_OFFSET;
+        let tooltipX = nodeX - tooltipWidth / 2;
+        let tooltipY = nodeY - nodeRadius - tooltipHeight - 10;
         
-        // Ensure tooltip stays within viewport
-        tooltipX = Math.max(
-            this.CONFIG.TOOLTIP_MARGIN, 
-            Math.min(tooltipX, this.width - dimensions.width - this.CONFIG.TOOLTIP_MARGIN)
-        );
-        tooltipY = Math.max(this.CONFIG.TOOLTIP_MARGIN, tooltipY);
+        // Keep tooltip within viewport
+        tooltipX = Math.max(10, Math.min(tooltipX, this.width - tooltipWidth - 10));
+        if (tooltipY < 10) {
+            tooltipY = nodeY + nodeRadius + 10;
+        }
         
-        return { x: tooltipX, y: tooltipY, nodeX, nodeY };
-    }
-    
-    renderTooltip(position, dimensions, content) {
         // Render background
         this.tooltipGroup.append("rect")
             .attr("class", "tooltip-background")
-            .attr("x", position.x)
-            .attr("y", position.y)
-            .attr("width", dimensions.width)
-            .attr("height", dimensions.height)
-            .style("filter", "url(#glow)");
+            .attr("x", tooltipX)
+            .attr("y", tooltipY)
+            .attr("width", tooltipWidth)
+            .attr("height", tooltipHeight);
         
-        // Render arrow
-        const arrowY = position.y + dimensions.height;
-        this.tooltipGroup.append("polygon")
-            .attr("class", "tooltip-arrow")
-            .attr("points", `${position.nodeX},${arrowY + this.CONFIG.TOOLTIP_ARROW_SIZE} ${position.nodeX - this.CONFIG.TOOLTIP_ARROW_SIZE},${arrowY} ${position.nodeX + this.CONFIG.TOOLTIP_ARROW_SIZE},${arrowY}`)
-            .style("filter", "url(#glow)");
+        // Render text
+        this.tooltipGroup.append("text")
+            .attr("x", tooltipX + tooltipWidth / 2)
+            .attr("y", tooltipY + tooltipHeight / 2)
+            .text(label);
         
-        // Render title with wrapped text
-        const titleText = this.tooltipGroup.append("text")
-            .attr("x", position.x + dimensions.width / 2)
-            .attr("y", position.y + this.CONFIG.TOOLTIP_PADDING)
-            .style("font-weight", "bold")
-            .style("font-size", this.CONFIG.TITLE_FONT_SIZE)
-            .style("font-family", "var(--font-family)")
-            .style("fill", "var(--text-color)")
-            .style("text-anchor", "middle")
-            .style("pointer-events", "none");
-        
-        // Add each line as a tspan element for proper wrapping
-        content.titleLines.forEach((line, i) => {
-            titleText.append("tspan")
-                .attr("x", position.x + dimensions.width / 2)
-                .attr("dy", i === 0 ? 0 : dimensions.lineHeight)
-                .text(line);
-        });
-        
-        // Render subtitle if present with wrapped text
-        if (content.subtitle && content.subtitleLines) {
-            const subtitleText = this.tooltipGroup.append("text")
-                .attr("x", position.x + dimensions.width / 2)
-                .attr("y", position.y + this.CONFIG.TOOLTIP_PADDING + dimensions.titleHeight + 10)
-                .style("font-size", this.CONFIG.SUBTITLE_FONT_SIZE)
-                .style("font-family", "var(--font-family)")
-                .style("opacity", "0.8")
-                .style("fill", "var(--text-color)")
-                .style("text-anchor", "middle")
-                .style("pointer-events", "none");
-            
-            content.subtitleLines.forEach((line, i) => {
-                subtitleText.append("tspan")
-                    .attr("x", position.x + dimensions.width / 2)
-                    .attr("dy", i === 0 ? 0 : dimensions.lineHeight)
-                    .text(line);
-            });
-        }
+        // Show tooltip
+        this.tooltipGroup.classed("hidden", false);
+        this.tooltipGroup.classed("visible", true);
     }
     
     hideTooltip() {
-        // Remove visible class
         this.tooltipGroup.classed("visible", false);
-        // Add hidden class for opacity transition
         this.tooltipGroup.classed("hidden", true);
-        // Clear all tooltip content
         this.tooltipGroup.selectAll("*").remove();
-        // Reset opacity
-        this.tooltipGroup.style("opacity", 0);
     }
     
-    handleEnhancedNodeClick(event, node) {
-        // Create ripple effect
-        this.createRippleEffect(node.x, node.y);
-        
+    handleNodeClick(event, node) {
         // Navigate based on node type
         if (node.type === 'blog_post') {
-            setTimeout(() => {
-                window.open(`/b/${node.id}/`, '_blank');
-            }, this.CONFIG.CLICK_DELAY);
+            window.open(`/b/${node.id}/`, '_blank');
         } else if (node.url) {
-            setTimeout(() => {
-                window.open(node.url, '_blank');
-            }, this.CONFIG.CLICK_DELAY);
+            window.open(node.url, '_blank');
         }
     }
     
