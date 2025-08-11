@@ -476,13 +476,13 @@ class HomepageKnowledgeGraph {
         // Create temporary text elements to measure dimensions with consistent styling
         const tempTitle = this.tooltipGroup.append("text")
             .style("font-weight", "bold")
-            .style("font-size", "13px")
+            .style("font-size", "16px")  // Increased from 13px for better readability
             .style("font-family", "var(--font-family)")
             .text(title)
             .style("opacity", 0);
         
         const tempSubtitle = this.tooltipGroup.append("text")
-            .style("font-size", "11px")
+            .style("font-size", "14px")  // Increased from 11px for better readability
             .style("font-family", "var(--font-family)")
             .text(subtitle)
             .style("opacity", 0);
@@ -508,25 +508,31 @@ class HomepageKnowledgeGraph {
         // Calculate tooltip dimensions with Chrome-safe margins
         const padding = 16; // Increased padding for Chrome
         const lineHeight = 20; // Increased line height
-        const maxWidth = 200; // Maximum tooltip width to prevent overflow
+        const maxWidth = 350; // Increased from 200px to accommodate longer titles
         
         // Calculate width with Chrome-safe margins and max width constraint
         let tooltipWidth = Math.max(safeTitleWidth, safeSubtitleWidth) + padding * 2;
         tooltipWidth = Math.min(tooltipWidth, maxWidth);
         
-        // If text is too long, truncate it
+        // For blog posts, never truncate the title
         let displayTitle = title;
         let displaySubtitle = subtitle;
         
-        if (safeTitleWidth > maxWidth - padding * 2) {
-            // Truncate title to fit within max width
-            const maxChars = Math.floor((maxWidth - padding * 2) / 8); // Approximate char width
+        // Only truncate if absolutely necessary (for very long external link domains)
+        if (node.type !== 'blog_post' && safeTitleWidth > maxWidth - padding * 2) {
+            // Only truncate non-blog post titles if they're extremely long
+            const maxChars = Math.floor((maxWidth - padding * 2) / 10); // Approximate char width
             displayTitle = title.length > maxChars ? title.substring(0, maxChars - 3) + '...' : title;
         }
         
+        // Adjust tooltip width to fit the content (especially for blog posts)
+        if (node.type === 'blog_post') {
+            tooltipWidth = Math.min(safeTitleWidth + padding * 2, 450); // Allow up to 450px for blog posts
+        }
+        
         if (safeSubtitleWidth > maxWidth - padding * 2) {
-            // Truncate subtitle to fit within max width
-            const maxChars = Math.floor((maxWidth - padding * 2) / 7); // Approximate char width for smaller font
+            // Truncate subtitle to fit within max width (only for external links label)
+            const maxChars = Math.floor((maxWidth - padding * 2) / 9); // Approximate char width for smaller font
             displaySubtitle = subtitle.length > maxChars ? subtitle.substring(0, maxChars - 3) + '...' : subtitle;
         }
         
@@ -564,7 +570,7 @@ class HomepageKnowledgeGraph {
             .attr("x", tooltipX + tooltipWidth / 2)
             .attr("y", tooltipY + padding + titleBBox.height)
             .style("font-weight", "bold")
-            .style("font-size", "13px")
+            .style("font-size", "16px")  // Increased from 13px
             .style("font-family", "var(--font-family)")
             .style("fill", "var(--text-color)")
             .style("text-anchor", "middle")
@@ -577,7 +583,7 @@ class HomepageKnowledgeGraph {
             this.tooltipGroup.append("text")
                 .attr("x", tooltipX + tooltipWidth / 2)
                 .attr("y", tooltipY + padding + titleBBox.height + lineHeight)
-                .style("font-size", "11px")
+                .style("font-size", "14px")  // Increased from 11px
                 .style("font-family", "var(--font-family)")
                 .style("opacity", "0.8")
                 .style("fill", "var(--text-color)")

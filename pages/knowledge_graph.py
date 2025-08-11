@@ -2,6 +2,7 @@ import os
 import re
 import time
 import logging
+import hashlib
 from typing import Dict, List, Optional, Union
 from urllib.parse import urljoin, urlparse
 from pathlib import Path
@@ -514,15 +515,31 @@ class GraphBuilder:
             # Process external links - add them as nodes and edges
             for link in links_data['external_links']:
                 domain = link['domain']
-                external_node_id = f"external_{domain}"
+                url = link['url']
                 
-                # Add external domain as a node if it doesn't exist
+                # Create unique node ID for each external URL using hash
+                # Using first 12 characters of MD5 hash to keep IDs manageable
+                external_node_id = f"external_{hashlib.md5(url.encode()).hexdigest()[:12]}"
+                
+                # Add external URL as a node if it doesn't exist
                 if external_node_id not in nodes:
+                    # Create a more informative label showing domain and path
+                    parsed_url = urlparse(url)
+                    path_snippet = parsed_url.path[:30] if parsed_url.path and parsed_url.path != '/' else ''
+                    if path_snippet and len(parsed_url.path) > 30:
+                        path_snippet += '...'
+                    
+                    # Format label to show domain and path (if exists)
+                    if path_snippet:
+                        label = f"{domain}{path_snippet}"
+                    else:
+                        label = domain
+                    
                     nodes[external_node_id] = {
                         'id': external_node_id,
-                        'label': domain,
+                        'label': label,
                         'type': 'external_link',
-                        'url': link['url'],
+                        'url': url,
                         'domain': domain,
                         'in_degree': 0,
                         'out_degree': 0,
@@ -542,10 +559,10 @@ class GraphBuilder:
                 nodes[source_post]['out_degree'] += 1
                 nodes[external_node_id]['in_degree'] += 1
                 
-                # Track domain counts for metrics
-                if domain not in external_domains:
-                    external_domains[domain] = 0
-                external_domains[domain] += 1
+                # Track individual URLs for metrics (each URL counted once per occurrence)
+                if url not in external_domains:
+                    external_domains[url] = 0
+                external_domains[url] += 1
                 
                 nodes[source_post]['total_links'] += 1
         
@@ -585,13 +602,13 @@ class GraphBuilder:
         Args:
             nodes: Dictionary of graph nodes
             edges: List of graph edges
-            external_domains: Dictionary of external domain counts
+            external_domains: Dictionary of external URL counts (now tracks individual URLs)
             
         Returns:
             Dictionary containing calculated metrics
         """
         total_posts = len([n for n in nodes.values() if n['type'] == 'blog_post'])
-        total_internal_links = len(edges)
+        total_internal_links = len([edge for edge in edges if edge['type'] == 'internal'])
         total_external_links = sum(external_domains.values())
         
         # Find most connected posts
@@ -607,9 +624,17 @@ class GraphBuilder:
             if n['type'] == 'blog_post' and n['in_degree'] == 0 and n['out_degree'] == 0
         ]
         
-        # Most referenced external domains
+        # Most referenced external URLs (was domains)
+        # Group by domain for display purposes
+        domain_counts = {}
+        for url, count in external_domains.items():
+            domain = urlparse(url).netloc
+            if domain not in domain_counts:
+                domain_counts[domain] = 0
+            domain_counts[domain] += count
+        
         top_external_domains = sorted(
-            external_domains.items(),
+            domain_counts.items(),
             key=lambda x: x[1],
             reverse=True
         )[:5]
