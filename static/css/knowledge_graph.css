@@ -1,0 +1,172 @@
+/* Knowledge Graph Component Styles */
+.knowledge-graph-section {
+    margin: 1rem 0 2rem 0;
+}
+
+.blog-description {
+    color: var(--text-color-alt);
+    margin-bottom: 1.5rem;
+    font-style: italic;
+}
+
+#knowledge-graph-container {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    border: 1px solid var(--background-color-alt);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+#loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--background-color);
+    color: var(--text-color);
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    display: none;
+}
+
+#knowledge-graph-svg {
+    width: 100%;
+    height: 100%;
+    background: var(--background-color);
+}
+
+/* Node and link styles */
+.node {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.node:hover {
+    stroke-width: 3px;
+    stroke: var(--text-color);
+}
+
+.node.highlighted {
+    stroke-width: 3px;
+    stroke: #ff6b6b;
+}
+
+/* External link node specific styles */
+.node.external_link {
+    stroke-dasharray: 3,3;
+    stroke-width: 2px;
+}
+
+.node.external_link:hover {
+    stroke-width: 4px;
+    stroke: var(--text-color);
+}
+
+.link {
+    transition: stroke-opacity 0.2s ease;
+}
+
+.link.highlighted {
+    stroke-opacity: 1;
+    stroke-width: 3px;
+}
+
+/* External link edge specific styles */
+.link.external {
+    stroke-dasharray: 5,5;
+    stroke-opacity: 0.8;
+}
+
+/* Node labels */
+.node-label {
+    font-family: var(--font-family);
+    font-size: 11px;
+    font-weight: var(--font-weight-medium);
+    text-anchor: middle;
+    pointer-events: none;
+    fill: var(--text-color);
+    stroke: var(--background-color);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+    paint-order: stroke;
+}
+
+/* Blog post number labels - distinct styling */
+.node-label.blog-post-number {
+    font-weight: bold;
+    font-size: 13px;
+    fill: var(--text-color);
+    stroke: var(--background-color);
+    stroke-width: 4px;
+    letter-spacing: 0.5px;
+}
+
+.node-label.highlighted {
+    fill: #ff6b6b;
+    stroke: var(--background-color);
+}
+
+.node-label.blog-post-number.highlighted {
+    fill: #ff6b6b;
+    font-weight: bold;
+}
+
+/* Simple Tooltip styles */
+.svg-tooltip {
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.tooltip-background {
+    fill: var(--background-color);
+    stroke: var(--text-color);
+    stroke-width: 1px;
+    rx: 4;
+    ry: 4;
+    opacity: 0.95;
+}
+
+.svg-tooltip text {
+    font-family: var(--font-family);
+    font-size: 12px;
+    fill: var(--text-color);
+    text-anchor: middle;
+    dominant-baseline: middle;
+}
+
+.svg-tooltip.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.svg-tooltip.visible {
+    opacity: 1;
+}
+
+/* Effects */
+.ripple-effect {
+    fill: none;
+    stroke: var(--text-color);
+    stroke-width: 2px;
+    opacity: 0.6;
+}
+
+/* Force simulation adjustments */
+.links line {
+    stroke-linecap: round;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #knowledge-graph-container {
+        height: 400px;
+    }
+    
+    .node-label {
+        font-size: 10px;
+    }
+}

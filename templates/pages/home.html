@@ -26,6 +26,7 @@
     </p>
     <h2 id="blog">Blog</h2>
     {% if blog_posts %}
+        {% include 'components/knowledge_graph_component.html' %}
         <table class="blog-posts-table">
             <tbody>
                 {% for post in blog_posts %}

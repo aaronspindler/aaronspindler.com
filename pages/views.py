@@ -1,13 +1,17 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.template import TemplateDoesNotExist
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 
 from pages.models import PageVisit
 from pages.utils import get_blog_from_template_name, get_books
+from pages.knowledge_graph import build_knowledge_graph, get_post_graph
 
 import os
 from django.conf import settings
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -80,3 +84,66 @@ def render_blog_template(request, template_name):
         return render(request, "_blog_base.html", blog_data)
     except TemplateDoesNotExist:
         return render(request, "404.html")
+
+@require_http_methods(["GET", "POST"])
+@csrf_exempt
+def knowledge_graph_api(request):
+    """API endpoint for knowledge graph data."""
+    try:
+        graph_data = _get_graph_data(request)
+        
+        response_data = {
+            'status': 'success',
+            'data': graph_data,
+            'metadata': {
+                'nodes_count': len(graph_data.get('nodes', [])),
+                'edges_count': len(graph_data.get('edges', [])),
+                'has_errors': bool(graph_data.get('errors', []))
+            }
+        }
+        
+        return JsonResponse(response_data)
+        
+    except ValueError as e:
+        return JsonResponse({'error': str(e)}, status=400)
+    except Exception as e:
+        logger.error(f"Error in knowledge graph API: {str(e)}")
+        return JsonResponse({'status': 'error', 'error': str(e)}, status=500)
+
+
+def _get_graph_data(request):
+    """Get graph data based on request parameters."""
+    if request.method == "POST":
+        data = json.loads(request.body) if request.body else {}
+        operation = data.get('operation', 'full_graph')
+        
+        operations = {
+            'refresh': lambda: build_knowledge_graph(force_refresh=True),
+            'post_graph': lambda: _get_post_graph_from_data(data),
+            'full_graph': lambda: build_knowledge_graph()
+        }
+        
+        handler = operations.get(operation, operations['full_graph'])
+        return handler()
+    
+    # GET request
+    template_name = request.GET.get('post')
+    if template_name:
+        depth = int(request.GET.get('depth', 1))
+        return get_post_graph(template_name, depth)
+    
+    force_refresh = request.GET.get('refresh', '').lower() == 'true'
+    return build_knowledge_graph(force_refresh)
+
+
+def _get_post_graph_from_data(data):
+    """Helper to get post graph from POST data."""
+    template_name = data.get('template_name')
+    if not template_name:
+        raise ValueError('template_name required for post_graph operation')
+    
+    depth = data.get('depth', 1)
+    return get_post_graph(template_name, depth)
+
+
+
