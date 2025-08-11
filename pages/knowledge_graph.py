@@ -17,12 +17,14 @@ from .utils import get_blog_from_template_name
 
 logger = logging.getLogger(__name__)
 
+CACHE_TIMEOUT = 1
+
 
 class LinkParser:
     """Service for parsing HTML content and extracting links from blog posts."""
     
     INTERNAL_BLOG_PATTERN = re.compile(r'/b/(\d{4}_[^/]+)/?')
-    CACHE_TIMEOUT = 1 # This is cache of 1 second, increase if there are performance issues
+    CACHE_TIMEOUT = CACHE_TIMEOUT # This is cache of 1 second, increase if there are performance issues
     CONTEXT_LENGTH = 100
     
     def __init__(self, base_url: str = ''):
@@ -195,8 +197,8 @@ class LinkParser:
 class GraphBuilder:
     """Service for building graph data structures from parsed link data."""
     
-    GRAPH_CACHE_TIMEOUT = 3600  # 1 hour
-    SUBGRAPH_CACHE_TIMEOUT = 1800  # 30 minutes
+    GRAPH_CACHE_TIMEOUT = CACHE_TIMEOUT
+    SUBGRAPH_CACHE_TIMEOUT = CACHE_TIMEOUT
     EXTERNAL_NODE_ID_LENGTH = 12
     MAX_PATH_SNIPPET_LENGTH = 30
     TOP_ITEMS_LIMIT = 5
