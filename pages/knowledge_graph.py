@@ -22,7 +22,7 @@ class LinkParser:
     """Service for parsing HTML content and extracting links from blog posts."""
     
     INTERNAL_BLOG_PATTERN = re.compile(r'/b/(\d{4}_[^/]+)/?')
-    CACHE_TIMEOUT = 86400  # 24 hours
+    CACHE_TIMEOUT = 1 # This is cache of 1 second, increase if there are performance issues
     CONTEXT_LENGTH = 100
     
     def __init__(self, base_url: str = ''):
