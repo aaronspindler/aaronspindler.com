@@ -15,8 +15,6 @@
     margin: 1rem 0 2rem 0;
 }
 
-
-
 .blog-description {
     color: var(--text-color-alt);
     margin-bottom: 1.5rem;
@@ -109,9 +107,24 @@
     paint-order: stroke;
 }
 
+/* Blog post number labels - distinct styling */
+.node-label.blog-post-number {
+    font-weight: bold;
+    font-size: 13px;
+    fill: #2196F3;
+    stroke: var(--background-color);
+    stroke-width: 4px;
+    letter-spacing: 0.5px;
+}
+
 .node-label.highlighted {
     fill: #ff6b6b;
     stroke: var(--background-color);
+}
+
+.node-label.blog-post-number.highlighted {
+    fill: #ff6b6b;
+    font-weight: bold;
 }
 
 /* Tooltip styles */
@@ -133,19 +146,14 @@
     stroke-width: 1px;
 }
 
-/* Chrome-specific tooltip text containment */
-.svg-tooltip text {
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
-    max-width: 100%;
-    word-wrap: break-word;
-}
-
-/* Additional Chrome compatibility */
 .svg-tooltip text {
     dominant-baseline: middle;
     text-anchor: middle;
+}
+
+.svg-tooltip.hidden {
+    opacity: 0;
+    pointer-events: none;
 }
 
 /* Effects */
@@ -161,8 +169,6 @@
     stroke-linecap: round;
 }
 
-
-
 /* Responsive adjustments */
 @media (max-width: 768px) {
     #knowledge-graph-container {
@@ -172,26 +178,61 @@
     .node-label {
         font-size: 10px;
     }
-    
-
 }
 </style>
 
 <script>
 class HomepageKnowledgeGraph {
     constructor() {
+        // Configuration constants
+        this.CONFIG = {
+            // Dimensions
+            DEFAULT_WIDTH: 800,
+            DEFAULT_HEIGHT: 500,
+            
+            // Tooltip settings
+            TOOLTIP_PADDING: 16,
+            TOOLTIP_LINE_HEIGHT: 20,
+            TOOLTIP_MAX_WIDTH: 350,
+            TOOLTIP_BLOG_MAX_WIDTH: 450,
+            TOOLTIP_MIN_WIDTH: 80,
+            TOOLTIP_ARROW_SIZE: 8,
+            TOOLTIP_OFFSET: 15,
+            TOOLTIP_MARGIN: 15,
+            
+            // Font sizes
+            TITLE_FONT_SIZE: '16px',
+            SUBTITLE_FONT_SIZE: '14px',
+            
+            // Node settings
+            NODE_MIN_RADIUS: 6,
+            NODE_MAX_RADIUS: 16,
+            NODE_EXTERNAL_RADIUS: 8,
+            NODE_BASE_RADIUS: 5,
+            NODE_CONNECTION_MULTIPLIER: 1.5,
+            
+            // Text display settings
+            LABEL_MAX_LENGTH: 12,
+            LABEL_SHORT_LENGTH: 8,
+            BLOG_ENTRY_PATTERN: /^(\d{4})/,
+            
+            // Animation settings
+            RIPPLE_DURATION: 1000,
+            RIPPLE_RADIUS: 50,
+            CLICK_DELAY: 200,
+            RESIZE_DEBOUNCE: 150
+        };
+        
         this.svg = d3.select("#knowledge-graph-svg");
         this.container = d3.select("#knowledge-graph-container");
         this.loading = d3.select("#loading");
         
         // Get container dimensions
         const containerRect = this.container.node().getBoundingClientRect();
-        this.width = containerRect.width || 800;
-        this.height = containerRect.height || 500;
+        this.width = containerRect.width || this.CONFIG.DEFAULT_WIDTH;
+        this.height = containerRect.height || this.CONFIG.DEFAULT_HEIGHT;
         
-        // Visibility properties removed - no longer needed without UI controls
-        
-        // Constants
+        // Colors
         this.COLORS = {
             blogPost: '#4fc3f7',
             externalLink: '#ff9800',
@@ -199,6 +240,7 @@ class HomepageKnowledgeGraph {
             white: '#fff'
         };
         
+        // Force simulation configuration
         this.FORCE_CONFIG = {
             linkDistance: 80,
             chargeStrength: -250,
@@ -213,7 +255,7 @@ class HomepageKnowledgeGraph {
         this.resizeTimeout = null;
         window.addEventListener('resize', () => {
             clearTimeout(this.resizeTimeout);
-            this.resizeTimeout = setTimeout(() => this.handleResize(), 150);
+            this.resizeTimeout = setTimeout(() => this.handleResize(), this.CONFIG.RESIZE_DEBOUNCE);
         });
     }
     
@@ -253,8 +295,6 @@ class HomepageKnowledgeGraph {
             .append("feMergeNode")
             .attr("in", "coloredBlur");
     }
-    
-
     
     async loadData(forceRefresh = false) {
         try {
@@ -370,28 +410,43 @@ class HomepageKnowledgeGraph {
             .selectAll("text")
             .data(nodes)
             .enter().append("text")
-            .attr("class", "node-label")
+            .attr("class", d => {
+                // Add special class for blog post numbers
+                if (d.type === 'blog_post') {
+                    return "node-label blog-post-number";
+                }
+                return "node-label";
+            })
             .attr("fill", "currentColor")
-            .style("fill", "var(--text-color)")
+            .style("fill", d => {
+                // Different color for blog post numbers
+                if (d.type === 'blog_post') {
+                    return "#2196F3";
+                }
+                return "var(--text-color)";
+            })
             .style("stroke", "var(--background-color)")
-            .style("stroke-width", "3px")
+            .style("stroke-width", d => d.type === 'blog_post' ? "4px" : "3px")
             .style("stroke-linejoin", "round")
             .style("paint-order", "stroke")
             .text(d => this.getNodeLabel(d))
-            .style("display", "block");  // Always show labels
+            .style("display", "block");
     }
     
     addEventHandlers() {
         this.node
             .on("mouseover", (event, d) => {
+                console.log('Mouseover on node:', d.id, d);
                 this.showEnhancedTooltip(event, d);
                 this.highlightConnections(d);
             })
             .on("mouseout", (event, d) => {
+                console.log('Mouseout from node:', d.id);
                 this.hideTooltip();
                 this.clearHighlights();
             })
             .on("click", (event, d) => {
+                console.log('Click on node:', d.id);
                 this.handleEnhancedNodeClick(event, d);
             });
     }
@@ -415,23 +470,26 @@ class HomepageKnowledgeGraph {
     getNodeRadius(node) {
         if (node.type === 'blog_post') {
             const connections = (node.in_degree || 0) + (node.out_degree || 0);
-            return Math.max(6, Math.min(16, 6 + connections * 1.5));
+            return Math.max(
+                this.CONFIG.NODE_MIN_RADIUS, 
+                Math.min(this.CONFIG.NODE_MAX_RADIUS, this.CONFIG.NODE_MIN_RADIUS + connections * this.CONFIG.NODE_CONNECTION_MULTIPLIER)
+            );
         } else if (node.type === 'external_link') {
-            // External links get a smaller, consistent radius
-            return 8;
+            return this.CONFIG.NODE_EXTERNAL_RADIUS;
         }
-        return 5;
+        return this.CONFIG.NODE_BASE_RADIUS;
     }
     
     getNodeLabel(node) {
         if (node.type === 'blog_post') {
-            const entryMatch = node.id.match(/^(\d{4})/);
-            return entryMatch ? entryMatch[1] : node.label.substring(0, 8);
+            const entryMatch = node.id.match(this.CONFIG.BLOG_ENTRY_PATTERN);
+            return entryMatch ? entryMatch[1] : node.label.substring(0, this.CONFIG.LABEL_SHORT_LENGTH);
         } else if (node.type === 'external_link') {
-            // For external links, show the domain name (truncated if too long)
-            return node.domain ? node.domain.substring(0, 12) : node.label.substring(0, 8);
+            return node.domain ? 
+                node.domain.substring(0, this.CONFIG.LABEL_MAX_LENGTH) : 
+                node.label.substring(0, this.CONFIG.LABEL_SHORT_LENGTH);
         }
-        return node.domain || node.label.substring(0, 8);
+        return node.domain || node.label.substring(0, this.CONFIG.LABEL_SHORT_LENGTH);
     }
     
     createDragBehavior() {
@@ -452,12 +510,26 @@ class HomepageKnowledgeGraph {
             });
     }
     
+    // Tooltip methods
     showEnhancedTooltip(event, node) {
         // Clear existing tooltip content
         this.tooltipGroup.selectAll("*").remove();
         
-        // Enhanced tooltip content
+        const tooltipContent = this.prepareTooltipContent(node);
+        const dimensions = this.calculateTooltipDimensions(tooltipContent, node);
+        const position = this.calculateTooltipPosition(node, dimensions);
+        
+        this.renderTooltip(position, dimensions, tooltipContent);
+        
+        // Show tooltip - remove hidden class and reset opacity
+        this.tooltipGroup.classed("hidden", false);
+        this.tooltipGroup.classed("visible", true);
+        this.tooltipGroup.style("opacity", 1);
+    }
+    
+    prepareTooltipContent(node) {
         let title, subtitle;
+        
         if (node.type === 'blog_post') {
             title = node.label;
             subtitle = '';
@@ -469,153 +541,170 @@ class HomepageKnowledgeGraph {
             subtitle = '';
         }
         
-        // Get node position in SVG coordinates
+        return { title, subtitle };
+    }
+    
+    calculateTooltipDimensions(content, node) {
+        // Set max width based on node type
+        const maxWidth = node.type === 'blog_post' ?
+            this.CONFIG.TOOLTIP_BLOG_MAX_WIDTH :
+            this.CONFIG.TOOLTIP_MAX_WIDTH;
+        
+        // Calculate wrapped text dimensions
+        const titleLines = this.wrapText(content.title, maxWidth - this.CONFIG.TOOLTIP_PADDING * 2);
+        const subtitleLines = content.subtitle ?
+            this.wrapText(content.subtitle, maxWidth - this.CONFIG.TOOLTIP_PADDING * 2) : [];
+        
+        // Store wrapped lines for later use
+        content.titleLines = titleLines;
+        content.subtitleLines = subtitleLines;
+        
+        // Calculate dimensions based on wrapped text
+        const lineHeight = 20;
+        const titleHeight = titleLines.length * lineHeight;
+        const subtitleHeight = subtitleLines.length * lineHeight;
+        
+        const tooltipHeight = titleHeight +
+            (content.subtitle ? subtitleHeight + 10 : 0) +
+            this.CONFIG.TOOLTIP_PADDING * 2 + 8;
+        
+        return {
+            width: maxWidth,
+            height: tooltipHeight,
+            titleHeight: titleHeight,
+            subtitleHeight: subtitleHeight,
+            lineHeight: lineHeight
+        };
+    }
+    
+    wrapText(text, maxWidth) {
+        // Simple text wrapping algorithm
+        const words = text.split(' ');
+        const lines = [];
+        let currentLine = '';
+        
+        // Approximate character width
+        const charWidth = 8;
+        const maxCharsPerLine = Math.floor(maxWidth / charWidth);
+        
+        words.forEach(word => {
+            const testLine = currentLine ? currentLine + ' ' + word : word;
+            if (testLine.length <= maxCharsPerLine) {
+                currentLine = testLine;
+            } else {
+                if (currentLine) {
+                    lines.push(currentLine);
+                }
+                currentLine = word;
+            }
+        });
+        
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+        
+        return lines.length > 0 ? lines : [text];
+    }
+    
+    calculateTooltipPosition(node, dimensions) {
         const nodeX = node.x || 0;
         const nodeY = node.y || 0;
         
-        // Create temporary text elements to measure dimensions with consistent styling
-        const tempTitle = this.tooltipGroup.append("text")
-            .style("font-weight", "bold")
-            .style("font-size", "16px")  // Increased from 13px for better readability
-            .style("font-family", "var(--font-family)")
-            .text(title)
-            .style("opacity", 0);
+        // Position tooltip above the node
+        let tooltipX = nodeX - dimensions.width / 2;
+        let tooltipY = nodeY - this.getNodeRadius(node) - dimensions.height - this.CONFIG.TOOLTIP_OFFSET;
         
-        const tempSubtitle = this.tooltipGroup.append("text")
-            .style("font-size", "14px")  // Increased from 11px for better readability
-            .style("font-family", "var(--font-family)")
-            .text(subtitle)
-            .style("opacity", 0);
+        // Ensure tooltip stays within viewport
+        tooltipX = Math.max(
+            this.CONFIG.TOOLTIP_MARGIN, 
+            Math.min(tooltipX, this.width - dimensions.width - this.CONFIG.TOOLTIP_MARGIN)
+        );
+        tooltipY = Math.max(this.CONFIG.TOOLTIP_MARGIN, tooltipY);
         
-        // Get bounding boxes with Chrome-safe measurements
-        const titleBBox = tempTitle.node().getBBox();
-        const subtitleBBox = tempSubtitle.node().getBBox();
-        
-        // Add Chrome-specific margin for text measurement accuracy
-        // Chrome can have different text rendering metrics than Safari
-        const chromeMargin = 6;
-        const adjustedTitleWidth = titleBBox.width + chromeMargin;
-        const adjustedSubtitleWidth = subtitleBBox.width + chromeMargin;
-        
-        // Additional Chrome safety check - ensure minimum width
-        const minWidth = 80;
-        const safeTitleWidth = Math.max(adjustedTitleWidth, minWidth);
-        const safeSubtitleWidth = Math.max(adjustedSubtitleWidth, minWidth);
-        
-        tempTitle.remove();
-        tempSubtitle.remove();
-        
-        // Calculate tooltip dimensions with Chrome-safe margins
-        const padding = 16; // Increased padding for Chrome
-        const lineHeight = 20; // Increased line height
-        const maxWidth = 350; // Increased from 200px to accommodate longer titles
-        
-        // Calculate width with Chrome-safe margins and max width constraint
-        let tooltipWidth = Math.max(safeTitleWidth, safeSubtitleWidth) + padding * 2;
-        tooltipWidth = Math.min(tooltipWidth, maxWidth);
-        
-        // For blog posts, never truncate the title
-        let displayTitle = title;
-        let displaySubtitle = subtitle;
-        
-        // Only truncate if absolutely necessary (for very long external link domains)
-        if (node.type !== 'blog_post' && safeTitleWidth > maxWidth - padding * 2) {
-            // Only truncate non-blog post titles if they're extremely long
-            const maxChars = Math.floor((maxWidth - padding * 2) / 10); // Approximate char width
-            displayTitle = title.length > maxChars ? title.substring(0, maxChars - 3) + '...' : title;
-        }
-        
-        // Adjust tooltip width to fit the content (especially for blog posts)
-        if (node.type === 'blog_post') {
-            tooltipWidth = Math.min(safeTitleWidth + padding * 2, 450); // Allow up to 450px for blog posts
-        }
-        
-        if (safeSubtitleWidth > maxWidth - padding * 2) {
-            // Truncate subtitle to fit within max width (only for external links label)
-            const maxChars = Math.floor((maxWidth - padding * 2) / 9); // Approximate char width for smaller font
-            displaySubtitle = subtitle.length > maxChars ? subtitle.substring(0, maxChars - 3) + '...' : subtitle;
-        }
-        
-        const tooltipHeight = titleBBox.height + (subtitle ? subtitleBBox.height + lineHeight : 0) + padding * 2 + 8;
-        
-        // Position tooltip above the node with better positioning
-        let tooltipX = nodeX - tooltipWidth / 2;
-        let tooltipY = nodeY - this.getNodeRadius(node) - tooltipHeight - 15;
-        
-        // Ensure tooltip stays within viewport with Chrome-safe margins
-        tooltipX = Math.max(15, Math.min(tooltipX, this.width - tooltipWidth - 15));
-        tooltipY = Math.max(15, tooltipY);
-        
-        // Create enhanced tooltip background with glow
+        return { x: tooltipX, y: tooltipY, nodeX, nodeY };
+    }
+    
+    renderTooltip(position, dimensions, content) {
+        // Render background
         this.tooltipGroup.append("rect")
             .attr("class", "tooltip-background")
-            .attr("x", tooltipX)
-            .attr("y", tooltipY)
-            .attr("width", tooltipWidth)
-            .attr("height", tooltipHeight)
+            .attr("x", position.x)
+            .attr("y", position.y)
+            .attr("width", dimensions.width)
+            .attr("height", dimensions.height)
             .style("filter", "url(#glow)");
         
-        // Create tooltip arrow
-        const arrowSize = 8;
-        const arrowX = nodeX;
-        const arrowY = tooltipY + tooltipHeight;
-        
+        // Render arrow
+        const arrowY = position.y + dimensions.height;
         this.tooltipGroup.append("polygon")
             .attr("class", "tooltip-arrow")
-            .attr("points", `${arrowX},${arrowY + arrowSize} ${arrowX - arrowSize},${arrowY} ${arrowX + arrowSize},${arrowY}`)
+            .attr("points", `${position.nodeX},${arrowY + this.CONFIG.TOOLTIP_ARROW_SIZE} ${position.nodeX - this.CONFIG.TOOLTIP_ARROW_SIZE},${arrowY} ${position.nodeX + this.CONFIG.TOOLTIP_ARROW_SIZE},${arrowY}`)
             .style("filter", "url(#glow)");
         
-        // Create title text with Chrome-safe positioning
-        this.tooltipGroup.append("text")
-            .attr("x", tooltipX + tooltipWidth / 2)
-            .attr("y", tooltipY + padding + titleBBox.height)
+        // Render title with wrapped text
+        const titleText = this.tooltipGroup.append("text")
+            .attr("x", position.x + dimensions.width / 2)
+            .attr("y", position.y + this.CONFIG.TOOLTIP_PADDING)
             .style("font-weight", "bold")
-            .style("font-size", "16px")  // Increased from 13px
+            .style("font-size", this.CONFIG.TITLE_FONT_SIZE)
             .style("font-family", "var(--font-family)")
             .style("fill", "var(--text-color)")
             .style("text-anchor", "middle")
-            .style("dominant-baseline", "hanging")
-            .style("pointer-events", "none")
-            .text(displayTitle);
+            .style("pointer-events", "none");
         
-        // Create subtitle text only if subtitle exists
-        if (subtitle) {
-            this.tooltipGroup.append("text")
-                .attr("x", tooltipX + tooltipWidth / 2)
-                .attr("y", tooltipY + padding + titleBBox.height + lineHeight)
-                .style("font-size", "14px")  // Increased from 11px
+        // Add each line as a tspan element for proper wrapping
+        content.titleLines.forEach((line, i) => {
+            titleText.append("tspan")
+                .attr("x", position.x + dimensions.width / 2)
+                .attr("dy", i === 0 ? 0 : dimensions.lineHeight)
+                .text(line);
+        });
+        
+        // Render subtitle if present with wrapped text
+        if (content.subtitle && content.subtitleLines) {
+            const subtitleText = this.tooltipGroup.append("text")
+                .attr("x", position.x + dimensions.width / 2)
+                .attr("y", position.y + this.CONFIG.TOOLTIP_PADDING + dimensions.titleHeight + 10)
+                .style("font-size", this.CONFIG.SUBTITLE_FONT_SIZE)
                 .style("font-family", "var(--font-family)")
                 .style("opacity", "0.8")
                 .style("fill", "var(--text-color)")
                 .style("text-anchor", "middle")
-                .style("dominant-baseline", "hanging")
-                .style("pointer-events", "none")
-                .text(displaySubtitle);
+                .style("pointer-events", "none");
+            
+            content.subtitleLines.forEach((line, i) => {
+                subtitleText.append("tspan")
+                    .attr("x", position.x + dimensions.width / 2)
+                    .attr("dy", i === 0 ? 0 : dimensions.lineHeight)
+                    .text(line);
+            });
         }
-        
-        // Show tooltip with enhanced animation
-        this.tooltipGroup.classed("visible", true);
     }
     
     hideTooltip() {
+        // Remove visible class
         this.tooltipGroup.classed("visible", false);
+        // Add hidden class for opacity transition
+        this.tooltipGroup.classed("hidden", true);
+        // Clear all tooltip content
+        this.tooltipGroup.selectAll("*").remove();
+        // Reset opacity
+        this.tooltipGroup.style("opacity", 0);
     }
     
     handleEnhancedNodeClick(event, node) {
         // Create ripple effect
         this.createRippleEffect(node.x, node.y);
         
-        // Enhanced click handling
+        // Navigate based on node type
         if (node.type === 'blog_post') {
-            // Navigate to blog post with smooth transition
             setTimeout(() => {
                 window.open(`/b/${node.id}/`, '_blank');
-            }, 200);
+            }, this.CONFIG.CLICK_DELAY);
         } else if (node.url) {
-            // Open external link
             setTimeout(() => {
                 window.open(node.url, '_blank');
-            }, 200);
+            }, this.CONFIG.CLICK_DELAY);
         }
     }
     
@@ -633,9 +722,9 @@ class HomepageKnowledgeGraph {
         
         // Animate ripple
         ripple.transition()
-            .duration(1000)
+            .duration(this.CONFIG.RIPPLE_DURATION)
             .ease(d3.easeCircleOut)
-            .attr("r", 50)
+            .attr("r", this.CONFIG.RIPPLE_RADIUS)
             .style("opacity", 0)
             .remove();
     }
@@ -686,8 +775,6 @@ class HomepageKnowledgeGraph {
         }
     }
     
-    // Visibility toggle methods removed - no longer needed without UI controls
-    
     handleResize() {
         this.width = this.container.node().clientWidth;
         this.height = this.container.node().clientHeight;
@@ -700,12 +787,10 @@ class HomepageKnowledgeGraph {
                 .alpha(0.3)
                 .restart();
         }
-            }
     }
-    
+}
 
-    
-    // Initialize the visualization when the page loads
+// Initialize the visualization when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     try {
         new HomepageKnowledgeGraph();
