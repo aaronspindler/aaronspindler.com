@@ -1,11 +1,137 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Enhanced Dependabot configuration for better dependency management
+# See: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
 updates:
-  - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "aaronspindler"
+    assignees:
+      - "aaronspindler"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "python"
+      - "auto-merge"
+    ignore:
+      # Ignore major version updates for critical packages
+      - dependency-name: "django"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "psycopg2-binary"
+        update-types: ["version-update:semver-major"]
+    # Group minor and patch updates together
+    groups:
+      python-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          - "django"
+          - "psycopg2-binary"
+    # Enable auto-merge for passing checks
+    auto-merge: true
+    # Only auto-merge when CI passes
+    auto-merge-options:
+      required-status_checks:
+        - "test-and-check"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "aaronspindler"
+    assignees:
+      - "aaronspindler"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "auto-merge"
+    groups:
+      actions:
+        patterns:
+          - "*"
+    # Enable auto-merge for passing checks
+    auto-merge: true
+    # Only auto-merge when CI passes
+    auto-merge-options:
+      required_status_checks:
+        - "test-and-check"
+
+  # Docker (if you add Dockerfile dependencies)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "11:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "aaronspindler"
+    assignees:
+      - "aaronspindler"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "auto-merge"
+    # Enable auto-merge for passing checks
+    auto-merge: true
+    # Only auto-merge when CI passes
+    auto-merge-options:
+      required_status_checks:
+        - "test-and-check"
+
+  # Security updates (runs daily for critical security patches)
+  - package-ecosystem: "pip"
+    directory: "/"
     schedule:
       interval: "daily"
+      time: "08:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "aaronspindler"
+    assignees:
+      - "aaronspindler"
+    commit-message:
+      prefix: "security"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "security"
+      - "python"
+      - "auto-merge"
+    # Only security updates
+    update-types:
+      - "security"
+    # Enable auto-merge for passing checks
+    auto-merge: true
+    # Only auto-merge when CI passes
+    auto-merge-options:
+      required_status_checks:
+        - "test-and-check"
