@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from pages.knowledge_graph import build_knowledge_graph, clear_knowledge_graph_cache
+from pages.knowledge_graph import build_knowledge_graph
 
 
 class Command(BaseCommand):
@@ -18,11 +18,6 @@ class Command(BaseCommand):
         )
         
         try:
-            # Clear cache first if force is specified
-            if options['force']:
-                clear_knowledge_graph_cache()
-                self.stdout.write('Cleared existing cache...')
-            
             # Rebuild the graph
             graph_data = build_knowledge_graph(force_refresh=True)
             

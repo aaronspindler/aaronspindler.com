@@ -6,7 +6,7 @@ from django.views.decorators.http import require_http_methods
 
 from pages.models import PageVisit
 from pages.utils import get_blog_from_template_name, get_books
-from pages.knowledge_graph import build_knowledge_graph, get_post_graph, clear_knowledge_graph_cache
+from pages.knowledge_graph import build_knowledge_graph, get_post_graph
 
 import os
 from django.conf import settings
@@ -144,41 +144,4 @@ def knowledge_graph_api(request):
         }, status=500)
 
 
-@require_http_methods(["POST"])
-@csrf_exempt
-def clear_cache_endpoint(request):
-    """
-    Endpoint to clear knowledge graph cache.
-    Secured with a simple authorization token.
-    """
-    try:
-        # Check for authorization token
-        auth_token = request.headers.get('X-Cache-Clear-Token') or request.POST.get('token')
-        expected_token = os.getenv('CACHE_CLEAR_TOKEN')
-        
-        if not expected_token:
-            return JsonResponse({
-                'status': 'error',
-                'error': 'Cache clearing not configured'
-            }, status=503)
-        
-        if not auth_token or auth_token != expected_token:
-            return JsonResponse({
-                'status': 'error',
-                'error': 'Unauthorized'
-            }, status=401)
-        
-        # Clear the cache
-        clear_knowledge_graph_cache()
-        
-        return JsonResponse({
-            'status': 'success',
-            'message': 'Knowledge graph cache cleared successfully'
-        })
-        
-    except Exception as e:
-        logger.error(f"Error clearing cache via endpoint: {str(e)}")
-        return JsonResponse({
-            'status': 'error',
-            'error': str(e)
-        }, status=500)
+

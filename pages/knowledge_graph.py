@@ -647,26 +647,3 @@ def get_post_graph(template_name: str, depth: int = 1) -> Dict:
     return graph_builder.get_post_connections(template_name, depth)
 
 
-def clear_knowledge_graph_cache():
-    """
-    Clear all knowledge graph related cache entries.
-    """
-    # Clear known cache patterns
-    cache.delete('blog:graph:complete')
-    
-    # Clear individual post caches and their metadata
-    graph_builder = GraphBuilder()
-    blog_templates = graph_builder._get_all_blog_templates()
-    
-    for template_name in blog_templates:
-        # Individual post caches
-        post_cache_key = f'blog:links:{template_name}'
-        cache.delete(post_cache_key)
-        cache.delete(f'{post_cache_key}:meta')
-        
-        # Post graph caches (multiple depths)
-        for depth in range(1, 4):
-            post_graph_key = f'blog:graph:post:{template_name}:depth:{depth}'
-            cache.delete(post_graph_key)
-    
-    logger.info("Cleared all knowledge graph caches")

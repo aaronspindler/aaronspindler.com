@@ -149,17 +149,32 @@ class KnowledgeGraphVisualization {
         this.width = containerRect.width || 800;
         this.height = containerRect.height || 600;
         
-        console.log('[DEBUG] Container dimensions:', this.width, 'x', this.height);
-        
         this.showLabels = true;
         this.showExternal = true;
+        
+        // Constants
+        this.COLORS = {
+            blogPost: '#4fc3f7',
+            external: '#ff9800',
+            highlight: '#ff6b6b',
+            white: '#fff'
+        };
+        
+        this.FORCE_CONFIG = {
+            linkDistance: 100,
+            chargeStrength: -300,
+            collisionRadius: 25,
+            centerStrength: 0.1
+        };
         
         this.setupSVG();
         this.loadData();
         
-        // Handle window resize
+        // Handle window resize with debouncing
+        this.resizeTimeout = null;
         window.addEventListener('resize', () => {
-            this.handleResize();
+            clearTimeout(this.resizeTimeout);
+            this.resizeTimeout = setTimeout(() => this.handleResize(), 150);
         });
     }
     
@@ -180,15 +195,12 @@ class KnowledgeGraphVisualization {
         // Create main group for all graph elements
         this.g = this.svg.append("g");
         
-        // Create tooltip group (will be populated when showing tooltip)
+        // Create tooltip group
         this.tooltipGroup = this.svg.append("g")
             .attr("class", "svg-tooltip");
-        
-        console.log('[DEBUG] SVG setup complete. Width:', this.width, 'Height:', this.height);
     }
     
     async loadData(forceRefresh = false) {
-        console.log('[DEBUG] loadData called, forceRefresh:', forceRefresh);
         try {
             this.loading.style("display", "block");
             
@@ -196,80 +208,94 @@ class KnowledgeGraphVisualization {
                 '/api/knowledge-graph/?refresh=true' :
                 '/api/knowledge-graph/';
             
-            console.log('[DEBUG] Fetching from URL:', url);
             const response = await fetch(url);
-            console.log('[DEBUG] Response status:', response.status, 'OK:', response.ok);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const result = await response.json();
-            console.log('[DEBUG] API result:', result);
             
             if (result.status === 'success') {
-                console.log('[DEBUG] Success! Nodes:', result.data.nodes?.length, 'Edges:', result.data.edges?.length);
                 this.renderGraph(result.data);
             } else {
                 console.error('API error:', result.error);
             }
         } catch (error) {
-            console.error('[DEBUG] Failed to load graph data:', error);
-            console.error('[DEBUG] Error stack:', error.stack);
+            console.error('Failed to load graph data:', error);
         } finally {
             this.loading.style("display", "none");
         }
     }
     
     renderGraph(data) {
-        console.log('[DEBUG] renderGraph called with data:', data);
-        
         // Clear existing elements
         this.g.selectAll("*").remove();
         
         const { nodes, edges } = data;
-        console.log('[DEBUG] Nodes:', nodes, 'Edges:', edges);
         
         if (!nodes || nodes.length === 0) {
-            console.log('[DEBUG] No nodes found!');
             return;
         }
         
-        console.log('[DEBUG] Starting D3 force simulation...');
-        
-        // Initialize node positions to ensure they start within view
-        nodes.forEach((node, i) => {
-            const angle = (i / nodes.length) * 2 * Math.PI;
-            const radius = Math.min(this.width, this.height) * 0.3;
-            node.x = this.width / 2 + radius * Math.cos(angle);
-            node.y = this.height / 2 + radius * Math.sin(angle);
-        });
+        // Initialize node positions in a circle
+        this.initializeNodePositions(nodes);
         
         // Create force simulation
-        this.simulation = d3.forceSimulation(nodes)
-            .force("link", d3.forceLink(edges).id(d => d.id).distance(100))
-            .force("charge", d3.forceManyBody().strength(-300))
-            .force("center", d3.forceCenter(this.width / 2, this.height / 2))
-            .force("collision", d3.forceCollide().radius(25))
-            .force("x", d3.forceX(this.width / 2).strength(0.1))
-            .force("y", d3.forceY(this.height / 2).strength(0.1));
+        this.createForceSimulation(nodes, edges);
         
-        console.log('[DEBUG] Creating links for edges:', edges.length);
-        // Create links
+        // Create visual elements
+        this.createLinks(edges);
+        this.createNodes(nodes);
+        this.createLabels(nodes);
+        
+        // Add event handlers
+        this.addEventHandlers();
+        
+        // Start simulation
+        this.simulation.alpha(1).restart();
+        
+        this.updateExternalVisibility();
+    }
+    
+    initializeNodePositions(nodes) {
+        const radius = Math.min(this.width, this.height) * 0.3;
+        const centerX = this.width / 2;
+        const centerY = this.height / 2;
+        
+        nodes.forEach((node, i) => {
+            const angle = (i / nodes.length) * 2 * Math.PI;
+            node.x = centerX + radius * Math.cos(angle);
+            node.y = centerY + radius * Math.sin(angle);
+        });
+    }
+    
+    createForceSimulation(nodes, edges) {
+        this.simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(edges).id(d => d.id).distance(this.FORCE_CONFIG.linkDistance))
+            .force("charge", d3.forceManyBody().strength(this.FORCE_CONFIG.chargeStrength))
+            .force("center", d3.forceCenter(this.width / 2, this.height / 2))
+            .force("collision", d3.forceCollide().radius(this.FORCE_CONFIG.collisionRadius))
+            .force("x", d3.forceX(this.width / 2).strength(this.FORCE_CONFIG.centerStrength))
+            .force("y", d3.forceY(this.height / 2).strength(this.FORCE_CONFIG.centerStrength));
+        
+        // Update positions on simulation tick
+        this.simulation.on("tick", () => this.updatePositions());
+    }
+    
+    createLinks(edges) {
         this.link = this.g.append("g")
             .attr("class", "links")
             .selectAll("line")
             .data(edges)
             .enter().append("line")
             .attr("class", d => `link ${d.type}`)
-            .attr("stroke", d => d.type === 'internal' ? '#4fc3f7' : '#ff9800')
+            .attr("stroke", d => d.type === 'internal' ? this.COLORS.blogPost : this.COLORS.external)
             .attr("stroke-opacity", 0.6)
             .attr("stroke-width", d => d.type === 'internal' ? 2 : 1);
-        
-        console.log('[DEBUG] Created links:', this.link.size());
-        
-        console.log('[DEBUG] Creating nodes for:', nodes.length, 'nodes');
-        // Create nodes
+    }
+    
+    createNodes(nodes) {
         this.node = this.g.append("g")
             .attr("class", "nodes")
             .selectAll("circle")
@@ -277,14 +303,13 @@ class KnowledgeGraphVisualization {
             .enter().append("circle")
             .attr("class", d => `node ${d.type === 'blog_post' ? 'blog-post' : d.type}`)
             .attr("r", d => this.getNodeRadius(d))
-            .attr("fill", d => d.type === 'blog_post' ? '#4fc3f7' : '#ff9800')
-            .attr("stroke", "#fff")
+            .attr("fill", d => d.type === 'blog_post' ? this.COLORS.blogPost : this.COLORS.external)
+            .attr("stroke", this.COLORS.white)
             .attr("stroke-width", 1.5)
             .call(this.createDragBehavior());
-        
-        console.log('[DEBUG] Created nodes:', this.node.size());
-        
-        // Create labels with explicit styling
+    }
+    
+    createLabels(nodes) {
         this.labels = this.g.append("g")
             .selectAll("text")
             .data(nodes)
@@ -298,8 +323,9 @@ class KnowledgeGraphVisualization {
             .style("paint-order", "stroke")
             .text(d => this.getNodeLabel(d))
             .style("display", this.showLabels ? "block" : "none");
-        
-        // Add event handlers with enhanced features
+    }
+    
+    addEventHandlers() {
         this.node
             .on("mouseover", (event, d) => {
                 this.showEnhancedTooltip(event, d);
@@ -312,57 +338,22 @@ class KnowledgeGraphVisualization {
             .on("click", (event, d) => {
                 this.handleEnhancedNodeClick(event, d);
             });
+    }
+    
+    updatePositions() {
+        this.link
+            .attr("x1", d => d.source.x || 0)
+            .attr("y1", d => d.source.y || 0)
+            .attr("x2", d => d.target.x || 0)
+            .attr("y2", d => d.target.y || 0);
         
-        // Update positions on simulation tick
-        let tickCount = 0;
-        this.simulation.on("tick", () => {
-            if (tickCount < 5) {
-                console.log('[DEBUG] Tick', tickCount, '- sample node:', {
-                    id: nodes[0].id,
-                    x: nodes[0].x,
-                    y: nodes[0].y,
-                    vx: nodes[0].vx,
-                    vy: nodes[0].vy
-                });
-                console.log('[DEBUG] Sample link:', {
-                    source: typeof edges[0].source === 'object' ? edges[0].source.id : edges[0].source,
-                    target: typeof edges[0].target === 'object' ? edges[0].target.id : edges[0].target
-                });
-            }
-            tickCount++;
-            
-            this.link
-                .attr("x1", d => d.source.x || 0)
-                .attr("y1", d => d.source.y || 0)
-                .attr("x2", d => d.target.x || 0)
-                .attr("y2", d => d.target.y || 0);
-            
-            this.node
-                .attr("cx", d => d.x || 0)
-                .attr("cy", d => d.y || 0);
-            
-            this.labels
-                .attr("x", d => d.x || 0)
-                .attr("y", d => (d.y || 0) + 4);
-        });
+        this.node
+            .attr("cx", d => d.x || 0)
+            .attr("cy", d => d.y || 0);
         
-        // Check initial data
-        console.log('[DEBUG] Initial nodes data:', nodes.map(n => ({id: n.id, type: n.type})));
-        console.log('[DEBUG] Initial edges data:', edges.map(e => ({source: e.source, target: e.target, type: e.type})));
-        
-        // Force initial positions
-        this.simulation.alpha(1).restart();
-        console.log('[DEBUG] SVG dimensions:', this.width, 'x', this.height);
-        console.log('[DEBUG] Graph container g transform:', this.g.attr("transform"));
-        
-        // Check if elements are actually in the DOM
-        setTimeout(() => {
-            console.log('[DEBUG] Actual DOM nodes count:', this.svg.selectAll('circle.node').size());
-            console.log('[DEBUG] Actual DOM links count:', this.svg.selectAll('line.link').size());
-            console.log('[DEBUG] First node element:', this.svg.select('circle.node').node());
-        }, 1000);
-        
-        this.updateExternalVisibility();
+        this.labels
+            .attr("x", d => d.x || 0)
+            .attr("y", d => (d.y || 0) + 4);
     }
     
     getNodeRadius(node) {
@@ -375,7 +366,6 @@ class KnowledgeGraphVisualization {
     
     getNodeLabel(node) {
         if (node.type === 'blog_post') {
-            // Show entry number for blog posts
             const entryMatch = node.id.match(/^(\d{4})/);
             return entryMatch ? entryMatch[1] : node.label.substring(0, 10);
         }
@@ -539,7 +529,7 @@ class KnowledgeGraphVisualization {
         // Get the edges data from the simulation
         const edges = this.simulation ? this.simulation.force("link").links() : [];
         
-        edges.forEach((edge, i) => {
+        edges.forEach(edge => {
             const sourceId = edge.source.id || edge.source;
             const targetId = edge.target.id || edge.target;
             
@@ -634,12 +624,10 @@ class KnowledgeGraphVisualization {
 
 // Initialize the visualization when the page loads
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('[DEBUG] DOMContentLoaded - Initializing KnowledgeGraphVisualization');
     try {
         new KnowledgeGraphVisualization();
     } catch (error) {
-        console.error('[DEBUG] Failed to initialize visualization:', error);
-        console.error('[DEBUG] Error stack:', error.stack);
+        console.error('Failed to initialize visualization:', error);
     }
 });
 </script>
