@@ -1,146 +1,17 @@
 {% extends "_base.html" %}
 
-{% block title %}Knowledge Graph - Aaron Spindler{% endblock %}
-
-{% block extra_css %}
-<style>
-    .knowledge-graph-container {
-        width: 100%;
-        height: 600px;
-        min-height: 400px;
-        background: #0a0a0a;
-        border: 1px solid #222;
-        border-radius: 4px;
-        position: relative;
-        overflow: hidden;
-        margin-top: 20px;
-    }
-
-
-    .graph-loading {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: white;
-        font-size: 18px;
-        z-index: 5;
-    }
-
-    .svg-tooltip {
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.2s ease;
-    }
-
-    .svg-tooltip.visible {
-        opacity: 1;
-    }
-
-    .tooltip-background {
-        fill: rgba(0, 0, 0, 0.9);
-        stroke: #4fc3f7;
-        stroke-width: 1;
-        rx: 6;
-        ry: 6;
-        filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
-    }
-
-    .tooltip-arrow {
-        fill: rgba(0, 0, 0, 0.9);
-        stroke: #4fc3f7;
-        stroke-width: 1;
-    }
-
-    svg {
-        width: 100%;
-        height: 100%;
-        cursor: grab;
-    }
-
-    svg:active {
-        cursor: grabbing;
-    }
-
-    .node {
-        stroke: #fff;
-        stroke-width: 1.5px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-
-    .node:hover {
-        stroke-width: 3px;
-    }
-
-    .node.blog-post {
-        fill: #4fc3f7;
-    }
-
-    .node.external {
-        fill: #ff9800;
-    }
-
-    .link {
-        stroke: #666;
-        stroke-opacity: 0.6;
-        stroke-width: 1;
-    }
-
-    .link.internal {
-        stroke: #4fc3f7;
-        stroke-width: 2;
-    }
-
-    .link.external {
-        stroke: #ff9800;
-    }
-
-    .node-label {
-        fill: white !important;
-        color: white !important;
-        font-family: 'Arial', sans-serif;
-        font-size: 11px;
-        text-anchor: middle;
-        pointer-events: none;
-        user-select: none;
-    }
-
-    /* Ensure all SVG text elements are white */
-    svg text {
-        fill: white !important;
-        color: white !important;
-    }
-
-    .page-header h1 {
-        color: white;
-        margin-bottom: 10px;
-        font-size: 2.5em;
-        font-weight: normal;
-    }
-
-    .page-header p {
-        color: #999;
-        font-size: 0.95em;
-        line-height: 1.5;
-    }
-</style>
-{% endblock %}
+{% block title %}Knowledge Graph{% endblock %}
 
 {% block content %}
-<div class="page-header">
+<div>
     <h1>Knowledge Graph</h1>
-    <p>Interactive visualization of blog post connections. Drag to pan, scroll to zoom, click nodes to navigate.</p>
 </div>
 
-<div class="knowledge-graph-container">
-    <div class="graph-loading" id="loading">
+<div id="knowledge-graph-container">
+    <div id="loading">
         Loading knowledge graph...
     </div>
-    
-
-
-    <svg id="knowledge-graph-svg" style="background-color: #0a0a0a;"></svg>
+    <svg id="knowledge-graph-svg"></svg>
 </div>
 {% endblock %}
 
@@ -151,7 +22,7 @@
 class KnowledgeGraphVisualization {
     constructor() {
         this.svg = d3.select("#knowledge-graph-svg");
-        this.container = d3.select(".knowledge-graph-container");
+        this.container = d3.select("#knowledge-graph-container");
         this.loading = d3.select("#loading");
         
         // Get container dimensions
