@@ -19,68 +19,34 @@ logger = logging.getLogger(__name__)
 
 
 class LinkParser:
-    """
-    Service for parsing HTML content and extracting links from blog posts.
-    Identifies internal blog post links vs external links with context.
-    """
+    """Service for parsing HTML content and extracting links from blog posts."""
     
-    # Pattern to match internal blog links: /b/NNNN_*
     INTERNAL_BLOG_PATTERN = re.compile(r'/b/(\d{4}_[^/]+)/?')
-    
-    # Cache timeout in seconds (24 hours)
-    CACHE_TIMEOUT = 86400
+    CACHE_TIMEOUT = 86400  # 24 hours
+    CONTEXT_LENGTH = 100
     
     def __init__(self, base_url: str = ''):
-        """
-        Initialize the LinkParser.
-        
-        Args:
-            base_url: Base URL for the site (used for relative link resolution)
-        """
         self.base_url = base_url.rstrip('/')
         
     def parse_blog_post(self, template_name: str, force_refresh: bool = False) -> Dict:
-        """
-        Parse a single blog post and extract all links with context.
-        
-        Args:
-            template_name: The template name (e.g., '0001_what_even_is_this?')
-            force_refresh: If True, bypass cache and re-parse
-            
-        Returns:
-            Dictionary containing parsed link data:
-            {
-                'source_post': str,
-                'internal_links': List[Dict],
-                'external_links': List[Dict],
-                'parse_errors': List[str]
-            }
-        """
+        """Parse a single blog post and extract all links with context."""
         cache_key = f'blog:links:{template_name}'
         
-        logger.info(f"[DEBUG] parse_blog_post called for: {template_name}, force_refresh={force_refresh}")
-        
-        # Check if we need to refresh based on file modification time
+        # Check cache
         if not force_refresh and not self._is_cache_stale(template_name, cache_key):
             cached_result = cache.get(cache_key)
             if cached_result:
                 logger.debug(f"Using cached link data for {template_name}")
-                logger.info(f"[DEBUG] Cached result found: {len(cached_result.get('internal_links', []))} internal links")
                 return cached_result
         
         try:
-            # Get the raw HTML content from the template
             html_content = self._get_template_content(template_name)
-            logger.info(f"[DEBUG] Got HTML content for {template_name}, length: {len(html_content)}")
-            
-            # Parse the HTML and extract links
             result = self._parse_html_content(html_content, template_name)
-            logger.info(f"[DEBUG] Parsed {template_name}: {len(result['internal_links'])} internal, {len(result['external_links'])} external links")
             
-            # Cache the result with metadata
+            # Cache the result
             cache.set(cache_key, result, self.CACHE_TIMEOUT)
             
-            # Store cache metadata including file modification time
+            # Store cache metadata
             try:
                 template_path = Path(settings.BASE_DIR) / 'templates' / 'blog' / f'{template_name}.html'
                 if template_path.exists():
@@ -106,26 +72,12 @@ class LinkParser:
             }
     
     def _get_template_content(self, template_name: str) -> str:
-        """
-        Get the raw HTML content from a blog template.
-        
-        Args:
-            template_name: The template name
-            
-        Returns:
-            Raw HTML content as string
-            
-        Raises:
-            FileNotFoundError: If template file doesn't exist
-        """
+        """Get the raw HTML content from a blog template."""
         try:
-            # First try to render the template (handles Django template tags)
-            html_content = render_to_string(f"blog/{template_name}.html")
-            return html_content
+            return render_to_string(f"blog/{template_name}.html")
         except Exception as e:
             logger.warning(f"Could not render template {template_name}, trying raw file: {str(e)}")
             
-            # Fallback: read raw file content
             template_path = os.path.join(settings.BASE_DIR, 'templates', 'blog', f'{template_name}.html')
             if not os.path.exists(template_path):
                 raise FileNotFoundError(f"Blog template not found: {template_name}")
@@ -134,16 +86,7 @@ class LinkParser:
                 return f.read()
     
     def _parse_html_content(self, html_content: str, source_post: str) -> Dict:
-        """
-        Parse HTML content and extract links with context.
-        
-        Args:
-            html_content: The HTML content to parse
-            source_post: The source blog post name
-            
-        Returns:
-            Dictionary with parsed link data
-        """
+        """Parse HTML content and extract links with context."""
         result = {
             'source_post': source_post,
             'internal_links': [],
@@ -154,41 +97,32 @@ class LinkParser:
         try:
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # Remove comments and script/style tags that might interfere
+            # Remove script/style tags and comments
             for element in soup(["script", "style"]):
                 element.decompose()
             for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
                 comment.extract()
             
-            # Find all anchor tags with href attributes
             links = soup.find_all('a', href=True)
-            logger.info(f"[DEBUG] Found {len(links)} total links in {source_post}")
             
             for link in links:
                 href = link.get('href', '').strip()
-                if not href or href.startswith('#'):  # Skip empty links and fragments
+                if not href or href.startswith('#'):
                     continue
                 
                 link_text = link.get_text(strip=True)
                 context = self._extract_link_context(link)
                 
-                logger.debug(f"[DEBUG] Processing link: href='{href}', text='{link_text}'")
-                
-                if self._is_internal_blog_link(href):
-                    # Extract template name from internal link
-                    match = self.INTERNAL_BLOG_PATTERN.search(href)
-                    logger.debug(f"[DEBUG] Internal blog link detected: {href}, pattern match: {match}")
-                    if match:
-                        target_template = match.group(1)
-                        logger.info(f"[DEBUG] Extracted target template: {target_template}")
-                        result['internal_links'].append({
-                            'target': target_template,
-                            'text': link_text,
-                            'context': context,
-                            'href': href
-                        })
+                # Check link type and process accordingly
+                match = self.INTERNAL_BLOG_PATTERN.search(href)
+                if match:
+                    result['internal_links'].append({
+                        'target': match.group(1),
+                        'text': link_text,
+                        'context': context,
+                        'href': href
+                    })
                 elif self._is_external_link(href):
-                    # Parse external link
                     parsed_url = urlparse(href)
                     result['external_links'].append({
                         'url': href,
@@ -204,47 +138,14 @@ class LinkParser:
         
         return result
     
-    def _is_internal_blog_link(self, href: str) -> bool:
-        """
-        Check if a link is an internal blog post link.
-        
-        Args:
-            href: The href attribute value
-            
-        Returns:
-            True if it's an internal blog link
-        """
-        is_match = bool(self.INTERNAL_BLOG_PATTERN.search(href))
-        logger.debug(f"[DEBUG] _is_internal_blog_link: href='{href}', pattern='{self.INTERNAL_BLOG_PATTERN.pattern}', match={is_match}")
-        return is_match
-    
     def _is_external_link(self, href: str) -> bool:
-        """
-        Check if a link is an external link.
-        
-        Args:
-            href: The href attribute value
-            
-        Returns:
-            True if it's an external link
-        """
-        # Check if it's a full URL (has scheme)
+        """Check if a link is external based on URL scheme."""
         parsed = urlparse(href)
         return bool(parsed.scheme and parsed.netloc)
     
-    def _extract_link_context(self, link_element, context_length: int = 100) -> str:
-        """
-        Extract surrounding context for a link element.
-        
-        Args:
-            link_element: BeautifulSoup element for the link
-            context_length: Maximum length of context to extract (per side)
-            
-        Returns:
-            String containing surrounding context
-        """
+    def _extract_link_context(self, link_element) -> str:
+        """Extract surrounding context for a link element."""
         try:
-            # Get the parent element's text
             parent = link_element.parent
             if not parent:
                 return ""
@@ -252,90 +153,59 @@ class LinkParser:
             parent_text = parent.get_text()
             link_text = link_element.get_text()
             
-            # Find the link text position in parent text
             link_start = parent_text.find(link_text)
             if link_start == -1:
-                return parent_text[:context_length * 2]  # Fallback
+                return parent_text[:self.CONTEXT_LENGTH * 2]
             
-            # Extract context before and after the link
-            context_start = max(0, link_start - context_length)
-            context_end = min(len(parent_text), link_start + len(link_text) + context_length)
+            context_start = max(0, link_start - self.CONTEXT_LENGTH)
+            context_end = min(len(parent_text), link_start + len(link_text) + self.CONTEXT_LENGTH)
             
             context = parent_text[context_start:context_end].strip()
-            
-            # Clean up whitespace
-            context = re.sub(r'\s+', ' ', context)
-            
-            return context
+            return re.sub(r'\s+', ' ', context)
             
         except Exception as e:
             logger.warning(f"Error extracting link context: {str(e)}")
             return ""
     
     def _is_cache_stale(self, template_name: str, cache_key: str) -> bool:
-        """
-        Check if cache is stale by comparing file modification time with cache timestamp.
-        
-        Args:
-            template_name: The template name
-            cache_key: The cache key to check
-            
-        Returns:
-            True if cache is stale and should be refreshed
-        """
+        """Check if cache is stale by comparing file modification time."""
         try:
             template_path = Path(settings.BASE_DIR) / 'templates' / 'blog' / f'{template_name}.html'
             
             if not template_path.exists():
-                return True  # File doesn't exist, cache is stale
+                return True
             
             file_mtime = template_path.stat().st_mtime
-            
-            # Get cache metadata if it exists
-            cache_meta_key = f'{cache_key}:meta'
-            cache_meta = cache.get(cache_meta_key)
+            cache_meta = cache.get(f'{cache_key}:meta')
             
             if not cache_meta:
-                return True  # No cache metadata, consider stale
+                return True
             
-            cached_mtime = cache_meta.get('file_mtime', 0)
-            
-            # If file is newer than cached version, cache is stale
-            if file_mtime > cached_mtime:
-                logger.debug(f"Cache stale for {template_name}: file mtime {file_mtime} > cached mtime {cached_mtime}")
+            if file_mtime > cache_meta.get('file_mtime', 0):
+                logger.debug(f"Cache stale for {template_name}")
                 return True
             
             return False
             
         except Exception as e:
             logger.warning(f"Error checking cache staleness for {template_name}: {e}")
-            return True  # On error, assume stale
+            return True
 
 
 class GraphBuilder:
-    """
-    Service for building graph data structures from parsed link data.
-    """
+    """Service for building graph data structures from parsed link data."""
+    
+    GRAPH_CACHE_TIMEOUT = 3600  # 1 hour
+    SUBGRAPH_CACHE_TIMEOUT = 1800  # 30 minutes
+    EXTERNAL_NODE_ID_LENGTH = 12
+    MAX_PATH_SNIPPET_LENGTH = 30
+    TOP_ITEMS_LIMIT = 5
     
     def __init__(self, link_parser: LinkParser = None):
-        """
-        Initialize the GraphBuilder.
-        
-        Args:
-            link_parser: LinkParser instance to use. If None, creates a new one.
-        """
         self.link_parser = link_parser or LinkParser()
     
     def build_complete_graph(self, force_refresh: bool = False) -> Dict:
-        """
-        Build a complete knowledge graph from all blog posts.
-        
-        Args:
-            force_refresh: If True, bypass cache and re-parse all posts
-            
-        Returns:
-            Dictionary containing graph data with nodes and edges
-        """
+        """Build a complete knowledge graph from all blog posts."""
         cache_key = 'blog:graph:complete'
         
         if not force_refresh:
@@ -345,20 +215,16 @@ class GraphBuilder:
                 return cached_graph
         
         try:
-            # Get all blog post template names
             blog_templates = self._get_all_blog_templates()
             
-            # Parse all blog posts
             all_links_data = []
             for template_name in blog_templates:
                 links_data = self.link_parser.parse_blog_post(template_name, force_refresh)
                 all_links_data.append(links_data)
             
-            # Build graph structure
             graph = self._build_graph_structure(all_links_data)
             
-            # Cache the result (shorter timeout for complete graph)
-            cache.set(cache_key, graph, 3600)  # 1 hour
+            cache.set(cache_key, graph, self.GRAPH_CACHE_TIMEOUT)
             
             logger.info(f"Built complete graph with {len(graph['nodes'])} nodes and {len(graph['edges'])} edges")
             return graph
@@ -373,16 +239,7 @@ class GraphBuilder:
             }
     
     def get_post_connections(self, template_name: str, depth: int = 1) -> Dict:
-        """
-        Get connections for a specific blog post.
-        
-        Args:
-            template_name: The blog post template name
-            depth: How many levels of connections to include
-            
-        Returns:
-            Dictionary with post-specific graph data
-        """
+        """Get connections for a specific blog post."""
         cache_key = f'blog:graph:post:{template_name}:depth:{depth}'
         
         cached_result = cache.get(cache_key)
@@ -390,7 +247,6 @@ class GraphBuilder:
             return cached_result
         
         try:
-            # Start with the target post
             visited = set()
             to_process = [(template_name, 0)]
             all_links_data = []
@@ -403,21 +259,17 @@ class GraphBuilder:
                 
                 visited.add(current_template)
                 
-                # Parse current post
                 links_data = self.link_parser.parse_blog_post(current_template)
                 all_links_data.append(links_data)
                 
-                # Add connected posts to processing queue
                 for link in links_data['internal_links']:
                     target = link['target']
                     if target not in visited:
                         to_process.append((target, current_depth + 1))
             
-            # Build subgraph
             subgraph = self._build_graph_structure(all_links_data)
             
-            # Cache result
-            cache.set(cache_key, subgraph, 1800)  # 30 minutes
+            cache.set(cache_key, subgraph, self.SUBGRAPH_CACHE_TIMEOUT)
             
             return subgraph
             
@@ -431,12 +283,7 @@ class GraphBuilder:
             }
     
     def _get_all_blog_templates(self) -> List[str]:
-        """
-        Get all blog template names by scanning the templates/blog directory.
-        
-        Returns:
-            List of template names (without .html extension)
-        """
+        """Get all blog template names from the templates/blog directory."""
         blog_templates = []
         blog_dir = os.path.join(settings.BASE_DIR, 'templates', 'blog')
         
@@ -446,127 +293,32 @@ class GraphBuilder:
         
         for filename in os.listdir(blog_dir):
             if filename.endswith('.html'):
-                template_name = filename[:-5]  # Remove .html extension
+                template_name = filename[:-5]
                 blog_templates.append(template_name)
         
-        # Sort by entry number (assuming NNNN_ pattern)
         blog_templates.sort()
         logger.info(f"Found {len(blog_templates)} blog templates")
         
         return blog_templates
     
     def _build_graph_structure(self, all_links_data: List[Dict]) -> Dict:
-        """
-        Build the graph data structure from parsed link data.
-        
-        Args:
-            all_links_data: List of parsed link data dictionaries
-            
-        Returns:
-            Graph structure with nodes, edges, and metrics
-        """
+        """Build the graph data structure from parsed link data."""
         nodes = {}
         edges = []
         external_domains = {}
         
-        # Process each blog post's links
         for links_data in all_links_data:
             source_post = links_data['source_post']
             
-            # Add source post as a node
-            if source_post not in nodes:
-                nodes[source_post] = {
-                    'id': source_post,
-                    'label': self._get_post_title(source_post),
-                    'type': 'blog_post',
-                    'in_degree': 0,
-                    'out_degree': 0,
-                    'total_links': 0
-                }
+            # Create source node
+            self._ensure_blog_node(nodes, source_post)
             
             # Process internal links
-            for link in links_data['internal_links']:
-                target = link['target']
-                
-                # Add target as node if it doesn't exist
-                if target not in nodes:
-                    nodes[target] = {
-                        'id': target,
-                        'label': self._get_post_title(target),
-                        'type': 'blog_post',
-                        'in_degree': 0,
-                        'out_degree': 0,
-                        'total_links': 0
-                    }
-                
-                # Add edge
-                edges.append({
-                    'source': source_post,
-                    'target': target,
-                    'type': 'internal',
-                    'text': link['text'],
-                    'context': link['context']
-                })
-                
-                # Update degrees
-                nodes[source_post]['out_degree'] += 1
-                nodes[target]['in_degree'] += 1
+            edges.extend(self._process_internal_links(nodes, links_data, source_post))
             
-            # Process external links - add them as nodes and edges
-            for link in links_data['external_links']:
-                domain = link['domain']
-                url = link['url']
-                
-                # Create unique node ID for each external URL using hash
-                # Using first 12 characters of MD5 hash to keep IDs manageable
-                external_node_id = f"external_{hashlib.md5(url.encode()).hexdigest()[:12]}"
-                
-                # Add external URL as a node if it doesn't exist
-                if external_node_id not in nodes:
-                    # Create a more informative label showing domain and path
-                    parsed_url = urlparse(url)
-                    path_snippet = parsed_url.path[:30] if parsed_url.path and parsed_url.path != '/' else ''
-                    if path_snippet and len(parsed_url.path) > 30:
-                        path_snippet += '...'
-                    
-                    # Format label to show domain and path (if exists)
-                    if path_snippet:
-                        label = f"{domain}{path_snippet}"
-                    else:
-                        label = domain
-                    
-                    nodes[external_node_id] = {
-                        'id': external_node_id,
-                        'label': label,
-                        'type': 'external_link',
-                        'url': url,
-                        'domain': domain,
-                        'in_degree': 0,
-                        'out_degree': 0,
-                        'total_links': 0
-                    }
-                
-                # Add edge from blog post to external link
-                edges.append({
-                    'source': source_post,
-                    'target': external_node_id,
-                    'type': 'external',
-                    'text': link['text'],
-                    'context': link['context']
-                })
-                
-                # Update degrees
-                nodes[source_post]['out_degree'] += 1
-                nodes[external_node_id]['in_degree'] += 1
-                
-                # Track individual URLs for metrics (each URL counted once per occurrence)
-                if url not in external_domains:
-                    external_domains[url] = 0
-                external_domains[url] += 1
-                
-                nodes[source_post]['total_links'] += 1
+            # Process external links
+            edges.extend(self._process_external_links(nodes, links_data, source_post, external_domains))
         
-        # Calculate final metrics
         metrics = self._calculate_graph_metrics(nodes, edges, external_domains)
         
         return {
@@ -577,55 +329,122 @@ class GraphBuilder:
             'errors': []
         }
     
-    def _get_post_title(self, template_name: str) -> str:
-        """
-        Get a readable title for a blog post from its template name.
+    def _ensure_blog_node(self, nodes: Dict, post_id: str) -> None:
+        """Ensure a blog post node exists in the nodes dictionary."""
+        if post_id not in nodes:
+            nodes[post_id] = {
+                'id': post_id,
+                'label': self._get_post_title(post_id),
+                'type': 'blog_post',
+                'in_degree': 0,
+                'out_degree': 0,
+                'total_links': 0
+            }
+    
+    def _process_internal_links(self, nodes: Dict, links_data: Dict, source_post: str) -> List[Dict]:
+        """Process internal links and return edges."""
+        edges = []
         
-        Args:
-            template_name: The template name
+        for link in links_data['internal_links']:
+            target = link['target']
             
-        Returns:
-            Human-readable title
-        """
+            self._ensure_blog_node(nodes, target)
+            
+            edges.append({
+                'source': source_post,
+                'target': target,
+                'type': 'internal',
+                'text': link['text'],
+                'context': link['context']
+            })
+            
+            nodes[source_post]['out_degree'] += 1
+            nodes[target]['in_degree'] += 1
+        
+        return edges
+    
+    def _process_external_links(self, nodes: Dict, links_data: Dict, source_post: str, external_domains: Dict) -> List[Dict]:
+        """Process external links and return edges."""
+        edges = []
+        
+        for link in links_data['external_links']:
+            domain = link['domain']
+            url = link['url']
+            
+            external_node_id = f"external_{hashlib.md5(url.encode()).hexdigest()[:self.EXTERNAL_NODE_ID_LENGTH]}"
+            
+            if external_node_id not in nodes:
+                nodes[external_node_id] = self._create_external_node(url, domain, external_node_id)
+            
+            edges.append({
+                'source': source_post,
+                'target': external_node_id,
+                'type': 'external',
+                'text': link['text'],
+                'context': link['context']
+            })
+            
+            nodes[source_post]['out_degree'] += 1
+            nodes[external_node_id]['in_degree'] += 1
+            
+            if url not in external_domains:
+                external_domains[url] = 0
+            external_domains[url] += 1
+            
+            nodes[source_post]['total_links'] += 1
+        
+        return edges
+    
+    def _create_external_node(self, url: str, domain: str, node_id: str) -> Dict:
+        """Create an external link node."""
+        parsed_url = urlparse(url)
+        path_snippet = parsed_url.path[:self.MAX_PATH_SNIPPET_LENGTH] if parsed_url.path and parsed_url.path != '/' else ''
+        
+        if path_snippet and len(parsed_url.path) > self.MAX_PATH_SNIPPET_LENGTH:
+            path_snippet += '...'
+        
+        label = f"{domain}{path_snippet}" if path_snippet else domain
+        
+        return {
+            'id': node_id,
+            'label': label,
+            'type': 'external_link',
+            'url': url,
+            'domain': domain,
+            'in_degree': 0,
+            'out_degree': 0,
+            'total_links': 0
+        }
+    
+    def _get_post_title(self, template_name: str) -> str:
+        """Get a readable title for a blog post from its template name."""
         try:
-            # Use the existing utility function
             blog_data = get_blog_from_template_name(template_name, load_content=False)
             return blog_data['blog_title']
         except Exception:
-            # Fallback: clean up the template name
             return template_name.replace('_', ' ').title()
     
     def _calculate_graph_metrics(self, nodes: Dict, edges: List[Dict], external_domains: Dict) -> Dict:
-        """
-        Calculate various graph metrics.
-        
-        Args:
-            nodes: Dictionary of graph nodes
-            edges: List of graph edges
-            external_domains: Dictionary of external URL counts (now tracks individual URLs)
-            
-        Returns:
-            Dictionary containing calculated metrics
-        """
-        total_posts = len([n for n in nodes.values() if n['type'] == 'blog_post'])
+        """Calculate various graph metrics."""
+        blog_nodes = [n for n in nodes.values() if n['type'] == 'blog_post']
+        total_posts = len(blog_nodes)
         total_internal_links = len([edge for edge in edges if edge['type'] == 'internal'])
         total_external_links = sum(external_domains.values())
         
-        # Find most connected posts
+        # Most connected posts
         most_linked_posts = sorted(
-            [n for n in nodes.values() if n['type'] == 'blog_post'],
+            blog_nodes,
             key=lambda x: x['in_degree'] + x['out_degree'],
             reverse=True
-        )[:5]
+        )[:self.TOP_ITEMS_LIMIT]
         
-        # Find orphan posts (no connections)
+        # Orphan posts
         orphan_posts = [
-            n for n in nodes.values() 
-            if n['type'] == 'blog_post' and n['in_degree'] == 0 and n['out_degree'] == 0
+            n for n in blog_nodes 
+            if n['in_degree'] == 0 and n['out_degree'] == 0
         ]
         
-        # Most referenced external URLs (was domains)
-        # Group by domain for display purposes
+        # Top external domains
         domain_counts = {}
         for url, count in external_domains.items():
             domain = urlparse(url).netloc
@@ -637,7 +456,7 @@ class GraphBuilder:
             domain_counts.items(),
             key=lambda x: x[1],
             reverse=True
-        )[:5]
+        )[:self.TOP_ITEMS_LIMIT]
         
         return {
             'total_posts': total_posts,
@@ -652,15 +471,7 @@ class GraphBuilder:
 
 # Utility functions for easy access
 def parse_all_blog_posts(force_refresh: bool = False) -> List[Dict]:
-    """
-    Parse all blog posts and return their link data.
-    
-    Args:
-        force_refresh: If True, bypass cache and re-parse all posts
-        
-    Returns:
-        List of parsed link data dictionaries
-    """
+    """Parse all blog posts and return their link data."""
     graph_builder = GraphBuilder()
     blog_templates = graph_builder._get_all_blog_templates()
     
@@ -673,31 +484,12 @@ def parse_all_blog_posts(force_refresh: bool = False) -> List[Dict]:
 
 
 def build_knowledge_graph(force_refresh: bool = False) -> Dict:
-    """
-    Build the complete knowledge graph.
-    
-    Args:
-        force_refresh: If True, bypass cache and rebuild from scratch
-        
-    Returns:
-        Complete graph data structure
-    """
+    """Build the complete knowledge graph."""
     graph_builder = GraphBuilder()
     return graph_builder.build_complete_graph(force_refresh)
 
 
 def get_post_graph(template_name: str, depth: int = 1) -> Dict:
-    """
-    Get graph data for a specific blog post and its connections.
-    
-    Args:
-        template_name: The blog post template name
-        depth: How many levels of connections to include
-        
-    Returns:
-        Post-specific graph data
-    """
+    """Get graph data for a specific blog post and its connections."""
     graph_builder = GraphBuilder()
     return graph_builder.get_post_connections(template_name, depth)
-
-
