@@ -13,6 +13,125 @@
     </div>
     <svg id="knowledge-graph-svg"></svg>
 </div>
+
+<style>
+/* Knowledge Graph specific styles */
+#knowledge-graph-container {
+    position: relative;
+    width: 100%;
+    height: 600px;
+    border: 1px solid var(--background-color-alt);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--background-color);
+    color: var(--text-color);
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    display: none;
+}
+
+#knowledge-graph-svg {
+    width: 100%;
+    height: 100%;
+    background: var(--background-color);
+}
+
+/* Node and link styles */
+.node {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.node:hover {
+    stroke-width: 3px;
+    stroke: var(--text-color);
+}
+
+.node.highlighted {
+    stroke-width: 3px;
+    stroke: #ff6b6b;
+}
+
+.link {
+    transition: stroke-opacity 0.2s ease;
+}
+
+.link.highlighted {
+    stroke-opacity: 1;
+    stroke-width: 3px;
+}
+
+/* Node labels */
+.node-label {
+    font-family: var(--font-family);
+    font-size: 12px;
+    font-weight: var(--font-weight-medium);
+    text-anchor: middle;
+    pointer-events: none;
+    fill: var(--text-color);
+    stroke: var(--background-color);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+    paint-order: stroke;
+}
+
+.node-label.highlighted {
+    fill: #ff6b6b;
+    stroke: var(--background-color);
+}
+
+/* Tooltip styles */
+.svg-tooltip {
+    pointer-events: none;
+}
+
+.tooltip-background {
+    fill: var(--background-color);
+    stroke: var(--text-color);
+    stroke-width: 1px;
+    rx: 6;
+    ry: 6;
+}
+
+.tooltip-arrow {
+    fill: var(--background-color);
+    stroke: var(--text-color);
+    stroke-width: 1px;
+}
+
+/* Effects */
+.ripple-effect {
+    fill: none;
+    stroke: var(--text-color);
+    stroke-width: 2px;
+    opacity: 0.6;
+}
+
+/* Force simulation adjustments */
+.links line {
+    stroke-linecap: round;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #knowledge-graph-container {
+        height: 400px;
+    }
+    
+    .node-label {
+        font-size: 10px;
+    }
+}
+</style>
 {% endblock %}
 
 {% block javascript %}
@@ -165,12 +284,18 @@ class KnowledgeGraphVisualization {
         
         console.log('[DEBUG] Created nodes:', this.node.size());
         
-        // Create labels
+        // Create labels with explicit styling
         this.labels = this.g.append("g")
             .selectAll("text")
             .data(nodes)
             .enter().append("text")
             .attr("class", "node-label")
+            .attr("fill", "currentColor")
+            .style("fill", "var(--text-color)")
+            .style("stroke", "var(--background-color)")
+            .style("stroke-width", "3px")
+            .style("stroke-linejoin", "round")
+            .style("paint-order", "stroke")
             .text(d => this.getNodeLabel(d))
             .style("display", this.showLabels ? "block" : "none");
         
@@ -281,9 +406,7 @@ class KnowledgeGraphVisualization {
         
         // Enhanced tooltip content
         const title = node.type === 'blog_post' ? node.label : node.domain;
-        const subtitle = node.type === 'blog_post' ?
-            `Connections: ${(node.in_degree || 0) + (node.out_degree || 0)}` :
-            'External Link';
+        const subtitle = node.type === 'blog_post' ? '' : 'External Link';
         
         // Get node position in SVG coordinates
         const nodeX = node.x || 0;
@@ -310,7 +433,7 @@ class KnowledgeGraphVisualization {
         const padding = 12;
         const lineHeight = 18;
         const tooltipWidth = Math.max(titleBBox.width, subtitleBBox.width) + padding * 2;
-        const tooltipHeight = titleBBox.height + subtitleBBox.height + padding * 2 + 4;
+        const tooltipHeight = titleBBox.height + (subtitle ? subtitleBBox.height + lineHeight : 0) + padding * 2 + 4;
         
         // Position tooltip above the node with better positioning
         let tooltipX = nodeX - tooltipWidth / 2;
@@ -345,15 +468,19 @@ class KnowledgeGraphVisualization {
             .attr("y", tooltipY + padding + titleBBox.height)
             .style("font-weight", "bold")
             .style("font-size", "13px")
+            .style("fill", "var(--text-color)")
             .text(title);
         
-        // Create subtitle text
-        this.tooltipGroup.append("text")
-            .attr("x", tooltipX + tooltipWidth / 2)
-            .attr("y", tooltipY + padding + titleBBox.height + lineHeight)
-            .style("font-size", "11px")
-            .style("opacity", "0.8")
-            .text(subtitle);
+        // Create subtitle text only if subtitle exists
+        if (subtitle) {
+            this.tooltipGroup.append("text")
+                .attr("x", tooltipX + tooltipWidth / 2)
+                .attr("y", tooltipY + padding + titleBBox.height + lineHeight)
+                .style("font-size", "11px")
+                .style("opacity", "0.8")
+                .style("fill", "var(--text-color)")
+                .text(subtitle);
+        }
         
         // Show tooltip with enhanced animation
         this.tooltipGroup.classed("visible", true);
