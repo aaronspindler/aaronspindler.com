@@ -133,6 +133,21 @@
     stroke-width: 1px;
 }
 
+/* Chrome-specific tooltip text containment */
+.svg-tooltip text {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 100%;
+    word-wrap: break-word;
+}
+
+/* Additional Chrome compatibility */
+.svg-tooltip text {
+    dominant-baseline: middle;
+    text-anchor: middle;
+}
+
 /* Effects */
 .ripple-effect {
     fill: none;
@@ -222,6 +237,21 @@ class HomepageKnowledgeGraph {
         // Create tooltip group
         this.tooltipGroup = this.svg.append("g")
             .attr("class", "svg-tooltip");
+        
+        // Add SVG filter for glow effect
+        this.svg.append("defs").append("filter")
+            .attr("id", "glow")
+            .attr("x", "-50%")
+            .attr("y", "-50%")
+            .attr("width", "200%")
+            .attr("height", "200%")
+            .append("feGaussianBlur")
+            .attr("stdDeviation", "2")
+            .attr("result", "coloredBlur");
+        
+        this.svg.select("#glow").append("feMerge")
+            .append("feMergeNode")
+            .attr("in", "coloredBlur");
     }
     
 
@@ -443,36 +473,72 @@ class HomepageKnowledgeGraph {
         const nodeX = node.x || 0;
         const nodeY = node.y || 0;
         
-        // Create temporary text elements to measure dimensions
+        // Create temporary text elements to measure dimensions with consistent styling
         const tempTitle = this.tooltipGroup.append("text")
             .style("font-weight", "bold")
+            .style("font-size", "13px")
+            .style("font-family", "var(--font-family)")
             .text(title)
             .style("opacity", 0);
         
         const tempSubtitle = this.tooltipGroup.append("text")
             .style("font-size", "11px")
+            .style("font-family", "var(--font-family)")
             .text(subtitle)
             .style("opacity", 0);
         
+        // Get bounding boxes with Chrome-safe measurements
         const titleBBox = tempTitle.node().getBBox();
         const subtitleBBox = tempSubtitle.node().getBBox();
+        
+        // Add Chrome-specific margin for text measurement accuracy
+        // Chrome can have different text rendering metrics than Safari
+        const chromeMargin = 6;
+        const adjustedTitleWidth = titleBBox.width + chromeMargin;
+        const adjustedSubtitleWidth = subtitleBBox.width + chromeMargin;
+        
+        // Additional Chrome safety check - ensure minimum width
+        const minWidth = 80;
+        const safeTitleWidth = Math.max(adjustedTitleWidth, minWidth);
+        const safeSubtitleWidth = Math.max(adjustedSubtitleWidth, minWidth);
         
         tempTitle.remove();
         tempSubtitle.remove();
         
-        // Calculate tooltip dimensions
-        const padding = 12;
-        const lineHeight = 18;
-        const tooltipWidth = Math.max(titleBBox.width, subtitleBBox.width) + padding * 2;
-        const tooltipHeight = titleBBox.height + (subtitle ? subtitleBBox.height + lineHeight : 0) + padding * 2 + 4;
+        // Calculate tooltip dimensions with Chrome-safe margins
+        const padding = 16; // Increased padding for Chrome
+        const lineHeight = 20; // Increased line height
+        const maxWidth = 200; // Maximum tooltip width to prevent overflow
+        
+        // Calculate width with Chrome-safe margins and max width constraint
+        let tooltipWidth = Math.max(safeTitleWidth, safeSubtitleWidth) + padding * 2;
+        tooltipWidth = Math.min(tooltipWidth, maxWidth);
+        
+        // If text is too long, truncate it
+        let displayTitle = title;
+        let displaySubtitle = subtitle;
+        
+        if (safeTitleWidth > maxWidth - padding * 2) {
+            // Truncate title to fit within max width
+            const maxChars = Math.floor((maxWidth - padding * 2) / 8); // Approximate char width
+            displayTitle = title.length > maxChars ? title.substring(0, maxChars - 3) + '...' : title;
+        }
+        
+        if (safeSubtitleWidth > maxWidth - padding * 2) {
+            // Truncate subtitle to fit within max width
+            const maxChars = Math.floor((maxWidth - padding * 2) / 7); // Approximate char width for smaller font
+            displaySubtitle = subtitle.length > maxChars ? subtitle.substring(0, maxChars - 3) + '...' : subtitle;
+        }
+        
+        const tooltipHeight = titleBBox.height + (subtitle ? subtitleBBox.height + lineHeight : 0) + padding * 2 + 8;
         
         // Position tooltip above the node with better positioning
         let tooltipX = nodeX - tooltipWidth / 2;
         let tooltipY = nodeY - this.getNodeRadius(node) - tooltipHeight - 15;
         
-        // Ensure tooltip stays within viewport
-        tooltipX = Math.max(10, Math.min(tooltipX, this.width - tooltipWidth - 10));
-        tooltipY = Math.max(10, tooltipY);
+        // Ensure tooltip stays within viewport with Chrome-safe margins
+        tooltipX = Math.max(15, Math.min(tooltipX, this.width - tooltipWidth - 15));
+        tooltipY = Math.max(15, tooltipY);
         
         // Create enhanced tooltip background with glow
         this.tooltipGroup.append("rect")
@@ -493,14 +559,18 @@ class HomepageKnowledgeGraph {
             .attr("points", `${arrowX},${arrowY + arrowSize} ${arrowX - arrowSize},${arrowY} ${arrowX + arrowSize},${arrowY}`)
             .style("filter", "url(#glow)");
         
-        // Create title text
+        // Create title text with Chrome-safe positioning
         this.tooltipGroup.append("text")
             .attr("x", tooltipX + tooltipWidth / 2)
             .attr("y", tooltipY + padding + titleBBox.height)
             .style("font-weight", "bold")
             .style("font-size", "13px")
+            .style("font-family", "var(--font-family)")
             .style("fill", "var(--text-color)")
-            .text(title);
+            .style("text-anchor", "middle")
+            .style("dominant-baseline", "hanging")
+            .style("pointer-events", "none")
+            .text(displayTitle);
         
         // Create subtitle text only if subtitle exists
         if (subtitle) {
@@ -508,9 +578,13 @@ class HomepageKnowledgeGraph {
                 .attr("x", tooltipX + tooltipWidth / 2)
                 .attr("y", tooltipY + padding + titleBBox.height + lineHeight)
                 .style("font-size", "11px")
+                .style("font-family", "var(--font-family)")
                 .style("opacity", "0.8")
                 .style("fill", "var(--text-color)")
-                .text(subtitle);
+                .style("text-anchor", "middle")
+                .style("dominant-baseline", "hanging")
+                .style("pointer-events", "none")
+                .text(displaySubtitle);
         }
         
         // Show tooltip with enhanced animation
