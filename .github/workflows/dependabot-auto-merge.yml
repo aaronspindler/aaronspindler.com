@@ -51,14 +51,10 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
       
-      - name: Auto-approve Dependabot PR
-        # Approve since tests have passed
-        run: gh pr review --approve "$PR_URL"
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Note: GitHub Actions cannot approve its own PRs for security reasons
+      # The PR will be auto-merged without explicit approval if tests pass
       
-      - name: Auto-merge Dependabot PR
+      - name: Enable auto-merge for Dependabot PR
         # Merge conditions:
         # 1. PR must have the "auto-merge" label (set in dependabot.yml)
         # 2. Tests must have passed (enforced by job dependency)
@@ -68,8 +64,9 @@ jobs:
           (steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
            steps.metadata.outputs.update-type == 'version-update:semver-patch')
         run: |
-          echo "Auto-merging Dependabot PR for ${{ steps.metadata.outputs.dependency-names }}"
+          echo "Enabling auto-merge for Dependabot PR: ${{ steps.metadata.outputs.dependency-names }}"
           echo "Update type: ${{ steps.metadata.outputs.update-type }}"
+          # Enable auto-merge (will merge when all checks pass and requirements are met)
           gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
@@ -94,13 +91,14 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Handle security updates
+      - name: Enable auto-merge for security updates
         # Always auto-merge security updates regardless of version type
         if: |
           contains(github.event.pull_request.labels.*.name, 'security') &&
           contains(github.event.pull_request.labels.*.name, 'auto-merge')
         run: |
-          echo "🔒 Security update detected - auto-merging"
+          echo "🔒 Security update detected - enabling auto-merge"
+          # Enable auto-merge for security updates (will merge when all checks pass)
           gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
