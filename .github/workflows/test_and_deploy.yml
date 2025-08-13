@@ -7,6 +7,11 @@ on:
     branches: [ main ]
     types: [ opened, synchronize, reopened, ready_for_review ]
 
+# Cancel in-progress runs for PRs but not for main branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   test-and-check:
     uses: ./.github/workflows/test-and-check.yml
@@ -19,21 +24,42 @@ jobs:
 
   deploy-caprover:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: test-and-check
+    environment:
+      name: production
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - uses: a7ul/tar-action@v1.1.0
-        with:
-          command: c
-          cwd: "./"
-          files: |
+      - name: Create deployment archive
+        run: |
+          tar -czf deploy.tar.gz \
+            --exclude='.git' \
+            --exclude='*.pyc' \
+            --exclude='__pycache__' \
+            --exclude='venv' \
+            --exclude='.env' \
+            --exclude='staticfiles' \
+            --exclude='media' \
+            --exclude='.github' \
+            --exclude='*.log' \
+            --exclude='.DS_Store' \
             .
-          outPath: deploy.tar
       - name: Deploy web app
         uses: caprover/deploy-from-github@v1.0.1
         with:
           server: '${{ secrets.NEW_CAPROVER_SERVER }}'
           app: '${{ secrets.CAPROVER_WEB_APP_NAME }}'
           token: '${{ secrets.NEW_CAPROVER_WEB_APP_TOKEN }}'
+      
+      - name: Wait for deployment
+        run: sleep 30
+      
+      - name: Verify Deployment Health
+        run: |
+          # Simple health check - adjust URL as needed
+          if [ ! -z "${{ secrets.PRODUCTION_URL }}" ]; then
+            curl -f ${{ secrets.PRODUCTION_URL }} || echo "Warning: Health check failed"
+          fi
+        continue-on-error: true
