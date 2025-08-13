@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v5
       - name: Create deployment archive
         run: |
-          tar -czf deploy.tar.gz \
+          tar -czf deploy.tar \
             --exclude='.git' \
             --exclude='*.pyc' \
             --exclude='__pycache__' \
