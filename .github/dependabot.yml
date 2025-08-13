@@ -41,12 +41,6 @@ updates:
         exclude-patterns:
           - "django"
           - "psycopg2-binary"
-    # Enable auto-merge for passing checks
-    auto-merge: true
-    # Only auto-merge when CI passes
-    auto-merge-options:
-      required-status_checks:
-        - "test-and-check"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -72,12 +66,6 @@ updates:
       actions:
         patterns:
           - "*"
-    # Enable auto-merge for passing checks
-    auto-merge: true
-    # Only auto-merge when CI passes
-    auto-merge-options:
-      required_status_checks:
-        - "test-and-check"
 
   # Docker (if you add Dockerfile dependencies)
   - package-ecosystem: "docker"
@@ -99,12 +87,6 @@ updates:
       - "dependencies"
       - "docker"
       - "auto-merge"
-    # Enable auto-merge for passing checks
-    auto-merge: true
-    # Only auto-merge when CI passes
-    auto-merge-options:
-      required_status_checks:
-        - "test-and-check"
 
   # Security updates (runs daily for critical security patches)
   - package-ecosystem: "pip"
@@ -129,9 +111,3 @@ updates:
     # Only security updates
     update-types:
       - "security"
-    # Enable auto-merge for passing checks
-    auto-merge: true
-    # Only auto-merge when CI passes
-    auto-merge-options:
-      required_status_checks:
-        - "test-and-check"

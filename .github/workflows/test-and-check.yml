@@ -1,0 +1,106 @@
+name: Reusable Test and Check
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: 'Python version to use'
+        required: false
+        type: string
+        default: '3.12.2'
+      postgres-version:
+        description: 'PostgreSQL version to use'
+        required: false
+        type: string
+        default: '15'
+      upload-coverage:
+        description: 'Whether to upload coverage to Codecov'
+        required: false
+        type: boolean
+        default: true
+      ref:
+        description: 'Git ref to checkout (branch, tag, or SHA)'
+        required: false
+        type: string
+        default: ''
+    secrets:
+      DATABASE_URL:
+        required: false
+        description: 'Database URL for tests'
+
+env:
+  SECRET_KEY: "FAKE_SECRET_KEY"
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+jobs:
+  test-and-check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:${{ inputs.postgres-version }}
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Use the provided ref if specified, otherwise use default behavior
+          ref: ${{ inputs.ref }}
+          # Use github.token which has read access to Dependabot PRs
+          token: ${{ github.token }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+      
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install coverage
+      
+      - name: Cache static files
+        uses: actions/cache@v3
+        with:
+          path: staticfiles/
+          key: ${{ runner.os }}-static-${{ hashFiles('**/static/**') }}
+          restore-keys: |
+            ${{ runner.os }}-static-
+      
+      - name: Collect Static
+        run: |
+          python manage.py collectstatic --no-input
+      
+      - name: Run Check
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: |
+          python manage.py check
+      
+      - name: Run Tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: |
+          coverage run --source='.' manage.py test --no-input --parallel
+      
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        if: inputs.upload-coverage
