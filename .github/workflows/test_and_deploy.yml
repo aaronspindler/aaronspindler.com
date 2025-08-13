@@ -23,8 +23,8 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
-      - uses: a7ul/tar-action@v1.1.0
+        uses: actions/checkout@v5
+      - uses: a7ul/tar-action@v1.2.0
         with:
           command: c
           cwd: "./"
@@ -32,7 +32,7 @@ jobs:
             .
           outPath: deploy.tar
       - name: Deploy web app
-        uses: caprover/deploy-from-github@v1.0.1
+        uses: caprover/deploy-from-github@v1.1.2
         with:
           server: '${{ secrets.NEW_CAPROVER_SERVER }}'
           app: '${{ secrets.CAPROVER_WEB_APP_NAME }}'

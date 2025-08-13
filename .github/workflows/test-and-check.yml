@@ -50,7 +50,7 @@ jobs:
           --health-timeout 3s
           --health-retries 3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Use the provided ref if specified, otherwise use default behavior
           ref: ${{ inputs.ref }}
@@ -58,13 +58,13 @@ jobs:
           token: ${{ github.token }}
       
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python-version }}
           cache: 'pip'
       
       - name: Cache pip dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -78,7 +78,7 @@ jobs:
           pip install coverage
       
       - name: Cache static files
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: staticfiles/
           key: ${{ runner.os }}-static-${{ hashFiles('**/static/**') }}
@@ -102,5 +102,5 @@ jobs:
           coverage run --source='.' manage.py test --no-input --parallel
       
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: inputs.upload-coverage
