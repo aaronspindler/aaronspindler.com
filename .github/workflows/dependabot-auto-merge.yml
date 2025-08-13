@@ -4,6 +4,11 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
 
+# Cancel previous runs for the same PR
+concurrency:
+  group: dependabot-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
   pull-requests: write
@@ -11,8 +16,10 @@ permissions:
 jobs:
   # Run tests for Dependabot PRs
   test-dependabot-pr:
-    # Only run on Dependabot PRs
-    if: github.actor == 'dependabot[bot]'
+    # Only run on Dependabot PRs and skip if [skip ci] is in the title
+    if: |
+      github.actor == 'dependabot[bot]' &&
+      !contains(github.event.pull_request.title, '[skip ci]')
     uses: ./.github/workflows/test-and-check.yml
     with:
       python-version: '3.12.2'
@@ -26,6 +33,7 @@ jobs:
   # Auto-merge after tests pass
   dependabot-auto-merge:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: test-dependabot-pr
     # Only run on Dependabot PRs and if tests passed
     if: github.actor == 'dependabot[bot]' && needs.test-dependabot-pr.result == 'success'
