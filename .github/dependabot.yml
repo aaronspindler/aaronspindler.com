@@ -3,15 +3,14 @@
 
 version: 2
 updates:
-  # Python dependencies
+  # Python dependencies - consolidated to handle both regular and security updates
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
+      interval: "daily"  # Check daily for security updates
+      time: "08:00"
       timezone: "UTC"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 15  # Increased to handle both regular and security updates
     reviewers:
       - "aaronspindler"
     assignees:
@@ -24,6 +23,7 @@ updates:
       - "dependencies"
       - "python"
       - "auto-merge"
+      - "security"  # Add security label for security updates
     ignore:
       # Ignore major version updates for critical packages
       - dependency-name: "django"
@@ -41,6 +41,16 @@ updates:
         exclude-patterns:
           - "django"
           - "psycopg2-binary"
+      # Group security updates separately for priority handling
+      python-security:
+        patterns:
+          - "*"
+        update-types:
+          - "security"
+        # Security updates get priority and are processed immediately
+        # Add security label to security update groups
+        labels:
+          - "security"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -87,27 +97,3 @@ updates:
       - "dependencies"
       - "docker"
       - "auto-merge"
-
-  # Security updates (runs daily for critical security patches)
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "daily"
-      time: "08:00"
-      timezone: "UTC"
-    open-pull-requests-limit: 5
-    reviewers:
-      - "aaronspindler"
-    assignees:
-      - "aaronspindler"
-    commit-message:
-      prefix: "security"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "security"
-      - "python"
-      - "auto-merge"
-    # Only security updates
-    update-types:
-      - "security"
