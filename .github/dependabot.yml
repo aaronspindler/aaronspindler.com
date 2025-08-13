@@ -9,9 +9,9 @@ updates:
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "daily"  # Check daily for updates
-      time: "08:00"
-      timezone: "UTC"
+      interval: "daily"  # Check daily for updates (most frequent option available)
+      time: "03:00"  # Run early morning to catch overnight releases
+      timezone: "America/New_York"  # Using EST/EDT timezone
     open-pull-requests-limit: 15  # Allows for both regular and security updates
     reviewers:
       - "aaronspindler"
@@ -47,10 +47,9 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "10:00"
-      timezone: "UTC"
+      interval: "daily"  # Changed from weekly to daily
+      time: "04:00"  # Run after Python dependencies
+      timezone: "America/New_York"  # Using EST/EDT timezone
     open-pull-requests-limit: 5
     reviewers:
       - "aaronspindler"
@@ -72,10 +71,9 @@ updates:
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "11:00"
-      timezone: "UTC"
+      interval: "daily"  # Changed from weekly to daily
+      time: "05:00"  # Run after GitHub Actions
+      timezone: "America/New_York"  # Using EST/EDT timezone
     open-pull-requests-limit: 5
     reviewers:
       - "aaronspindler"
