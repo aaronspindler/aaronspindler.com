@@ -3,14 +3,16 @@
 
 version: 2
 updates:
-  # Python dependencies - consolidated to handle both regular and security updates
+  # Python dependencies
+  # Note: Security updates are handled automatically by Dependabot and cannot be grouped
+  # They are created immediately when vulnerabilities are detected, regardless of schedule
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      interval: "daily"  # Check daily for security updates
+      interval: "daily"  # Check daily for updates
       time: "08:00"
       timezone: "UTC"
-    open-pull-requests-limit: 15  # Increased to handle both regular and security updates
+    open-pull-requests-limit: 15  # Allows for both regular and security updates
     reviewers:
       - "aaronspindler"
     assignees:
@@ -23,7 +25,6 @@ updates:
       - "dependencies"
       - "python"
       - "auto-merge"
-      - "security"  # Add security label for security updates
     ignore:
       # Ignore major version updates for critical packages
       - dependency-name: "django"
@@ -41,16 +42,6 @@ updates:
         exclude-patterns:
           - "django"
           - "psycopg2-binary"
-      # Group security updates separately for priority handling
-      python-security:
-        patterns:
-          - "*"
-        update-types:
-          - "security"
-        # Security updates get priority and are processed immediately
-        # Add security label to security update groups
-        labels:
-          - "security"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
