@@ -18,6 +18,11 @@ on:
         required: false
         type: boolean
         default: true
+      ref:
+        description: 'Git ref to checkout (branch, tag, or SHA)'
+        required: false
+        type: string
+        default: ''
     secrets:
       DATABASE_URL:
         required: false
@@ -47,8 +52,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Ensure we can access Dependabot PRs
-          token: ${{ secrets.GITHUB_TOKEN || github.token }}
+          # Use the provided ref if specified, otherwise use default behavior
+          ref: ${{ inputs.ref }}
+          # Use github.token which has read access to Dependabot PRs
+          token: ${{ github.token }}
       
       - name: Set up Python
         uses: actions/setup-python@v4
