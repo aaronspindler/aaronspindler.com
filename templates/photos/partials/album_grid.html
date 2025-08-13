@@ -1,0 +1,40 @@
+{% load static %}
+<div class="album-grid" role="list">
+    {% for album in albums %}
+    <div class="album-card"
+         role="listitem"
+         data-album-id="{{ album.pk }}"
+         data-album-title="{{ album.title }}"
+         data-album-description="{{ album.description|default:'' }}">
+        <a href="{% url 'photos:album_detail' album.pk %}"
+           class="album-link"
+           aria-label="View {{ album.title }} album">
+            <div class="album-image-container">
+                {% if album.cover_image %}
+                    <img src="{{ album.cover_image.url }}"
+                         alt="{{ album.title }} album cover"
+                         class="album-cover"
+                         loading="lazy">
+                {% else %}
+                    <div class="album-placeholder" aria-hidden="true">
+                        <span>No Cover Image</span>
+                    </div>
+                {% endif %}
+                <div class="album-overlay">
+                    <h3 class="album-title">{{ album.title }}</h3>
+                    <div class="album-stats">
+                        <p class="album-count stat-item">{{ album.photo_count }} photo{{ album.photo_count|pluralize }}</p>
+                    </div>
+                    {% if album.description %}
+                    <p class="album-description" style="display: none;">{{ album.description|truncatewords:15 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </a>
+    </div>
+    {% empty %}
+    <div class="no-albums">
+        <p>No albums available at the moment.</p>
+    </div>
+    {% endfor %}
+</div>

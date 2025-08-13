@@ -1,0 +1,68 @@
+{% extends '_base.html' %}
+{% load static %}
+
+{% block title %}{{ album.title }} - Photos{% endblock title %}
+
+{% block content %}
+<div class="content">
+    <div class="album-header">
+        <a href="{% url 'photos:album_list' %}" class="back-link" aria-label="Back to Albums">&larr; Back to Albums</a>
+        <h1>{{ album.title }}</h1>
+        {% if album.description %}
+            <p class="album-description">{{ album.description }}</p>
+        {% endif %}
+        <p class="photo-count">{{ photos|length }} photo{{ photos|length|pluralize }}</p>
+    </div>
+    
+    {% if photos %}
+    <div class="photo-grid" role="list">
+        {% for photo in photos %}
+        <div class="photo-card" role="listitem" data-photo-index="{{ forloop.counter0 }}">
+            <div class="photo-container photo-zoom-container">
+                {% if photo.thumbnail %}
+                    <img src="{{ photo.thumbnail.url }}"
+                         alt="{{ photo.title|default:photo }}"
+                         data-full="{{ photo.original_image.url }}"
+                         data-title="{{ photo.title|default:'' }}"
+                         data-caption="{{ photo.caption|default:'' }}"
+                         class="photo-thumbnail"
+                         loading="lazy"
+                         role="button"
+                         tabindex="0"
+                         aria-label="View {{ photo.title|default:'photo' }} in fullscreen">
+                {% else %}
+                    <img src="{{ photo.original_image.url }}"
+                         alt="{{ photo.title|default:photo }}"
+                         data-full="{{ photo.original_image.url }}"
+                         data-title="{{ photo.title|default:'' }}"
+                         data-caption="{{ photo.caption|default:'' }}"
+                         class="photo-thumbnail"
+                         loading="lazy"
+                         role="button"
+                         tabindex="0"
+                         aria-label="View {{ photo.title|default:'photo' }} in fullscreen">
+                {% endif %}
+                {% if photo.title or photo.caption %}
+                <div class="photo-info" aria-hidden="true">
+                    {% if photo.title %}
+                        <h3 class="photo-title">{{ photo.title }}</h3>
+                    {% endif %}
+                    {% if photo.caption %}
+                        <p class="photo-caption">{{ photo.caption }}</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="no-photos">This album doesn't have any photos yet.</p>
+    {% endif %}
+</div>
+{% endblock content %}
+
+{% block javascript %}
+{{ block.super }}
+<script src="{% static 'js/photos.js' %}"></script>
+{% endblock javascript %}

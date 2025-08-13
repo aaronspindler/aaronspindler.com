@@ -7,6 +7,7 @@ from django.views.decorators.http import require_http_methods
 from pages.models import PageVisit
 from pages.utils import get_blog_from_template_name, get_books
 from pages.knowledge_graph import build_knowledge_graph, get_post_graph
+from photos.models import Album
 
 import os
 from django.conf import settings
@@ -65,13 +66,19 @@ def home(request):
     # Books
     books = get_books()
     
+    # Albums - Get the 6 most recent published albums
+    albums = Album.objects.filter(
+        is_published=True
+    ).prefetch_related('photos').order_by('order', '-created_at')[:6]
+    
     return render(
         request,
         "pages/home.html",
         {
             "blog_posts": blog_posts,
             "projects": projects,
-            "books": books
+            "books": books,
+            "albums": albums
         }
     )
 

@@ -58,7 +58,12 @@
     {% endif %}
 
     <h2 id="photos">Photos</h2>
-    <p>Coming soon...</p>
+    {% if albums %}
+        {% include 'photos/partials/album_grid.html' %}
+        <p class="view-all-albums">
+            <a href="{% url 'photos:album_list' %}">View all albums →</a>
+        </p>
+    {% endif %}
 
     <h2 id="books">Books</h2>
     {% if books %}

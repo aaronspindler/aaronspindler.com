@@ -1,0 +1,41 @@
+{% extends '_base.html' %}
+{% load static %}
+
+{% block title %}Photo Albums{% endblock title %}
+
+{% block content %}
+<div class="content">
+    <h1>Photo Albums</h1>
+    
+    {% if albums %}
+        {% include 'photos/partials/album_grid.html' %}
+        
+        {% if is_paginated %}
+        <div class="pagination" role="navigation" aria-label="Pagination">
+            <span class="page-links">
+                {% if page_obj.has_previous %}
+                    <a href="?page=1" aria-label="Go to first page">&laquo; first</a>
+                    <a href="?page={{ page_obj.previous_page_number }}" aria-label="Go to previous page">previous</a>
+                {% endif %}
+                
+                <span class="current" aria-current="page">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+                
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}" aria-label="Go to next page">next</a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}" aria-label="Go to last page">last &raquo;</a>
+                {% endif %}
+            </span>
+        </div>
+        {% endif %}
+    {% else %}
+        <p class="no-albums">No albums have been published yet. Please check back later!</p>
+    {% endif %}
+</div>
+{% endblock content %}
+
+{% block javascript %}
+{{ block.super }}
+<script src="{% static 'js/photos.js' %}"></script>
+{% endblock javascript %}
