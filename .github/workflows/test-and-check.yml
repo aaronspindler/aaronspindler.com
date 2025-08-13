@@ -52,7 +52,7 @@ jobs:
           --health-timeout 3s
           --health-retries 3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Use the provided ref if specified, otherwise use default behavior
           ref: ${{ inputs.ref }}
@@ -120,7 +120,7 @@ jobs:
           coverage xml
       
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         if: inputs.upload-coverage
         with:
           files: ./coverage.xml
