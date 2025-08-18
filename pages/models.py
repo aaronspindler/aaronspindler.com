@@ -2,8 +2,9 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 from django.core.files.base import ContentFile
-from .image_utils import ImageOptimizer
+from .image_utils import ImageOptimizer, ExifExtractor
 import os
+import json
 
 class PageVisit(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
@@ -57,6 +58,20 @@ class Photo(models.Model):
     width = models.PositiveIntegerField(null=True, blank=True, help_text='Original image width')
     height = models.PositiveIntegerField(null=True, blank=True, help_text='Original image height')
     
+    # EXIF Metadata
+    exif_data = models.JSONField(null=True, blank=True, help_text='Full EXIF data as JSON')
+    camera_make = models.CharField(max_length=100, blank=True, help_text='Camera manufacturer')
+    camera_model = models.CharField(max_length=100, blank=True, help_text='Camera model')
+    lens_model = models.CharField(max_length=100, blank=True, help_text='Lens model')
+    focal_length = models.CharField(max_length=50, blank=True, help_text='Focal length (e.g., "50mm")')
+    aperture = models.CharField(max_length=50, blank=True, help_text='Aperture (e.g., "f/2.8")')
+    shutter_speed = models.CharField(max_length=50, blank=True, help_text='Shutter speed (e.g., "1/250")')
+    iso = models.PositiveIntegerField(null=True, blank=True, help_text='ISO value')
+    date_taken = models.DateTimeField(null=True, blank=True, help_text='Date photo was taken')
+    gps_latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True, help_text='GPS latitude')
+    gps_longitude = models.DecimalField(max_digits=11, decimal_places=7, null=True, blank=True, help_text='GPS longitude')
+    gps_altitude = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text='GPS altitude in meters')
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -104,7 +119,43 @@ class Photo(models.Model):
         self.height = img.height
         self.file_size = self.image.size
         
+        # Extract EXIF data
+        self.image.seek(0)  # Reset file pointer before reading EXIF
+        exif_data = ExifExtractor.extract_exif(self.image)
+        
+        # Store EXIF metadata
+        if exif_data:
+            # Store full EXIF data as JSON (excluding the full_exif for now to avoid serialization issues)
+            full_exif = exif_data.pop('full_exif', {})
+            
+            # Convert full EXIF data to JSON-serializable format
+            serializable_exif = {}
+            for key, value in full_exif.items():
+                try:
+                    # Try to serialize the value
+                    json.dumps(value)
+                    serializable_exif[key] = value
+                except (TypeError, ValueError):
+                    # If not serializable, convert to string
+                    serializable_exif[key] = str(value)
+            
+            self.exif_data = serializable_exif
+            
+            # Store individual EXIF fields
+            self.camera_make = exif_data.get('camera_make', '')
+            self.camera_model = exif_data.get('camera_model', '')
+            self.lens_model = exif_data.get('lens_model', '')
+            self.focal_length = exif_data.get('focal_length', '')
+            self.aperture = exif_data.get('aperture', '')
+            self.shutter_speed = exif_data.get('shutter_speed', '')
+            self.iso = exif_data.get('iso')
+            self.date_taken = exif_data.get('date_taken')
+            self.gps_latitude = exif_data.get('gps_latitude')
+            self.gps_longitude = exif_data.get('gps_longitude')
+            self.gps_altitude = exif_data.get('gps_altitude')
+        
         # Generate optimized versions
+        self.image.seek(0)  # Reset file pointer before processing
         variants = ImageOptimizer.process_uploaded_image(self.image, self.original_filename)
         
         # Assign the optimized versions to their respective fields

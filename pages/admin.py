@@ -68,15 +68,27 @@ class PageVisitAdmin(admin.ModelAdmin):
 
 @admin.register(Photo)
 class PhotoAdmin(admin.ModelAdmin):
-    list_display = ('title', 'image_preview', 'file_info', 'created_at', 'updated_at')
-    list_filter = ('created_at', 'updated_at')
-    search_fields = ('title', 'description')
+    list_display = ('title', 'image_preview', 'file_info', 'camera_info', 'created_at', 'updated_at')
+    list_filter = ('created_at', 'updated_at', 'camera_make', 'camera_model')
+    search_fields = ('title', 'description', 'camera_make', 'camera_model', 'lens_model')
     readonly_fields = (
         'image_preview', 
         'all_versions_preview',
         'original_filename',
         'file_size_display',
         'dimensions_display',
+        # EXIF readonly fields
+        'camera_make',
+        'camera_model',
+        'lens_model',
+        'focal_length',
+        'aperture',
+        'shutter_speed',
+        'iso',
+        'date_taken',
+        'gps_coordinates_display',
+        'gps_altitude',
+        'exif_summary',
         'created_at', 
         'updated_at'
     )
@@ -93,7 +105,29 @@ class PhotoAdmin(admin.ModelAdmin):
             'fields': ('all_versions_preview',),
             'classes': ('collapse',),
         }),
-        ('Metadata', {
+        ('Camera & Settings', {
+            'fields': (
+                'camera_make',
+                'camera_model',
+                'lens_model',
+                'focal_length',
+                'aperture',
+                'shutter_speed',
+                'iso',
+                'date_taken',
+            ),
+            'classes': ('collapse',),
+            'description': 'EXIF metadata extracted from the image'
+        }),
+        ('Location', {
+            'fields': (
+                'gps_coordinates_display',
+                'gps_altitude',
+            ),
+            'classes': ('collapse',),
+            'description': 'GPS location data from the image'
+        }),
+        ('File Metadata', {
             'fields': (
                 'original_filename',
                 'file_size_display',
@@ -102,6 +136,11 @@ class PhotoAdmin(admin.ModelAdmin):
                 'updated_at'
             ),
             'classes': ('collapse',),
+        }),
+        ('Full EXIF Data', {
+            'fields': ('exif_summary',),
+            'classes': ('collapse',),
+            'description': 'Complete EXIF metadata in JSON format'
         }),
     )
     
@@ -196,6 +235,55 @@ class PhotoAdmin(admin.ModelAdmin):
             return f"{obj.width} × {obj.height} pixels"
         return "Unknown"
     dimensions_display.short_description = 'Original Dimensions'
+    
+    def camera_info(self, obj):
+        """Display camera information in list view."""
+        if obj.camera_make and obj.camera_model:
+            info_parts = [f"{obj.camera_make} {obj.camera_model}"]
+            if obj.focal_length:
+                info_parts.append(obj.focal_length)
+            if obj.aperture:
+                info_parts.append(obj.aperture)
+            return " • ".join(info_parts)
+        return "—"
+    camera_info.short_description = 'Camera'
+    
+    def gps_coordinates_display(self, obj):
+        """Display GPS coordinates in a readable format."""
+        if obj.gps_latitude and obj.gps_longitude:
+            lat_dir = 'N' if obj.gps_latitude >= 0 else 'S'
+            lon_dir = 'E' if obj.gps_longitude >= 0 else 'W'
+            
+            # Create Google Maps link
+            maps_url = f"https://www.google.com/maps?q={obj.gps_latitude},{obj.gps_longitude}"
+            
+            return format_html(
+                '{:.6f}°{} {:.6f}°{} <a href="{}" target="_blank">View on Map</a>',
+                abs(obj.gps_latitude),
+                lat_dir,
+                abs(obj.gps_longitude),
+                lon_dir,
+                maps_url
+            )
+        return "No GPS data"
+    gps_coordinates_display.short_description = 'GPS Coordinates'
+    
+    def exif_summary(self, obj):
+        """Display full EXIF data in a formatted way."""
+        if obj.exif_data:
+            import json
+            try:
+                # Pretty print the JSON data
+                formatted_json = json.dumps(obj.exif_data, indent=2, sort_keys=True)
+                return format_html(
+                    '<pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; '
+                    'max-height: 400px; overflow-y: auto; font-size: 11px;">{}</pre>',
+                    formatted_json
+                )
+            except:
+                return str(obj.exif_data)
+        return "No EXIF data available"
+    exif_summary.short_description = 'Full EXIF Data'
 
 
 @admin.register(PhotoAlbum)
