@@ -5,7 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from pages.models import PageVisit
-from pages.utils import get_blog_from_template_name, get_books
+from pages.utils import get_blog_from_template_name, get_books, get_all_blog_posts
 from pages.knowledge_graph import build_knowledge_graph, get_post_graph
 
 import os
@@ -26,13 +26,30 @@ def robotstxt(request):
 
 def home(request):
     logger.info("Home page requested")
-    # Blog
+    # Blog - Get all blog posts from all categories
+    all_posts = get_all_blog_posts()
     blog_posts = []
-    blog_templates_path = os.path.join(settings.BASE_DIR, 'templates', 'blog')
-    for template_name in os.listdir(blog_templates_path):
-        if template_name.endswith('.html'):
-            template_name = template_name.split('.')[0]
-            blog_posts.append(get_blog_from_template_name(template_name, load_content=False))
+    blog_posts_by_category = {}  # Organize posts by category
+    
+    for post_info in all_posts:
+        blog_data = get_blog_from_template_name(
+            post_info['template_name'], 
+            load_content=False, 
+            category=post_info['category']
+        )
+        blog_posts.append(blog_data)
+        
+        # Organize by category
+        category = post_info['category'] or 'uncategorized'
+        if category not in blog_posts_by_category:
+            blog_posts_by_category[category] = []
+        blog_posts_by_category[category].append(blog_data)
+    
+    # Sort posts within each category
+    for category in blog_posts_by_category:
+        blog_posts_by_category[category].sort(key=lambda x: x['entry_number'], reverse=True)
+    
+    # Sort all posts for backward compatibility
     blog_posts.sort(key=lambda x: x['entry_number'], reverse=True)
     
     # Projects
@@ -70,16 +87,22 @@ def home(request):
         "pages/home.html",
         {
             "blog_posts": blog_posts,
+            "blog_posts_by_category": blog_posts_by_category,
             "projects": projects,
             "books": books
         }
     )
 
 
-def render_blog_template(request, template_name):
+def render_blog_template(request, template_name, category=None):
     try:
-        blog_data = get_blog_from_template_name(template_name)
-        views = PageVisit.objects.filter(page_name=f'/b/{template_name}/').values_list('pk', flat=True).count()
+        blog_data = get_blog_from_template_name(template_name, category=category)
+        # Include category in the page name for tracking if available
+        if category:
+            page_name = f'/b/{category}/{template_name}/'
+        else:
+            page_name = f'/b/{template_name}/'
+        views = PageVisit.objects.filter(page_name=page_name).values_list('pk', flat=True).count()
         blog_data['views'] = views
         return render(request, "_blog_base.html", blog_data)
     except TemplateDoesNotExist:

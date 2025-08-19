@@ -13,7 +13,7 @@ from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.template import Template, Context
 
-from .utils import get_blog_from_template_name
+from .utils import get_blog_from_template_name, get_all_blog_posts, find_blog_template
 
 logger = logging.getLogger(__name__)
 
@@ -76,16 +76,24 @@ class LinkParser:
     def _get_template_content(self, template_name: str) -> str:
         """Get the raw HTML content from a blog template."""
         try:
-            return render_to_string(f"blog/{template_name}.html")
+            # First try to find the template using our helper function
+            template_path = find_blog_template(template_name)
+            if template_path:
+                return render_to_string(template_path)
+            else:
+                # Fallback to old direct path
+                return render_to_string(f"blog/{template_name}.html")
         except Exception as e:
             logger.warning(f"Could not render template {template_name}, trying raw file: {str(e)}")
             
-            template_path = os.path.join(settings.BASE_DIR, 'templates', 'blog', f'{template_name}.html')
-            if not os.path.exists(template_path):
-                raise FileNotFoundError(f"Blog template not found: {template_name}")
+            # Try to find the file in any category
+            all_posts = get_all_blog_posts()
+            for post in all_posts:
+                if post['template_name'] == template_name:
+                    with open(post['full_path'], 'r', encoding='utf-8') as f:
+                        return f.read()
             
-            with open(template_path, 'r', encoding='utf-8') as f:
-                return f.read()
+            raise FileNotFoundError(f"Blog template not found: {template_name}")
     
     def _parse_html_content(self, html_content: str, source_post: str) -> Dict:
         """Parse HTML content and extract links with context."""
@@ -220,11 +228,23 @@ class GraphBuilder:
             blog_templates = self._get_all_blog_templates()
             
             all_links_data = []
-            for template_name in blog_templates:
+            categories_info = {}  # Track categories and their posts
+            
+            for template_info in blog_templates:
+                template_name = template_info['template_name']
+                category = template_info['category']
+                
+                # Track categories
+                if category:
+                    if category not in categories_info:
+                        categories_info[category] = []
+                    categories_info[category].append(template_name)
+                
                 links_data = self.link_parser.parse_blog_post(template_name, force_refresh)
+                links_data['category'] = category  # Add category info to links data
                 all_links_data.append(links_data)
             
-            graph = self._build_graph_structure(all_links_data)
+            graph = self._build_graph_structure(all_links_data, categories_info)
             
             cache.set(cache_key, graph, self.GRAPH_CACHE_TIMEOUT)
             
@@ -284,36 +304,49 @@ class GraphBuilder:
                 'errors': [str(e)]
             }
     
-    def _get_all_blog_templates(self) -> List[str]:
-        """Get all blog template names from the templates/blog directory."""
+    def _get_all_blog_templates(self) -> List[Dict[str, str]]:
+        """Get all blog template names with their categories."""
+        all_posts = get_all_blog_posts()
         blog_templates = []
-        blog_dir = os.path.join(settings.BASE_DIR, 'templates', 'blog')
         
-        if not os.path.exists(blog_dir):
-            logger.warning(f"Blog templates directory not found: {blog_dir}")
-            return []
+        for post in all_posts:
+            blog_templates.append({
+                'template_name': post['template_name'],
+                'category': post['category']
+            })
         
-        for filename in os.listdir(blog_dir):
-            if filename.endswith('.html'):
-                template_name = filename[:-5]
-                blog_templates.append(template_name)
-        
-        blog_templates.sort()
+        blog_templates.sort(key=lambda x: x['template_name'])
         logger.info(f"Found {len(blog_templates)} blog templates")
         
         return blog_templates
     
-    def _build_graph_structure(self, all_links_data: List[Dict]) -> Dict:
+    def _build_graph_structure(self, all_links_data: List[Dict], categories_info: Dict[str, List[str]] = None) -> Dict:
         """Build the graph data structure from parsed link data."""
         nodes = {}
         edges = []
         external_domains = {}
+        category_metadata = {}  # Store category information for visualization
+        
+        # Process category information for visualization metadata
+        if categories_info:
+            for category, posts in categories_info.items():
+                category_metadata[category] = {
+                    'name': category.replace('_', ' ').title(),
+                    'posts': posts,
+                    'count': len(posts)
+                }
         
         for links_data in all_links_data:
             source_post = links_data['source_post']
+            category = links_data.get('category')
             
-            # Create source node
+            # Create source node with category information
             self._ensure_blog_node(nodes, source_post)
+            
+            # Add category information to the node
+            if category:
+                nodes[source_post]['category'] = category
+                nodes[source_post]['category_name'] = category.replace('_', ' ').title()
             
             # Process internal links
             edges.extend(self._process_internal_links(nodes, links_data, source_post))
@@ -328,6 +361,7 @@ class GraphBuilder:
             'edges': edges,
             'metrics': metrics,
             'external_domains': external_domains,
+            'categories': category_metadata,  # Add category metadata for visualization
             'errors': []
         }
     
@@ -340,7 +374,9 @@ class GraphBuilder:
                 'type': 'blog_post',
                 'in_degree': 0,
                 'out_degree': 0,
-                'total_links': 0
+                'total_links': 0,
+                'category': None,  # Will be filled in later if applicable
+                'category_name': None
             }
     
     def _process_internal_links(self, nodes: Dict, links_data: Dict, source_post: str) -> List[Dict]:
@@ -421,7 +457,15 @@ class GraphBuilder:
     def _get_post_title(self, template_name: str) -> str:
         """Get a readable title for a blog post from its template name."""
         try:
-            blog_data = get_blog_from_template_name(template_name, load_content=False)
+            # Try to get the blog data with category information
+            all_posts = get_all_blog_posts()
+            category = None
+            for post in all_posts:
+                if post['template_name'] == template_name:
+                    category = post['category']
+                    break
+            
+            blog_data = get_blog_from_template_name(template_name, load_content=False, category=category)
             return blog_data['blog_title']
         except Exception:
             return template_name.replace('_', ' ').title()

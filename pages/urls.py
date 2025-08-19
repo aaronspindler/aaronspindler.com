@@ -16,6 +16,8 @@ urlpatterns = [
     path("", track_page_visit(home), name="home"),
     path("sitemap.xml", track_page_visit(sitemap), {"sitemaps": sitemaps}),
     path("robots.txt", track_page_visit(robotstxt), name="robotstxt"),
+    # Support both category-based and direct blog URLs
+    path("b/<str:category>/<str:template_name>/", track_page_visit(render_blog_template), name="render_blog_template_with_category"),
     path("b/<str:template_name>/", track_page_visit(render_blog_template), name="render_blog_template"),
     path("api/knowledge-graph/", knowledge_graph_api, name="knowledge_graph_api"),
 ]

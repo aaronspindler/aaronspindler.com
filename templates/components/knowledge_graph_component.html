@@ -64,20 +64,50 @@ class HomepageKnowledgeGraph {
         this.width = containerRect.width || this.CONFIG.DEFAULT_WIDTH;
         this.height = containerRect.height || this.CONFIG.DEFAULT_HEIGHT;
         
-        // Colors - grayscale
+        // Colors - adjusted for dark mode visibility
         this.COLORS = {
-            blogPost: '#666',
-            externalLink: '#999',
-            highlight: '#333',
-            white: '#fff'
+            blogPost: '#888',
+            externalLink: '#aaa',
+            highlight: '#fff',
+            white: '#fff',
+            // Category colors for nodes and hulls - brighter for dark mode
+            categoryColors: {
+                'tech': { 
+                    node: '#5fb4b6', 
+                    hull: 'rgba(95, 180, 182, 0.2)', 
+                    border: 'rgba(95, 180, 182, 0.7)',
+                    text: '#7dd8da'
+                },
+                'personal': { 
+                    node: '#c594c5', 
+                    hull: 'rgba(197, 148, 197, 0.2)', 
+                    border: 'rgba(197, 148, 197, 0.7)',
+                    text: '#dbb3db'
+                },
+                'projects': { 
+                    node: '#fac863', 
+                    hull: 'rgba(250, 200, 99, 0.2)', 
+                    border: 'rgba(250, 200, 99, 0.7)',
+                    text: '#ffd885'
+                },
+                'default': { 
+                    node: '#999', 
+                    hull: 'rgba(153, 153, 153, 0.2)', 
+                    border: 'rgba(153, 153, 153, 0.7)',
+                    text: '#bbb'
+                }
+            }
         };
         
         // Force simulation configuration
         this.FORCE_CONFIG = {
-            linkDistance: 80,
-            chargeStrength: -250,
-            collisionRadius: 20,
-            centerStrength: 0.1
+            linkDistance: 60,  // Reduced for tighter grouping
+            chargeStrength: -150,  // Less repulsion for tighter clusters
+            collisionRadius: 15,  // Smaller collision radius
+            centerStrength: 0.05,  // Weaker center pull
+            categoryStrength: 0.6,  // Moderate category clustering for flexibility
+            basePadding: 40,  // Base padding for category hulls
+            paddingPerNode: 8  // Additional padding per node
         };
         
         this.setupSVG();
@@ -149,53 +179,179 @@ class HomepageKnowledgeGraph {
         // Clear existing elements
         this.g.selectAll("*").remove();
         
-        const { nodes, edges } = data;
+        const { nodes, edges, categories } = data;
         
         if (!nodes || nodes.length === 0) {
             return;
         }
         
-        // Initialize node positions in a circle
-        this.initializeNodePositions(nodes);
+        // Store data for later use
+        this.graphData = data;
+        this.categories = categories || {};
         
-        // Create force simulation
+        // Initialize node positions by category
+        this.initializeNodePositionsByCategory(nodes);
+        
+        // Create force simulation with category clustering
         this.createForceSimulation(nodes, edges);
+        
+        // Create hull group first (background)
+        this.hullGroup = this.g.append("g").attr("class", "hulls");
         
         // Create visual elements
         this.createLinks(edges);
         this.createNodes(nodes);
         this.createLabels(nodes);
         
+        // Create a separate group for category labels (above everything)
+        this.categoryLabelGroup = this.g.append("g").attr("class", "category-labels");
+        
         // Add event handlers
         this.addEventHandlers();
         
         // Start simulation
         this.simulation.alpha(1).restart();
+        
+        // Delay initial category hull rendering until nodes are positioned
+        setTimeout(() => {
+            this.updateCategoryHulls();
+        }, 100);
     }
     
-    initializeNodePositions(nodes) {
-        const radius = Math.min(this.width, this.height) * 0.25;
+    initializeNodePositionsByCategory(nodes) {
         const centerX = this.width / 2;
         const centerY = this.height / 2;
+        const categoryGroups = {};
         
-        nodes.forEach((node, i) => {
-            const angle = (i / nodes.length) * 2 * Math.PI;
-            node.x = centerX + radius * Math.cos(angle);
-            node.y = centerY + radius * Math.sin(angle);
+        // Group nodes by category
+        nodes.forEach(node => {
+            const category = node.category || 'uncategorized';
+            if (!categoryGroups[category]) {
+                categoryGroups[category] = [];
+            }
+            categoryGroups[category].push(node);
+        });
+        
+        // Store category centers for later use
+        this.categoryCenters = {};
+        
+        // Position each category group in a different area
+        const categories = Object.keys(categoryGroups);
+        const angleStep = (2 * Math.PI) / Math.max(categories.length, 1);
+        const groupRadius = Math.min(this.width, this.height) * 0.25;
+        
+        categories.forEach((category, catIndex) => {
+            const categoryAngle = catIndex * angleStep;
+            const groupCenterX = centerX + groupRadius * Math.cos(categoryAngle);
+            const groupCenterY = centerY + groupRadius * Math.sin(categoryAngle);
+            
+            // Store category center
+            this.categoryCenters[category] = { x: groupCenterX, y: groupCenterY };
+            
+            // Position nodes in a tight circular pattern within the category
+            const nodesInCategory = categoryGroups[category];
+            const nodeCount = nodesInCategory.length;
+            
+            if (nodeCount === 1) {
+                // Single node at center
+                nodesInCategory[0].x = groupCenterX;
+                nodesInCategory[0].y = groupCenterY;
+            } else {
+                // Multiple nodes in concentric circles
+                const maxRadius = this.FORCE_CONFIG.categoryRadius * 0.4; // Use 40% of category radius
+                let placedNodes = 0;
+                let currentRadius = 0;
+                let ring = 0;
+                
+                while (placedNodes < nodeCount) {
+                    const nodesInRing = ring === 0 ? 1 : Math.min(6 * ring, nodeCount - placedNodes);
+                    currentRadius = ring === 0 ? 0 : (maxRadius * ring) / Math.ceil(Math.sqrt(nodeCount));
+                    
+                    for (let i = 0; i < nodesInRing && placedNodes < nodeCount; i++) {
+                        const angle = (i / nodesInRing) * 2 * Math.PI;
+                        const node = nodesInCategory[placedNodes];
+                        node.x = groupCenterX + currentRadius * Math.cos(angle);
+                        node.y = groupCenterY + currentRadius * Math.sin(angle);
+                        placedNodes++;
+                    }
+                    ring++;
+                }
+            }
         });
     }
     
     createForceSimulation(nodes, edges) {
-        this.simulation = d3.forceSimulation(nodes)
-            .force("link", d3.forceLink(edges).id(d => d.id).distance(this.FORCE_CONFIG.linkDistance))
-            .force("charge", d3.forceManyBody().strength(this.FORCE_CONFIG.chargeStrength))
-            .force("center", d3.forceCenter(this.width / 2, this.height / 2))
-            .force("collision", d3.forceCollide().radius(this.FORCE_CONFIG.collisionRadius))
-            .force("x", d3.forceX(this.width / 2).strength(this.FORCE_CONFIG.centerStrength))
-            .force("y", d3.forceY(this.height / 2).strength(this.FORCE_CONFIG.centerStrength));
+        // Use stored category centers
+        const categoryCenters = this.categoryCenters || this.calculateCategoryCenters();
         
-        // Update positions on simulation tick
-        this.simulation.on("tick", () => this.updatePositions());
+        this.simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(edges).id(d => d.id)
+                .distance(d => {
+                    // Shorter links within same category
+                    if (d.source.category && d.target.category && 
+                        d.source.category === d.target.category) {
+                        return this.FORCE_CONFIG.linkDistance * 0.7;
+                    }
+                    return this.FORCE_CONFIG.linkDistance;
+                })
+                .strength(d => {
+                    // Stronger links within same category
+                    if (d.source.category && d.target.category && 
+                        d.source.category === d.target.category) {
+                        return 1.5;
+                    }
+                    return 1;
+                })
+            )
+            .force("charge", d3.forceManyBody()
+                .strength(d => {
+                    // Less repulsion between nodes in same category
+                    return d.category ? this.FORCE_CONFIG.chargeStrength * 0.5 : this.FORCE_CONFIG.chargeStrength;
+                })
+            )
+            .force("collision", d3.forceCollide().radius(this.FORCE_CONFIG.collisionRadius))
+            // Moderate category clustering for organic shapes
+            .force("categoryX", d3.forceX(d => {
+                const category = d.category || 'uncategorized';
+                return categoryCenters[category]?.x || this.width / 2;
+            }).strength(this.FORCE_CONFIG.categoryStrength))
+            .force("categoryY", d3.forceY(d => {
+                const category = d.category || 'uncategorized';
+                return categoryCenters[category]?.y || this.height / 2;
+            }).strength(this.FORCE_CONFIG.categoryStrength));
+        
+        // Update positions on simulation tick with throttled hull updates
+        this.tickCount = 0;
+        this.simulation.on("tick", () => {
+            this.updatePositions();
+            // Update hulls every 3 ticks for smoother performance
+            this.tickCount++;
+            if (this.tickCount % 3 === 0) {
+                this.updateCategoryHulls();
+            }
+        });
+    }
+    
+    calculateCategoryCenters() {
+        const centers = {};
+        const categories = Object.keys(this.categories || {});
+        const angleStep = (2 * Math.PI) / Math.max(categories.length, 1);
+        const radius = Math.min(this.width, this.height) * 0.25;
+        const centerX = this.width / 2;
+        const centerY = this.height / 2;
+        
+        categories.forEach((category, index) => {
+            const angle = index * angleStep;
+            centers[category] = {
+                x: centerX + radius * Math.cos(angle),
+                y: centerY + radius * Math.sin(angle)
+            };
+        });
+        
+        // Add center for uncategorized nodes
+        centers['uncategorized'] = { x: centerX, y: centerY };
+        
+        return centers;
     }
     
     createLinks(edges) {
@@ -216,9 +372,19 @@ class HomepageKnowledgeGraph {
             .selectAll("circle")
             .data(nodes)
             .enter().append("circle")
-            .attr("class", d => `node ${d.type === 'blog_post' ? 'blog-post' : d.type}`)
+            .attr("class", d => {
+                if (d.type === 'blog_post') return `node blog-post ${d.category || 'uncategorized'}`;
+                return `node ${d.type}`;
+            })
             .attr("r", d => this.getNodeRadius(d))
-            .attr("fill", d => d.type === 'blog_post' ? this.COLORS.blogPost : this.COLORS.externalLink)
+            .attr("fill", d => {
+                if (d.type === 'blog_post') {
+                    const category = d.category || 'default';
+                    const categoryColor = this.COLORS.categoryColors[category] || this.COLORS.categoryColors.default;
+                    return categoryColor.node;
+                }
+                return this.COLORS.externalLink;
+            })
             .attr("stroke", this.COLORS.white)
             .attr("stroke-width", 1.5)
             .call(this.createDragBehavior());
@@ -230,7 +396,6 @@ class HomepageKnowledgeGraph {
             .data(nodes)
             .enter().append("text")
             .attr("class", d => {
-                // Add special class for blog post numbers
                 if (d.type === 'blog_post') {
                     return "node-label blog-post-number";
                 }
@@ -275,6 +440,222 @@ class HomepageKnowledgeGraph {
         this.labels
             .attr("x", d => d.x || 0)
             .attr("y", d => (d.y || 0) + 4);
+    }
+    
+    updateCategoryHulls() {
+        if (!this.hullGroup) return;
+        
+        // Group nodes by category
+        const categoryGroups = {};
+        const nodes = this.simulation ? this.simulation.nodes() : [];
+        
+        nodes.forEach(node => {
+            if (node.type === 'blog_post' && node.category) {
+                // Only add nodes with valid positions
+                if (node.x !== undefined && node.y !== undefined && 
+                    !isNaN(node.x) && !isNaN(node.y) &&
+                    (Math.abs(node.x) > 1 || Math.abs(node.y) > 1)) {  // Not at origin
+                    if (!categoryGroups[node.category]) {
+                        categoryGroups[node.category] = [];
+                    }
+                    categoryGroups[node.category].push([node.x, node.y]);
+                }
+            }
+        });
+        
+        // Clear existing hulls and labels
+        this.hullGroup.selectAll("*").remove();
+        if (this.categoryLabelGroup) {
+            this.categoryLabelGroup.selectAll("*").remove();
+        }
+        
+        // Draw organic hulls for each category
+        Object.entries(categoryGroups).forEach(([category, points]) => {
+            // Skip if no points or all points are invalid
+            if (points.length === 0) return;
+            
+            // Validate points - filter out any remaining invalid ones
+            const validPoints = points.filter(([x, y]) => 
+                x !== undefined && y !== undefined && 
+                !isNaN(x) && !isNaN(y) &&
+                (Math.abs(x) > 1 || Math.abs(y) > 1)
+            );
+            
+            if (validPoints.length === 0) return;
+            points = validPoints;  // Use only valid points
+            
+            const categoryData = this.categories[category] || {};
+            const categoryColor = this.COLORS.categoryColors[category] || this.COLORS.categoryColors.default;
+            
+            // Calculate dynamic padding based on node count
+            const dynamicPadding = this.FORCE_CONFIG.basePadding + 
+                (points.length * this.FORCE_CONFIG.paddingPerNode);
+            
+            if (points.length === 1) {
+                // Single node - draw a circle around it
+                const [x, y] = points[0];
+                
+                // Validate position before drawing
+                if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) return;
+                
+                this.hullGroup.append("circle")
+                    .attr("class", `category-hull hull-${category}`)
+                    .attr("cx", x)
+                    .attr("cy", y)
+                    .attr("r", dynamicPadding)
+                    .style("fill", categoryColor.hull)
+                    .style("stroke", categoryColor.border)
+                    .style("stroke-width", 2)
+                    .style("opacity", 0.8);
+                
+                // Add label for single node at top
+                if (this.categoryLabelGroup && x > 10 && y > 10) {  // Only if position is reasonable
+                    this.categoryLabelGroup.append("text")
+                        .attr("class", "category-label")
+                        .attr("x", x)
+                        .attr("y", y - dynamicPadding - 5)
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "18px")
+                        .style("font-weight", "700")
+                        .style("fill", categoryColor.text || categoryColor.border)
+                        .style("stroke", "#1a1a1a")
+                        .style("stroke-width", "3px")
+                        .style("paint-order", "stroke")
+                        .style("pointer-events", "none")
+                        .text(category.toUpperCase());
+                }
+                    
+            } else if (points.length === 2) {
+                // Two nodes - draw an ellipse/capsule shape
+                const [x1, y1] = points[0];
+                const [x2, y2] = points[1];
+                const midX = (x1 + x2) / 2;
+                const midY = (y1 + y2) / 2;
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                
+                this.hullGroup.append("ellipse")
+                    .attr("class", `category-hull hull-${category}`)
+                    .attr("cx", midX)
+                    .attr("cy", midY)
+                    .attr("rx", distance / 2 + dynamicPadding)
+                    .attr("ry", dynamicPadding)
+                    .attr("transform", `rotate(${angle} ${midX} ${midY})`)
+                    .style("fill", categoryColor.hull)
+                    .style("stroke", categoryColor.border)
+                    .style("stroke-width", 2)
+                    .style("opacity", 0.8);
+                
+                // Add label for two nodes at top
+                if (this.categoryLabelGroup && midX > 10 && midY > 10) {  // Only if position is reasonable
+                    const topY = Math.min(y1, y2) - dynamicPadding - 5;
+                    this.categoryLabelGroup.append("text")
+                        .attr("class", "category-label")
+                        .attr("x", midX)
+                        .attr("y", topY)
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "18px")
+                        .style("font-weight", "700")
+                        .style("fill", categoryColor.text || categoryColor.border)
+                        .style("stroke", "#1a1a1a")
+                        .style("stroke-width", "3px")
+                        .style("paint-order", "stroke")
+                        .style("pointer-events", "none")
+                        .text(category.toUpperCase());
+                }
+                    
+            } else {
+                // Multiple nodes - create organic blob shape
+                const hull = d3.polygonHull(points);
+                if (!hull) return;
+                
+                // Expand hull with dynamic padding
+                const expandedHull = this.expandHull(hull, dynamicPadding);
+                if (!expandedHull) return;
+                
+                // Create smooth blob path using Catmull-Rom curve
+                const pathData = this.createBlobPath(expandedHull);
+                
+                // Draw the organic shape
+                this.hullGroup.append("path")
+                    .attr("class", `category-hull hull-${category}`)
+                    .attr("d", pathData)
+                    .style("fill", categoryColor.hull)
+                    .style("stroke", categoryColor.border)
+                    .style("stroke-width", 2)
+                    .style("stroke-linejoin", "round")
+                    .style("opacity", 0.8);
+            }
+            
+            // Add category label at the top of the group
+            const centroid = points.length > 0 ? d3.polygonCentroid(points) : null;
+            if (!centroid || centroid[0] === undefined || centroid[1] === undefined) return;
+            
+            const topPoint = points.reduce((top, point) => 
+                point[1] < top[1] ? point : top, points[0]);
+            
+            // Only add label if position is valid
+            if (this.categoryLabelGroup && centroid[0] > 10 && centroid[1] > 10 && topPoint[1] > 10) {
+                this.categoryLabelGroup.append("text")
+                    .attr("class", "category-label")
+                    .attr("x", centroid[0])
+                    .attr("y", topPoint[1] - dynamicPadding - 5)
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "18px")
+                    .style("font-weight", "700")
+                    .style("fill", categoryColor.text || categoryColor.border)
+                    .style("stroke", "#1a1a1a")
+                    .style("stroke-width", "3px")
+                    .style("paint-order", "stroke")
+                    .style("pointer-events", "none")
+                    .text(category.toUpperCase());
+            }
+        });
+    }
+    
+    createBlobPath(points) {
+        if (!points || points.length < 3) return "";
+        
+        // Close the path by adding the first point at the end
+        const closedPoints = [...points, points[0], points[1]];
+        
+        // Use d3.curveCatmullRomClosed for smooth blob
+        const lineGenerator = d3.line()
+            .x(d => d[0])
+            .y(d => d[1])
+            .curve(d3.curveCatmullRomClosed.alpha(0.7));
+        
+        return lineGenerator(points);
+    }
+    
+    expandHull(hull, padding) {
+        if (!hull || hull.length < 3) return hull;
+        
+        const centroid = d3.polygonCentroid(hull);
+        if (!centroid) return hull;
+        
+        // Expand points outward from centroid
+        const expandedPoints = hull.map(point => {
+            const dx = point[0] - centroid[0];
+            const dy = point[1] - centroid[1];
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance === 0) return point;
+            
+            // Add some variation to make shape more organic
+            const variation = 1 + (Math.random() * 0.1 - 0.05); // ±5% variation
+            const expandDistance = padding * variation;
+            const scale = (distance + expandDistance) / distance;
+            
+            return [
+                centroid[0] + dx * scale,
+                centroid[1] + dy * scale
+            ];
+        });
+        
+        return expandedPoints;
     }
     
     getNodeRadius(node) {
@@ -395,7 +776,12 @@ class HomepageKnowledgeGraph {
     handleNodeClick(event, node) {
         // Navigate based on node type
         if (node.type === 'blog_post') {
-            window.open(`/b/${node.id}/`, '_blank');
+            // Use category URL if available
+            if (node.category) {
+                window.open(`/b/${node.category}/${node.id}/`, '_blank');
+            } else {
+                window.open(`/b/${node.id}/`, '_blank');
+            }
         } else if (node.url) {
             window.open(node.url, '_blank');
         }
