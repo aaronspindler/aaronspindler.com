@@ -101,14 +101,19 @@ class HomepageKnowledgeGraph {
         
         // Force simulation configuration
         this.FORCE_CONFIG = {
-            linkDistance: 60,  // Reduced for tighter grouping
-            chargeStrength: -150,  // Less repulsion for tighter clusters
-            collisionRadius: 15,  // Smaller collision radius
-            centerStrength: 0.05,  // Weaker center pull
-            categoryStrength: 0.6,  // Moderate category clustering for flexibility
-            basePadding: 40,  // Base padding for category hulls
-            paddingPerNode: 8  // Additional padding per node
+            linkDistance: 90,  // Much more spacing between nodes
+            chargeStrength: -200,  // Much stronger repulsion for better spacing
+            collisionRadius: 25,  // Larger collision radius for more personal space
+            centerStrength: 0.02,  // Even weaker center pull
+            categoryStrength: 0.25,  // Looser category clustering for more spread
+            basePadding: 60,  // More padding for category hulls
+            paddingPerNode: 12,  // More padding per node
+            labelRepulsionStrength: 40,  // Strong repulsion force for labels
+            labelRepulsionRadius: 140  // Larger detection radius around category labels
         };
+        
+        // Store category label positions for collision detection
+        this.categoryLabelBounds = [];
         
         this.setupSVG();
         this.loadData();
@@ -118,6 +123,18 @@ class HomepageKnowledgeGraph {
         window.addEventListener('resize', () => {
             clearTimeout(this.resizeTimeout);
             this.resizeTimeout = setTimeout(() => this.handleResize(), this.CONFIG.RESIZE_DEBOUNCE);
+        });
+        
+        // Add keyboard shortcuts
+        window.addEventListener('keydown', (event) => {
+            // Press 'f' to fit graph to view
+            if (event.key === 'f' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                this.fitGraphToView();
+            }
+            // Press 'r' to reset zoom
+            if (event.key === 'r' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                this.resetZoom();
+            }
         });
     }
     
@@ -138,11 +155,26 @@ class HomepageKnowledgeGraph {
         // Create main group for all graph elements
         this.g = this.svg.append("g");
         
+        // Start zoomed out (20% scale) for more dramatic zoom-in effect
+        const initialScale = 0.2;
+        const initialTransform = d3.zoomIdentity
+            .translate(this.width / 2 * (1 - initialScale), this.height / 2 * (1 - initialScale))
+            .scale(initialScale);
+        this.svg.call(this.zoom.transform, initialTransform);
+        
         // Create tooltip group
         this.tooltipGroup = this.svg.append("g")
             .attr("class", "svg-tooltip");
         
-        // No complex filters or gradients needed for simple tooltips
+        // Add controls info text
+        this.svg.append("text")
+            .attr("x", 10)
+            .attr("y", this.height - 10)
+            .attr("class", "controls-info")
+            .style("font-size", "12px")
+            .style("fill", "#666")
+            .style("opacity", 0.7)
+            .text("Press 'F' to fit graph • 'R' to reset zoom • Scroll to zoom • Drag to pan");
     }
     
     async loadData(forceRefresh = false) {
@@ -209,8 +241,13 @@ class HomepageKnowledgeGraph {
         // Add event handlers
         this.addEventHandlers();
         
-        // Start simulation
-        this.simulation.alpha(1).restart();
+        // Start simulation with very gradual settings for natural animation
+        this.simulation
+            .alpha(1.0)  // Start with full alpha
+            .alphaDecay(0.01)  // Even slower decay for more settling time with increased spacing
+            .velocityDecay(0.5)  // Start with high dampening (will be dynamically reduced)
+            .alphaTarget(0)  // Target zero alpha
+            .restart();
         
         // Delay initial category hull rendering until nodes are positioned
         setTimeout(() => {
@@ -222,23 +259,28 @@ class HomepageKnowledgeGraph {
         const centerX = this.width / 2;
         const centerY = this.height / 2;
         const categoryGroups = {};
+        const externalLinks = [];
         
-        // Group nodes by category
+        // Group nodes by category and separate external links
         nodes.forEach(node => {
-            const category = node.category || 'uncategorized';
-            if (!categoryGroups[category]) {
-                categoryGroups[category] = [];
+            if (node.type === 'external_link') {
+                externalLinks.push(node);
+            } else {
+                const category = node.category || 'uncategorized';
+                if (!categoryGroups[category]) {
+                    categoryGroups[category] = [];
+                }
+                categoryGroups[category].push(node);
             }
-            categoryGroups[category].push(node);
         });
         
         // Store category centers for later use
         this.categoryCenters = {};
         
-        // Position each category group in a different area
+        // Position each category group with much more spacing
         const categories = Object.keys(categoryGroups);
         const angleStep = (2 * Math.PI) / Math.max(categories.length, 1);
-        const groupRadius = Math.min(this.width, this.height) * 0.25;
+        const groupRadius = Math.min(this.width, this.height) * 0.28;  // Much more spread out initially
         
         categories.forEach((category, catIndex) => {
             const categoryAngle = catIndex * angleStep;
@@ -257,8 +299,8 @@ class HomepageKnowledgeGraph {
                 nodesInCategory[0].x = groupCenterX;
                 nodesInCategory[0].y = groupCenterY;
             } else {
-                // Multiple nodes in concentric circles
-                const maxRadius = this.FORCE_CONFIG.categoryRadius * 0.4; // Use 40% of category radius
+                // Multiple nodes in concentric circles with more spacing
+                const maxRadius = 80; // Fixed larger radius for consistent spacing
                 let placedNodes = 0;
                 let currentRadius = 0;
                 let ring = 0;
@@ -278,65 +320,453 @@ class HomepageKnowledgeGraph {
                 }
             }
         });
+        
+        // Position external links far from category areas
+        if (externalLinks.length > 0) {
+            const outerRadius = Math.min(this.width, this.height) * 0.42;  // Position at edges
+            const externalAngleStep = (2 * Math.PI) / externalLinks.length;
+            
+            externalLinks.forEach((node, index) => {
+                const angle = index * externalAngleStep + Math.random() * 0.1;  // Less randomness
+                const radiusVariation = 0.95 + Math.random() * 0.1;  // Keep them far out
+                node.x = centerX + outerRadius * radiusVariation * Math.cos(angle);
+                node.y = centerY + outerRadius * radiusVariation * Math.sin(angle);
+            });
+        }
     }
     
     createForceSimulation(nodes, edges) {
         // Use stored category centers
         const categoryCenters = this.categoryCenters || this.calculateCategoryCenters();
         
+        // Create links force but start disabled
+        const linkForce = d3.forceLink(edges).id(d => d.id)
+            .distance(d => {
+                // External links get much more distance
+                if (d.source.type === 'external_link' || d.target.type === 'external_link') {
+                    return this.FORCE_CONFIG.linkDistance * 1.8;
+                }
+                // Shorter links within same category
+                if (d.source.category && d.target.category && 
+                    d.source.category === d.target.category) {
+                    return this.FORCE_CONFIG.linkDistance * 0.8;
+                }
+                return this.FORCE_CONFIG.linkDistance;
+            })
+            .strength(0);  // Start with no link force
+        
+        // Create charge force but start very weak
+        const chargeForce = d3.forceManyBody()
+            .strength(d => {
+                // Start with very weak repulsion
+                const baseStrength = d.type === 'external_link' 
+                    ? this.FORCE_CONFIG.chargeStrength * 2.0  // Stronger repulsion for external links
+                    : d.category 
+                        ? this.FORCE_CONFIG.chargeStrength * 0.5 
+                        : this.FORCE_CONFIG.chargeStrength;
+                return baseStrength * 0.1;  // Start at 10% strength
+            });
+        
+        // Create collision force but start gentle
+        const collisionForce = d3.forceCollide()
+            .radius(d => {
+                const baseRadius = d.type === 'external_link'
+                    ? this.FORCE_CONFIG.collisionRadius * 1.8
+                    : this.FORCE_CONFIG.collisionRadius;
+                return baseRadius * 0.5;  // Start with smaller radius
+            })
+            .strength(0.3);  // Start gentle
+        
         this.simulation = d3.forceSimulation(nodes)
-            .force("link", d3.forceLink(edges).id(d => d.id)
-                .distance(d => {
-                    // Shorter links within same category
-                    if (d.source.category && d.target.category && 
-                        d.source.category === d.target.category) {
-                        return this.FORCE_CONFIG.linkDistance * 0.7;
-                    }
-                    return this.FORCE_CONFIG.linkDistance;
-                })
-                .strength(d => {
-                    // Stronger links within same category
-                    if (d.source.category && d.target.category && 
-                        d.source.category === d.target.category) {
-                        return 1.5;
-                    }
-                    return 1;
-                })
-            )
-            .force("charge", d3.forceManyBody()
-                .strength(d => {
-                    // Less repulsion between nodes in same category
-                    return d.category ? this.FORCE_CONFIG.chargeStrength * 0.5 : this.FORCE_CONFIG.chargeStrength;
-                })
-            )
-            .force("collision", d3.forceCollide().radius(this.FORCE_CONFIG.collisionRadius))
-            // Moderate category clustering for organic shapes
+            .force("link", linkForce)
+            .force("charge", chargeForce)
+            .force("collision", collisionForce)
+            // Start with very weak category clustering
             .force("categoryX", d3.forceX(d => {
+                if (d.type === 'external_link') {
+                    // Push external links to the edges
+                    const centerX = this.width / 2;
+                    const angle = Math.atan2(d.y - this.height / 2, d.x - centerX);
+                    const radius = Math.min(this.width, this.height) * 0.42;
+                    return centerX + radius * Math.cos(angle);
+                }
                 const category = d.category || 'uncategorized';
                 return categoryCenters[category]?.x || this.width / 2;
-            }).strength(this.FORCE_CONFIG.categoryStrength))
+            }).strength(0.005))  // Extremely weak initially
             .force("categoryY", d3.forceY(d => {
+                if (d.type === 'external_link') {
+                    // Push external links to the edges
+                    const centerY = this.height / 2;
+                    const angle = Math.atan2(d.y - centerY, d.x - this.width / 2);
+                    const radius = Math.min(this.width, this.height) * 0.42;
+                    return centerY + radius * Math.sin(angle);
+                }
                 const category = d.category || 'uncategorized';
                 return categoryCenters[category]?.y || this.height / 2;
-            }).strength(this.FORCE_CONFIG.categoryStrength));
+            }).strength(0.005))  // Extremely weak initially
+            // Add custom force to repel external nodes from category labels
+            .force("labelRepulsion", this.createLabelRepulsionForce())
+            // Add custom force to keep external links outside category areas
+            .force("externalRepulsion", this.createExternalRepulsionForce())
+            // Add custom force to prevent nodes from entering other categories
+            .force("categoryBoundary", this.createCategoryBoundaryForce());
+        
+        // Store force references for gradual strengthening
+        this.forces = {
+            link: linkForce,
+            charge: chargeForce,
+            collision: collisionForce,
+            targetLinkStrength: {
+                external: 0.5,
+                sameCat: 1.5,
+                normal: 1.0
+            }
+        };
         
         // Update positions on simulation tick with throttled hull updates
         this.tickCount = 0;
+        this.hasAutoFitted = false;  // Track if we've done the auto-fit
         this.simulation.on("tick", () => {
+            const alpha = this.simulation.alpha();
+            
+            // Gradually strengthen forces as simulation progresses
+            this.updateForceStrengths(alpha);
+            
             this.updatePositions();
             // Update hulls every 3 ticks for smoother performance
             this.tickCount++;
             if (this.tickCount % 3 === 0) {
                 this.updateCategoryHulls();
             }
+            
+            // Auto-fit the graph earlier while nodes are still settling for a more dynamic effect
+            if (!this.hasAutoFitted && alpha < 0.4) {
+                this.hasAutoFitted = true;
+                setTimeout(() => this.fitGraphToView(), 500);  // Start zooming in while graph is forming
+            }
         });
+    }
+    
+    updateForceStrengths(alpha) {
+        if (!this.forces) return;
+        
+        // Create smooth easing curve for force strength
+        // Use custom easing for very gradual, natural animation
+        const progress = 1 - alpha;  // 0 to 1 as simulation progresses
+        
+        // Multi-stage easing for different phases of animation
+        let easeProgress;
+        if (progress < 0.3) {
+            // Very slow start (first 30%)
+            easeProgress = progress * progress * 0.5;
+        } else if (progress < 0.7) {
+            // Gradual acceleration (30-70%)
+            const p = (progress - 0.3) / 0.4;
+            easeProgress = 0.045 + p * 0.455;
+        } else {
+            // Smooth finish (70-100%)
+            const p = (progress - 0.7) / 0.3;
+            easeProgress = 0.5 + Math.sqrt(p) * 0.5;
+        }
+        
+        // Update link force strength
+        this.forces.link.strength(d => {
+            if (d.source.type === 'external_link' || d.target.type === 'external_link') {
+                return this.forces.targetLinkStrength.external * easeProgress * 0.8;
+            }
+            if (d.source.category && d.target.category && 
+                d.source.category === d.target.category) {
+                return this.forces.targetLinkStrength.sameCat * easeProgress;
+            }
+            return this.forces.targetLinkStrength.normal * easeProgress;
+        });
+        
+        // Update charge force strength
+        this.forces.charge.strength(d => {
+            const baseStrength = d.type === 'external_link' 
+                ? this.FORCE_CONFIG.chargeStrength * 2.0  // Stronger repulsion for external links
+                : d.category 
+                    ? this.FORCE_CONFIG.chargeStrength * 0.5 
+                    : this.FORCE_CONFIG.chargeStrength;
+            
+            // Slower ramp-up for charge to prevent initial chaos
+            const chargeProgress = Math.min(1, easeProgress * 1.2);
+            return baseStrength * chargeProgress * 0.8;  // Never go to full strength for smoother animation
+        });
+        
+        // Update collision force
+        this.forces.collision
+            .radius(d => {
+                const baseRadius = d.type === 'external_link'
+                    ? this.FORCE_CONFIG.collisionRadius * 1.8
+                    : this.FORCE_CONFIG.collisionRadius;
+                // Gradually expand collision radius
+                return baseRadius * (0.5 + 0.5 * easeProgress);
+            })
+            .strength(0.3 + 0.7 * easeProgress);  // Gradually strengthen collision
+        
+        // Update category clustering forces
+        const categoryStrength = d => {
+            if (d.type === 'external_link') {
+                // Stronger force to keep external links on periphery
+                return 0.01 + 0.15 * easeProgress;  // Stronger outward force
+            }
+            return 0.005 + (this.FORCE_CONFIG.categoryStrength - 0.005) * easeProgress * 0.8;
+        };
+        
+        this.simulation.force("categoryX").strength(categoryStrength);
+        this.simulation.force("categoryY").strength(categoryStrength);
+        
+        // Dynamic velocity decay for smoother motion
+        // Start with high dampening and gradually reduce it
+        const velocityDecay = 0.5 - (0.2 * easeProgress);  // From 0.5 to 0.3
+        this.simulation.velocityDecay(velocityDecay);
+    }
+    
+    createCategoryBoundaryForce() {
+        return (alpha) => {
+            const nodes = this.simulation ? this.simulation.nodes() : [];
+            const categoryCenters = this.calculateCategoryCenters();
+            
+            // Skip if we're in early stages of simulation
+            if (alpha > 0.5) return;
+            
+            // Progressive strength based on simulation progress
+            const strengthMultiplier = alpha > 0.3 ? 
+                0.3 * (1 - (alpha - 0.3) / 0.2) :  // Ramp up from 0.5 to 0.3
+                0.3 + 0.7 * (0.3 - alpha) / 0.3;   // Full strength below 0.3
+            
+            nodes.forEach(node => {
+                // Skip external links - they have their own repulsion
+                if (node.type === 'external_link') return;
+                
+                const nodeCategory = node.category || 'uncategorized';
+                
+                // Check distance to all other category centers
+                Object.entries(categoryCenters).forEach(([category, center]) => {
+                    // Skip the node's own category
+                    if (category === nodeCategory) return;
+                    
+                    const dx = node.x - center.x;
+                    const dy = node.y - center.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Define boundary radius for each category (adjust based on number of nodes)
+                    const categoryNodeCount = (this.categories[category] || []).length;
+                    const boundaryRadius = 80 + categoryNodeCount * 15;  // Base radius + scaling
+                    
+                    // Apply repulsion if node is within boundary of another category
+                    if (distance < boundaryRadius) {
+                        const force = strengthMultiplier * 40 * alpha;
+                        const repulsionStrength = force * Math.pow((boundaryRadius - distance) / boundaryRadius, 2);
+                        
+                        // Handle zero distance
+                        if (distance === 0) {
+                            const angle = Math.random() * 2 * Math.PI;
+                            node.vx += Math.cos(angle) * repulsionStrength;
+                            node.vy += Math.sin(angle) * repulsionStrength;
+                        } else {
+                            // Push node away from other category center
+                            node.vx += (dx / distance) * repulsionStrength;
+                            node.vy += (dy / distance) * repulsionStrength;
+                        }
+                    }
+                });
+            });
+        };
+    }
+    
+    createExternalRepulsionForce() {
+        return (alpha) => {
+            const nodes = this.simulation ? this.simulation.nodes() : [];
+            const categoryCenters = this.categoryCenters || this.calculateCategoryCenters();
+            
+            // Apply strong repulsion to external links from category centers
+            nodes.forEach(node => {
+                if (node.type === 'external_link') {
+                    // Check distance to each category center
+                    Object.values(categoryCenters).forEach(center => {
+                        const dx = node.x - center.x;
+                        const dy = node.y - center.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        // Define minimum distance external links should stay from category centers
+                        const minDistance = 200; // Larger minimum distance from category centers
+                        
+                        if (distance < minDistance && distance > 0) {
+                            // Calculate repulsion force - stronger when closer
+                            const force = Math.pow((minDistance - distance) / minDistance, 2);
+                            const repulsionStrength = 80 * force * alpha;  // Stronger repulsion
+                            
+                            // Apply force to push node away
+                            const forceX = (dx / distance) * repulsionStrength;
+                            const forceY = (dy / distance) * repulsionStrength;
+                            
+                            node.vx = (node.vx || 0) + forceX;
+                            node.vy = (node.vy || 0) + forceY;
+                        }
+                    });
+                    
+                    // Also add radial force to push external links outward
+                    const centerX = this.width / 2;
+                    const centerY = this.height / 2;
+                    const dx = node.x - centerX;
+                    const dy = node.y - centerY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Target minimum radius for external links
+                    const targetRadius = Math.min(this.width, this.height) * 0.42;
+                    
+                    if (distance < targetRadius && distance > 0) {
+                        // Push outward if too close to center
+                        const force = (targetRadius - distance) / targetRadius;
+                        const outwardStrength = 50 * force * alpha;  // Stronger outward push
+                        
+                        const forceX = (dx / distance) * outwardStrength;
+                        const forceY = (dy / distance) * outwardStrength;
+                        
+                        node.vx = (node.vx || 0) + forceX;
+                        node.vy = (node.vy || 0) + forceY;
+                    }
+                }
+            });
+        };
+    }
+    
+    createLabelRepulsionForce() {
+        return (alpha) => {
+            const nodes = this.simulation ? this.simulation.nodes() : [];
+            
+            // Create a smooth ramp-up of repulsion force
+            // Start moderate and increase as simulation settles
+            let strengthMultiplier;
+            
+            if (alpha > 0.7) {
+                // Moderate repulsion at the beginning to keep nodes away from labels
+                strengthMultiplier = 0.3;
+            } else if (alpha > 0.3) {
+                // Gradual increase in middle phase
+                strengthMultiplier = 0.3 + 0.4 * (0.7 - alpha) / 0.4;
+            } else {
+                // Full strength when mostly settled
+                strengthMultiplier = 0.7 + 0.3 * (0.3 - alpha) / 0.3;
+            }
+            
+            // Apply repulsion to all nodes, but stronger for external links
+            nodes.forEach(node => {
+                // Check against each category label bound
+                this.categoryLabelBounds.forEach(labelBound => {
+                    const dx = node.x - labelBound.x;
+                    const dy = node.y - labelBound.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // Determine effective repulsion radius based on node type
+                    const effectiveRadius = node.type === 'external_link' 
+                        ? this.FORCE_CONFIG.labelRepulsionRadius 
+                        : this.FORCE_CONFIG.labelRepulsionRadius * 0.5;
+                    
+                    // If node is within repulsion radius of label
+                    if (distance < effectiveRadius && distance > 0) {
+                        // Calculate repulsion force with smooth falloff
+                        const normalizedDistance = distance / effectiveRadius;
+                        const force = Math.max(0, 1 - normalizedDistance); // Linear falloff
+                        
+                        // Calculate strength with smooth multiplier
+                        const baseStrength = node.type === 'external_link' 
+                            ? this.FORCE_CONFIG.labelRepulsionStrength * 1.5
+                            : this.FORCE_CONFIG.labelRepulsionStrength * 0.5;
+                        
+                        const repulsionStrength = baseStrength * force * strengthMultiplier;
+                        
+                        // Apply force to push node away smoothly
+                        const forceX = (dx / distance) * repulsionStrength;
+                        const forceY = (dy / distance) * repulsionStrength;
+                        
+                        // Apply force without hard clamping for smoother motion
+                        node.vx = (node.vx || 0) + forceX;
+                        node.vy = (node.vy || 0) + forceY;
+                    } else if (distance === 0) {
+                        // If exactly on top, push gently in a random direction
+                        const angle = Math.random() * 2 * Math.PI;
+                        const repulsionStrength = this.FORCE_CONFIG.labelRepulsionStrength * strengthMultiplier * 0.3;
+                        
+                        node.vx = (node.vx || 0) + Math.cos(angle) * repulsionStrength;
+                        node.vy = (node.vy || 0) + Math.sin(angle) * repulsionStrength;
+                    }
+                });
+            });
+        };
+    }
+    
+    resetZoom() {
+        // Reset to identity transform (no zoom, no pan)
+        this.svg.transition()
+            .duration(750)
+            .ease(d3.easeCubicInOut)
+            .call(this.zoom.transform, d3.zoomIdentity);
+    }
+    
+    fitGraphToView() {
+        // Get all node positions to calculate bounds
+        const nodes = this.simulation ? this.simulation.nodes() : [];
+        if (nodes.length === 0) return;
+        
+        // Calculate the bounds of all nodes
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        
+        nodes.forEach(node => {
+            if (node.x !== undefined && node.y !== undefined) {
+                const radius = this.getNodeRadius(node) || 10;
+                minX = Math.min(minX, node.x - radius);
+                maxX = Math.max(maxX, node.x + radius);
+                minY = Math.min(minY, node.y - radius);
+                maxY = Math.max(maxY, node.y + radius);
+            }
+        });
+        
+        // Add padding around the bounds
+        const padding = 100;
+        minX -= padding;
+        maxX += padding;
+        minY -= padding;
+        maxY += padding;
+        
+        // Calculate the center and size of the bounding box
+        const width = maxX - minX;
+        const height = maxY - minY;
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        
+        // Calculate the scale to fit the graph in the viewport
+        const scaleX = this.width / width;
+        const scaleY = this.height / height;
+        const scale = Math.min(scaleX, scaleY, 1.0);  // Don't zoom in more than 1.0x (100%)
+        
+        // Ensure we don't zoom out too much either
+        const finalScale = Math.max(scale, 0.25);  // Minimum 25% zoom (slightly more than initial 20%)
+        
+        // Calculate the translation to center the graph
+        const translateX = this.width / 2 - finalScale * centerX;
+        const translateY = this.height / 2 - finalScale * centerY;
+        
+        // Create the transform
+        const transform = d3.zoomIdentity
+            .translate(translateX, translateY)
+            .scale(finalScale);
+        
+        // Apply the zoom with a smooth, cinematic transition
+        this.svg.transition()
+            .duration(2500)  // 2.5 second transition for cinematic zoom-in effect
+            .ease(d3.easeQuadInOut)  // Slightly different easing for smoother acceleration
+            .call(this.zoom.transform, transform);
     }
     
     calculateCategoryCenters() {
         const centers = {};
         const categories = Object.keys(this.categories || {});
         const angleStep = (2 * Math.PI) / Math.max(categories.length, 1);
-        const radius = Math.min(this.width, this.height) * 0.25;
+        const radius = Math.min(this.width, this.height) * 0.35;  // Much larger target position for more spacing
         const centerX = this.width / 2;
         const centerY = this.height / 2;
         
@@ -392,12 +822,15 @@ class HomepageKnowledgeGraph {
     
     createLabels(nodes) {
         this.labels = this.g.append("g")
+            .attr("class", "node-labels-group")
             .selectAll("text")
             .data(nodes)
             .enter().append("text")
             .attr("class", d => {
                 if (d.type === 'blog_post') {
                     return "node-label blog-post-number";
+                } else if (d.type === 'external_link') {
+                    return "node-label external-link";
                 }
                 return "node-label";
             })
@@ -426,6 +859,55 @@ class HomepageKnowledgeGraph {
             });
     }
     
+    calculateLabelPosition(d, allNodes) {
+        const radius = this.getNodeRadius(d);
+        let x = d.x || 0;
+        let y = d.y || 0;
+        
+        if (d.type === 'external_link') {
+            // Try different positions for external links to avoid overlaps
+            const positions = [
+                { x: x + radius + 8, y: y },         // Right
+                { x: x - radius - 8, y: y },         // Left
+                { x: x, y: y + radius + 15 },        // Below
+                { x: x, y: y - radius - 15 },        // Above
+                { x: x + radius + 5, y: y + radius + 5 },  // Bottom-right
+                { x: x - radius - 5, y: y + radius + 5 },  // Bottom-left
+            ];
+            
+            // Find position with least overlap
+            let bestPos = positions[0];
+            let minOverlap = Infinity;
+            
+            for (const pos of positions) {
+                let overlap = 0;
+                // Check overlap with other nodes
+                for (const other of allNodes) {
+                    if (other === d) continue;
+                    const dx = pos.x - (other.x || 0);
+                    const dy = pos.y - (other.y || 0);
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const otherRadius = this.getNodeRadius(other);
+                    if (distance < otherRadius + 20) {
+                        overlap += (otherRadius + 20 - distance);
+                    }
+                }
+                if (overlap < minOverlap) {
+                    minOverlap = overlap;
+                    bestPos = pos;
+                }
+            }
+            
+            return bestPos;
+        } else if (d.type === 'blog_post') {
+            // Blog post labels stay centered in the node
+            return { x: x, y: y + 4 };
+        }
+        
+        // Default: below the node
+        return { x: x, y: y + radius + 12 };
+    }
+
     updatePositions() {
         this.link
             .attr("x1", d => d.source.x || 0)
@@ -437,9 +919,15 @@ class HomepageKnowledgeGraph {
             .attr("cx", d => d.x || 0)
             .attr("cy", d => d.y || 0);
         
+        const allNodes = this.simulation ? this.simulation.nodes() : [];
+        
         this.labels
-            .attr("x", d => d.x || 0)
-            .attr("y", d => (d.y || 0) + 4);
+            .each((d, i, nodes) => {
+                const pos = this.calculateLabelPosition(d, allNodes);
+                d3.select(nodes[i])
+                    .attr("x", pos.x)
+                    .attr("y", pos.y);
+            });
     }
     
     updateCategoryHulls() {
@@ -468,6 +956,9 @@ class HomepageKnowledgeGraph {
         if (this.categoryLabelGroup) {
             this.categoryLabelGroup.selectAll("*").remove();
         }
+        
+        // Clear category label bounds for recalculation
+        this.categoryLabelBounds = [];
         
         // Draw organic hulls for each category
         Object.entries(categoryGroups).forEach(([category, points]) => {
@@ -510,10 +1001,11 @@ class HomepageKnowledgeGraph {
                 
                 // Add label for single node at top
                 if (this.categoryLabelGroup && x > 10 && y > 10) {  // Only if position is reasonable
+                    const labelY = y - dynamicPadding - 35;  // Much more spacing from hull
                     this.categoryLabelGroup.append("text")
                         .attr("class", "category-label")
                         .attr("x", x)
-                        .attr("y", y - dynamicPadding - 5)
+                        .attr("y", labelY)
                         .attr("text-anchor", "middle")
                         .style("font-size", "18px")
                         .style("font-weight", "700")
@@ -523,6 +1015,15 @@ class HomepageKnowledgeGraph {
                         .style("paint-order", "stroke")
                         .style("pointer-events", "none")
                         .text(category.toUpperCase());
+                    
+                    // Store label bounds for repulsion with buffer
+                    this.categoryLabelBounds.push({
+                        x: x,
+                        y: labelY,
+                        width: category.length * 14,  // Wider estimated width
+                        height: 30,  // Taller height for buffer
+                        category: category
+                    });
                 }
                     
             } else if (points.length === 2) {
@@ -550,7 +1051,7 @@ class HomepageKnowledgeGraph {
                 
                 // Add label for two nodes at top
                 if (this.categoryLabelGroup && midX > 10 && midY > 10) {  // Only if position is reasonable
-                    const topY = Math.min(y1, y2) - dynamicPadding - 5;
+                    const topY = Math.min(y1, y2) - dynamicPadding - 35;  // Much more spacing from hull
                     this.categoryLabelGroup.append("text")
                         .attr("class", "category-label")
                         .attr("x", midX)
@@ -564,6 +1065,15 @@ class HomepageKnowledgeGraph {
                         .style("paint-order", "stroke")
                         .style("pointer-events", "none")
                         .text(category.toUpperCase());
+                    
+                    // Store label bounds for repulsion with buffer
+                    this.categoryLabelBounds.push({
+                        x: midX,
+                        y: topY,
+                        width: category.length * 14,  // Wider estimated width
+                        height: 30,  // Taller height for buffer
+                        category: category
+                    });
                 }
                     
             } else {
@@ -598,10 +1108,11 @@ class HomepageKnowledgeGraph {
             
             // Only add label if position is valid
             if (this.categoryLabelGroup && centroid[0] > 10 && centroid[1] > 10 && topPoint[1] > 10) {
+                const labelY = topPoint[1] - dynamicPadding - 35;  // Much more spacing from hull
                 this.categoryLabelGroup.append("text")
                     .attr("class", "category-label")
                     .attr("x", centroid[0])
-                    .attr("y", topPoint[1] - dynamicPadding - 5)
+                    .attr("y", labelY)  // More spacing from hull
                     .attr("text-anchor", "middle")
                     .style("font-size", "18px")
                     .style("font-weight", "700")
@@ -611,6 +1122,15 @@ class HomepageKnowledgeGraph {
                     .style("paint-order", "stroke")
                     .style("pointer-events", "none")
                     .text(category.toUpperCase());
+                
+                // Store label bounds for repulsion with buffer
+                this.categoryLabelBounds.push({
+                    x: centroid[0],
+                    y: labelY,
+                    width: category.length * 14,  // Wider estimated width
+                    height: 30,  // Taller height for buffer
+                    category: category
+                });
             }
         });
     }
@@ -860,12 +1380,20 @@ class HomepageKnowledgeGraph {
         
         this.svg.attr("viewBox", [0, 0, this.width, this.height]);
         
+        // Update controls info position
+        this.svg.select(".controls-info")
+            .attr("y", this.height - 10);
+        
         if (this.simulation) {
             this.simulation
                 .force("center", d3.forceCenter(this.width / 2, this.height / 2))
                 .alpha(0.3)
                 .restart();
         }
+        
+        // Only re-fit if we haven't manually zoomed/panned (optional behavior)
+        // Commenting out auto-refit on resize to preserve user's zoom state
+        // setTimeout(() => this.fitGraphToView(), 500);
     }
 }
 

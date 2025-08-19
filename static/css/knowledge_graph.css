@@ -93,6 +93,25 @@
     stroke-width: 3px;
     stroke-linejoin: round;
     paint-order: stroke;
+    z-index: 50;
+}
+
+/* External link labels - special positioning */
+.node-label.external-link {
+    font-size: 10px;
+    text-anchor: start;
+    dominant-baseline: middle;
+    stroke-width: 3px;
+    fill: #e0e0e0;
+    font-weight: 500;
+    opacity: 0.95;
+    transition: all 0.2s ease;
+}
+
+.node-label.external-link.highlighted {
+    font-size: 11px;
+    fill: #fff;
+    opacity: 1;
 }
 
 /* Blog post number labels - distinct styling */
@@ -217,9 +236,9 @@
                 -2px 2px 4px rgba(0, 0, 0, 0.9);
 }
 
-/* Ensure category labels group is above nodes */
+/* Ensure category labels group is above nodes but below node labels */
 .category-labels {
-    z-index: 100;
+    z-index: 20;
 }
 
 /* Node styles by category - enhanced visibility */
