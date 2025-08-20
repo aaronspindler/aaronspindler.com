@@ -105,68 +105,124 @@ class Command(BaseCommand):
                     '--disable-setuid-sandbox',  # Required for Docker
                     '--disable-dev-shm-usage',  # Overcome limited resource problems
                     '--disable-gpu',  # Disable GPU hardware acceleration
-                    '--single-process'  # Run in single process mode for containers
+                    '--disable-web-security',  # Allow cross-origin requests
+                    '--disable-features=IsolateOrigins',
+                    '--disable-site-isolation-trials'
                 ]
             )
             
             try:
                 # Create a new page with specified viewport
-                page = browser.new_page(viewport={'width': width, 'height': height})
+                context = browser.new_context(
+                    viewport={'width': width, 'height': height},
+                    ignore_https_errors=True
+                )
+                page = context.new_page()
+                
+                # Enable console logging for debugging
+                page.on("console", lambda msg: self.stdout.write(f"Browser console: {msg.text}"))
+                page.on("pageerror", lambda err: self.stdout.write(self.style.WARNING(f"Page error: {err}")))
                 
                 # We need to use localhost since we're running this during build
                 # The Django server needs to be running temporarily for this
                 # In the Dockerfile, we'll start a temporary server
-                base_url = "http://127.0.0.1:8000"
+                base_url = "http://localhost:8000"
                 
                 self.stdout.write(f'Navigating to {base_url}...')
                 
-                # Navigate to the home page (where the knowledge graph is)
-                page.goto(f"{base_url}/", wait_until='networkidle', timeout=30000)
-                
-                self.stdout.write('Waiting for knowledge graph container...')
-                
-                # Wait for the knowledge graph container to be visible
-                page.wait_for_selector('#knowledge-graph-container', state='visible', timeout=15000)
-                
-                # Wait for the SVG element to be present
-                page.wait_for_selector('#knowledge-graph-svg', state='visible', timeout=15000)
-                
-                # Wait for the graph to render (check for nodes)
-                page.wait_for_selector('#knowledge-graph-svg .node', state='visible', timeout=15000)
-                
-                self.stdout.write(f'Waiting {wait_time}ms for graph to stabilize...')
-                
-                # Additional wait to ensure animation and layout stabilization
-                page.wait_for_timeout(wait_time)
-                
-                # Trigger the fit view function to ensure everything is visible
-                page.evaluate("""
-                    if (window.homepageGraph && typeof window.homepageGraph.fitGraphToView === 'function') {
-                        window.homepageGraph.fitGraphToView();
-                    }
-                """)
-                
-                # Wait a bit for the zoom animation
-                page.wait_for_timeout(500)
-                
-                self.stdout.write('Taking screenshot...')
-                
-                # Get the knowledge graph element specifically
-                element = page.query_selector('#knowledge-graph-container')
-                if element:
-                    screenshot = element.screenshot()
-                else:
-                    # Fallback to full page if element not found
-                    self.stdout.write(
-                        self.style.WARNING('Knowledge graph container not found, taking full page screenshot')
-                    )
+                try:
+                    # Navigate to the home page with longer timeout
+                    response = page.goto(f"{base_url}/", wait_until='domcontentloaded', timeout=60000)
+                    
+                    if response and not response.ok:
+                        self.stdout.write(self.style.WARNING(f'Page returned status: {response.status}'))
+                    
+                    self.stdout.write('Page loaded, checking for knowledge graph...')
+                    
+                    # First check if the container exists at all
+                    container_exists = page.evaluate("!!document.querySelector('#knowledge-graph-container')")
+                    
+                    if not container_exists:
+                        self.stdout.write(self.style.WARNING('Knowledge graph container not found in DOM'))
+                        self.stdout.write('Page HTML preview:')
+                        html_preview = page.evaluate("document.body.innerHTML.substring(0, 500)")
+                        self.stdout.write(html_preview)
+                        
+                        # Try to wait a bit more for dynamic content
+                        self.stdout.write('Waiting for dynamic content to load...')
+                        page.wait_for_timeout(10000)
+                        
+                        # Check again
+                        container_exists = page.evaluate("!!document.querySelector('#knowledge-graph-container')")
+                    
+                    if container_exists:
+                        self.stdout.write('Knowledge graph container found!')
+                        
+                        # Try to wait for the SVG with a shorter timeout
+                        try:
+                            page.wait_for_selector('#knowledge-graph-svg', state='attached', timeout=10000)
+                            self.stdout.write('SVG element found!')
+                            
+                            # Check if there are any nodes
+                            node_count = page.evaluate("document.querySelectorAll('#knowledge-graph-svg .node').length")
+                            self.stdout.write(f'Found {node_count} nodes in the graph')
+                            
+                            if node_count == 0:
+                                self.stdout.write('No nodes found, waiting longer for rendering...')
+                                page.wait_for_timeout(5000)
+                                node_count = page.evaluate("document.querySelectorAll('#knowledge-graph-svg .node').length")
+                                self.stdout.write(f'After wait: {node_count} nodes')
+                            
+                        except Exception as e:
+                            self.stdout.write(self.style.WARNING(f'SVG not fully loaded: {e}'))
+                        
+                        # Wait for stabilization
+                        self.stdout.write(f'Waiting {wait_time}ms for graph to stabilize...')
+                        page.wait_for_timeout(wait_time)
+                        
+                        # Try to trigger fit view
+                        try:
+                            page.evaluate("""
+                                if (window.homepageGraph && typeof window.homepageGraph.fitGraphToView === 'function') {
+                                    window.homepageGraph.fitGraphToView();
+                                    console.log('Fit view triggered');
+                                } else {
+                                    console.log('Fit view function not available');
+                                }
+                            """)
+                            page.wait_for_timeout(500)
+                        except Exception as e:
+                            self.stdout.write(f'Could not trigger fit view: {e}')
+                        
+                        # Take screenshot of the container
+                        element = page.query_selector('#knowledge-graph-container')
+                        if element:
+                            self.stdout.write('Taking screenshot of knowledge graph container...')
+                            screenshot = element.screenshot()
+                        else:
+                            self.stdout.write('Container lost, taking full page screenshot...')
+                            screenshot = page.screenshot()
+                    else:
+                        # If no knowledge graph found, take a full page screenshot anyway
+                        self.stdout.write(
+                            self.style.WARNING('Knowledge graph not found, taking full page screenshot as fallback')
+                        )
+                        screenshot = page.screenshot()
+                    
+                    # Save the screenshot
+                    with open(output_path, 'wb') as f:
+                        f.write(screenshot)
+                    
+                    self.stdout.write(self.style.SUCCESS(f'Screenshot saved to {output_path}'))
+                    
+                except Exception as e:
+                    self.stdout.write(self.style.ERROR(f'Error during page interaction: {e}'))
+                    # Take whatever screenshot we can
+                    self.stdout.write('Attempting emergency screenshot...')
                     screenshot = page.screenshot()
-                
-                # Save the screenshot
-                with open(output_path, 'wb') as f:
-                    f.write(screenshot)
-                
-                self.stdout.write(f'Screenshot saved to {output_path}')
-                
+                    with open(output_path, 'wb') as f:
+                        f.write(screenshot)
+                    self.stdout.write(f'Emergency screenshot saved to {output_path}')
+                    
             finally:
                 browser.close()

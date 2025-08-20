@@ -173,8 +173,13 @@ def _get_post_graph_from_data(data):
 
 @require_http_methods(["GET"])
 def knowledge_graph_screenshot(request):
-    """Serve the cached knowledge graph screenshot if it exists, otherwise generate it dynamically."""
+    """Serve the cached knowledge graph screenshot if it exists, otherwise generate it dynamically on first request."""
     from pathlib import Path
+    import hashlib
+    from django.core.cache import cache
+    
+    # Create a cache key based on the current deployment (use settings or git hash)
+    cache_key = 'knowledge_graph_screenshot_generated'
     
     # Check if a cached screenshot exists
     cached_screenshot_paths = [
@@ -203,16 +208,32 @@ def knowledge_graph_screenshot(request):
             return response
         except Exception as e:
             logger.error(f"Error reading cached screenshot: {str(e)}")
-            # Fall through to dynamic generation
+            # Fall through to generation
     
-    # If no cached screenshot or error reading it, check if we should allow dynamic generation
-    allow_dynamic = request.GET.get('force_regenerate', 'false').lower() == 'true'
+    # Check if we should generate the screenshot
+    force_regenerate = request.GET.get('force_regenerate', 'false').lower() == 'true'
     
-    if not allow_dynamic:
-        # Return a 404 or default image if cached version doesn't exist and dynamic generation is disabled
+    # Check if screenshot generation is already in progress or has been attempted
+    generation_status = cache.get(cache_key)
+    
+    if not force_regenerate and generation_status == 'failed':
+        # If generation has failed before, don't retry automatically
         return JsonResponse({
-            'error': 'Knowledge graph screenshot not available. The screenshot is generated during deployment.'
-        }, status=404)
+            'error': 'Knowledge graph screenshot generation previously failed. Add ?force_regenerate=true to retry.'
+        }, status=503)
+    
+    if not force_regenerate and generation_status == 'in_progress':
+        # If generation is in progress, return a temporary response
+        return JsonResponse({
+            'error': 'Knowledge graph screenshot is being generated. Please try again in a few moments.'
+        }, status=503)
+    
+    # If no cached screenshot exists and we haven't tried generating it yet, or force_regenerate is true,
+    # generate it now at runtime
+    logger.info("Generating knowledge graph screenshot at runtime...")
+    
+    # Mark generation as in progress
+    cache.set(cache_key, 'in_progress', timeout=300)  # 5 minute timeout
     
     # Dynamic generation code (original implementation)
     # This is now only used if force_regenerate=true is passed as a query parameter
@@ -287,10 +308,29 @@ def knowledge_graph_screenshot(request):
                         # Fallback to full page if element not found
                         screenshot = page.screenshot()
                 
+                # Save the screenshot to cache location for future use
+                try:
+                    # Ensure the directory exists
+                    cache_dir = Path(settings.STATIC_ROOT) / 'images'
+                    cache_dir.mkdir(parents=True, exist_ok=True)
+                    
+                    cache_file = cache_dir / 'knowledge_graph_cached.png'
+                    with open(cache_file, 'wb') as f:
+                        f.write(screenshot)
+                    
+                    logger.info(f"Screenshot cached at: {cache_file}")
+                    
+                    # Mark generation as successful
+                    cache.set(cache_key, 'success', timeout=86400)  # Cache for 24 hours
+                    
+                except Exception as save_error:
+                    logger.error(f"Could not save screenshot to cache: {save_error}")
+                    # Still return the screenshot even if caching failed
+                
                 # Return the screenshot as PNG
                 response = HttpResponse(screenshot, content_type='image/png')
                 response['Content-Disposition'] = 'inline; filename="knowledge_graph.png"'
-                response['Cache-Control'] = 'max-age=300'  # Cache for 5 minutes
+                response['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
                 
                 return response
                 
@@ -299,11 +339,15 @@ def knowledge_graph_screenshot(request):
                 
     except ImportError:
         logger.error("Playwright is not installed. Please install it with: pip install playwright && playwright install chromium")
+        # Mark generation as failed
+        cache.set(cache_key, 'failed', timeout=3600)  # Cache failure for 1 hour
         return JsonResponse({
             'error': 'Playwright is not installed. Please install it with: pip install playwright && playwright install chromium'
         }, status=500)
     except Exception as e:
         logger.error(f"Error generating knowledge graph screenshot: {str(e)}")
+        # Mark generation as failed
+        cache.set(cache_key, 'failed', timeout=3600)  # Cache failure for 1 hour
         return JsonResponse({'error': f'Failed to generate screenshot: {str(e)}'}, status=500)
 
 
