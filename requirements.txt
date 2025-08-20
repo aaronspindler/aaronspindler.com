@@ -8,7 +8,7 @@ charset-normalizer==3.4.3
 cryptography==45.0.6
 defusedxml==0.7.1
 Django==5.2.5
-django-allauth==65.10.0
+django-allauth==65.11.0
 django-environ==0.12.0
 django-storages==1.13.2
 gunicorn==23.0.0
@@ -21,10 +21,11 @@ psycopg-binary==3.2.9
 pycparser==2.22
 PyJWT==2.10.1
 python3-openid==3.2.0
-requests==2.32.4
+requests==2.32.5
 requests-oauthlib==2.0.0
 s3transfer==0.6.2
 sqlparse==0.5.3
 typing_extensions==4.14.1
 urllib3==1.26.20
 whitenoise==6.9.0
+playwright==1.48.0
