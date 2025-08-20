@@ -191,8 +191,17 @@ def knowledge_graph_screenshot(request):
         
         # Run Playwright to capture the screenshot
         with sync_playwright() as p:
-            # Launch headless browser
-            browser = p.chromium.launch(headless=True)
+            # Launch headless browser with Docker-compatible settings
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',  # Required for Docker
+                    '--disable-setuid-sandbox',  # Required for Docker
+                    '--disable-dev-shm-usage',  # Overcome limited resource problems
+                    '--disable-gpu',  # Disable GPU hardware acceleration
+                    '--single-process'  # Run in single process mode for containers
+                ]
+            )
             
             try:
                 # Create a new page with specified viewport

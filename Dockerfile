@@ -17,6 +17,12 @@ ENV PYTHONUNBUFFERED 1
 RUN mkdir -p /code
 WORKDIR /code
 
+# Install minimal system dependencies first
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
 COPY requirements.txt /tmp/requirements.txt
 
@@ -24,6 +30,10 @@ RUN set -ex && \
     pip install --upgrade pip && \
     pip install -r /tmp/requirements.txt && \
     rm -rf /root/.cache/
+
+# Install Playwright dependencies and chromium browser
+# This command automatically installs all necessary system dependencies for chromium
+RUN playwright install --with-deps chromium
 
 # Copy local project
 COPY . /code/
