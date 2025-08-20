@@ -21,6 +21,7 @@ WORKDIR /code
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
@@ -38,11 +39,17 @@ RUN playwright install --with-deps chromium
 # Copy local project
 COPY . /code/
 
-# Expose port 8000
+# Expose port 80
 EXPOSE 80
+
+# Add healthcheck for zero downtime deployments
+# This checks if the Django application is responding properly
+# The start-period gives the container 40 seconds to start up before health checks begin
+HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
+    CMD curl -f http://127.0.0.1:80/ || exit 1
 
 RUN python manage.py collectstatic_optimize
 RUN python manage.py migrate --no-input
 
-# Use gunicorn on port 8000
+# Use gunicorn on port 80
 CMD ["gunicorn", "--bind", ":80", "--workers", "5", "config.wsgi"]
