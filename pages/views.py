@@ -241,11 +241,11 @@ def knowledge_graph_screenshot(request):
         # Import Playwright here to avoid issues if not installed
         from playwright.sync_api import sync_playwright
         
-        # Get parameters from the request
-        width = int(request.GET.get('width', 1200))
-        height = int(request.GET.get('height', 800))
+        # Get parameters from the request (with higher default resolution)
+        width = int(request.GET.get('width', 2400))  # Doubled from 1200 for higher resolution
+        height = int(request.GET.get('height', 1600))  # Doubled from 800 for higher resolution
         full_page = request.GET.get('full_page', 'false').lower() == 'true'
-        wait_time = int(request.GET.get('wait_time', 3000))  # milliseconds to wait for graph rendering
+        wait_time = int(request.GET.get('wait_time', 10000))  # Increased from 3000 for better rendering
         
         # Build the full URL for the page with the knowledge graph
         host = request.get_host()
@@ -254,7 +254,7 @@ def knowledge_graph_screenshot(request):
         
         # Run Playwright to capture the screenshot
         with sync_playwright() as p:
-            # Launch headless browser with Docker-compatible settings
+            # Launch headless browser with Docker-compatible settings and high quality
             browser = p.chromium.launch(
                 headless=True,
                 args=[
@@ -262,13 +262,21 @@ def knowledge_graph_screenshot(request):
                     '--disable-setuid-sandbox',  # Required for Docker
                     '--disable-dev-shm-usage',  # Overcome limited resource problems
                     '--disable-gpu',  # Disable GPU hardware acceleration
-                    '--single-process'  # Run in single process mode for containers
+                    '--single-process',  # Run in single process mode for containers
+                    '--force-device-scale-factor=2.0',  # Force high DPI for better quality
+                    '--high-dpi-support=1',  # Enable high DPI support
+                    '--force-color-profile=srgb'  # Ensure consistent color profile
                 ]
             )
             
             try:
-                # Create a new page with specified viewport
-                page = browser.new_page(viewport={'width': width, 'height': height})
+                # Create a new page with specified viewport and high DPI settings
+                context = browser.new_context(
+                    viewport={'width': width, 'height': height},
+                    device_scale_factor=2.0,  # Retina quality
+                    screen={'width': width, 'height': height}  # Set screen size as well
+                )
+                page = context.new_page()
                 
                 # Navigate to the home page (where the knowledge graph is)
                 page.goto(f"{base_url}/", wait_until='networkidle')
@@ -282,8 +290,10 @@ def knowledge_graph_screenshot(request):
                 # Wait for the graph to render (check for nodes)
                 page.wait_for_selector('#knowledge-graph-svg .node', state='visible', timeout=10000)
                 
-                # Additional wait to ensure animation and layout stabilization
-                page.wait_for_timeout(wait_time)
+                # Additional wait to ensure animation and layout stabilization at high resolution
+                # Use longer wait time for better quality rendering
+                actual_wait_time = max(wait_time, 10000)  # Minimum 10 seconds for high res
+                page.wait_for_timeout(actual_wait_time)
                 
                 # Optionally zoom out to fit the entire graph
                 if request.GET.get('fit_view', 'true').lower() == 'true':
@@ -296,17 +306,29 @@ def knowledge_graph_screenshot(request):
                     # Wait a bit for the zoom animation
                     page.wait_for_timeout(500)
                 
-                # Take screenshot of the knowledge graph container
+                # Take high-quality screenshot of the knowledge graph container
                 if full_page:
-                    screenshot = page.screenshot(full_page=True)
+                    screenshot = page.screenshot(
+                        full_page=True,
+                        animations='disabled',  # Disable animations for cleaner screenshot
+                        scale='device'  # Use device scale factor for high DPI
+                    )
                 else:
                     # Get the knowledge graph element specifically
                     element = page.query_selector('#knowledge-graph-container')
                     if element:
-                        screenshot = element.screenshot()
+                        screenshot = element.screenshot(
+                            animations='disabled',  # Disable animations
+                            scale='device',  # Use device scale factor
+                            timeout=30000  # Longer timeout for large screenshots
+                        )
                     else:
-                        # Fallback to full page if element not found
-                        screenshot = page.screenshot()
+                        # Fallback to high-quality full page if element not found
+                        screenshot = page.screenshot(
+                            full_page=True,
+                            animations='disabled',
+                            scale='device'
+                        )
                 
                 # Save the screenshot to cache location for future use
                 try:

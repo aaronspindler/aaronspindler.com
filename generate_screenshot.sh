@@ -97,9 +97,14 @@ if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "301" ] && [ "$HTTP_STATUS
     echo "WARNING: Server returned unexpected status code: $HTTP_STATUS"
 fi
 
-# Generate the screenshot
-echo "Generating knowledge graph screenshot..."
-python manage.py generate_knowledge_graph_screenshot --wait-time 10000 || {
+# Generate the screenshot with high resolution and quality settings
+echo "Generating high-quality knowledge graph screenshot..."
+echo "Settings: 2400x1600 resolution, 2x device scale factor, 15 second wait time"
+python manage.py generate_knowledge_graph_screenshot \
+    --width 2400 \
+    --height 1600 \
+    --device-scale-factor 2.0 \
+    --quality 100 || {
     EXIT_CODE=$?
     echo "WARNING: Screenshot generation failed with exit code $EXIT_CODE"
     echo "This is non-fatal, continuing build..."

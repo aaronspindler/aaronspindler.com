@@ -16,20 +16,38 @@ class Command(BaseCommand):
         parser.add_argument(
             '--width',
             type=int,
-            default=1200,
+            default=2400,  # Doubled from 1200 for higher resolution
             help='Width of the screenshot',
         )
         parser.add_argument(
             '--height',
             type=int,
-            default=800,
+            default=1600,  # Doubled from 800 for higher resolution
             help='Height of the screenshot',
+        )
+        parser.add_argument(
+            '--device-scale-factor',
+            type=float,
+            default=2.0,  # Retina display quality
+            help='Device scale factor for higher DPI (2.0 = retina)',
         )
         parser.add_argument(
             '--wait-time',
             type=int,
-            default=5000,
+            default=10000,  # Increased from 5000 for better rendering
             help='Milliseconds to wait for graph rendering',
+        )
+        parser.add_argument(
+            '--quality',
+            type=int,
+            default=100,  # Maximum quality for PNG
+            help='Screenshot quality (1-100, only affects JPEG)',
+        )
+        parser.add_argument(
+            '--full-page',
+            action='store_true',
+            default=False,
+            help='Take full page screenshot instead of just the graph container',
         )
         parser.add_argument(
             '--output-dir',
@@ -60,7 +78,10 @@ class Command(BaseCommand):
                 screenshot_path,
                 width=options['width'],
                 height=options['height'],
-                wait_time=options['wait_time']
+                device_scale_factor=options['device_scale_factor'],
+                wait_time=options['wait_time'],
+                quality=options['quality'],
+                full_page=options['full_page']
             )
             
             self.stdout.write(
@@ -94,8 +115,8 @@ class Command(BaseCommand):
             )
             raise
     
-    def _generate_screenshot(self, output_path, width=1200, height=800, wait_time=5000):
-        """Generate the screenshot using Playwright."""
+    def _generate_screenshot(self, output_path, width=2400, height=1600, device_scale_factor=2.0, wait_time=10000, quality=100, full_page=False):
+        """Generate the screenshot using Playwright with high quality settings."""
         with sync_playwright() as p:
             # Launch headless browser with Docker-compatible settings
             browser = p.chromium.launch(
@@ -107,15 +128,20 @@ class Command(BaseCommand):
                     '--disable-gpu',  # Disable GPU hardware acceleration
                     '--disable-web-security',  # Allow cross-origin requests
                     '--disable-features=IsolateOrigins',
-                    '--disable-site-isolation-trials'
+                    '--disable-site-isolation-trials',
+                    '--force-device-scale-factor=' + str(device_scale_factor),  # Force high DPI
+                    '--high-dpi-support=1',  # Enable high DPI support
+                    '--force-color-profile=srgb'  # Ensure consistent color profile
                 ]
             )
             
             try:
-                # Create a new page with specified viewport
+                # Create a new page with specified viewport and device scale factor
                 context = browser.new_context(
                     viewport={'width': width, 'height': height},
-                    ignore_https_errors=True
+                    device_scale_factor=device_scale_factor,  # High DPI for better quality
+                    ignore_https_errors=True,
+                    screen={'width': width, 'height': height}  # Set screen size as well
                 )
                 page = context.new_page()
                 
@@ -194,20 +220,45 @@ class Command(BaseCommand):
                         except Exception as e:
                             self.stdout.write(f'Could not trigger fit view: {e}')
                         
-                        # Take screenshot of the container
-                        element = page.query_selector('#knowledge-graph-container')
-                        if element:
-                            self.stdout.write('Taking screenshot of knowledge graph container...')
-                            screenshot = element.screenshot()
+                        # Take screenshot of the container or full page
+                        if full_page:
+                            self.stdout.write('Taking full page screenshot...')
+                            screenshot = page.screenshot(
+                                full_page=True,
+                                animations='disabled',  # Disable animations for cleaner screenshot
+                                scale='device'  # Use device scale factor
+                            )
                         else:
-                            self.stdout.write('Container lost, taking full page screenshot...')
-                            screenshot = page.screenshot()
+                            element = page.query_selector('#knowledge-graph-container')
+                            if element:
+                                self.stdout.write('Taking high-quality screenshot of knowledge graph container...')
+                                # Get element bounds for better positioning
+                                box = element.bounding_box()
+                                if box:
+                                    self.stdout.write(f'Container dimensions: {box["width"]}x{box["height"]}')
+                                    
+                                screenshot = element.screenshot(
+                                    animations='disabled',  # Disable animations
+                                    scale='device',  # Use device scale factor
+                                    timeout=30000  # Longer timeout for large screenshots
+                                )
+                            else:
+                                self.stdout.write('Container lost, taking full page screenshot...')
+                                screenshot = page.screenshot(
+                                    full_page=True,
+                                    animations='disabled',
+                                    scale='device'
+                                )
                     else:
                         # If no knowledge graph found, take a full page screenshot anyway
                         self.stdout.write(
                             self.style.WARNING('Knowledge graph not found, taking full page screenshot as fallback')
                         )
-                        screenshot = page.screenshot()
+                        screenshot = page.screenshot(
+                            full_page=True,
+                            animations='disabled',
+                            scale='device'
+                        )
                     
                     # Save the screenshot
                     with open(output_path, 'wb') as f:
@@ -219,7 +270,11 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.ERROR(f'Error during page interaction: {e}'))
                     # Take whatever screenshot we can
                     self.stdout.write('Attempting emergency screenshot...')
-                    screenshot = page.screenshot()
+                    screenshot = page.screenshot(
+                        full_page=True,
+                        animations='disabled',
+                        scale='device'
+                    )
                     with open(output_path, 'wb') as f:
                         f.write(screenshot)
                     self.stdout.write(f'Emergency screenshot saved to {output_path}')
