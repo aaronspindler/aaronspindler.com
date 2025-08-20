@@ -173,7 +173,49 @@ def _get_post_graph_from_data(data):
 
 @require_http_methods(["GET"])
 def knowledge_graph_screenshot(request):
-    """Generate a PNG screenshot of the knowledge graph after full rendering."""
+    """Serve the cached knowledge graph screenshot if it exists, otherwise generate it dynamically."""
+    from pathlib import Path
+    
+    # Check if a cached screenshot exists
+    cached_screenshot_paths = [
+        Path(settings.STATIC_ROOT) / 'images' / 'knowledge_graph_cached.png',  # Production path
+        Path(settings.BASE_DIR) / 'staticfiles' / 'images' / 'knowledge_graph_cached.png',  # Alternative path
+        Path(settings.BASE_DIR) / 'static' / 'images' / 'knowledge_graph_cached.png',  # Development path
+    ]
+    
+    cached_screenshot = None
+    for path in cached_screenshot_paths:
+        if path.exists():
+            cached_screenshot = path
+            logger.info(f"Found cached knowledge graph screenshot at: {path}")
+            break
+    
+    # If cached screenshot exists, serve it
+    if cached_screenshot:
+        try:
+            with open(cached_screenshot, 'rb') as f:
+                screenshot_data = f.read()
+            
+            response = HttpResponse(screenshot_data, content_type='image/png')
+            response['Content-Disposition'] = 'inline; filename="knowledge_graph.png"'
+            # Cache for a long time since it's a static file that updates only on deploy
+            response['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
+            return response
+        except Exception as e:
+            logger.error(f"Error reading cached screenshot: {str(e)}")
+            # Fall through to dynamic generation
+    
+    # If no cached screenshot or error reading it, check if we should allow dynamic generation
+    allow_dynamic = request.GET.get('force_regenerate', 'false').lower() == 'true'
+    
+    if not allow_dynamic:
+        # Return a 404 or default image if cached version doesn't exist and dynamic generation is disabled
+        return JsonResponse({
+            'error': 'Knowledge graph screenshot not available. The screenshot is generated during deployment.'
+        }, status=404)
+    
+    # Dynamic generation code (original implementation)
+    # This is now only used if force_regenerate=true is passed as a query parameter
     try:
         # Import Playwright here to avoid issues if not installed
         from playwright.sync_api import sync_playwright
@@ -191,8 +233,17 @@ def knowledge_graph_screenshot(request):
         
         # Run Playwright to capture the screenshot
         with sync_playwright() as p:
-            # Launch headless browser
-            browser = p.chromium.launch(headless=True)
+            # Launch headless browser with Docker-compatible settings
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--no-sandbox',  # Required for Docker
+                    '--disable-setuid-sandbox',  # Required for Docker
+                    '--disable-dev-shm-usage',  # Overcome limited resource problems
+                    '--disable-gpu',  # Disable GPU hardware acceleration
+                    '--single-process'  # Run in single process mode for containers
+                ]
+            )
             
             try:
                 # Create a new page with specified viewport
