@@ -174,20 +174,21 @@
 .hull-projects { animation: morph 7s ease-in-out infinite; }
 
 /* Category Labels */
+.category-label-group {
+    pointer-events: none;
+}
+
 .category-label {
-    font: 700 18px var(--font-family);
+    font: 700 16px var(--font-family);
     text-transform: uppercase;
     letter-spacing: 1.5px;
     pointer-events: none;
     user-select: none;
     text-anchor: middle;
-    stroke: #1a1a1a;
-    stroke-width: 3px;
-    paint-order: stroke;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.9),
-                -2px -2px 4px rgba(0,0,0,0.9),
-                2px -2px 4px rgba(0,0,0,0.9),
-                -2px 2px 4px rgba(0,0,0,0.9);
+    dominant-baseline: middle;
+    fill: #ffffff;  /* White text for contrast */
+    stroke: none;  /* Remove stroke for cleaner look with background */
+    opacity: 1;  /* Full opacity for visibility */
 }
 
 /* Controls */

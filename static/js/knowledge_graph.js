@@ -125,20 +125,23 @@ class HomepageKnowledgeGraph {
         this.initializeNodePositions(nodes);
         this.createSimulation(nodes, edges);
         
-        // Create visual elements
+        // Create visual elements (order matters for layering)
         this.hullGroup = this.g.append("g").attr("class", "hulls");
         this.createLinks(edges);
         this.createNodes(nodes);
         this.createLabels(nodes);
+        // Create category label group AFTER nodes to ensure labels are on top
         this.categoryLabelGroup = this.g.append("g").attr("class", "category-labels");
         
         this.addNodeInteractions();
         
         // Start simulation
         this.simulation.alpha(1.0).alphaDecay(0.01).velocityDecay(0.5).restart();
-        // Delay initial hull update to ensure nodes have settled
+        // Immediate hull update to show labels right away
+        this.updateCategoryHulls();
+        // Update again after initial settling
         setTimeout(() => this.updateCategoryHulls(), 500);
-        // Add another update after more settling
+        // Final update after more settling
         setTimeout(() => this.updateCategoryHulls(), 1500);
     }
     
@@ -241,10 +244,11 @@ class HomepageKnowledgeGraph {
             this.updateForceStrengths(alpha);
             this.updatePositions();
             
-            // Update hulls less frequently
-            if (++tickCount % 3 === 0) {
+            // Update hulls more frequently for first few ticks to ensure labels appear
+            if (tickCount < 10 || tickCount % 3 === 0) {
                 requestAnimationFrame(() => this.updateCategoryHulls());
             }
+            tickCount++;
             
             // Ensure category labels appear when simulation stabilizes
             if (!hasUpdatedOnStable && alpha < 0.5) {
@@ -431,11 +435,9 @@ class HomepageKnowledgeGraph {
             .attr("cx", x).attr("cy", y).attr("r", padding)
             .style("fill", color.hull).style("stroke", color.border);
         
-        // Position label above or below based on available space
-        const labelY = y - padding - 25;
-        const alternativeLabelY = y + padding + 25;
-        const finalY = labelY < 30 ? alternativeLabelY : labelY;
-        this.addCategoryLabel(x, finalY, category, color);
+        // Position label at the top of the hull (inside)
+        const labelY = y - padding + 25; // Position near the top inner edge
+        this.addCategoryLabel(x, labelY, category, color);
     }
     
     drawTwoNodeHull(points, category, color, padding) {
@@ -451,13 +453,11 @@ class HomepageKnowledgeGraph {
             .attr("transform", `rotate(${angle} ${midX} ${midY})`)
             .style("fill", color.hull).style("stroke", color.border);
         
-        // Position label above or below based on available space
-        const minY = Math.min(y1, y2);
-        const maxY = Math.max(y1, y2);
-        const labelY = minY - padding - 25;
-        const alternativeLabelY = maxY + padding + 25;
-        const finalY = labelY < 30 ? alternativeLabelY : labelY;
-        this.addCategoryLabel(midX, finalY, category, color);
+        // Position label at the top of the hull (inside)
+        // Find the topmost point of the two nodes
+        const topY = Math.min(y1, y2);
+        const labelY = topY - padding + 25; // Position near the top inner edge
+        this.addCategoryLabel(midX, labelY, category, color);
     }
     
     drawMultiNodeHull(points, category, color, padding) {
@@ -472,15 +472,11 @@ class HomepageKnowledgeGraph {
             .attr("d", path)
             .style("fill", color.hull).style("stroke", color.border);
         
+        // Position label at the top of the hull (inside)
         const centroid = d3.polygonCentroid(points);
         const topY = Math.min(...points.map(p => p[1]));
-        const bottomY = Math.max(...points.map(p => p[1]));
-        
-        // Position label above or below based on available space
-        const labelY = topY - padding - 25;
-        const alternativeLabelY = bottomY + padding + 25;
-        const finalY = labelY < 30 ? alternativeLabelY : labelY;
-        this.addCategoryLabel(centroid[0], finalY, category, color);
+        const labelY = topY - padding + 25; // Position near the top inner edge
+        this.addCategoryLabel(centroid[0], labelY, category, color);
     }
     
     expandHull(hull, padding) {
@@ -496,31 +492,40 @@ class HomepageKnowledgeGraph {
     
     addCategoryLabel(x, y, category, color) {
         if (!this.categoryLabelGroup) return;
-        // Allow labels even at small coordinates, just ensure they're valid numbers
+        // Ensure position is valid
         if (!isFinite(x) || !isFinite(y)) return;
         
-        // Calculate text width approximation
-        const textWidth = category.length * 14;
-        const textHeight = 30;
-        const padding = 20;
+        // Calculate text width approximation  
+        const textWidth = category.length * 12 + 20;  // Add padding
+        const textHeight = 24;
         
-        // Ensure labels stay within viewBox bounds
-        const minX = textWidth / 2 + padding;
-        const maxX = this.width - textWidth / 2 - padding;
-        const minY = textHeight + padding;
-        const maxY = this.height - padding;
+        // Create a group for the label and background
+        const labelGroup = this.categoryLabelGroup.append("g")
+            .attr("class", "category-label-group");
         
-        // Clamp position to stay within bounds
-        const clampedX = Math.max(minX, Math.min(maxX, x));
-        const clampedY = Math.max(minY, Math.min(maxY, y));
+        // Add a semi-transparent background rect for better visibility
+        labelGroup.append("rect")
+            .attr("x", x - textWidth/2)
+            .attr("y", y - textHeight/2)
+            .attr("width", textWidth)
+            .attr("height", textHeight)
+            .attr("rx", 4)  // Rounded corners
+            .attr("ry", 4)
+            .style("fill", "rgba(26, 26, 26, 0.7)")  // Dark semi-transparent background
+            .style("stroke", color.border)
+            .style("stroke-width", 1);
         
-        this.categoryLabelGroup.append("text")
+        // Add label text on top
+        labelGroup.append("text")
             .attr("class", "category-label")
-            .attr("x", clampedX).attr("y", clampedY)
-            .text(category.toUpperCase())
-            .style("fill", color.text || color.border);
+            .attr("x", x)
+            .attr("y", y)
+            .text(category.toUpperCase());
         
-        this.categoryLabelBounds.push({x: clampedX, y: clampedY, width: textWidth, height: textHeight, category});
+        // Log for debugging
+        console.log(`Added category label: ${category} at (${x.toFixed(1)}, ${y.toFixed(1)})`);
+        
+        this.categoryLabelBounds.push({x: x, y: y, width: textWidth, height: textHeight, category});
     }
     
     getNodeRadius(node) {
