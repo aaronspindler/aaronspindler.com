@@ -99,12 +99,13 @@ fi
 
 # Generate the screenshot with high resolution and quality settings
 echo "Generating high-quality knowledge graph screenshot..."
-echo "Settings: 2400x1600 resolution, 2x device scale factor, 15 second wait time"
+echo "Settings: 2400x1600 resolution, 2x device scale factor, 15 second wait time, transparent background"
 python manage.py generate_knowledge_graph_screenshot \
     --width 2400 \
     --height 1600 \
     --device-scale-factor 2.0 \
-    --quality 100 || {
+    --quality 100 \
+    --transparent || {
     EXIT_CODE=$?
     echo "WARNING: Screenshot generation failed with exit code $EXIT_CODE"
     echo "This is non-fatal, continuing build..."

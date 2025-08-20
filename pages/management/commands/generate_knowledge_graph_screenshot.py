@@ -55,6 +55,12 @@ class Command(BaseCommand):
             default=None,
             help='Output directory for the screenshot (defaults to staticfiles/images)',
         )
+        parser.add_argument(
+            '--transparent',
+            action='store_true',
+            default=False,
+            help='Generate screenshot with transparent background',
+        )
 
     def handle(self, *args, **options):
         self.stdout.write('Starting knowledge graph screenshot generation...')
@@ -81,7 +87,8 @@ class Command(BaseCommand):
                 device_scale_factor=options['device_scale_factor'],
                 wait_time=options['wait_time'],
                 quality=options['quality'],
-                full_page=options['full_page']
+                full_page=options['full_page'],
+                transparent=options['transparent']
             )
             
             self.stdout.write(
@@ -115,7 +122,7 @@ class Command(BaseCommand):
             )
             raise
     
-    def _generate_screenshot(self, output_path, width=2400, height=1600, device_scale_factor=2.0, wait_time=10000, quality=100, full_page=False):
+    def _generate_screenshot(self, output_path, width=2400, height=1600, device_scale_factor=2.0, wait_time=10000, quality=100, full_page=False, transparent=False):
         """Generate the screenshot using Playwright with high quality settings."""
         with sync_playwright() as p:
             # Launch headless browser with Docker-compatible settings
@@ -226,7 +233,8 @@ class Command(BaseCommand):
                             screenshot = page.screenshot(
                                 full_page=True,
                                 animations='disabled',  # Disable animations for cleaner screenshot
-                                scale='device'  # Use device scale factor
+                                scale='device',  # Use device scale factor
+                                omit_background=transparent  # Transparent background if requested
                             )
                         else:
                             element = page.query_selector('#knowledge-graph-container')
@@ -240,14 +248,16 @@ class Command(BaseCommand):
                                 screenshot = element.screenshot(
                                     animations='disabled',  # Disable animations
                                     scale='device',  # Use device scale factor
-                                    timeout=30000  # Longer timeout for large screenshots
+                                    timeout=30000,  # Longer timeout for large screenshots
+                                    omit_background=transparent  # Transparent background if requested
                                 )
                             else:
                                 self.stdout.write('Container lost, taking full page screenshot...')
                                 screenshot = page.screenshot(
                                     full_page=True,
                                     animations='disabled',
-                                    scale='device'
+                                    scale='device',
+                                    omit_background=transparent  # Transparent background if requested
                                 )
                     else:
                         # If no knowledge graph found, take a full page screenshot anyway
@@ -257,7 +267,8 @@ class Command(BaseCommand):
                         screenshot = page.screenshot(
                             full_page=True,
                             animations='disabled',
-                            scale='device'
+                            scale='device',
+                            omit_background=transparent  # Transparent background if requested
                         )
                     
                     # Save the screenshot
@@ -273,7 +284,8 @@ class Command(BaseCommand):
                     screenshot = page.screenshot(
                         full_page=True,
                         animations='disabled',
-                        scale='device'
+                        scale='device',
+                        omit_background=transparent  # Transparent background if requested
                     )
                     with open(output_path, 'wb') as f:
                         f.write(screenshot)

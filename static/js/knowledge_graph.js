@@ -511,8 +511,8 @@ class HomepageKnowledgeGraph {
             .attr("height", textHeight)
             .attr("rx", 4)  // Rounded corners
             .attr("ry", 4)
-            .style("fill", "rgba(26, 26, 26, 0.7)")  // Dark semi-transparent background
-            .style("stroke", color.border)
+            .style("fill", "rgba(0, 0, 0, 0.5)")  // Semi-transparent black for visibility on both backgrounds
+            .style("stroke", "rgba(255, 255, 255, 0.3)")  // Subtle white border
             .style("stroke-width", 1);
         
         // Add label text on top
