@@ -51,5 +51,9 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
 RUN python manage.py collectstatic_optimize
 RUN python manage.py migrate --no-input
 
+# Generate knowledge graph screenshot for caching
+# This runs a temporary Django server and captures the knowledge graph
+RUN ./generate_screenshot.sh || echo "Warning: Knowledge graph screenshot generation failed, continuing build..."
+
 # Use gunicorn on port 80
 CMD ["gunicorn", "--bind", ":80", "--workers", "5", "config.wsgi"]
