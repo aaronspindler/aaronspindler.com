@@ -6,7 +6,7 @@ import mimetypes
 
 class StaticStorage(S3Boto3Storage):
     """Storage backend for static files"""
-    location = 'static'
+    location = 'public/static'
     default_acl = 'public-read'
     file_overwrite = False
     querystring_auth = False  # Don't add authentication to URLs for static files
@@ -14,7 +14,7 @@ class StaticStorage(S3Boto3Storage):
 
 class PublicMediaStorage(S3Boto3Storage):
     """Storage backend for public media files (like photos)"""
-    location = 'media'
+    location = 'public/media'
     default_acl = 'public-read'
     file_overwrite = False
     querystring_auth = False  # Don't add authentication to URLs for public media
@@ -50,7 +50,7 @@ class OptimizedImageStorage(S3Boto3Storage):
     Specialized storage for optimized images with aggressive caching
     and proper content types.
     """
-    location = 'media/optimized'
+    location = 'public/media/optimized'
     default_acl = 'public-read'
     file_overwrite = False
     querystring_auth = False
@@ -73,7 +73,7 @@ class OptimizedImageStorage(S3Boto3Storage):
 
 class PrivateMediaStorage(S3Boto3Storage):
     """Storage backend for private media files (if needed in the future)"""
-    location = 'private'
+    location = 'private/media'
     default_acl = 'private'
     file_overwrite = False
     querystring_auth = True  # Add authentication to URLs for private files

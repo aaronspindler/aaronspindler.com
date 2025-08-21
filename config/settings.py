@@ -164,11 +164,11 @@ if USE_S3:
     }
     
     # Media files configuration
-    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/media/'
     MEDIA_ROOT = ''  # Not used with S3, but Django might expect it
     
     # Static files configuration (overrides the previous STATIC_URL)
-    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
+    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/static/'
 else:
     # Local storage configuration (development)
     MEDIA_URL = '/media/'
