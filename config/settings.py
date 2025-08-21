@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     # Third-party
     "allauth",
     "allauth.account",
+    "storages",  # AWS S3 storage
     # Local
     "accounts",
     "pages",
@@ -135,3 +136,40 @@ ACCOUNT_SESSION_REMEMBER = True
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*']
 ACCOUNT_UNIQUE_EMAIL = True
+
+# AWS S3 Configuration
+USE_S3 = env.bool("USE_S3", default=False)
+
+if USE_S3:
+    # AWS Settings
+    AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="us-east-1")
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',  # 1 day cache
+    }
+    AWS_DEFAULT_ACL = 'public-read'
+    AWS_S3_VERIFY = True
+    
+    # S3 Storage Configuration
+    STORAGES = {
+        "default": {
+            "BACKEND": "config.storage_backends.PublicMediaStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "config.storage_backends.StaticStorage",
+        },
+    }
+    
+    # Media files configuration
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
+    MEDIA_ROOT = ''  # Not used with S3, but Django might expect it
+    
+    # Static files configuration (overrides the previous STATIC_URL)
+    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
+else:
+    # Local storage configuration (development)
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
