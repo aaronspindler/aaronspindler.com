@@ -25,28 +25,7 @@
         to apply my diverse tech experience in the healthcare sector.
     </p>
     <h2 id="blog">Blog</h2>
-    {% if blog_posts_by_category %}
-        {% include 'components/knowledge_graph_component.html' %}
-        
-        {% for category, posts in blog_posts_by_category.items %}
-            <h3 style="margin-top: 20px; text-transform: capitalize;">{{ category|title }}</h3>
-            <table class="blog-posts-table">
-                <tbody>
-                    {% for post in posts %}
-                        <tr>
-                            <td>
-                                {% if post.category %}
-                                    <a href="{% url 'render_blog_template_with_category' post.category post.template_name %}">{{ post.blog_title }}</a>
-                                {% else %}
-                                    <a href="{% url 'render_blog_template' post.template_name %}">{{ post.blog_title }}</a>
-                                {% endif %}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% endfor %}
-    {% elif blog_posts %}
+    {% if blog_posts %}
         {% include 'components/knowledge_graph_component.html' %}
         <table class="blog-posts-table">
             <tbody>

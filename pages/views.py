@@ -59,13 +59,12 @@ def home(request):
     projects.append({
         "name": "Team Bio",
         "description": "Team Bio is a platform to foster professional connections between coworkers within a company. This is done with profiles, trivia, coffee chats, and more.",
-        "link": "https://team.bio",
+        "link": "https://github.com/aaronspindler/Team.Bio",
         "tech": ["Python", "Django", "PostgreSQL", "HTML", "JavaScript"]
     })
     projects.append({
         "name": "ActionsUptime",
         "description": "ActionsUptime is a platform to help you monitor your GitHub Actions and get notifications when they fail.",
-        "link": "https://actionsuptime.com",
         "tech": ["Django", "PostgreSQL", "Celery", "Redis"]
     })
     projects.append({
@@ -77,7 +76,7 @@ def home(request):
     projects.append({
         "name": "Spindlers",
         "description": "Spindlers is a full service technology consulting company, specializing in custom software solutions, web development, and bringing small/medium businesses into the digital age.",
-        "link": "https://spindlers.co",
+        "link": "https://spindlers.ca",
         "tech": ["Software Development", "Web Design", "Graphic Design", "SEO", "Marketing", "Consulting"]
     })
     
