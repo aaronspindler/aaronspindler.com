@@ -13,7 +13,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 SECRET_KEY = env("SECRET_KEY", default="fake_secret_key_switch_me_123451231")
 DEBUG = env("DEBUG", False)
 
-ALLOWED_HOSTS = ["localhost", "aaronspindler-web.spindlers.org", "aaronspindler-web.spindlers.dev", "aaronspindler.com", "www.aaronspindler.com"]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "aaronspindler-web.spindlers.org", "aaronspindler-web.spindlers.dev", "aaronspindler.com", "www.aaronspindler.com"]
 CSRF_TRUSTED_ORIGINS = ["https://aaronspindler.com", "https://*.spindlers.org", "https://*.spindlers.dev", "https://www.aaronspindler.com"]
 
 
