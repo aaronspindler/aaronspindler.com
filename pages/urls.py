@@ -14,7 +14,7 @@ sitemaps = {
 
 urlpatterns = [
     path("", track_page_visit(home), name="home"),
-    path("sitemap.xml", track_page_visit(sitemap), {"sitemaps": sitemaps}),
+    path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
     path("robots.txt", track_page_visit(robotstxt), name="robotstxt"),
     # Support both category-based and direct blog URLs
     path("b/<str:category>/<str:template_name>/", track_page_visit(render_blog_template), name="render_blog_template_with_category"),
