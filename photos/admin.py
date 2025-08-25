@@ -151,6 +151,7 @@ class PhotoAdmin(admin.ModelAdmin):
         if not obj.image:
             return "No images available"
         
+        from django.utils.safestring import mark_safe
         html_parts = []
         
         # Display each version with its info
@@ -177,34 +178,27 @@ class PhotoAdmin(admin.ModelAdmin):
                     size_kb = file_size / 1024 if file_size else 0
                     
                     html_parts.append(
-                        format_html(
-                            '''
-                            <div style="display: inline-block; margin: 10px; text-align: center;">
-                                <strong>{}</strong><br>
-                                <img src="{}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; padding: 5px;" /><br>
-                                <small>{} • {:.1f} KB</small>
-                            </div>
-                            ''',
-                            label,
-                            url,
-                            dimensions,
-                            size_kb
-                        )
+                        f'''
+                        <div style="display: inline-block; margin: 10px; text-align: center;">
+                            <strong>{label}</strong><br>
+                            <img src="{url}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; padding: 5px;" /><br>
+                            <small>{dimensions} • {size_kb:.1f} KB</small>
+                        </div>
+                        '''
                     )
                 except (ValueError, AttributeError, FileNotFoundError) as e:
                     # File doesn't exist or can't generate URL
                     html_parts.append(
-                        format_html(
-                            '''<div style="display: inline-block; margin: 10px; text-align: center;">
-                                <strong>{}</strong><br>
-                                <small style="color: #999;">File not found</small>
-                            </div>''',
-                            label
-                        )
+                        f'''<div style="display: inline-block; margin: 10px; text-align: center;">
+                            <strong>{label}</strong><br>
+                            <small style="color: #999;">File not found</small>
+                        </div>'''
                     )
         
-        return format_html('<div style="background: #f9f9f9; padding: 10px; border-radius: 5px;">{}</div>', 
-                          ''.join(html_parts)) if html_parts else "No versions available"
+        if html_parts:
+            return mark_safe(f'<div style="background: #f9f9f9; padding: 10px; border-radius: 5px;">{"".join(html_parts)}</div>')
+        else:
+            return "No versions available"
     
     all_versions_preview.short_description = 'All Image Versions'
     
