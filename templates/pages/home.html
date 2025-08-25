@@ -3,6 +3,11 @@
 
 {% block title %}Home{% endblock title %}
 
+{% block css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/books.css' %}">
+{% endblock css %}
+
 {% block content %}
 <div class="content">
     <ul class="tree">
@@ -68,24 +73,24 @@
 
     <h2 id="books">Books</h2>
     {% if books %}
-        <table class="books-table">
-            <tbody>
-                {% for book in books %}
-                    {% if forloop.counter0|divisibleby:3 %}
-                        <tr>
-                    {% endif %}
-                    <td style="width: 33%; vertical-align: top;">
-                        <img src="{% static book.cover_image %}" alt="{{ book.name }}" width="150" height="225" loading="lazy">
-                        {% if book.favourite_quote %}
-                            <p>"{{ book.favourite_quote }}"</p>
+        <div class="books-grid">
+            {% for book in books %}
+                <div class="book-item">
+                    <div class="book-cover">
+                        <img src="{% static book.cover_image %}" alt="{{ book.name }}" loading="lazy">
+                    </div>
+                    <div class="book-info">
+                        <h3 class="book-title">{{ book.name }}</h3>
+                        {% if book.author %}
+                            <p class="book-author">{{ book.author }}</p>
                         {% endif %}
-                    </td>
-                    {% if forloop.counter|divisibleby:3 or forloop.last %}
-                        </tr>
-                    {% endif %}
-                {% endfor %}
-            </tbody>
-        </table>
+                        {% if book.favourite_quote %}
+                            <blockquote class="book-quote">"{{ book.favourite_quote }}"</blockquote>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
     {% else %}
         <p>No books available at the moment.</p>
     {% endif %}
