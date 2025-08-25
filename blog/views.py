@@ -5,6 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from pages.models import PageVisit
+from pages.decorators import track_page_visit
 from blog.utils import get_blog_from_template_name, get_all_blog_posts
 from blog.knowledge_graph import build_knowledge_graph, get_post_graph
 
@@ -20,6 +21,7 @@ from django.core.cache import cache
 logger = logging.getLogger(__name__)
 
 
+@track_page_visit
 def render_blog_template(request, template_name, category=None):
     """Render a blog post template."""
     try:

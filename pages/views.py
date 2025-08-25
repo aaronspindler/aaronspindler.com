@@ -3,6 +3,7 @@ from django.shortcuts import render
 
 from pages.models import PageVisit
 from pages.utils import get_books
+from pages.decorators import track_page_visit
 from blog.utils import get_all_blog_posts, get_blog_from_template_name
 
 import logging
@@ -20,6 +21,7 @@ def robotstxt(request):
         content = f.read()
     return HttpResponse(content, content_type="text/plain")
 
+@track_page_visit
 def home(request):
     logger.info("Home page requested")
     # Blog - Get all blog posts from all categories
