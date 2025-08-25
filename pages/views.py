@@ -7,50 +7,18 @@ from blog.utils import get_all_blog_posts, get_blog_from_template_name
 
 import logging
 
+import os
+from django.conf import settings
+
 logger = logging.getLogger(__name__)
 
 def robotstxt(request):
     """Serve robots.txt from static file."""
-    from django.conf import settings
-    import os
+    robots_path = os.path.join(settings.BASE_DIR, 'static', 'robots.txt')
     
-    robots_path = os.path.join(settings.STATIC_ROOT, 'robots.txt')
-    
-    # Fallback to static directory if STATIC_ROOT doesn't exist (development)
-    if not os.path.exists(robots_path):
-        robots_path = os.path.join(settings.BASE_DIR, 'static', 'robots.txt')
-    
-    try:
-        with open(robots_path, 'r') as f:
-            content = f.read()
-        return HttpResponse(content, content_type="text/plain")
-    except FileNotFoundError:
-        # Fallback content if file doesn't exist
-        lines = [
-            "User-agent: *",
-            "Allow: /",
-            "",
-            "Sitemap: https://aaronspindler.com/sitemap.xml",
-            "",
-            "# Disallow admin area",
-            "User-agent: *",
-            "Disallow: /admin/",
-            "",
-            "# Allow search engines to index everything else",
-            "User-agent: Googlebot",
-            "Allow: /",
-            "",
-            "User-agent: Bingbot",
-            "Allow: /",
-            "",
-            "# Block bad bots",
-            "User-agent: AhrefsBot",
-            "Disallow: /",
-            "",
-            "User-agent: SemrushBot",
-            "Disallow: /",
-        ]
-        return HttpResponse("\n".join(lines), content_type="text/plain")
+    with open(robots_path, 'r') as f:
+        content = f.read()
+    return HttpResponse(content, content_type="text/plain")
 
 def home(request):
     logger.info("Home page requested")

@@ -175,3 +175,34 @@ else:
     # Local storage configuration (development)
     MEDIA_URL = '/media/'
     MEDIA_ROOT = BASE_DIR / 'media'
+
+# Security and Performance Optimizations for Production
+if not DEBUG:
+    # Security Headers
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+    X_FRAME_OPTIONS = 'DENY'
+    
+    # Content Security Policy
+    CSP_DEFAULT_SRC = ("'self'",)
+    CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://fonts.cdnfonts.com")
+    CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "https://d3js.org", "https://cdnjs.cloudflare.com")
+    CSP_FONT_SRC = ("'self'", "https://fonts.cdnfonts.com")
+    CSP_IMG_SRC = ("'self'", "data:", "https:")
+    CSP_CONNECT_SRC = ("'self'",)
+
+# WhiteNoise configuration for static files compression
+WHITENOISE_COMPRESS_OFFLINE = True
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = DEBUG
+WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'zip', 'gz', 'tgz', 'bz2', 'tbz', 'xz', 'br']
+
+# Enable GZip compression for WhiteNoise
+WHITENOISE_ENCODING = 'gzip'
