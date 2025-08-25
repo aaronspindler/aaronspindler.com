@@ -1,0 +1,176 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <style>
+        .bulk-upload-form {
+            max-width: 800px;
+            margin: 20px 0;
+        }
+        .bulk-upload-form .form-row {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .bulk-upload-form label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .bulk-upload-form .help {
+            font-size: 12px;
+            color: #666;
+            display: block;
+            margin-top: 5px;
+        }
+        .bulk-upload-form input[type="file"] {
+            padding: 10px;
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            width: 100%;
+            background: #f9f9f9;
+        }
+        .bulk-upload-form input[type="file"]:hover {
+            border-color: #417690;
+            background: #fff;
+        }
+        .file-preview {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        .file-preview-item {
+            position: relative;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px;
+        }
+        .file-preview-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 2px;
+        }
+        .file-preview-item .filename {
+            font-size: 11px;
+            margin-top: 5px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .upload-info {
+            background: #f0f8ff;
+            border: 1px solid #d0e5ff;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .upload-info h3 {
+            margin-top: 0;
+            color: #417690;
+        }
+        .upload-info ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .upload-info li {
+            margin: 5px 0;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.querySelector('input[type="file"]');
+            const previewContainer = document.createElement('div');
+            previewContainer.className = 'file-preview';
+            
+            if (fileInput) {
+                fileInput.parentNode.appendChild(previewContainer);
+                
+                fileInput.addEventListener('change', function(e) {
+                    previewContainer.innerHTML = '';
+                    const files = Array.from(e.target.files);
+                    
+                    if (files.length > 0) {
+                        const heading = document.createElement('h3');
+                        heading.textContent = `Selected ${files.length} image(s):`;
+                        previewContainer.appendChild(heading);
+                        
+                        const grid = document.createElement('div');
+                        grid.className = 'file-preview';
+                        
+                        files.forEach(file => {
+                            if (file.type.startsWith('image/')) {
+                                const reader = new FileReader();
+                                const item = document.createElement('div');
+                                item.className = 'file-preview-item';
+                                
+                                reader.onload = function(e) {
+                                    item.innerHTML = `
+                                        <img src="${e.target.result}" alt="${file.name}">
+                                        <div class="filename" title="${file.name}">${file.name}</div>
+                                    `;
+                                };
+                                
+                                reader.readAsDataURL(file);
+                                grid.appendChild(item);
+                            }
+                        });
+                        
+                        previewContainer.appendChild(grid);
+                    }
+                });
+            }
+        });
+    </script>
+{% endblock %}
+
+{% block breadcrumbs %}
+    <div class="breadcrumbs">
+        <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+        &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+        &rsaquo; <a href="{% url 'admin:photos_photo_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+        &rsaquo; {% trans 'Bulk Upload' %}
+    </div>
+{% endblock %}
+
+{% block content %}
+    <h1>{% trans 'Bulk Upload Photos' %}</h1>
+    
+    <div class="upload-info">
+        <h3>📸 Upload Instructions</h3>
+        <ul>
+            <li>You can select multiple images at once using Ctrl/Cmd + Click or Shift + Click</li>
+            <li>Supported formats: JPEG, PNG, GIF, WebP</li>
+            <li>Images will be automatically optimized and multiple sizes will be created</li>
+            <li>EXIF data will be extracted automatically</li>
+            <li>You can edit titles and descriptions after uploading</li>
+        </ul>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="bulk-upload-form">
+        {% csrf_token %}
+        
+        {% for field in form %}
+            <div class="form-row">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                    <div class="help">{{ field.help_text }}</div>
+                {% endif %}
+                {% if field.errors %}
+                    <ul class="errorlist">
+                        {% for error in field.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="submit-row">
+            <input type="submit" value="{% trans 'Upload Photos' %}" class="default" />
+            <a href="{% url 'admin:photos_photo_changelist' %}" class="cancel-link">{% trans 'Cancel' %}</a>
+        </div>
+    </form>
+{% endblock %}

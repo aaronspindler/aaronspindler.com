@@ -6,7 +6,7 @@ import json
 
 
 class Photo(models.Model):
-    title = models.CharField(max_length=255)
+    title = models.CharField(max_length=255, blank=True, default='')
     description = models.TextField(blank=True)
     
     # Original image (full resolution)
@@ -211,7 +211,12 @@ class Photo(models.Model):
             return None
     
     def __str__(self):
-        return self.title
+        if self.title:
+            return self.title
+        elif self.original_filename:
+            return self.original_filename
+        else:
+            return f"Photo {self.pk}"
 
 
 class PhotoAlbum(models.Model):
@@ -226,4 +231,9 @@ class PhotoAlbum(models.Model):
         verbose_name_plural = "Photo Albums"
     
     def __str__(self):
-        return self.title
+        if self.title:
+            return self.title
+        elif self.original_filename:
+            return self.original_filename
+        else:
+            return f"Photo {self.pk}"

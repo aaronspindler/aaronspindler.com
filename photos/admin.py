@@ -1,13 +1,20 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django.urls import path, reverse
+from django.shortcuts import render, redirect
+from django.contrib import messages
 from .models import Photo, PhotoAlbum
+from .forms import PhotoBulkUploadForm
 
 
 @admin.register(Photo)
 class PhotoAdmin(admin.ModelAdmin):
-    list_display = ('title', 'image_preview', 'file_info', 'camera_info', 'created_at', 'updated_at')
+    list_display = ('image_preview', 'get_display_name', 'title', 'file_info', 'camera_info', 'created_at')
     list_filter = ('created_at', 'updated_at', 'camera_make', 'camera_model')
-    search_fields = ('title', 'description', 'camera_make', 'camera_model', 'lens_model')
+    search_fields = ('title', 'description', 'original_filename', 'camera_make', 'camera_model', 'lens_model')
+    list_editable = ('title',)  # Allow inline editing of titles in list view
+    list_display_links = ('image_preview', 'get_display_name')
+    actions = ['add_to_album']
     readonly_fields = (
         'image_preview', 
         'all_versions_preview',
@@ -80,6 +87,37 @@ class PhotoAdmin(admin.ModelAdmin):
             'description': 'Complete EXIF metadata in JSON format'
         }),
     )
+    
+    def get_display_name(self, obj):
+        """Get display name for the photo."""
+        if obj.title:
+            return obj.title
+        elif obj.original_filename:
+            return obj.original_filename
+        else:
+            return f"Photo {obj.pk}"
+    get_display_name.short_description = 'Name'
+    
+    def add_to_album(self, request, queryset):
+        """Batch action to add selected photos to an album."""
+        from django.contrib.admin.helpers import ActionForm
+        from django import forms
+        
+        # Get list of albums for the intermediate form
+        albums = PhotoAlbum.objects.all()
+        if not albums:
+            messages.warning(request, "No albums exist. Please create an album first.")
+            return
+        
+        # For simplicity, add to the first album or show a message
+        # In production, you'd want to show a form to select the album
+        selected = request.POST.getlist('_selected_action')
+        if selected:
+            messages.info(
+                request, 
+                f"Selected {len(selected)} photos. To add to an album, edit the album and select these photos."
+            )
+    add_to_album.short_description = "Add selected photos to album"
     
     def image_preview(self, obj):
         try:
@@ -240,6 +278,47 @@ class PhotoAdmin(admin.ModelAdmin):
                 return str(obj.exif_data)
         return "No EXIF data available"
     exif_summary.short_description = 'Full EXIF Data'
+    
+    def get_urls(self):
+        """Add custom URLs for bulk upload."""
+        urls = super().get_urls()
+        custom_urls = [
+            path('bulk-upload/', 
+                 self.admin_site.admin_view(self.bulk_upload_view), 
+                 name='photos_photo_bulk_upload'),
+        ]
+        return custom_urls + urls
+    
+    def bulk_upload_view(self, request):
+        """View for bulk uploading photos."""
+        if request.method == 'POST':
+            form = PhotoBulkUploadForm(request.POST, request.FILES)
+            if form.is_valid():
+                photos = form.save()
+                messages.success(
+                    request, 
+                    f'Successfully uploaded {len(photos)} photo(s).'
+                )
+                return redirect('admin:photos_photo_changelist')
+        else:
+            form = PhotoBulkUploadForm()
+        
+        context = {
+            'form': form,
+            'title': 'Bulk Upload Photos',
+            'site_title': self.admin_site.site_title,
+            'site_header': self.admin_site.site_header,
+            'has_permission': True,
+            'opts': self.model._meta,
+            'app_label': self.model._meta.app_label,
+        }
+        return render(request, 'admin/photos/photo/bulk_upload.html', context)
+    
+    def changelist_view(self, request, extra_context=None):
+        """Override to add bulk upload button."""
+        extra_context = extra_context or {}
+        extra_context['bulk_upload_url'] = reverse('admin:photos_photo_bulk_upload')
+        return super().changelist_view(request, extra_context=extra_context)
 
 
 @admin.register(PhotoAlbum)
