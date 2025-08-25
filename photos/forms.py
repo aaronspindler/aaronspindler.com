@@ -1,6 +1,8 @@
 from django import forms
 from django.forms import ClearableFileInput
+from django.core.exceptions import ValidationError
 from .models import Photo
+from photos.image_utils import DuplicateDetector
 
 
 class MultipleFileInput(ClearableFileInput):
@@ -39,27 +41,84 @@ class PhotoBulkUploadForm(forms.Form):
         from .models import PhotoAlbum
         self.fields['album'].queryset = PhotoAlbum.objects.all()
     
-    def save(self):
-        """Save all uploaded images as Photo objects."""
+    def save(self, skip_duplicates=True):
+        """
+        Save all uploaded images as Photo objects.
+        
+        Args:
+            skip_duplicates: If True, silently skip duplicate images.
+                           If False, raise ValidationError on duplicates.
+        
+        Returns:
+            dict: {
+                'created': List of successfully created Photo objects,
+                'skipped': List of (filename, reason) tuples for skipped images,
+                'errors': List of (filename, error) tuples for failed uploads
+            }
+        """
         images = self.cleaned_data['images']
         album = self.cleaned_data.get('album')
-        created_photos = []
+        result = {
+            'created': [],
+            'skipped': [],
+            'errors': []
+        }
         
         # Handle single file or list of files
         if not isinstance(images, list):
             images = [images]
         
         for image_file in images:
-            # Create a photo for each uploaded file
-            photo = Photo(
-                image=image_file,
-                # Title will be empty by default, can be edited later
-            )
-            photo.save()
-            created_photos.append(photo)
+            filename = getattr(image_file, 'name', 'unknown')
             
-            # Add to album if specified
-            if album:
-                album.photos.add(photo)
+            try:
+                # Check for duplicates before creating
+                existing_photos = Photo.objects.all()
+                duplicates = DuplicateDetector.find_duplicates(
+                    image_file,
+                    existing_photos,
+                    exact_match_only=False
+                )
+                
+                # Check for exact duplicates
+                if duplicates['exact_duplicates']:
+                    duplicate = duplicates['exact_duplicates'][0]
+                    if skip_duplicates:
+                        result['skipped'].append((
+                            filename,
+                            f"Exact duplicate of '{duplicate}' (ID: {duplicate.pk})"
+                        ))
+                        continue
+                    else:
+                        raise ValidationError(
+                            f"{filename}: Exact duplicate of '{duplicate}'"
+                        )
+                
+                # Check for similar images (optional warning)
+                if duplicates['similar_images']:
+                    similar_count = len(duplicates['similar_images'])
+                    # You could add a warning here or handle similar images differently
+                    # For now, we'll allow similar images to be uploaded
+                
+                # Create a photo for each uploaded file
+                photo = Photo(
+                    image=image_file,
+                    # Store computed hashes to avoid recomputing
+                    file_hash=duplicates.get('file_hash', ''),
+                    perceptual_hash=duplicates.get('perceptual_hash', ''),
+                )
+                
+                # Skip duplicate check in save since we already checked
+                photo.save(skip_duplicate_check=True)
+                result['created'].append(photo)
+                
+                # Add to album if specified
+                if album:
+                    album.photos.add(photo)
+                    
+            except ValidationError as e:
+                result['errors'].append((filename, str(e)))
+            except Exception as e:
+                result['errors'].append((filename, f"Upload failed: {str(e)}"))
         
-        return created_photos
+        return result

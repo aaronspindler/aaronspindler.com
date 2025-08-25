@@ -9,18 +9,23 @@ from .forms import PhotoBulkUploadForm
 
 @admin.register(Photo)
 class PhotoAdmin(admin.ModelAdmin):
-    list_display = ('image_preview', 'get_display_name', 'title', 'file_info', 'camera_info', 'created_at')
+    list_display = ('image_preview', 'get_display_name', 'title', 'file_info', 'camera_info', 'has_duplicates', 'created_at')
     list_filter = ('created_at', 'updated_at', 'camera_make', 'camera_model')
-    search_fields = ('title', 'description', 'original_filename', 'camera_make', 'camera_model', 'lens_model')
+    search_fields = ('title', 'description', 'original_filename', 'camera_make', 'camera_model', 'lens_model', 'file_hash', 'perceptual_hash')
     list_editable = ('title',)  # Allow inline editing of titles in list view
     list_display_links = ('image_preview', 'get_display_name')
-    actions = ['add_to_album']
+    actions = ['add_to_album', 'find_duplicates_action']
     readonly_fields = (
         'image_preview', 
         'all_versions_preview',
         'original_filename',
         'file_size_display',
         'dimensions_display',
+        # Duplicate detection fields
+        'file_hash_display',
+        'perceptual_hash_display',
+        'duplicate_info',
+        'similar_images_display',
         # EXIF readonly fields
         'camera_make',
         'camera_model',
@@ -43,7 +48,12 @@ class PhotoAdmin(admin.ModelAdmin):
         }),
         ('Image Upload', {
             'fields': ('image',),
-            'description': 'Upload a new image. Optimized versions will be created automatically.'
+            'description': 'Upload a new image. Optimized versions will be created automatically. Duplicate detection will prevent identical images from being uploaded.'
+        }),
+        ('Duplicate Detection', {
+            'fields': ('duplicate_info', 'similar_images_display', 'file_hash_display', 'perceptual_hash_display'),
+            'classes': ('collapse',),
+            'description': 'Information about duplicate and similar images'
         }),
         ('Image Versions', {
             'fields': ('all_versions_preview',),
@@ -279,6 +289,144 @@ class PhotoAdmin(admin.ModelAdmin):
         return "No EXIF data available"
     exif_summary.short_description = 'Full EXIF Data'
     
+    def has_duplicates(self, obj):
+        """Check if this photo has duplicates."""
+        if obj.file_hash:
+            duplicate_count = Photo.objects.filter(
+                file_hash=obj.file_hash
+            ).exclude(pk=obj.pk).count()
+            
+            if duplicate_count > 0:
+                return format_html(
+                    '<span style="color: red;">⚠️ {} duplicate(s)</span>',
+                    duplicate_count
+                )
+        
+        # Check for similar images
+        if obj.perceptual_hash:
+            similar = obj.get_similar_images(threshold=5)
+            if similar:
+                return format_html(
+                    '<span style="color: orange;">≈ {} similar</span>',
+                    len(similar)
+                )
+        
+        return format_html('<span style="color: green;">✓ Unique</span>')
+    has_duplicates.short_description = 'Duplicates'
+    
+    def file_hash_display(self, obj):
+        """Display file hash with truncation."""
+        if obj.file_hash:
+            return format_html(
+                '<code style="font-family: monospace; background: #f5f5f5; padding: 2px 5px; border-radius: 3px;">{}</code>',
+                obj.file_hash[:16] + '...' if len(obj.file_hash) > 16 else obj.file_hash
+            )
+        return "Not computed"
+    file_hash_display.short_description = 'File Hash (SHA-256)'
+    
+    def perceptual_hash_display(self, obj):
+        """Display perceptual hash."""
+        if obj.perceptual_hash:
+            return format_html(
+                '<code style="font-family: monospace; background: #f5f5f5; padding: 2px 5px; border-radius: 3px;">{}</code>',
+                obj.perceptual_hash
+            )
+        return "Not computed"
+    perceptual_hash_display.short_description = 'Perceptual Hash'
+    
+    def duplicate_info(self, obj):
+        """Display information about exact duplicates."""
+        if not obj.file_hash:
+            return "Hash not computed"
+        
+        duplicates = Photo.objects.filter(
+            file_hash=obj.file_hash
+        ).exclude(pk=obj.pk).order_by('created_at')
+        
+        if not duplicates:
+            return format_html('<span style="color: green;">No exact duplicates found</span>')
+        
+        html_parts = ['<div style="background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffc107;">']
+        html_parts.append('<strong>⚠️ Exact duplicates found:</strong><br/>')
+        
+        for dup in duplicates[:5]:  # Show max 5 duplicates
+            html_parts.append(
+                format_html(
+                    '• <a href="/admin/photos/photo/{}/change/">Photo #{}</a>: "{}" (uploaded {})<br/>',
+                    dup.pk,
+                    dup.pk,
+                    dup,
+                    dup.created_at.strftime('%Y-%m-%d %H:%M')
+                )
+            )
+        
+        if duplicates.count() > 5:
+            html_parts.append(f'... and {duplicates.count() - 5} more')
+        
+        html_parts.append('</div>')
+        return format_html(''.join(html_parts))
+    duplicate_info.short_description = 'Exact Duplicates'
+    
+    def similar_images_display(self, obj):
+        """Display information about similar images."""
+        if not obj.perceptual_hash:
+            return "Perceptual hash not computed"
+        
+        similar = obj.get_similar_images(threshold=10)  # Slightly higher threshold for display
+        
+        if not similar:
+            return format_html('<span style="color: green;">No similar images found</span>')
+        
+        html_parts = ['<div style="background: #e7f3ff; padding: 10px; border-radius: 5px; border: 1px solid #007bff;">']
+        html_parts.append('<strong>Similar images found:</strong><br/>')
+        
+        for photo, distance in similar[:5]:  # Show max 5 similar images
+            similarity = 100 - (distance * 100 / 64)  # Convert distance to similarity percentage
+            html_parts.append(
+                format_html(
+                    '• <a href="/admin/photos/photo/{}/change/">Photo #{}</a>: "{}" ({:.1f}% similar)<br/>',
+                    photo.pk,
+                    photo.pk,
+                    photo,
+                    similarity
+                )
+            )
+        
+        if len(similar) > 5:
+            html_parts.append(f'... and {len(similar) - 5} more')
+        
+        html_parts.append('</div>')
+        return format_html(''.join(html_parts))
+    similar_images_display.short_description = 'Similar Images'
+    
+    def find_duplicates_action(self, request, queryset):
+        """Action to find duplicates among selected photos."""
+        from collections import defaultdict
+        
+        # Group by file hash
+        hash_groups = defaultdict(list)
+        for photo in queryset:
+            if photo.file_hash:
+                hash_groups[photo.file_hash].append(photo)
+        
+        # Report duplicates
+        duplicate_count = 0
+        for file_hash, photos in hash_groups.items():
+            if len(photos) > 1:
+                duplicate_count += 1
+                photos_str = ', '.join([f'#{p.pk}' for p in photos])
+                messages.warning(
+                    request,
+                    f'Duplicate group {duplicate_count}: Photos {photos_str} have identical content'
+                )
+        
+        if duplicate_count == 0:
+            messages.success(request, 'No duplicates found among selected photos')
+        else:
+            messages.info(request, f'Found {duplicate_count} group(s) of duplicates')
+    
+    find_duplicates_action.short_description = "Find duplicates among selected photos"
+    
     def get_urls(self):
         """Add custom URLs for bulk upload."""
         urls = super().get_urls()
@@ -294,11 +442,31 @@ class PhotoAdmin(admin.ModelAdmin):
         if request.method == 'POST':
             form = PhotoBulkUploadForm(request.POST, request.FILES)
             if form.is_valid():
-                photos = form.save()
-                messages.success(
-                    request, 
-                    f'Successfully uploaded {len(photos)} photo(s).'
-                )
+                result = form.save(skip_duplicates=True)
+                
+                # Prepare messages
+                if result['created']:
+                    messages.success(
+                        request, 
+                        f'Successfully uploaded {len(result["created"])} photo(s).'
+                    )
+                
+                if result['skipped']:
+                    skipped_msg = 'Skipped duplicates: '
+                    for filename, reason in result['skipped'][:5]:  # Show first 5
+                        skipped_msg += f'\n• {filename}: {reason}'
+                    if len(result['skipped']) > 5:
+                        skipped_msg += f'\n... and {len(result["skipped"]) - 5} more'
+                    messages.warning(request, skipped_msg)
+                
+                if result['errors']:
+                    error_msg = 'Failed uploads: '
+                    for filename, error in result['errors'][:5]:  # Show first 5
+                        error_msg += f'\n• {filename}: {error}'
+                    if len(result['errors']) > 5:
+                        error_msg += f'\n... and {len(result["errors"]) - 5} more'
+                    messages.error(request, error_msg)
+                
                 return redirect('admin:photos_photo_changelist')
         else:
             form = PhotoBulkUploadForm()

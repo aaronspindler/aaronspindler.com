@@ -1,8 +1,13 @@
 from django.db import models
 from django.core.files.base import ContentFile
-from photos.image_utils import ImageOptimizer, ExifExtractor
+from django.core.exceptions import ValidationError
+from photos.image_utils import (
+    ImageOptimizer, 
+    ExifExtractor, 
+    DuplicateDetector,
+    ImageMetadataExtractor
+)
 import os
-import json
 
 
 class Photo(models.Model):
@@ -44,6 +49,20 @@ class Photo(models.Model):
     width = models.PositiveIntegerField(null=True, blank=True, help_text='Original image width')
     height = models.PositiveIntegerField(null=True, blank=True, help_text='Original image height')
     
+    # Duplicate detection fields
+    file_hash = models.CharField(
+        max_length=64, 
+        blank=True, 
+        db_index=True,
+        help_text='SHA-256 hash of the original file for exact duplicate detection'
+    )
+    perceptual_hash = models.CharField(
+        max_length=64, 
+        blank=True, 
+        db_index=True,
+        help_text='Perceptual hash for similar image detection'
+    )
+    
     # EXIF Metadata
     exif_data = models.JSONField(null=True, blank=True, help_text='Full EXIF data as JSON')
     camera_make = models.CharField(max_length=100, blank=True, help_text='Camera manufacturer')
@@ -68,11 +87,21 @@ class Photo(models.Model):
     def save(self, *args, **kwargs):
         """
         Override save to automatically create optimized versions when a new image is uploaded.
+        Also checks for duplicates before saving.
         """
         # Check if this is a new upload or an update to the main image
         try:
             if self.pk is None or (self.pk and self._image_changed()):
+                # Check for duplicates before processing
+                skip_duplicate_check = kwargs.pop('skip_duplicate_check', False)
+                
+                if not skip_duplicate_check:
+                    self._check_for_duplicates()
+                
                 self._process_image()
+        except ValidationError:
+            # Re-raise validation errors (duplicate detection)
+            raise
         except Exception as e:
             # Log the error but don't prevent saving
             print(f"Error processing image: {e}")
@@ -92,6 +121,41 @@ class Photo(models.Model):
         except Photo.DoesNotExist:
             return True
     
+    def _check_for_duplicates(self):
+        """
+        Check if the uploaded image is a duplicate of an existing image.
+        Raises ValidationError if an exact duplicate is found.
+        """
+        if not self.image:
+            return
+        
+        # Don't check against self if updating
+        existing_photos = Photo.objects.all()
+        if self.pk:
+            existing_photos = existing_photos.exclude(pk=self.pk)
+        
+        # Find duplicates
+        duplicates = DuplicateDetector.find_duplicates(
+            self.image,
+            existing_photos,
+            exact_match_only=False
+        )
+        
+        # Store the computed hashes (these will be reused in _process_image if needed)
+        if duplicates['file_hash']:
+            self.file_hash = duplicates['file_hash']
+        if duplicates['perceptual_hash']:
+            self.perceptual_hash = duplicates['perceptual_hash']
+        
+        # Check for exact duplicates
+        if duplicates['exact_duplicates']:
+            duplicate = duplicates['exact_duplicates'][0]
+            raise ValidationError(
+                f"This image is an exact duplicate of '{duplicate}' "
+                f"(uploaded on {duplicate.created_at.strftime('%Y-%m-%d')}). "
+                f"The duplicate image was not uploaded."
+            )
+    
     def _process_image(self):
         """
         Process the uploaded image and create optimized versions.
@@ -99,15 +163,20 @@ class Photo(models.Model):
         if not self.image:
             return
         
+        # Compute hashes if not already computed (in case duplicate check was skipped)
+        if not self.file_hash or not self.perceptual_hash:
+            hashes = DuplicateDetector.compute_and_store_hashes(self.image)
+            self.file_hash = hashes['file_hash'] or ''
+            self.perceptual_hash = hashes['perceptual_hash'] or ''
+        
         # Store original filename
         self.original_filename = os.path.basename(self.image.name)
         
-        # Get image dimensions and file size
-        from PIL import Image
-        img = Image.open(self.image)
-        self.width = img.width
-        self.height = img.height
-        self.file_size = self.image.size
+        # Get image dimensions and file size using the new utility
+        metadata = ImageMetadataExtractor.extract_basic_metadata(self.image)
+        self.width = metadata['width']
+        self.height = metadata['height']
+        self.file_size = metadata['file_size']
         
         # Extract EXIF data
         self.image.seek(0)  # Reset file pointer before reading EXIF
@@ -118,16 +187,8 @@ class Photo(models.Model):
             # Store full EXIF data as JSON (excluding the full_exif for now to avoid serialization issues)
             full_exif = exif_data.pop('full_exif', {})
             
-            # Convert full EXIF data to JSON-serializable format
-            serializable_exif = {}
-            for key, value in full_exif.items():
-                try:
-                    # Try to serialize the value
-                    json.dumps(value)
-                    serializable_exif[key] = value
-                except (TypeError, ValueError):
-                    # If not serializable, convert to string
-                    serializable_exif[key] = str(value)
+            # Convert full EXIF data to JSON-serializable format using the utility
+            serializable_exif = ExifExtractor.make_exif_serializable(full_exif)
             
             self.exif_data = serializable_exif
             
@@ -210,6 +271,37 @@ class Photo(models.Model):
             # File doesn't exist or can't generate URL
             return None
     
+    def get_similar_images(self, threshold=5):
+        """
+        Find images that are visually similar to this one.
+        
+        Args:
+            threshold: Maximum Hamming distance for similarity (0-10, lower = more strict)
+            
+        Returns:
+            list: List of (Photo, distance) tuples sorted by similarity
+        """
+        if not self.perceptual_hash:
+            return []
+        
+        similar = []
+        other_photos = Photo.objects.exclude(pk=self.pk).exclude(
+            perceptual_hash__isnull=True
+        ).exclude(perceptual_hash='')
+        
+        for photo in other_photos:
+            is_similar, distance = DuplicateDetector.compare_hashes(
+                self.perceptual_hash,
+                photo.perceptual_hash,
+                threshold=threshold
+            )
+            if is_similar:
+                similar.append((photo, distance))
+        
+        # Sort by distance (most similar first)
+        similar.sort(key=lambda x: x[1])
+        return similar
+    
     def __str__(self):
         if self.title:
             return self.title
@@ -231,9 +323,4 @@ class PhotoAlbum(models.Model):
         verbose_name_plural = "Photo Albums"
     
     def __str__(self):
-        if self.title:
-            return self.title
-        elif self.original_filename:
-            return self.original_filename
-        else:
-            return f"Photo {self.pk}"
+        return self.title if self.title else f"Album {self.pk}"
