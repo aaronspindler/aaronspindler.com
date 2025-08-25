@@ -1,3 +1,13 @@
+// Unregister any existing service worker (cleanup from previous implementation)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+    for(let registration of registrations) {
+      registration.unregister();
+      console.log('Service worker unregistered:', registration.scope);
+    }
+  });
+}
+
 // Lazy load images
 document.addEventListener('DOMContentLoaded', () => {
   // Native lazy loading fallback
