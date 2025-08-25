@@ -210,14 +210,23 @@ class PhotoAdmin(admin.ModelAdmin):
     
     def file_info(self, obj):
         """Display file size and dimensions in list view."""
-        if obj.file_size:
-            size_mb = obj.file_size / (1024 * 1024)
-            return format_html(
-                '{:.1f} MB • {}×{}',
-                size_mb,
-                obj.width or '?',
-                obj.height or '?'
-            )
+        try:
+            if obj.file_size:
+                size_mb = float(obj.file_size) / (1024 * 1024)
+                width_str = str(obj.width) if obj.width else '?'
+                height_str = str(obj.height) if obj.height else '?'
+                
+                # Use a simpler format string to avoid issues with special characters
+                return format_html(
+                    '<span>{:.1f} MB</span> • <span>{}×{}</span>',
+                    size_mb,
+                    width_str,
+                    height_str
+                )
+        except (TypeError, ValueError, AttributeError) as e:
+            # Log the error for debugging
+            print(f"Error formatting file info for photo {obj.pk}: {e}")
+            
         return "—"
     file_info.short_description = 'File Info'
     
