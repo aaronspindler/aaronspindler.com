@@ -70,8 +70,12 @@ class Photo(models.Model):
         Override save to automatically create optimized versions when a new image is uploaded.
         """
         # Check if this is a new upload or an update to the main image
-        if self.pk is None or (self.pk and self._image_changed()):
-            self._process_image()
+        try:
+            if self.pk is None or (self.pk and self._image_changed()):
+                self._process_image()
+        except Exception as e:
+            # Log the error but don't prevent saving
+            print(f"Error processing image: {e}")
         
         super().save(*args, **kwargs)
     
@@ -196,11 +200,15 @@ class Photo(models.Model):
         
         image_field = size_field_map.get(size, self.image_medium)
         
-        if image_field:
-            return image_field.url
-        
-        # Fallback to the original image if the requested size doesn't exist
-        return self.image.url if self.image else None
+        try:
+            if image_field:
+                return image_field.url
+            
+            # Fallback to the original image if the requested size doesn't exist
+            return self.image.url if self.image else None
+        except (ValueError, AttributeError):
+            # File doesn't exist or can't generate URL
+            return None
     
     def __str__(self):
         return self.title

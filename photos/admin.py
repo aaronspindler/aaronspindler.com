@@ -82,16 +82,19 @@ class PhotoAdmin(admin.ModelAdmin):
     )
     
     def image_preview(self, obj):
-        if obj.image_thumbnail:
-            return format_html(
-                '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
-                obj.image_thumbnail.url
-            )
-        elif obj.image:
-            return format_html(
-                '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
-                obj.image.url
-            )
+        try:
+            if obj.image_thumbnail:
+                return format_html(
+                    '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
+                    obj.image_thumbnail.url
+                )
+            elif obj.image:
+                return format_html(
+                    '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
+                    obj.image.url
+                )
+        except (ValueError, AttributeError):
+            pass
         return "No image"
     image_preview.short_description = 'Preview'
     
@@ -114,8 +117,15 @@ class PhotoAdmin(admin.ModelAdmin):
         for label, image_field, dimensions in versions:
             if image_field:
                 try:
+                    # Check if the file actually exists before trying to access its properties
+                    url = image_field.url
+                    
                     # Get file size for each version
-                    file_size = image_field.size if hasattr(image_field, 'size') else 0
+                    try:
+                        file_size = image_field.size
+                    except (ValueError, AttributeError, FileNotFoundError):
+                        file_size = 0
+                    
                     size_kb = file_size / 1024 if file_size else 0
                     
                     html_parts.append(
@@ -128,13 +138,22 @@ class PhotoAdmin(admin.ModelAdmin):
                             </div>
                             ''',
                             label,
-                            image_field.url,
+                            url,
                             dimensions,
                             size_kb
                         )
                     )
-                except:
-                    pass
+                except (ValueError, AttributeError, FileNotFoundError) as e:
+                    # File doesn't exist or can't generate URL
+                    html_parts.append(
+                        format_html(
+                            '''<div style="display: inline-block; margin: 10px; text-align: center;">
+                                <strong>{}</strong><br>
+                                <small style="color: #999;">File not found</small>
+                            </div>''',
+                            label
+                        )
+                    )
         
         return format_html('<div style="background: #f9f9f9; padding: 10px; border-radius: 5px;">{}</div>', 
                           ''.join(html_parts)) if html_parts else "No versions available"
