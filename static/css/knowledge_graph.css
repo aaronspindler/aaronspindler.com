@@ -69,9 +69,15 @@
 .node.blog-post.tech { filter: brightness(1.1); }
 .node.blog-post.personal { filter: brightness(1.15); }
 .node.blog-post.projects { filter: brightness(1.05); }
+.node.blog-post.guides { filter: brightness(1.1); }
+.node.blog-post.smart_home { filter: brightness(1.12); }
+.node.blog-post.reviews { filter: brightness(1.08); }
 .node.blog-post.tech:hover { filter: brightness(1.3); }
 .node.blog-post.personal:hover { filter: brightness(1.35); }
 .node.blog-post.projects:hover { filter: brightness(1.25); }
+.node.blog-post.guides:hover { filter: brightness(1.3); }
+.node.blog-post.smart_home:hover { filter: brightness(1.32); }
+.node.blog-post.reviews:hover { filter: brightness(1.28); }
 
 /* Links */
 .link {

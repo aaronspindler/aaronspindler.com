@@ -29,6 +29,9 @@ class HomepageKnowledgeGraph {
                 tech: { node: '#5fb4b6', hull: 'rgba(95,180,182,0.2)', border: 'rgba(95,180,182,0.7)', text: '#7dd8da' },
                 personal: { node: '#c594c5', hull: 'rgba(197,148,197,0.2)', border: 'rgba(197,148,197,0.7)', text: '#dbb3db' },
                 projects: { node: '#fac863', hull: 'rgba(250,200,99,0.2)', border: 'rgba(250,200,99,0.7)', text: '#ffd885' },
+                guides: { node: '#99c794', hull: 'rgba(153,199,148,0.2)', border: 'rgba(153,199,148,0.7)', text: '#b3dbb0' },
+                smart_home: { node: '#ec5f67', hull: 'rgba(236,95,103,0.2)', border: 'rgba(236,95,103,0.7)', text: '#f07b82' },
+                reviews: { node: '#6c99bb', hull: 'rgba(108,153,187,0.2)', border: 'rgba(108,153,187,0.7)', text: '#8fb1cc' },
                 default: { node: '#999', hull: 'rgba(153,153,153,0.2)', border: 'rgba(153,153,153,0.7)', text: '#bbb' }
             }
         };
