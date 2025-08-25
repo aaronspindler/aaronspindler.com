@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     # Local
     "accounts",
     "pages",
+    "blog",
 ]
 
 MIDDLEWARE = [

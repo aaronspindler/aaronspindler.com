@@ -7,6 +7,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
     path("", include("pages.urls")),
+    path("", include("blog.urls")),
 ]
 
 # Serve media files in development (when not using S3)

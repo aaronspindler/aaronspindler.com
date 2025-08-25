@@ -13,7 +13,7 @@ from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.template import Template, Context
 
-from .utils import get_blog_from_template_name, get_all_blog_posts, find_blog_template
+from blog.utils import get_blog_from_template_name, get_all_blog_posts, find_blog_template
 
 logger = logging.getLogger(__name__)
 
