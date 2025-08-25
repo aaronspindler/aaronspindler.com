@@ -6,8 +6,8 @@ before the EXIF extraction feature was implemented.
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from pages.models import Photo
-from pages.image_utils import ExifExtractor
+from photos.models import Photo
+from photos.image_utils import ExifExtractor
 import json
 
 
