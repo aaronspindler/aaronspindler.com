@@ -4,10 +4,17 @@
 
 <head>
   {% include '_meta.html' %}
-  <title>AaronSpindler.com - {% block title %}{% endblock title %}</title>
+  <title>{% block full_title %}Aaron Spindler - {% block title %}Software Engineer{% endblock title %}{% endblock full_title %}</title>
+  
+  <!-- Critical CSS inline for faster initial paint -->
+  <style>
+    :root{--font-family:"JetBrains Mono",monospace;--line-height:1.20rem;--border-thickness:2px;--text-color:#000;--text-color-alt:#666;--background-color:#fff;--background-color-alt:#eee;--font-weight-normal:500;--font-weight-medium:600;--font-weight-bold:800;font-family:var(--font-family);font-optical-sizing:auto;font-weight:var(--font-weight-normal);font-style:normal;font-variant-numeric:tabular-nums lining-nums;font-size:16px}@media (prefers-color-scheme:dark){:root{--text-color:#fff;--text-color-alt:#aaa;--background-color:#000;--background-color-alt:#111}}*{box-sizing:border-box}html{display:flex;width:100%;margin:0;padding:0;flex-direction:column;align-items:center;background:var(--background-color);color:var(--text-color)}body{position:relative;width:100%;margin:0;padding:var(--line-height) 2ch;max-width:calc(min(80ch,round(down,100%,1ch)));line-height:var(--line-height);overflow-x:hidden}
+  </style>
   
   {% block css %}
-  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="preload" href="{% static 'css/base.css' %}" as="style">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="{% static 'css/base.css' %}"></noscript>
   {% endblock %}
 </head>
 
@@ -20,9 +27,11 @@
   {% include '_footer.html' %}
 
   {% block javascript %}
-  <script src="{% static 'js/base.js' %}"></script>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="{% static 'js/base.js' %}" defer></script>
   {% endblock javascript %}
+  
+  <!-- Load D3.js only when needed -->
+  {% block extra_js %}{% endblock extra_js %}
 </body>
 
 </html>

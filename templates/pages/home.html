@@ -3,22 +3,34 @@
 
 {% block title %}Home{% endblock title %}
 
+{% block meta_description %}Aaron Spindler - Software Engineer specializing in Python, Django, and full-stack development. Explore my projects, blog posts, and technical insights.{% endblock %}
+
 {% block css %}
 {{ block.super }}
-<link rel="stylesheet" href="{% static 'css/books.css' %}">
+<link rel="preload" href="{% static 'css/books.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="{% static 'css/books.css' %}"></noscript>
 {% endblock css %}
 
+{% block extra_js %}
+{% if blog_posts %}
+<script src="https://d3js.org/d3.v7.min.js" defer></script>
+{% endif %}
+{% endblock extra_js %}
+
 {% block content %}
-<div class="content">
-    <ul class="tree">
-        <li><p style="margin:0;" >Menu</p></li>
-        <ul class="incremental">
-            <li><a href="#about" id="toc-about">About me</a></li>
-            <li><a href="#blog" id="toc-blog">Blog</a></li>
-            <li><a href="#projects" id="toc-projects">Projects</a></li>
-            <li><a href="#photos" id="toc-photos">Photos</a></li>
-            <li><a href="#books" id="toc-books">Books</a></li>
+<main class="content" role="main">
+    <nav aria-label="Table of contents">
+        <ul class="tree">
+            <li><p style="margin:0;">Menu</p></li>
+            <ul class="incremental">
+                <li><a href="#about" id="toc-about" aria-label="Navigate to About section">About me</a></li>
+                <li><a href="#blog" id="toc-blog" aria-label="Navigate to Blog section">Blog</a></li>
+                <li><a href="#projects" id="toc-projects" aria-label="Navigate to Projects section">Projects</a></li>
+                <li><a href="#photos" id="toc-photos" aria-label="Navigate to Photos section">Photos</a></li>
+                <li><a href="#books" id="toc-books" aria-label="Navigate to Books section">Books</a></li>
+            </ul>
         </ul>
+    </nav>
     <h2 id="about">About me</h2>
     <p>
         From an early age, I've been passionate about technology and problem-solving. 
@@ -94,5 +106,5 @@
     {% else %}
         <p>No books available at the moment.</p>
     {% endif %}
-</div>
+</main>
 {% endblock content %}
