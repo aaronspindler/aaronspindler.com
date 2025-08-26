@@ -35,33 +35,3 @@ def generate_knowledge_graph_screenshot():
     except Exception as e:
         logger.error(f"Error generating knowledge graph screenshot: {e}")
         return None
-
-@shared_task
-def update_blog_post_stats(template_name):
-    """
-    Update blog post statistics (view count, etc.)
-    """
-    from blog.models import BlogPostView
-    try:
-        # Your blog post stats update logic here
-        logger.info(f"Blog post stats updated for {template_name}")
-        return True
-    except Exception as e:
-        logger.error(f"Error updating blog post stats: {e}")
-        return False
-
-@shared_task
-def clear_blog_cache():
-    """
-    Clear all blog-related cache entries
-    """
-    cache_keys = [
-        'knowledge_graph_data',
-        'blog_posts_list',
-        'blog_categories',
-        # Add more cache keys as needed
-    ]
-    for key in cache_keys:
-        cache.delete(key)
-    logger.info("Blog cache cleared successfully")
-    return True

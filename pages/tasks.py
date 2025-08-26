@@ -1,68 +1,42 @@
 from celery import shared_task
 from django.core.cache import cache
-from django.core.mail import send_mail
-from django.conf import settings
+from django.test import Client
 import logging
 
 logger = logging.getLogger(__name__)
 
-@shared_task(bind=True, max_retries=3)
-def send_async_email(self, subject, message, recipient_list):
-    """
-    Asynchronously send email notifications
-    """
-    try:
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            recipient_list,
-            fail_silently=False,
-        )
-        logger.info(f"Email sent successfully to {recipient_list}")
-        return True
-    except Exception as exc:
-        logger.error(f"Error sending email: {exc}")
-        # Retry with exponential backoff
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries)
 
 @shared_task
-def clear_cache_key(cache_key):
+def rebuild_and_cache_sitemap():
     """
-    Clear a specific cache key
+    Rebuild and cache the sitemap by making requests to the sitemap URLs.
+    This ensures the sitemap is always cached and fresh.
     """
-    cache.delete(cache_key)
-    logger.info(f"Cache key {cache_key} cleared")
-    return True
-
-@shared_task
-def process_photo_optimization(photo_id):
-    """
-    Process photo optimization in the background
-    """
-    from pages.models import Photo
     try:
-        photo = Photo.objects.get(id=photo_id)
-        # Your photo optimization logic here
-        logger.info(f"Photo {photo_id} optimized successfully")
-        return True
-    except Photo.DoesNotExist:
-        logger.error(f"Photo with id {photo_id} does not exist")
-        return False
-
-@shared_task
-def generate_sitemap():
-    """
-    Generate or update the sitemap
-    """
-    from django.contrib.sitemaps import ping_google
-    try:
-        # Your sitemap generation logic here
-        # Optionally ping Google
-        if not settings.DEBUG:
-            ping_google('/sitemap.xml')
-        logger.info("Sitemap generated successfully")
+        from django.contrib.sites.models import Site
+        from config.sitemaps import sitemaps
+        
+        # Create a test client to make internal requests
+        client = Client()
+        
+        # Request the main sitemap index to cache it
+        response = client.get('/sitemap.xml')
+        if response.status_code == 200:
+            logger.info("Main sitemap index cached successfully")
+        else:
+            logger.warning(f"Failed to cache main sitemap index: {response.status_code}")
+        
+        # Request each section sitemap to cache them
+        for section in sitemaps.keys():
+            url = f'/sitemap-{section}.xml'
+            response = client.get(url)
+            if response.status_code == 200:
+                logger.info(f"Sitemap section '{section}' cached successfully")
+            else:
+                logger.warning(f"Failed to cache sitemap section '{section}': {response.status_code}")
+        
+        logger.info("All sitemaps rebuilt and cached successfully")
         return True
     except Exception as e:
-        logger.error(f"Error generating sitemap: {e}")
+        logger.error(f"Error rebuilding and caching sitemaps: {e}")
         return False
