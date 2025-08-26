@@ -206,14 +206,19 @@ class PhotoAdmin(admin.ModelAdmin):
         """Display file size and dimensions in list view."""
         try:
             if obj.file_size:
+                # Ensure size_mb is a plain float, not a SafeString
                 size_mb = float(obj.file_size) / (1024 * 1024)
-                width_str = str(obj.width) if obj.width else '?'
-                height_str = str(obj.height) if obj.height else '?'
+                # Format the size first to avoid any issues with format_html
+                size_str = f"{size_mb:.1f}"
                 
-                # Use a simpler format string to avoid issues with special characters
+                # Ensure width and height are plain strings
+                width_str = str(int(obj.width)) if obj.width else '?'
+                height_str = str(int(obj.height)) if obj.height else '?'
+                
+                # Use format_html with pre-formatted strings
                 return format_html(
-                    '<span>{:.1f} MB</span> • <span>{}×{}</span>',
-                    size_mb,
+                    '<span>{} MB</span> • <span>{}×{}</span>',
+                    size_str,
                     width_str,
                     height_str
                 )
