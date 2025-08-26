@@ -26,8 +26,5 @@ RUN pip install --upgrade pip && \
 # Copy project
 COPY . /code/
 
-# Run migrations for django_celery_beat tables
-RUN python manage.py migrate django_celery_beat --no-input || true
-
 # Run Celery beat scheduler
 CMD ["celery", "--app", "config.celery", "beat", "--loglevel", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]

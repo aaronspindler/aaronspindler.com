@@ -40,13 +40,12 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
     CMD curl -f http://127.0.0.1:80/ || exit 1
 
-RUN python manage.py collectstatic_optimize
-RUN python manage.py migrate --no-input
+# Create entrypoint script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
-# Generate knowledge graph screenshot for caching (optional)
-# This attempts to pre-generate the screenshot during build, but if it fails,
-# the screenshot will be generated on first request at runtime instead
-RUN ./generate_screenshot.sh || echo "INFO: Screenshot pre-generation skipped, will generate on first request"
+# Use entrypoint script to handle initialization
+ENTRYPOINT ["/docker-entrypoint.sh"]
 
-# Use gunicorn on port 80
+# Default command (can be overridden)
 CMD ["gunicorn", "--bind", ":80", "--workers", "8", "config.wsgi", "--log-level", "info", "--access-logfile", "-", "--error-logfile", "-"]
