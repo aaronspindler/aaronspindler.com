@@ -99,11 +99,22 @@
         aspect-ratio: 4/3;
         overflow: hidden;
         border-radius: 8px;
-        background: #fff;
+        background: #f0f0f0;
         cursor: pointer;
         border: 3px solid white;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         transition: transform 0.2s, box-shadow 0.2s;
+        background-image: linear-gradient(90deg, #f0f0f0 0%, #f8f8f8 50%, #f0f0f0 100%);
+        background-size: 200% 100%;
+    }
+    
+    .photo-item.loading {
+        animation: shimmer 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
     }
     
     .photo-item:hover {
@@ -179,6 +190,7 @@
         max-width: 100%;
         max-height: 90vh;
         display: block;
+        transition: opacity 0.3s ease;
     }
     
     .lightbox-caption {
@@ -292,6 +304,7 @@
         {
             id: {{ photo.id }},
             url: "{{ photo.get_image_url|default:'' }}",
+            thumbnailUrl: "{{ photo.image_small.url|default:photo.get_image_url|default:'' }}",
             largeUrl: "{{ photo.image_large.url|default:photo.image.url }}",
             title: "{{ photo.title|escapejs }}",
             description: "{{ photo.description|escapejs }}",
@@ -304,11 +317,100 @@
                 shutterSpeed: "{{ photo.shutter_speed|escapejs }}",
                 iso: "{{ photo.iso|default:'' }}",
                 dateTaken: "{{ photo.date_taken|date:'F j, Y g:i A'|default:'' }}"
-            }
+            },
+            loaded: false,
+            preloaded: false
         }{% if not forloop.last %},{% endif %}
         {% endfor %}
     ];
     const albumSlug = "{{ album.slug }}";
+    
+    // Preload cache for lightbox images
+    const imageCache = new Map();
+    
+    // Intersection Observer for lazy loading
+    let imageObserver;
+    
+    function initializeLazyLoading() {
+        const images = document.querySelectorAll('.photo-grid-image');
+        
+        if ('IntersectionObserver' in window) {
+            imageObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        const photoItem = img.closest('.photo-item');
+                        
+                        // Load the image
+                        loadImage(img, photoItem);
+                        
+                        // Start preloading nearby images
+                        const index = parseInt(img.dataset.index);
+                        preloadNearbyImages(index);
+                        
+                        observer.unobserve(img);
+                    }
+                });
+            }, {
+                rootMargin: '50px 0px',
+                threshold: 0.01
+            });
+            
+            images.forEach((img, index) => {
+                img.dataset.index = index;
+                imageObserver.observe(img);
+            });
+        } else {
+            // Fallback for browsers without IntersectionObserver
+            images.forEach(img => loadImage(img, img.closest('.photo-item')));
+        }
+    }
+    
+    function loadImage(img, photoItem) {
+        if (photoItem) {
+            photoItem.classList.add('loading');
+        }
+        
+        // Already loaded by responsive_image tag, just handle the load event
+        if (img.complete) {
+            if (photoItem) {
+                photoItem.classList.remove('loading');
+            }
+        } else {
+            img.onload = () => {
+                if (photoItem) {
+                    photoItem.classList.remove('loading');
+                }
+            };
+        }
+    }
+    
+    function preloadNearbyImages(currentIndex) {
+        // Preload next 2 and previous 1 images for lightbox
+        const indicesToPreload = [
+            currentIndex - 1,
+            currentIndex + 1,
+            currentIndex + 2
+        ];
+        
+        indicesToPreload.forEach(index => {
+            if (index >= 0 && index < photos.length && !photos[index].preloaded) {
+                preloadLightboxImage(index);
+            }
+        });
+    }
+    
+    function preloadLightboxImage(index) {
+        const photo = photos[index];
+        if (!photo.preloaded && photo.largeUrl) {
+            const img = new Image();
+            img.onload = () => {
+                photo.preloaded = true;
+                imageCache.set(photo.largeUrl, img);
+            };
+            img.src = photo.largeUrl;
+        }
+    }
     
     function formatExifData(exif) {
         let html = '<div class="lightbox-exif">';
@@ -361,16 +463,51 @@
         const caption = document.getElementById('lightbox-caption');
         const exifContainer = document.getElementById('lightbox-exif-container');
         
-        img.src = photos[index].largeUrl || photos[index].url;
-        caption.textContent = photos[index].title || '';
+        // Use cached image if available
+        const photo = photos[index];
+        const cachedImage = imageCache.get(photo.largeUrl);
+        
+        if (cachedImage) {
+            img.src = cachedImage.src;
+        } else {
+            // Show loading state
+            img.style.opacity = '0.5';
+            img.src = photo.thumbnailUrl || photo.url; // Show thumbnail immediately
+            
+            // Load full resolution
+            const tempImg = new Image();
+            tempImg.onload = () => {
+                img.src = tempImg.src;
+                img.style.opacity = '1';
+                imageCache.set(photo.largeUrl, tempImg);
+                photo.preloaded = true;
+            };
+            tempImg.src = photo.largeUrl;
+        }
+        
+        caption.textContent = photo.title || '';
         
         // Display EXIF data
         if (exifContainer) {
-            exifContainer.innerHTML = formatExifData(photos[index].exif);
+            exifContainer.innerHTML = formatExifData(photo.exif);
         }
+        
+        // Preload adjacent images
+        preloadAdjacentLightboxImages(index);
         
         lightbox.style.display = 'block';
         document.body.style.overflow = 'hidden';
+    }
+    
+    function preloadAdjacentLightboxImages(currentIndex) {
+        // Preload previous and next images
+        const indices = [currentIndex - 1, currentIndex + 1];
+        
+        indices.forEach(index => {
+            if (index >= 0 && index < photos.length) {
+                preloadLightboxImage(index);
+            }
+        });
     }
     
     function closeLightbox() {
@@ -427,6 +564,23 @@
             downloadPhoto(photo.id);
         }
     }
+    
+    // Initialize on DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeLazyLoading();
+        
+        // Preload first few images
+        for (let i = 0; i < Math.min(3, photos.length); i++) {
+            preloadLightboxImage(i);
+        }
+    });
+    
+    // Clean up on page unload
+    window.addEventListener('beforeunload', function() {
+        if (imageObserver) {
+            imageObserver.disconnect();
+        }
+    });
 </script>
 {% endblock extra_js %}
 
@@ -460,8 +614,8 @@
     {% if photos %}
         <div class="photos-grid">
             {% for photo in photos %}
-                <div class="photo-item" onclick="openLightbox({{ forloop.counter0 }})">
-                    {% responsive_image photo css_class="photo-grid-image" alt_text=photo.title|default:photo.original_filename %}
+                <div class="photo-item loading" onclick="openLightbox({{ forloop.counter0 }})" data-photo-index="{{ forloop.counter0 }}">
+                    {% responsive_image photo css_class="photo-grid-image" alt_text=photo.title|default:photo.original_filename loading="lazy" %}
                     {% if photo.title %}
                         <div class="photo-title">{{ photo.title }}</div>
                     {% endif %}
