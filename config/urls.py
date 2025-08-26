@@ -17,7 +17,3 @@ urlpatterns = [
     path("", include("pages.urls")),
     path("", include("blog.urls")),
 ]
-
-# Serve media files in development (when not using S3)
-if settings.DEBUG and not settings.USE_S3:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
