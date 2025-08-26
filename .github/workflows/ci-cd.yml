@@ -57,6 +57,10 @@ jobs:
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:latest
+            network=host
       
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -86,17 +90,23 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha,scope=${{ matrix.service }}
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:buildcache
+          cache-to: |
+            type=gha,mode=max,scope=${{ matrix.service }}
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:buildcache,mode=max
           platforms: linux/amd64
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+          provenance: false
+          sbom: false
   
   # Deploy to CapRover after successful build
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment:
-      name: production
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
@@ -105,9 +115,9 @@ jobs:
         run: |
           echo "🚀 Deploying Web service to CapRover..."
           docker run caprover/cli-caprover:latest caprover deploy \
-            --caproverUrl "${{ secrets.CAPROVER_URL }}" \
-            --appToken "${{ secrets.CAPROVER_APP_TOKEN }}" \
-            --appName "${{ secrets.CAPROVER_APP_NAME }}" \
+            --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
+            --appToken "${{ secrets.CAPROVER_WEB_APP_TOKEN }}" \
+            --appName "${{ secrets.CAPROVER_WEB_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-web:latest"
       
       - name: Deploy Celery to CapRover
@@ -115,9 +125,9 @@ jobs:
         run: |
           echo "🔧 Deploying Celery worker to CapRover..."
           docker run caprover/cli-caprover:latest caprover deploy \
-            --caproverUrl "${{ secrets.CAPROVER_URL }}" \
-            --appToken "${{ secrets.CAPROVER_APP_TOKEN_CELERY }}" \
-            --appName "${{ secrets.CAPROVER_APP_NAME_CELERY }}" \
+            --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
+            --appToken "${{ secrets.CAPROVER_CELERY_APP_TOKEN }}" \
+            --appName "${{ secrets.CAPROVER_CELERY_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celery:latest"
       
       - name: Deploy Celery Beat to CapRover
@@ -125,9 +135,9 @@ jobs:
         run: |
           echo "⏰ Deploying Celery Beat to CapRover..."
           docker run caprover/cli-caprover:latest caprover deploy \
-            --caproverUrl "${{ secrets.CAPROVER_URL }}" \
-            --appToken "${{ secrets.CAPROVER_APP_TOKEN_CELERYBEAT }}" \
-            --appName "${{ secrets.CAPROVER_APP_NAME_CELERYBEAT }}" \
+            --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
+            --appToken "${{ secrets.CAPROVER_CELERYBEAT_APP_TOKEN }}" \
+            --appName "${{ secrets.CAPROVER_CELERYBEAT_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celerybeat:latest"
       
       - name: Deploy Flower to CapRover
@@ -135,9 +145,9 @@ jobs:
         run: |
           echo "🌸 Deploying Flower monitoring to CapRover..."
           docker run caprover/cli-caprover:latest caprover deploy \
-            --caproverUrl "${{ secrets.CAPROVER_URL }}" \
-            --appToken "${{ secrets.CAPROVER_APP_TOKEN_FLOWER }}" \
-            --appName "${{ secrets.CAPROVER_APP_NAME_FLOWER }}" \
+            --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
+            --appToken "${{ secrets.CAPROVER_FLOWER_APP_TOKEN }}" \
+            --appName "${{ secrets.CAPROVER_FLOWER_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-flower:latest"
       
       - name: Deployment Summary
@@ -147,9 +157,9 @@ jobs:
           echo "✅ Deployment Complete!"
           echo "============================="
           echo "Services deployed:"
-          echo "• Web: ${{ secrets.CAPROVER_APP_NAME }}"
-          echo "• Celery: ${{ secrets.CAPROVER_APP_NAME_CELERY }}"
-          echo "• Celery Beat: ${{ secrets.CAPROVER_APP_NAME_CELERYBEAT }}"
-          echo "• Flower: ${{ secrets.CAPROVER_APP_NAME_FLOWER }}"
+          echo "• Web: ${{ secrets.CAPROVER_WEB_APP_NAME }}"
+          echo "• Celery: ${{ secrets.CAPROVER_CELERY_APP_NAME }}"
+          echo "• Celery Beat: ${{ secrets.CAPROVER_CELERYBEAT_APP_NAME }}"
+          echo "• Flower: ${{ secrets.CAPROVER_FLOWER_APP_NAME }}"
           echo ""
           echo "Check CapRover dashboard for deployment status"
