@@ -114,8 +114,11 @@ Required environment variables (use django-environ):
 - `DATABASE_URL`: PostgreSQL connection string
 - `SECRET_KEY`: Django secret key
 - `DEBUG`: Debug mode flag
-- `USE_S3`: Enable S3 storage (optional)
-- AWS credentials if using S3
+- AWS credentials (required):
+  - `AWS_ACCESS_KEY_ID`
+  - `AWS_SECRET_ACCESS_KEY`
+  - `AWS_STORAGE_BUCKET_NAME`
+  - `AWS_S3_REGION_NAME` (optional, defaults to us-east-1)
 
 ### Blog Post Template Structure
 Blog posts are HTML templates in `templates/blog/<category>/<filename>.html` with metadata:
