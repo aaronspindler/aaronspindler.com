@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Starting container initialization..."
+echo "Starting web container initialization..."
 
 # Wait for database to be ready (optional, but recommended)
 if [ -n "$DATABASE_URL" ]; then
@@ -37,7 +37,7 @@ else:
 END
 fi
 
-# Run migrations only if this is the web service (not celery workers)
+# Run migrations
 if [ "$RUN_MIGRATIONS" = "true" ]; then
     echo "Running database migrations..."
     python manage.py migrate --no-input || {
@@ -45,7 +45,7 @@ if [ "$RUN_MIGRATIONS" = "true" ]; then
     }
 fi
 
-# Collect static files only for web service
+# Collect static files
 if [ "$COLLECT_STATIC" = "true" ]; then
     echo "Collecting static files..."
     python manage.py collectstatic_optimize --no-input || {
@@ -59,7 +59,7 @@ if [ -n "$INIT_COMMANDS" ]; then
     eval "$INIT_COMMANDS"
 fi
 
-echo "Container initialization complete!"
+echo "Web container initialization complete!"
 
 # Execute the main command
 exec "$@"
