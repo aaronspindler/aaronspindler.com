@@ -65,7 +65,7 @@ EXPOSE 80
 
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
-    CMD curl -f http://127.0.0.1:80/ || exit 1
+    CMD curl -fL http://127.0.0.1:80/ || exit 1
 
 # Use entrypoint script to handle initialization
 ENTRYPOINT ["/docker-entrypoint.sh"]
