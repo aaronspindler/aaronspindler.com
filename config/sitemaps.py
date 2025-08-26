@@ -1,8 +1,10 @@
 from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
 from django.conf import settings
+from django.core.cache import cache
 import os
 from datetime import datetime
+from photos.sitemaps import PhotoAlbumSitemap, PhotoSitemap
 
 
 class StaticViewSitemap(Sitemap):
@@ -29,30 +31,37 @@ class BlogPostSitemap(Sitemap):
     protocol = "https"
 
     def items(self):
-        """Get all blog posts from template structure"""
-        blog_posts = []
-        template_dir = os.path.join(settings.BASE_DIR, 'templates', 'blog')
+        """Get all blog posts from template structure with caching"""
+        cache_key = 'sitemap_blog_posts_v1'
+        blog_posts = cache.get(cache_key)
         
-        # Define categories and their paths
-        categories = {
-            'personal': 'personal',
-            'projects': 'projects',
-            'reviews': 'reviews',
-            'tech': 'tech'
-        }
-        
-        for category, folder in categories.items():
-            category_path = os.path.join(template_dir, folder)
-            if os.path.exists(category_path):
-                for filename in os.listdir(category_path):
-                    if filename.endswith('.html'):
-                        # Remove the .html extension
-                        template_name = filename[:-5]
-                        blog_posts.append({
-                            'category': category,
-                            'template_name': template_name,
-                            'filename': filename
-                        })
+        if blog_posts is None:
+            blog_posts = []
+            template_dir = os.path.join(settings.BASE_DIR, 'templates', 'blog')
+            
+            # Define categories and their paths
+            categories = {
+                'personal': 'personal',
+                'projects': 'projects',
+                'reviews': 'reviews',
+                'tech': 'tech'
+            }
+            
+            for category, folder in categories.items():
+                category_path = os.path.join(template_dir, folder)
+                if os.path.exists(category_path):
+                    for filename in os.listdir(category_path):
+                        if filename.endswith('.html'):
+                            # Remove the .html extension
+                            template_name = filename[:-5]
+                            blog_posts.append({
+                                'category': category,
+                                'template_name': template_name,
+                                'filename': filename
+                            })
+            
+            # Cache for 6 hours
+            cache.set(cache_key, blog_posts, 21600)
         
         return blog_posts
 
@@ -147,6 +156,8 @@ class DraftsSitemap(Sitemap):
 sitemaps = {
     'static': StaticViewSitemap,
     'blog': BlogPostSitemap,
+    'photo_albums': PhotoAlbumSitemap,
+    'photos': PhotoSitemap,
     # Uncomment if you want drafts included in sitemap
     # 'drafts': DraftsSitemap,
 }
