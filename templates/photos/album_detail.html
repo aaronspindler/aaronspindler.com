@@ -37,6 +37,11 @@
         margin-top: 10px;
     }
     
+    .download-options {
+        position: relative;
+        display: inline-block;
+    }
+    
     .download-album-btn {
         display: inline-flex;
         align-items: center;
@@ -49,6 +54,7 @@
         text-decoration: none;
         font-size: 0.9em;
         transition: all 0.2s;
+        cursor: pointer;
     }
     
     .download-album-btn:hover {
@@ -56,6 +62,73 @@
         border-color: #999;
         color: #333;
         text-decoration: none;
+    }
+    
+    .download-album-btn.loading {
+        opacity: 0.6;
+        cursor: wait;
+    }
+    
+    .download-dropdown {
+        display: none;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 4px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        min-width: 200px;
+        z-index: 100;
+    }
+    
+    .download-dropdown.show {
+        display: block;
+    }
+    
+    .download-option {
+        display: block;
+        padding: 10px 15px;
+        color: #333;
+        text-decoration: none;
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s;
+    }
+    
+    .download-option:last-child {
+        border-bottom: none;
+    }
+    
+    .download-option:hover {
+        background: #f8f8f8;
+        text-decoration: none;
+    }
+    
+    .download-option.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    
+    .download-option-title {
+        font-weight: 500;
+        display: block;
+        margin-bottom: 2px;
+    }
+    
+    .download-option-info {
+        font-size: 0.85em;
+        color: #666;
+    }
+    
+    .download-status {
+        padding: 10px 15px;
+        background: #f0f7ff;
+        color: #0066cc;
+        font-size: 0.85em;
+        text-align: center;
+        border-bottom: 1px solid #ddd;
     }
     
     .download-button {
@@ -566,6 +639,105 @@
         }
     }
     
+    // Toggle download dropdown
+    function toggleDownloadDropdown() {
+        const dropdown = document.getElementById('downloadDropdown');
+        const isShowing = dropdown.classList.contains('show');
+        
+        if (!isShowing) {
+            dropdown.classList.add('show');
+            checkDownloadStatus();
+        } else {
+            dropdown.classList.remove('show');
+        }
+    }
+    
+    // Check download status
+    async function checkDownloadStatus() {
+        const statusDiv = document.getElementById('downloadStatus');
+        const optimizedBtn = document.getElementById('optimizedDownload');
+        const originalBtn = document.getElementById('originalDownload');
+        
+        statusDiv.style.display = 'block';
+        statusDiv.textContent = 'Checking download availability...';
+        
+        try {
+            const response = await fetch(`/photos/album/${albumSlug}/download-status/`);
+            const data = await response.json();
+            
+            if (data.error) {
+                statusDiv.textContent = data.error;
+                optimizedBtn.classList.add('disabled');
+                originalBtn.classList.add('disabled');
+                return;
+            }
+            
+            // Update optimized download button
+            if (data.optimized.ready) {
+                optimizedBtn.classList.remove('disabled');
+                const sizeText = data.optimized.size ? ` (${formatFileSize(data.optimized.size)})` : '';
+                document.getElementById('optimizedInfo').textContent = `Smaller file size, web quality${sizeText}`;
+            } else {
+                optimizedBtn.classList.add('disabled');
+                document.getElementById('optimizedInfo').textContent = 'Generating... Please wait';
+            }
+            
+            // Update original download button
+            if (data.original.ready) {
+                originalBtn.classList.remove('disabled');
+                const sizeText = data.original.size ? ` (${formatFileSize(data.original.size)})` : '';
+                document.getElementById('originalInfo').textContent = `Full resolution${sizeText}`;
+            } else {
+                originalBtn.classList.add('disabled');
+                document.getElementById('originalInfo').textContent = 'Generating... Please wait';
+            }
+            
+            // Show appropriate status message
+            if (!data.optimized.ready || !data.original.ready) {
+                if (data.generation_triggered) {
+                    statusDiv.textContent = '🔄 Generating download files...';
+                    // Check again in 5 seconds
+                    setTimeout(checkDownloadStatus, 5000);
+                } else {
+                    statusDiv.textContent = '⚠️ Some downloads are being prepared';
+                }
+            } else {
+                statusDiv.style.display = 'none';
+            }
+            
+        } catch (error) {
+            console.error('Error checking download status:', error);
+            statusDiv.textContent = '❌ Error checking status';
+        }
+    }
+    
+    // Download album with specific quality
+    function downloadAlbum(quality) {
+        const dropdown = document.getElementById('downloadDropdown');
+        dropdown.classList.remove('show');
+        
+        // Navigate to download URL
+        window.location.href = `/photos/album/${albumSlug}/download/${quality}/`;
+    }
+    
+    // Format file size
+    function formatFileSize(bytes) {
+        if (!bytes) return '';
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return Math.round(bytes / Math.pow(1024, i) * 10) / 10 + ' ' + sizes[i];
+    }
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('downloadDropdown');
+        const downloadBtn = document.getElementById('downloadBtn');
+        
+        if (dropdown && downloadBtn && !downloadBtn.contains(event.target)) {
+            dropdown.classList.remove('show');
+        }
+    });
+    
     // Initialize on DOM ready
     document.addEventListener('DOMContentLoaded', function() {
         initializeLazyLoading();
@@ -593,14 +765,32 @@
         <div class="album-title-row">
             <h1 class="album-title">{{ album.title }}</h1>
             {% if allow_downloads and photos %}
-                <a href="{% url 'photos:download_album' album.slug %}" class="download-album-btn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7 10 12 15 17 10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                    Download Album
-                </a>
+                <div class="download-options">
+                    <button class="download-album-btn" id="downloadBtn" onclick="toggleDownloadDropdown()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Download Album
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+                    <div class="download-dropdown" id="downloadDropdown">
+                        <div class="download-status" id="downloadStatus" style="display: none;">
+                            Checking download availability...
+                        </div>
+                        <a href="#" class="download-option" id="optimizedDownload" onclick="downloadAlbum('optimized'); return false;">
+                            <span class="download-option-title">Optimized Quality</span>
+                            <span class="download-option-info" id="optimizedInfo">Smaller file size, web quality</span>
+                        </a>
+                        <a href="#" class="download-option" id="originalDownload" onclick="downloadAlbum('original'); return false;">
+                            <span class="download-option-title">Original Quality</span>
+                            <span class="download-option-info" id="originalInfo">Full resolution, larger file</span>
+                        </a>
+                    </div>
+                </div>
             {% endif %}
         </div>
         {% if album.description %}

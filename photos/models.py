@@ -2,6 +2,7 @@ from django.db import models
 from django.core.files.base import ContentFile
 from django.core.exceptions import ValidationError
 from django.utils.text import slugify
+from config.storage_backends import PrivateMediaStorage
 from photos.image_utils import (
     ImageOptimizer, 
     ExifExtractor, 
@@ -9,6 +10,9 @@ from photos.image_utils import (
     ImageMetadataExtractor
 )
 import os
+
+# Private storage for secure files
+private_storage = PrivateMediaStorage()
 
 
 class Photo(models.Model):
@@ -318,6 +322,22 @@ class PhotoAlbum(models.Model):
     
     allow_downloads = models.BooleanField(default=False)
     
+    # Zip file fields
+    zip_file = models.FileField(
+        upload_to='albums/zips/original/',
+        storage=private_storage,
+        blank=True,
+        null=True,
+        help_text='Zip file containing original quality photos'
+    )
+    zip_file_optimized = models.FileField(
+        upload_to='albums/zips/optimized/',
+        storage=private_storage,
+        blank=True,
+        null=True,
+        help_text='Zip file containing optimized quality photos'
+    )
+    
     class Meta:
         verbose_name = "Photo Album"
         verbose_name_plural = "Photo Albums"
@@ -332,6 +352,46 @@ class PhotoAlbum(models.Model):
                 self.slug = f"{original_slug}-{counter}"
                 counter += 1
         super().save(*args, **kwargs)
+    
+    def get_download_url(self, quality='optimized'):
+        """
+        Get a secure download URL for the album zip file.
+        
+        Args:
+            quality: 'original' or 'optimized' (default)
+            
+        Returns:
+            str: Secure URL for downloading the zip file, or None if not available
+        """
+        if not self.allow_downloads:
+            return None
+        
+        if quality == 'original' and self.zip_file:
+            try:
+                return self.zip_file.url
+            except (ValueError, AttributeError):
+                return None
+        elif quality == 'optimized' and self.zip_file_optimized:
+            try:
+                return self.zip_file_optimized.url
+            except (ValueError, AttributeError):
+                return None
+        
+        return None
+    
+    def regenerate_zip_files(self, async_task=True):
+        """
+        Regenerate the zip files for this album.
+        
+        Args:
+            async_task: If True, use Celery async task. If False, run synchronously.
+        """
+        from photos.tasks import generate_album_zip
+        
+        if async_task:
+            return generate_album_zip.delay(self.pk)
+        else:
+            return generate_album_zip(self.pk)
     
     def __str__(self):
         return self.title if self.title else f"Album {self.pk}"

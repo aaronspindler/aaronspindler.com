@@ -1,10 +1,8 @@
-from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponse, Http404
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import HttpResponse, Http404, JsonResponse
 from .models import PhotoAlbum, Photo
 from pages.decorators import track_page_visit
 import os
-import zipfile
-import tempfile
 
 
 @track_page_visit 
@@ -69,8 +67,8 @@ def download_photo(request, slug, photo_id):
     raise Http404("Photo has no image file")
 
 
-def download_album(request, slug):
-    """Download all photos in an album as a ZIP file."""
+def download_album(request, slug, quality='optimized'):
+    """Download pre-generated album ZIP file."""
     # Check album permissions
     if request.user.is_authenticated and request.user.is_staff:
         album = get_object_or_404(PhotoAlbum, slug=slug)
@@ -81,67 +79,68 @@ def download_album(request, slug):
     if not album.allow_downloads:
         raise Http404("Downloads are not allowed for this album")
     
-    photos = album.photos.all()
+    # Determine which quality to download
+    if quality not in ['original', 'optimized']:
+        quality = 'optimized'
     
-    if not photos:
-        raise Http404("No photos in this album")
+    # Get the appropriate zip file
+    if quality == 'original':
+        zip_file = album.zip_file
+    else:
+        zip_file = album.zip_file_optimized
     
-    import requests
+    # Check if zip file exists
+    if not zip_file:
+        # Trigger generation if file doesn't exist
+        from photos.tasks import generate_album_zip
+        generate_album_zip.delay(album.pk)
+        
+        # Return a message to the user
+        raise Http404("The download file is being generated. Please try again in a few moments.")
     
-    # Create a temporary ZIP file
-    temp_zip = tempfile.NamedTemporaryFile(delete=False, suffix='.zip')
-    
+    # Redirect to the secure S3 URL
+    # The URL will be pre-signed with expiration time
     try:
-        with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            added_count = 0
-            for index, photo in enumerate(photos):
-                if photo.image and hasattr(photo.image, 'url'):
-                    try:
-                        # Determine filename
-                        if photo.original_filename:
-                            name, ext = os.path.splitext(photo.original_filename)
-                            filename = f"{index+1:03d}_{name}{ext}"
-                        elif photo.title:
-                            filename = f"{index+1:03d}_{photo.title}.jpg"
-                        else:
-                            filename = f"{index+1:03d}_photo_{photo.id}.jpg"
-                        
-                        # Sanitize filename
-                        filename = "".join(c for c in filename if c.isalnum() or c in (' ', '.', '_', '-')).rstrip()
-                        
-                        # Download from S3 and add to zip
-                        url = photo.image.url
-                        response = requests.get(url)
-                        if response.status_code == 200:
-                            zip_file.writestr(filename, response.content)
-                            added_count += 1
-                            print(f"Added S3 file to zip: {filename}")
-                        else:
-                            print(f"Failed to download photo {photo.id} from S3: status {response.status_code}")
-                            
-                    except Exception as e:
-                        print(f"Error adding photo {photo.id} to zip: {e}")
-                        continue  # Skip photos that can't be added
-        
-        print(f"Total photos added to ZIP: {added_count}")
-        
-        if added_count == 0:
-            raise Http404("Could not add any photos to the ZIP file")
-        
-        # Serve the ZIP file
-        with open(temp_zip.name, 'rb') as f:
-            response = HttpResponse(f.read(), content_type='application/zip')
-        
-        album_filename = f"{album.slug}_photos.zip"
-        response['Content-Disposition'] = f'attachment; filename="{album_filename}"'
-        
-        return response
+        download_url = zip_file.url
+        return redirect(download_url)
     except Exception as e:
-        print(f"Error creating ZIP: {e}")
-        raise
-    finally:
-        # Clean up temp file
-        try:
-            os.unlink(temp_zip.name)
-        except:
-            pass
+        print(f"Error getting download URL: {e}")
+        raise Http404("Error accessing the download file")
+
+
+def album_download_status(request, slug):
+    """Check the status of album download files (AJAX endpoint)."""
+    # Check album permissions
+    if request.user.is_authenticated and request.user.is_staff:
+        album = get_object_or_404(PhotoAlbum, slug=slug)
+    else:
+        album = get_object_or_404(PhotoAlbum, slug=slug, is_private=False)
+    
+    # Check if downloads are allowed
+    if not album.allow_downloads:
+        return JsonResponse({'error': 'Downloads not allowed'}, status=403)
+    
+    # Check status of zip files
+    status = {
+        'album_title': album.title,
+        'photo_count': album.photos.count(),
+        'downloads_allowed': album.allow_downloads,
+        'original': {
+            'ready': bool(album.zip_file),
+            'size': album.zip_file.size if album.zip_file else None,
+            'url': None  # Don't expose URL in status check
+        },
+        'optimized': {
+            'ready': bool(album.zip_file_optimized),
+            'size': album.zip_file_optimized.size if album.zip_file_optimized else None,
+            'url': None  # Don't expose URL in status check
+        }
+    }
+    
+    # If neither file exists, trigger generation
+    if not status['original']['ready'] and not status['optimized']['ready']:
+        from photos.tasks import generate_album_zip
+        generate_album_zip.delay(album.pk)
+        status['generation_triggered'] = True
+    
+    return JsonResponse(status)
