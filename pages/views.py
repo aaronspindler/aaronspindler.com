@@ -80,16 +80,21 @@ def home(request):
     # Books
     books = get_books()
     
-    # Photo Albums - Get only public albums
-    albums = PhotoAlbum.objects.filter(is_private=False).order_by('-created_at')
+    # Photo Albums - Get only public albums with efficient photo counting
+    from django.db.models import Count
+    albums = PhotoAlbum.objects.filter(is_private=False).annotate(
+        photo_count=Count('photos')
+    ).order_by('-created_at')
+    
     album_data = []
     for album in albums:
-        photos = album.photos.all()[:1]  # Get first photo for cover
-        cover_photo = photos[0] if photos else None
+        # Get a random photo for cover using database-level random selection
+        # Only query for one photo instead of loading all
+        cover_photo = album.photos.order_by('?').first()
         album_data.append({
             'album': album,
             'cover_photo': cover_photo,
-            'photo_count': album.photos.count()
+            'photo_count': album.photo_count  # Use annotated count
         })
     
     return render(
