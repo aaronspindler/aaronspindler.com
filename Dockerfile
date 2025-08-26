@@ -57,4 +57,4 @@ RUN python manage.py migrate --no-input
 RUN ./generate_screenshot.sh || echo "INFO: Screenshot pre-generation skipped, will generate on first request"
 
 # Use gunicorn on port 80
-CMD ["gunicorn", "--bind", ":80", "--workers", "5", "config.wsgi"]
+CMD ["gunicorn", "--bind", ":80", "--workers", "8", "config.wsgi"]
