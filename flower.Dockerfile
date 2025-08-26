@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Create and set work directory
-RUN mkdir -p /code
+RUN mkdir -p /code /data
 WORKDIR /code
 
 # Install system dependencies
@@ -34,13 +34,13 @@ CMD if [ -n "$FLOWER_BASIC_AUTH" ]; then \
         celery --app=config.celery flower \
             --loglevel=info \
             --persistent=true \
-            --db=/code/flower.db \
+            --db=/data/flower.db \
             --basic_auth="$FLOWER_BASIC_AUTH" \
             --port=5555; \
     else \
         celery --app=config.celery flower \
             --loglevel=info \
             --persistent=true \
-            --db=/code/flower.db \
+            --db=/data/flower.db \
             --port=5555; \
     fi

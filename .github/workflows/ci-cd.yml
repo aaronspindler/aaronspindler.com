@@ -23,6 +23,8 @@ jobs:
   # First, run tests to ensure code quality
   test:
     uses: ./.github/workflows/test-and-check.yml
+    permissions:
+      contents: read
     with:
       python-version: '3.12.2'
       postgres-version: '15'
@@ -56,14 +58,14 @@ jobs:
         uses: actions/checkout@v5
       
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3
         with:
           driver-opts: |
             image=moby/buildkit:latest
             network=host
       
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -71,7 +73,7 @@ jobs:
       
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
           tags: |
@@ -83,7 +85,7 @@ jobs:
             type=sha,prefix={{branch}}-
       
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: .
           file: ${{ matrix.dockerfile }}
@@ -108,8 +110,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
     
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      
+      - name: Check for Flower changes
+        id: flower-changes
+        run: |
+          if git diff --name-only HEAD^ HEAD | grep -E '(flower\.Dockerfile|requirements\.txt|config/celery\.py|captain-definition-flower)'; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "🌸 Flower-related files changed, will deploy Flower"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "⏭️ No Flower-related changes, skipping Flower deployment"
+          fi
       - name: Deploy Web to CapRover
         continue-on-error: true
         run: |
@@ -141,6 +160,7 @@ jobs:
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celerybeat:latest"
       
       - name: Deploy Flower to CapRover
+        if: steps.flower-changes.outputs.changed == 'true'
         continue-on-error: true
         run: |
           echo "🌸 Deploying Flower monitoring to CapRover..."
@@ -160,6 +180,10 @@ jobs:
           echo "• Web: ${{ secrets.CAPROVER_WEB_APP_NAME }}"
           echo "• Celery: ${{ secrets.CAPROVER_CELERY_APP_NAME }}"
           echo "• Celery Beat: ${{ secrets.CAPROVER_CELERYBEAT_APP_NAME }}"
-          echo "• Flower: ${{ secrets.CAPROVER_FLOWER_APP_NAME }}"
+          if [[ "${{ steps.flower-changes.outputs.changed }}" == "true" ]]; then
+            echo "• Flower: ${{ secrets.CAPROVER_FLOWER_APP_NAME }}"
+          else
+            echo "• Flower: (skipped - no changes)"
+          fi
           echo ""
           echo "Check CapRover dashboard for deployment status"
