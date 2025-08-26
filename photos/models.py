@@ -320,6 +320,10 @@ class PhotoAlbum(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    is_private = models.BooleanField(default=False)
+    
+    allow_downloads = models.BooleanField(default=False)
+    
     class Meta:
         verbose_name = "Photo Album"
         verbose_name_plural = "Photo Albums"

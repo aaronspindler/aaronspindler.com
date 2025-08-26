@@ -80,8 +80,8 @@ def home(request):
     # Books
     books = get_books()
     
-    # Photo Albums - Get all albums
-    albums = PhotoAlbum.objects.all().order_by('-created_at')
+    # Photo Albums - Get only public albums
+    albums = PhotoAlbum.objects.filter(is_private=False).order_by('-created_at')
     album_data = []
     for album in albums:
         photos = album.photos.all()[:1]  # Get first photo for cover

@@ -499,13 +499,47 @@ class PhotoAdmin(admin.ModelAdmin):
 
 @admin.register(PhotoAlbum)
 class PhotoAlbumAdmin(admin.ModelAdmin):
-    list_display = ('title', 'slug', 'photo_count', 'created_at', 'updated_at')
-    list_filter = ('created_at', 'updated_at')
+    list_display = ('title', 'slug', 'photo_count', 'privacy_status', 'is_private', 'downloads_status', 'allow_downloads', 'created_at', 'updated_at')
+    list_filter = ('is_private', 'allow_downloads', 'created_at', 'updated_at')
+    list_editable = ('is_private', 'allow_downloads')
     search_fields = ('title', 'description', 'slug')
     filter_horizontal = ('photos',)
     readonly_fields = ('created_at', 'updated_at')
     prepopulated_fields = {'slug': ('title',)}
     
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('title', 'slug', 'description')
+        }),
+        ('Settings', {
+            'fields': ('is_private', 'allow_downloads'),
+            'description': 'Privacy and download settings for this album'
+        }),
+        ('Photos', {
+            'fields': ('photos',)
+        }),
+        ('Metadata', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+    
     def photo_count(self, obj):
         return obj.photos.count()
-    photo_count.short_description = 'Number of Photos'
+    photo_count.short_description = 'Photos'
+    
+    def privacy_status(self, obj):
+        if obj.is_private:
+            return format_html('<span style="color: #dc3545;">🔒 Private</span>')
+        else:
+            return format_html('<span style="color: #28a745;">🌐 Public</span>')
+    privacy_status.short_description = 'Privacy'
+    privacy_status.admin_order_field = 'is_private'
+    
+    def downloads_status(self, obj):
+        if obj.allow_downloads:
+            return format_html('<span style="color: #28a745;">✓ Enabled</span>')
+        else:
+            return format_html('<span style="color: #6c757d;">✗ Disabled</span>')
+    downloads_status.short_description = 'Downloads'
+    downloads_status.admin_order_field = 'allow_downloads'
