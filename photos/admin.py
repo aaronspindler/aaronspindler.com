@@ -499,11 +499,12 @@ class PhotoAdmin(admin.ModelAdmin):
 
 @admin.register(PhotoAlbum)
 class PhotoAlbumAdmin(admin.ModelAdmin):
-    list_display = ('title', 'photo_count', 'created_at', 'updated_at')
+    list_display = ('title', 'slug', 'photo_count', 'created_at', 'updated_at')
     list_filter = ('created_at', 'updated_at')
-    search_fields = ('title', 'description')
+    search_fields = ('title', 'description', 'slug')
     filter_horizontal = ('photos',)
     readonly_fields = ('created_at', 'updated_at')
+    prepopulated_fields = {'slug': ('title',)}
     
     def photo_count(self, obj):
         return obj.photos.count()

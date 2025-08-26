@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.files.base import ContentFile
 from django.core.exceptions import ValidationError
+from django.utils.text import slugify
 from photos.image_utils import (
     ImageOptimizer, 
     ExifExtractor, 
@@ -313,6 +314,7 @@ class Photo(models.Model):
 
 class PhotoAlbum(models.Model):
     title = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255, unique=True, blank=True)
     description = models.TextField(blank=True)
     photos = models.ManyToManyField(Photo, related_name='albums')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -321,6 +323,17 @@ class PhotoAlbum(models.Model):
     class Meta:
         verbose_name = "Photo Album"
         verbose_name_plural = "Photo Albums"
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)
+            # Ensure uniqueness
+            original_slug = self.slug
+            counter = 1
+            while PhotoAlbum.objects.filter(slug=self.slug).exists():
+                self.slug = f"{original_slug}-{counter}"
+                counter += 1
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return self.title if self.title else f"Album {self.pk}"

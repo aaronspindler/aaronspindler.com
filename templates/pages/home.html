@@ -1,5 +1,6 @@
 {% extends '_base.html' %}
 {% load static %}
+{% load photo_tags %}
 
 {% block title %}Home{% endblock title %}
 
@@ -9,6 +10,8 @@
 {{ block.super }}
 <link rel="preload" href="{% static 'css/books.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="{% static 'css/books.css' %}"></noscript>
+<link rel="preload" href="{% static 'css/photos.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="{% static 'css/photos.css' %}"></noscript>
 {% endblock css %}
 
 {% block extra_js %}
@@ -81,7 +84,23 @@
     {% endif %}
 
     <h2 id="photos">Photos</h2>
-    <p>Coming soon...</p>
+    {% if album_data %}
+        <div class="photo-albums-grid">
+            {% for item in album_data %}
+                <a href="{% url 'photos:album_detail' item.album.slug %}" class="photo-album-card">
+                    {% if item.cover_photo %}
+                        {% responsive_image item.cover_photo css_class="photo-album-cover" alt_text=item.album.title %}
+                    {% endif %}
+                    <div class="photo-album-overlay">
+                        <h3 class="photo-album-title">{{ item.album.title }}</h3>
+                        <div class="photo-album-count">{{ item.photo_count }} photo{{ item.photo_count|pluralize }}</div>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No photo albums available yet.</p>
+    {% endif %}
 
     <h2 id="books">Books</h2>
     {% if books %}

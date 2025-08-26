@@ -5,6 +5,7 @@ from pages.models import PageVisit
 from pages.utils import get_books
 from pages.decorators import track_page_visit
 from blog.utils import get_all_blog_posts, get_blog_from_template_name
+from photos.models import PhotoAlbum
 
 import logging
 
@@ -79,6 +80,18 @@ def home(request):
     # Books
     books = get_books()
     
+    # Photo Albums - Get all albums
+    albums = PhotoAlbum.objects.all().order_by('-created_at')
+    album_data = []
+    for album in albums:
+        photos = album.photos.all()[:1]  # Get first photo for cover
+        cover_photo = photos[0] if photos else None
+        album_data.append({
+            'album': album,
+            'cover_photo': cover_photo,
+            'photo_count': album.photos.count()
+        })
+    
     return render(
         request,
         "pages/home.html",
@@ -86,6 +99,7 @@ def home(request):
             "blog_posts": blog_posts,
             "blog_posts_by_category": blog_posts_by_category,
             "projects": projects,
-            "books": books
+            "books": books,
+            "album_data": album_data
         }
     )

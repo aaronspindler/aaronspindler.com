@@ -1,0 +1,271 @@
+{% extends '_base.html' %}
+{% load static %}
+{% load photo_tags %}
+
+{% block title %}{{ album.title }} - Photo Album{% endblock title %}
+
+{% block meta_description %}{{ album.description|default:"View photos from this album" }}{% endblock %}
+
+{% block css %}
+{{ block.super }}
+<style>
+    .album-header {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .album-title {
+        margin: 0 0 10px 0;
+    }
+    
+    .album-description {
+        color: #666;
+        margin: 0;
+    }
+    
+    .album-meta {
+        color: #999;
+        font-size: 0.9em;
+        margin-top: 10px;
+    }
+    
+    .photos-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+    }
+    
+    .photo-item {
+        position: relative;
+        aspect-ratio: 1;
+        overflow: hidden;
+        border-radius: 4px;
+        background: #f0f0f0;
+        cursor: pointer;
+    }
+    
+    .photo-item img,
+    .photo-grid-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s;
+    }
+    
+    .photo-item:hover img,
+    .photo-item:hover .photo-grid-image {
+        transform: scale(1.05);
+    }
+    
+    .photo-title {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+        color: white;
+        padding: 10px;
+        font-size: 0.9em;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    
+    .photo-item:hover .photo-title {
+        opacity: 1;
+    }
+    
+    .back-link {
+        display: inline-block;
+        margin-bottom: 20px;
+        color: #666;
+        text-decoration: none;
+    }
+    
+    .back-link:hover {
+        text-decoration: underline;
+    }
+    
+    /* Lightbox styles */
+    .lightbox {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 1000;
+        cursor: pointer;
+    }
+    
+    .lightbox-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-width: 90%;
+        max-height: 90%;
+    }
+    
+    .lightbox-content img {
+        max-width: 100%;
+        max-height: 90vh;
+        display: block;
+    }
+    
+    .lightbox-caption {
+        color: white;
+        text-align: center;
+        padding: 10px;
+        font-size: 0.9em;
+    }
+    
+    .lightbox-close {
+        position: absolute;
+        top: 20px;
+        right: 40px;
+        color: white;
+        font-size: 40px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+    
+    .lightbox-close:hover {
+        color: #ddd;
+    }
+    
+    .lightbox-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        color: white;
+        font-size: 30px;
+        font-weight: bold;
+        cursor: pointer;
+        padding: 10px;
+        user-select: none;
+    }
+    
+    .lightbox-nav:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .lightbox-prev {
+        left: 20px;
+    }
+    
+    .lightbox-next {
+        right: 20px;
+    }
+</style>
+{% endblock css %}
+
+{% block extra_js %}
+<script>
+    let currentPhotoIndex = 0;
+    const photos = [
+        {% for photo in photos %}
+        {
+            url: "{{ photo.get_image_url|default:'' }}",
+            largeUrl: "{{ photo.image_large.url|default:photo.image.url }}",
+            title: "{{ photo.title|escapejs }}",
+            description: "{{ photo.description|escapejs }}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    function openLightbox(index) {
+        currentPhotoIndex = index;
+        const lightbox = document.getElementById('lightbox');
+        const img = document.getElementById('lightbox-img');
+        const caption = document.getElementById('lightbox-caption');
+        
+        img.src = photos[index].largeUrl || photos[index].url;
+        caption.textContent = photos[index].title || '';
+        
+        lightbox.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+    
+    function closeLightbox() {
+        const lightbox = document.getElementById('lightbox');
+        lightbox.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+    
+    function navigatePhoto(direction) {
+        currentPhotoIndex += direction;
+        
+        if (currentPhotoIndex < 0) {
+            currentPhotoIndex = photos.length - 1;
+        } else if (currentPhotoIndex >= photos.length) {
+            currentPhotoIndex = 0;
+        }
+        
+        const img = document.getElementById('lightbox-img');
+        const caption = document.getElementById('lightbox-caption');
+        
+        img.src = photos[currentPhotoIndex].largeUrl || photos[currentPhotoIndex].url;
+        caption.textContent = photos[currentPhotoIndex].title || '';
+    }
+    
+    // Keyboard navigation
+    document.addEventListener('keydown', function(e) {
+        const lightbox = document.getElementById('lightbox');
+        if (lightbox.style.display === 'block') {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            } else if (e.key === 'ArrowLeft') {
+                navigatePhoto(-1);
+            } else if (e.key === 'ArrowRight') {
+                navigatePhoto(1);
+            }
+        }
+    });
+</script>
+{% endblock extra_js %}
+
+{% block content %}
+<main class="content" role="main">
+    <a href="/#photos" class="back-link">← Back to homepage</a>
+    
+    <div class="album-header">
+        <h1 class="album-title">{{ album.title }}</h1>
+        {% if album.description %}
+            <p class="album-description">{{ album.description }}</p>
+        {% endif %}
+        <div class="album-meta">
+            {{ photos|length }} photo{{ photos|length|pluralize }} · 
+            Created {{ album.created_at|date:"F j, Y" }}
+        </div>
+    </div>
+    
+    {% if photos %}
+        <div class="photos-grid">
+            {% for photo in photos %}
+                <div class="photo-item" onclick="openLightbox({{ forloop.counter0 }})">
+                    {% responsive_image photo css_class="photo-grid-image" alt_text=photo.title|default:photo.original_filename %}
+                    {% if photo.title %}
+                        <div class="photo-title">{{ photo.title }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No photos in this album yet.</p>
+    {% endif %}
+    
+    <!-- Lightbox -->
+    <div id="lightbox" class="lightbox" onclick="closeLightbox()">
+        <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+        <span class="lightbox-nav lightbox-prev" onclick="event.stopPropagation(); navigatePhoto(-1)">&#10094;</span>
+        <span class="lightbox-nav lightbox-next" onclick="event.stopPropagation(); navigatePhoto(1)">&#10095;</span>
+        <div class="lightbox-content" onclick="event.stopPropagation()">
+            <img id="lightbox-img" src="" alt="">
+            <div id="lightbox-caption" class="lightbox-caption"></div>
+        </div>
+    </div>
+</main>
+{% endblock content %}
