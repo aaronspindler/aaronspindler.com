@@ -1,51 +1,74 @@
-# Pull base image
+# Multi-stage build for smaller final image
+# Stage 1: Build dependencies
+FROM python:3.13.7-slim-bookworm as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Stage 2: Playwright installation (separate for caching)
+FROM python:3.13.7-slim-bookworm as playwright-installer
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install Playwright and its dependencies
+RUN playwright install --with-deps chromium
+
+# Stage 3: Final runtime image
 FROM python:3.13.7-slim-bookworm
 
 # Set Python environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
 
-# Create and set work directory called `app`
-RUN mkdir -p /code
-WORKDIR /code
-
-# Install minimal system dependencies first
-RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
-COPY requirements.txt /tmp/requirements.txt
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
 
-RUN set -ex && \
-    pip install --upgrade pip && \
-    pip install -r /tmp/requirements.txt && \
-    rm -rf /root/.cache/
+# Copy Playwright installation from playwright stage
+COPY --from=playwright-installer /root/.cache/ms-playwright /root/.cache/ms-playwright
+COPY --from=playwright-installer /usr/lib /usr/lib
+COPY --from=playwright-installer /usr/bin /usr/bin
 
-# Install Playwright dependencies and chromium browser
-# This command automatically installs all necessary system dependencies for chromium
-RUN playwright install --with-deps chromium
+# Create and set work directory
+WORKDIR /code
 
-# Copy local project
+# Copy entrypoint script first (rarely changes)
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# Copy application code last (changes frequently)
 COPY . /code/
 
 # Expose port 80
 EXPOSE 80
 
-# Add healthcheck for zero downtime deployments
-# This checks if the Django application is responding properly
-# The start-period gives the container 40 seconds to start up before health checks begin
+# Add healthcheck
 HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
     CMD curl -f http://127.0.0.1:80/ || exit 1
-
-# Create entrypoint script
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
 
 # Use entrypoint script to handle initialization
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
-# Default command (can be overridden)
+# Default command
 CMD ["gunicorn", "--bind", ":80", "--workers", "8", "config.wsgi", "--log-level", "info", "--access-logfile", "-", "--error-logfile", "-"]
