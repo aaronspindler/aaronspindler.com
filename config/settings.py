@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "storages",  # AWS S3 storage
+    "django_celery_beat",  # Celery Beat scheduler
     # Local
     "accounts",
     "pages",
@@ -282,3 +283,16 @@ CACHES = {
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
 SESSION_COOKIE_AGE = 86400  # 24 hours
+
+# Celery Configuration
+CELERY_BROKER_URL = env('CELERY_BROKER_URL', default=REDIS_URL)
+CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default=REDIS_URL)
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_WORKER_POOL_RESTARTS = True
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True

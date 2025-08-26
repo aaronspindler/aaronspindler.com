@@ -51,17 +51,24 @@ jobs:
       - name: Deploy web app
         uses: caprover/deploy-from-github@v1.1.2
         with:
-          server: '${{ secrets.NEW_CAPROVER_SERVER }}'
+          server: '${{ secrets.CAPROVER_SERVER }}'
           app: '${{ secrets.CAPROVER_WEB_APP_NAME }}'
-          token: '${{ secrets.NEW_CAPROVER_WEB_APP_TOKEN }}'
-      
-      - name: Wait for deployment
-        run: sleep 30
-      
-      - name: Verify Deployment Health
-        run: |
-          # Simple health check - adjust URL as needed
-          if [ ! -z "${{ secrets.PRODUCTION_URL }}" ]; then
-            curl -f ${{ secrets.PRODUCTION_URL }} || echo "Warning: Health check failed"
-          fi
-        continue-on-error: true
+          token: '${{ secrets.CAPROVER_WEB_APP_TOKEN }}'
+      - name: Deploy celery
+        uses: caprover/deploy-from-github@v1.1.2
+        with:
+          server: '${{ secrets.CAPROVER_SERVER }}'
+          app: '${{ secrets.CAPROVER_CELERY_APP_NAME }}'
+          token: '${{ secrets.CAPROVER_CELERY_APP_TOKEN }}'
+      - name: Deploy celerybeat
+        uses: caprover/deploy-from-github@v1.1.2
+        with:
+          server: '${{ secrets.CAPROVER_SERVER }}'
+          app: '${{ secrets.CAPROVER_CELERYBEAT_APP_NAME }}'
+          token: '${{ secrets.CAPROVER_CELERYBEAT_APP_TOKEN }}'
+      - name: Deploy flower
+        uses: caprover/deploy-from-github@v1.1.2
+        with:
+          server: '${{ secrets.CAPROVER_SERVER }}'
+          app: '${{ secrets.CAPROVER_FLOWER_APP_NAME }}'
+          token: '${{ secrets.CAPROVER_FLOWER_APP_TOKEN }}'
