@@ -1,15 +1,7 @@
 # Pull base image
 FROM python:3.13.7-slim-bookworm
 
-ARG DATABASE_URL
-ARG DEBUG
-ARG SECRET_KEY
-
-ENV DATABASE_URL=${DATABASE_URL}
-ENV DEBUG=${DEBUG}
-ENV SECRET_KEY=${SECRET_KEY}
-
-# Set environment variables
+# Set Python environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
