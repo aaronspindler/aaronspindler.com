@@ -131,10 +131,15 @@ class PhotoAdmin(admin.ModelAdmin):
     
     def image_preview(self, obj):
         try:
-            if obj.image_thumbnail:
+            if obj.image_display:
                 return format_html(
                     '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
-                    obj.image_thumbnail.url
+                    obj.image_display.url
+                )
+            elif obj.image_optimized:
+                return format_html(
+                    '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
+                    obj.image_optimized.url
                 )
             elif obj.image:
                 return format_html(
@@ -156,11 +161,9 @@ class PhotoAdmin(admin.ModelAdmin):
         
         # Display each version with its info
         versions = [
-            ('Thumbnail', obj.image_thumbnail, '150x150'),
-            ('Small', obj.image_small, '400x400'),
-            ('Medium', obj.image_medium, '800x800'),
-            ('Large', obj.image_large, '1920x1920'),
-            ('Full', obj.image, f'{obj.width}x{obj.height}' if obj.width else 'Original'),
+            ('Display (Smart Cropped)', obj.image_display, '1200x800'),
+            ('Optimized Full Size', obj.image_optimized, f'{obj.width}x{obj.height}' if obj.width else 'Full Size'),
+            ('Original', obj.image, f'{obj.width}x{obj.height}' if obj.width else 'Original'),
         ]
         
         for label, image_field, dimensions in versions:

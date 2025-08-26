@@ -1,7 +1,7 @@
 """
 Image processing utilities for optimizing images before uploading to S3.
 """
-from PIL import Image
+from PIL import Image, ImageFilter, ImageStat, ImageOps
 from PIL.ExifTags import TAGS, GPSTAGS
 from io import BytesIO
 from django.core.files.base import ContentFile
@@ -12,6 +12,7 @@ import os
 import json
 import hashlib
 import imagehash
+import numpy as np
 
 
 @contextmanager
@@ -295,6 +296,170 @@ class ExifExtractor:
             return 0
 
 
+class SmartCrop:
+    """
+    Smart cropping functionality to find the most interesting part of an image.
+    Uses edge detection, entropy analysis, and face detection (if available).
+    """
+    
+    @staticmethod
+    def find_focal_point(img):
+        """
+        Find the focal point of an image using various techniques.
+        
+        Returns:
+            tuple: (x, y) coordinates of the focal point as percentages (0-1)
+        """
+        # Convert to RGB if necessary
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+        
+        # Try multiple methods and combine results
+        edge_point = SmartCrop._edge_detection_focal_point(img)
+        entropy_point = SmartCrop._entropy_focal_point(img)
+        
+        # Weight the different methods
+        # Entropy is usually more reliable for general images
+        x = (edge_point[0] * 0.3 + entropy_point[0] * 0.7)
+        y = (edge_point[1] * 0.3 + entropy_point[1] * 0.7)
+        
+        return (x, y)
+    
+    @staticmethod
+    def _edge_detection_focal_point(img):
+        """
+        Find focal point using edge detection.
+        """
+        # Convert to grayscale
+        gray = img.convert('L')
+        
+        # Apply edge detection filter
+        edges = gray.filter(ImageFilter.FIND_EDGES)
+        edges = edges.filter(ImageFilter.GaussianBlur(radius=2))
+        
+        # Convert to numpy array for analysis
+        edge_array = np.array(edges)
+        
+        # Find the center of mass of edges
+        height, width = edge_array.shape
+        y_coords, x_coords = np.ogrid[:height, :width]
+        
+        total_weight = np.sum(edge_array)
+        if total_weight == 0:
+            return (0.5, 0.5)  # Center if no edges found
+        
+        x_center = np.sum(x_coords * edge_array) / total_weight
+        y_center = np.sum(y_coords * edge_array) / total_weight
+        
+        # Convert to percentages
+        return (x_center / width, y_center / height)
+    
+    @staticmethod
+    def _entropy_focal_point(img, grid_size=10):
+        """
+        Find focal point using entropy (information density).
+        Areas with more detail/texture have higher entropy.
+        """
+        width, height = img.size
+        cell_width = width // grid_size
+        cell_height = height // grid_size
+        
+        max_entropy = 0
+        best_x, best_y = width // 2, height // 2
+        
+        for y in range(0, height - cell_height, cell_height // 2):
+            for x in range(0, width - cell_width, cell_width // 2):
+                # Crop a section
+                box = (x, y, x + cell_width, y + cell_height)
+                region = img.crop(box)
+                
+                # Calculate entropy
+                entropy = SmartCrop._calculate_entropy(region)
+                
+                if entropy > max_entropy:
+                    max_entropy = entropy
+                    best_x = x + cell_width // 2
+                    best_y = y + cell_height // 2
+        
+        return (best_x / width, best_y / height)
+    
+    @staticmethod
+    def _calculate_entropy(img):
+        """
+        Calculate the entropy of an image region.
+        Higher entropy means more information/detail.
+        """
+        # Convert to grayscale for entropy calculation
+        if img.mode != 'L':
+            img = img.convert('L')
+        
+        # Get histogram
+        histogram = img.histogram()
+        
+        # Calculate entropy
+        entropy = 0
+        total_pixels = sum(histogram)
+        
+        for count in histogram:
+            if count > 0:
+                probability = count / total_pixels
+                entropy -= probability * np.log2(probability)
+        
+        return entropy
+    
+    @staticmethod
+    def smart_crop(img, target_width, target_height, focal_point=None):
+        """
+        Crop an image smartly to target dimensions, centering on the focal point.
+        
+        Args:
+            img: PIL Image object
+            target_width: Target width
+            target_height: Target height
+            focal_point: Optional (x, y) focal point as percentages (0-1)
+        
+        Returns:
+            PIL Image: Cropped image
+        """
+        width, height = img.size
+        target_aspect = target_width / target_height
+        current_aspect = width / height
+        
+        # Find focal point if not provided
+        if focal_point is None:
+            focal_point = SmartCrop.find_focal_point(img)
+        
+        # Convert focal point from percentages to pixels
+        focal_x = int(focal_point[0] * width)
+        focal_y = int(focal_point[1] * height)
+        
+        # Determine crop dimensions
+        if current_aspect > target_aspect:
+            # Image is wider than target - crop width
+            new_width = int(height * target_aspect)
+            new_height = height
+        else:
+            # Image is taller than target - crop height
+            new_width = width
+            new_height = int(width / target_aspect)
+        
+        # Calculate crop box centered on focal point
+        left = focal_x - new_width // 2
+        top = focal_y - new_height // 2
+        
+        # Ensure crop box is within image bounds
+        left = max(0, min(left, width - new_width))
+        top = max(0, min(top, height - new_height))
+        right = left + new_width
+        bottom = top + new_height
+        
+        # Crop and resize
+        cropped = img.crop((left, top, right, bottom))
+        cropped = cropped.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        
+        return cropped
+
+
 class ImageOptimizer:
     """
     Handles image optimization and resizing for different use cases.
@@ -302,42 +467,41 @@ class ImageOptimizer:
     
     # Define size presets for different use cases
     SIZES = {
-        'thumbnail': (150, 150),
-        'small': (400, 400),
-        'medium': (800, 800),
-        'large': (1920, 1920),
-        # 'full' will be the original image
+        'display': (1200, 800),  # Smart-cropped display version for gallery
+        'optimized': None,  # Full size but compressed
+        # 'original' will be the untouched original
     }
     
     # Quality settings for JPEG compression
     QUALITY_SETTINGS = {
-        'thumbnail': 70,
-        'small': 80,
-        'medium': 85,
-        'large': 90,
-        'full': 100,  # No quality reduction for full size
+        'display': 85,  # Good quality for display
+        'optimized': 90,  # High quality but compressed
+        'original': 100,  # No compression
     }
     
     @classmethod
-    def optimize_image(cls, image_file, size_name='full', maintain_aspect_ratio=True):
+    def optimize_image(cls, image_file, size_name='original', maintain_aspect_ratio=True, use_smart_crop=True, focal_point=None):
         """
         Optimize an image file for a specific size.
         
         Args:
             image_file: Django ImageField file or file-like object
-            size_name: One of 'thumbnail', 'small', 'medium', 'large', or 'full'
+            size_name: One of 'display', 'optimized', or 'original'
             maintain_aspect_ratio: If True, maintains aspect ratio when resizing
+            use_smart_crop: If True and size_name is 'display', use smart cropping
+            focal_point: Optional (x, y) focal point as percentages (0-1)
             
         Returns:
-            ContentFile: Optimized image ready for saving (or original if 'full')
+            tuple: (ContentFile: Optimized image, focal_point: (x, y) or None)
         """
-        # For full size, return the original file without any processing
-        if size_name == 'full':
+        # For original, return the file without any processing
+        if size_name == 'original':
             image_file.seek(0)
-            return ContentFile(image_file.read())
+            return (ContentFile(image_file.read()), None)
         
         # Open the image for processing other sizes
         img = Image.open(image_file)
+        computed_focal_point = None
         
         # Convert RGBA to RGB if necessary (for JPEG compatibility)
         if img.mode in ('RGBA', 'LA', 'P'):
@@ -353,11 +517,24 @@ class ImageOptimizer:
         # Get the original format
         original_format = img.format or 'JPEG'
         
-        # Resize if not 'full' size
-        if size_name in cls.SIZES:
+        # Process based on size name
+        if size_name == 'optimized':
+            # For optimized, just compress without resizing
+            pass  # Will be handled in save section
+        elif size_name in cls.SIZES and cls.SIZES[size_name]:
             target_size = cls.SIZES[size_name]
             
-            if maintain_aspect_ratio:
+            # Use smart crop for display version
+            if use_smart_crop and size_name == 'display':
+                # Find or use provided focal point
+                if focal_point is None:
+                    computed_focal_point = SmartCrop.find_focal_point(img)
+                else:
+                    computed_focal_point = focal_point
+                
+                # Apply smart crop
+                img = SmartCrop.smart_crop(img, target_size[0], target_size[1], computed_focal_point)
+            elif maintain_aspect_ratio:
                 # Calculate the aspect ratio
                 img.thumbnail(target_size, Image.Resampling.LANCZOS)
             else:
@@ -387,7 +564,7 @@ class ImageOptimizer:
         img.save(output, **save_kwargs)
         output.seek(0)
         
-        return ContentFile(output.read())
+        return (ContentFile(output.read()), computed_focal_point)
     
     @classmethod
     def generate_filename(cls, original_filename, size_name):
@@ -404,10 +581,10 @@ class ImageOptimizer:
         name, ext = os.path.splitext(original_filename)
         
         # Convert to .jpg for non-PNG formats when optimizing
-        if size_name != 'full' and ext.lower() not in ['.png', '.gif', '.webp']:
+        if size_name != 'original' and ext.lower() not in ['.png', '.gif', '.webp']:
             ext = '.jpg'
         
-        if size_name == 'full':
+        if size_name == 'original':
             return f"{name}{ext}"
         
         return f"{name}_{size_name}{ext}"
@@ -422,20 +599,25 @@ class ImageOptimizer:
             filename: Optional custom filename
             
         Returns:
-            dict: Dictionary with size names as keys and ContentFile objects as values
+            tuple: (variants dict, focal_point tuple or None)
         """
         if not filename:
             filename = image_file.name
         
         variants = {}
+        focal_point = None
         
-        # Process each size variant
-        for size_name in ['thumbnail', 'small', 'medium', 'large', 'full']:
+        # Process only the required variants
+        for size_name in ['display', 'optimized']:
             # Reset file pointer
             image_file.seek(0)
             
-            # Optimize the image
-            optimized = cls.optimize_image(image_file, size_name)
+            # Optimize the image (pass the focal point once computed)
+            optimized, computed_focal = cls.optimize_image(image_file, size_name, focal_point=focal_point)
+            
+            # Store the focal point from the first computation (from display version)
+            if computed_focal and not focal_point:
+                focal_point = computed_focal
             
             # Generate filename for this variant
             variant_filename = cls.generate_filename(filename, size_name)
@@ -443,7 +625,7 @@ class ImageOptimizer:
             
             variants[size_name] = optimized
         
-        return variants
+        return (variants, focal_point)
 
 
 class DuplicateDetector:

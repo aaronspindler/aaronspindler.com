@@ -303,9 +303,9 @@
         {% for photo in photos %}
         {
             id: {{ photo.id }},
-            url: "{{ photo.get_image_url|default:'' }}",
-            thumbnailUrl: "{{ photo.image_small.url|default:photo.get_image_url|default:'' }}",
-            largeUrl: "{{ photo.image_large.url|default:photo.image.url }}",
+            url: "{{ photo.image_display.url|default:photo.image.url|default:'' }}",
+            thumbnailUrl: "{{ photo.image_display.url|default:photo.image.url|default:'' }}",
+            largeUrl: "{{ photo.image_optimized.url|default:photo.image.url }}",
             title: "{{ photo.title|escapejs }}",
             description: "{{ photo.description|escapejs }}",
             originalFilename: "{{ photo.original_filename|escapejs|default:'photo.jpg' }}",

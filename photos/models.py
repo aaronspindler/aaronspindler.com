@@ -15,33 +15,23 @@ class Photo(models.Model):
     title = models.CharField(max_length=255, blank=True, default='')
     description = models.TextField(blank=True)
     
-    # Original image (full resolution)
-    image = models.ImageField(upload_to='photos/full/', verbose_name='Full Resolution')
+    # Original image (full resolution, untouched)
+    image = models.ImageField(upload_to='photos/original/', verbose_name='Original Full Resolution')
     
-    # Optimized versions
-    image_large = models.ImageField(
-        upload_to='photos/large/', 
+    # Optimized full size (compressed but same dimensions)
+    image_optimized = models.ImageField(
+        upload_to='photos/optimized/', 
         blank=True, 
         null=True,
-        verbose_name='Large (1920px)'
+        verbose_name='Optimized Full Size'
     )
-    image_medium = models.ImageField(
-        upload_to='photos/medium/', 
+    
+    # Smart cropped medium version for gallery display
+    image_display = models.ImageField(
+        upload_to='photos/display/', 
         blank=True, 
         null=True,
-        verbose_name='Medium (800px)'
-    )
-    image_small = models.ImageField(
-        upload_to='photos/small/', 
-        blank=True, 
-        null=True,
-        verbose_name='Small (400px)'
-    )
-    image_thumbnail = models.ImageField(
-        upload_to='photos/thumbnail/', 
-        blank=True, 
-        null=True,
-        verbose_name='Thumbnail (150px)'
+        verbose_name='Display Version (Smart Cropped)'
     )
     
     # Metadata
@@ -62,6 +52,16 @@ class Photo(models.Model):
         blank=True, 
         db_index=True,
         help_text='Perceptual hash for similar image detection'
+    )
+    
+    # Smart Crop Focal Point
+    focal_point_x = models.FloatField(
+        null=True, blank=True,
+        help_text='X coordinate of focal point (0-1)'
+    )
+    focal_point_y = models.FloatField(
+        null=True, blank=True,
+        help_text='Y coordinate of focal point (0-1)'
     )
     
     # EXIF Metadata
@@ -206,61 +206,55 @@ class Photo(models.Model):
             self.gps_longitude = exif_data.get('gps_longitude')
             self.gps_altitude = exif_data.get('gps_altitude')
         
-        # Generate optimized versions
+        # Generate optimized versions with smart cropping
         self.image.seek(0)  # Reset file pointer before processing
-        variants = ImageOptimizer.process_uploaded_image(self.image, self.original_filename)
+        variants, focal_point = ImageOptimizer.process_uploaded_image(self.image, self.original_filename)
+        
+        # Store focal point if computed
+        if focal_point:
+            self.focal_point_x = focal_point[0]
+            self.focal_point_y = focal_point[1]
         
         # Assign the optimized versions to their respective fields
-        if 'large' in variants:
-            self.image_large.save(
-                variants['large'].name,
-                variants['large'],
+        if 'optimized' in variants:
+            self.image_optimized.save(
+                variants['optimized'].name,
+                variants['optimized'],
                 save=False
             )
         
-        if 'medium' in variants:
-            self.image_medium.save(
-                variants['medium'].name,
-                variants['medium'],
+        if 'display' in variants:
+            self.image_display.save(
+                variants['display'].name,
+                variants['display'],
                 save=False
             )
         
-        if 'small' in variants:
-            self.image_small.save(
-                variants['small'].name,
-                variants['small'],
-                save=False
-            )
-        
-        if 'thumbnail' in variants:
-            self.image_thumbnail.save(
-                variants['thumbnail'].name,
-                variants['thumbnail'],
-                save=False
-            )
-        
-        # The 'full' variant is now the unmodified original, so we don't need to replace it
         # The original image is already saved as-is
     
-    def get_image_url(self, size='medium'):
+    def get_image_url(self, size='display'):
         """
         Get the URL for a specific image size.
         
         Args:
-            size: One of 'thumbnail', 'small', 'medium', 'large', or 'full'
+            size: One of 'display', 'optimized', or 'original'
         
         Returns:
             str: URL of the requested image size, or None if not available
         """
         size_field_map = {
-            'thumbnail': self.image_thumbnail,
-            'small': self.image_small,
-            'medium': self.image_medium,
-            'large': self.image_large,
+            'display': self.image_display,
+            'optimized': self.image_optimized,
+            'original': self.image,
+            # Legacy mappings for compatibility
+            'thumbnail': self.image_display,
+            'small': self.image_display,
+            'medium': self.image_display,
+            'large': self.image_optimized,
             'full': self.image,
         }
         
-        image_field = size_field_map.get(size, self.image_medium)
+        image_field = size_field_map.get(size, self.image_display)
         
         try:
             if image_field:

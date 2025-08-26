@@ -26,22 +26,19 @@ def responsive_image(photo, css_class='', alt_text='', loading='lazy'):
     # Build the srcset attribute
     srcset_parts = []
     
-    if photo.image_small:
-        srcset_parts.append(f'{photo.image_small.url} 400w')
+    if photo.image_display:
+        srcset_parts.append(f'{photo.image_display.url} 1200w')
     
-    if photo.image_medium:
-        srcset_parts.append(f'{photo.image_medium.url} 800w')
-    
-    if photo.image_large:
-        srcset_parts.append(f'{photo.image_large.url} 1920w')
+    if photo.image_optimized:
+        srcset_parts.append(f'{photo.image_optimized.url} {photo.width}w' if photo.width else photo.image_optimized.url)
     
     if photo.image:
         srcset_parts.append(f'{photo.image.url} {photo.width}w' if photo.width else photo.image.url)
     
     srcset = ', '.join(srcset_parts)
     
-    # Default src (use medium as default, fallback to original)
-    default_src = photo.image_medium.url if photo.image_medium else photo.image.url
+    # Default src (use display version as default, fallback to optimized then original)
+    default_src = photo.image_display.url if photo.image_display else (photo.image_optimized.url if photo.image_optimized else photo.image.url)
     
     # Build the img tag
     img_tag = f'''
@@ -81,26 +78,20 @@ def picture_element(photo, css_class='', alt_text='', loading='lazy'):
     picture_html = '<picture>'
     
     # Add source elements for different viewport widths
-    if photo.image_large:
+    if photo.image_optimized:
         picture_html += f'''
         <source media="(min-width: 1200px)"
-                srcset="{photo.image_large.url}">
+                srcset="{photo.image_optimized.url}">
         '''
     
-    if photo.image_medium:
+    if photo.image_display:
         picture_html += f'''
         <source media="(min-width: 768px)"
-                srcset="{photo.image_medium.url}">
+                srcset="{photo.image_display.url}">
         '''
     
-    if photo.image_small:
-        picture_html += f'''
-        <source media="(min-width: 400px)"
-                srcset="{photo.image_small.url}">
-        '''
-    
-    # Fallback img element (use thumbnail for smallest screens)
-    fallback_src = photo.image_thumbnail.url if photo.image_thumbnail else photo.image.url
+    # Fallback img element (use display for smallest screens, fallback to optimized or original)
+    fallback_src = photo.image_display.url if photo.image_display else (photo.image_optimized.url if photo.image_optimized else photo.image.url)
     
     picture_html += f'''
     <img src="{fallback_src}"
