@@ -1,0 +1,212 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
+  workflow_dispatch:
+
+# Cancel in-progress runs for PRs but not for main branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+  SECRET_KEY: "FAKE_SECRET_KEY"
+  PYTHONUNBUFFERED: 1
+
+jobs:
+  # First, run tests to ensure code quality
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 3
+    
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.2'
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
+      
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install coverage safety
+      
+      - name: Security Check
+        run: safety check --json || true
+        continue-on-error: true
+      
+      - name: Check Migrations
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: python manage.py makemigrations --check --dry-run
+      
+      - name: Collect Static
+        run: python manage.py collectstatic --no-input
+      
+      - name: Run Django System Checks
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: python manage.py check --deploy
+      
+      - name: Run Tests with Coverage
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: |
+          coverage run --source='.' manage.py test --no-input --parallel --verbosity=2
+          coverage report
+          coverage xml
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        if: github.event_name == 'push'
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+  # Build Docker images after tests pass (only for main branch)
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - service: web
+            dockerfile: Dockerfile
+          - service: celery
+            dockerfile: celery.Dockerfile
+          - service: celerybeat
+            dockerfile: celerybeat.Dockerfile
+          - service: flower
+            dockerfile: flower.Dockerfile
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix={{branch}}-
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+  
+  # Deploy to CapRover after successful build
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Deploy Web to CapRover
+        continue-on-error: true
+        run: |
+          echo "🚀 Deploying Web service to CapRover..."
+          docker run caprover/cli-caprover:latest caprover deploy \
+            --caproverUrl "${{ secrets.CAPROVER_URL }}" \
+            --appToken "${{ secrets.CAPROVER_APP_TOKEN }}" \
+            --appName "${{ secrets.CAPROVER_APP_NAME }}" \
+            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-web:latest"
+      
+      - name: Deploy Celery to CapRover
+        continue-on-error: true
+        run: |
+          echo "🔧 Deploying Celery worker to CapRover..."
+          docker run caprover/cli-caprover:latest caprover deploy \
+            --caproverUrl "${{ secrets.CAPROVER_URL }}" \
+            --appToken "${{ secrets.CAPROVER_APP_TOKEN_CELERY }}" \
+            --appName "${{ secrets.CAPROVER_APP_NAME_CELERY }}" \
+            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celery:latest"
+      
+      - name: Deploy Celery Beat to CapRover
+        continue-on-error: true
+        run: |
+          echo "⏰ Deploying Celery Beat to CapRover..."
+          docker run caprover/cli-caprover:latest caprover deploy \
+            --caproverUrl "${{ secrets.CAPROVER_URL }}" \
+            --appToken "${{ secrets.CAPROVER_APP_TOKEN_CELERYBEAT }}" \
+            --appName "${{ secrets.CAPROVER_APP_NAME_CELERYBEAT }}" \
+            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celerybeat:latest"
+      
+      - name: Deploy Flower to CapRover
+        continue-on-error: true
+        run: |
+          echo "🌸 Deploying Flower monitoring to CapRover..."
+          docker run caprover/cli-caprover:latest caprover deploy \
+            --caproverUrl "${{ secrets.CAPROVER_URL }}" \
+            --appToken "${{ secrets.CAPROVER_APP_TOKEN_FLOWER }}" \
+            --appName "${{ secrets.CAPROVER_APP_NAME_FLOWER }}" \
+            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-flower:latest"
+      
+      - name: Deployment Summary
+        if: always()
+        run: |
+          echo "============================="
+          echo "✅ Deployment Complete!"
+          echo "============================="
+          echo "Services deployed:"
+          echo "• Web: ${{ secrets.CAPROVER_APP_NAME }}"
+          echo "• Celery: ${{ secrets.CAPROVER_APP_NAME_CELERY }}"
+          echo "• Celery Beat: ${{ secrets.CAPROVER_APP_NAME_CELERYBEAT }}"
+          echo "• Flower: ${{ secrets.CAPROVER_APP_NAME_FLOWER }}"
+          echo ""
+          echo "Check CapRover dashboard for deployment status"

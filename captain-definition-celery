@@ -1,4 +1,4 @@
  {
   "schemaVersion": 2,
-  "dockerfilePath": "./celery.Dockerfile"
+  "imageName": "ghcr.io/aaronspindler/aaronspindler.com-celery:latest"
  }
