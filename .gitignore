@@ -19,7 +19,7 @@ package-lock.json
 
 # Generated CSS files
 static/css/combined.min.css
-static/css/combined.min.*.css
+static/css/combined.min.*.css*
 static/css/combined.min.css.gz
 static/css/combined.min.css.br
 static/css/*.backup

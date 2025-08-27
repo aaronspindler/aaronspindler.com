@@ -10,6 +10,27 @@ class StaticStorage(S3Boto3Storage):
     default_acl = 'public-read'
     file_overwrite = False
     querystring_auth = False  # Don't add authentication to URLs for static files
+    
+    def _save(self, name, content):
+        """Override _save to set proper headers for font files and other static assets."""
+        content_type, _ = mimetypes.guess_type(name)
+        
+        # Special handling for font files to fix CORS issues
+        if name.endswith(('.woff', '.woff2', '.ttf', '.otf', '.eot')):
+            self.object_parameters = {
+                'CacheControl': 'public, max-age=31536000',  # 1 year cache
+                'ContentType': content_type or 'font/woff2',
+                'ACL': 'public-read',
+            }
+        else:
+            # Standard cache for other static files
+            self.object_parameters = {
+                'CacheControl': 'public, max-age=86400',  # 1 day
+                'ContentType': content_type or 'application/octet-stream',
+                'ACL': 'public-read',
+            }
+        
+        return super()._save(name, content)
 
 
 class PublicMediaStorage(S3Boto3Storage):

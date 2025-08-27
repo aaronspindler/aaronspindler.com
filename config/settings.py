@@ -153,6 +153,20 @@ AWS_S3_OBJECT_PARAMETERS = {
 }
 AWS_DEFAULT_ACL = 'public-read'
 AWS_S3_VERIFY = True
+AWS_S3_FILE_OVERWRITE = True
+# Allow CORS for fonts and other assets
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400',
+    'ACL': 'public-read',
+}
+# Ensure proper content types for fonts
+AWS_S3_MIME_TYPES = {
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf',
+    '.otf': 'font/otf',
+    '.eot': 'application/vnd.ms-fontobject',
+}
 
 # S3 Storage Configuration
 STORAGES = {
