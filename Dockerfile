@@ -36,11 +36,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH"
 
-# Install runtime dependencies only
+# Install runtime dependencies and Node.js for CSS minification
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libpq5 \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
+
+# Install cssnano globally for CSS minification
+RUN npm install -g cssnano-cli
 
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv

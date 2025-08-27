@@ -37,6 +37,11 @@ class Command(BaseCommand):
         
         # Minify using cssnano if available
         minified_path = os.path.join(static_dir, 'combined.min.css')
+        
+        # Record the combined file size before processing
+        combined_size = os.path.getsize(combined_path)
+        combined_size_kb = combined_size / 1024
+        
         try:
             result = subprocess.run(
                 ['cssnano', combined_path],
@@ -52,6 +57,10 @@ class Command(BaseCommand):
                 self.style.SUCCESS('Successfully created combined.min.css')
             )
             
+            # Remove the intermediate combined.css file after successful minification
+            os.remove(combined_path)
+            self.stdout.write('Removed intermediate combined.css file')
+            
         except (subprocess.CalledProcessError, FileNotFoundError):
             self.stdout.write(
                 self.style.WARNING(
@@ -63,14 +72,22 @@ class Command(BaseCommand):
             import shutil
             shutil.copy2(combined_path, minified_path)
             self.stdout.write('Copied combined.css as combined.min.css')
+            
+            # Remove the intermediate combined.css file after copying
+            os.remove(combined_path)
+            self.stdout.write('Removed intermediate combined.css file')
         
-        # Show file sizes
+        # Show file sizes with comparison
         self.stdout.write('\nCSS file sizes:')
-        for file_path in [combined_path, minified_path]:
-            if os.path.exists(file_path):
-                size = os.path.getsize(file_path)
-                size_kb = size / 1024
-                self.stdout.write(f'  {os.path.basename(file_path)}: {size_kb:.1f}KB')
+        self.stdout.write(f'  Combined (before minification): {combined_size_kb:.1f}KB')
+        
+        minified_size = os.path.getsize(minified_path)
+        minified_size_kb = minified_size / 1024
+        self.stdout.write(f'  Minified: {minified_size_kb:.1f}KB')
+        
+        # Calculate and show compression ratio
+        compression_ratio = ((combined_size - minified_size) / combined_size) * 100
+        self.stdout.write(f'  Compression: {compression_ratio:.1f}%')
         
         self.stdout.write(
             self.style.SUCCESS('\nCSS build complete!')
