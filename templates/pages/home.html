@@ -8,10 +8,7 @@
 
 {% block css %}
 {{ block.super }}
-<link rel="preload" href="{% static 'css/books.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link rel="stylesheet" href="{% static 'css/books.css' %}"></noscript>
-<link rel="preload" href="{% static 'css/photos.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link rel="stylesheet" href="{% static 'css/photos.css' %}"></noscript>
+
 {% endblock css %}
 
 {% block extra_js %}

@@ -12,9 +12,9 @@
   </style>
   
   {% block css %}
-  <link rel="preload" href="{% static 'css/base.css' %}" as="style">
-  <link rel="stylesheet" href="{% static 'css/base.css' %}" media="print" onload="this.media='all'">
-  <noscript><link rel="stylesheet" href="{% static 'css/base.css' %}"></noscript>
+  <link rel="preload" href="{% static 'css/combined.min.css' %}" as="style">
+  <link rel="stylesheet" href="{% static 'css/combined.min.css' %}" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="{% static 'css/combined.min.css' %}"></noscript>
   {% endblock %}
 </head>
 
