@@ -199,8 +199,13 @@ WHITENOISE_USE_FINDERS = True
 WHITENOISE_AUTOREFRESH = DEBUG
 WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'zip', 'gz', 'tgz', 'bz2', 'tbz', 'xz', 'br']
 
-# Enable GZip compression for WhiteNoise
-WHITENOISE_ENCODING = 'gzip'
+# Enable Brotli compression for WhiteNoise (falls back to gzip if not supported)
+# WhiteNoise will automatically serve .br files if they exist and browser supports it
+WHITENOISE_ENCODING = 'br'
+# Add Brotli support - WhiteNoise will look for .br and .gz versions
+WHITENOISE_ADD_HEADERS_FUNCTION = lambda headers, path, url: headers.update({
+    'Vary': 'Accept-Encoding'
+}) or headers
 
 # Logging Configuration
 LOGGING = {

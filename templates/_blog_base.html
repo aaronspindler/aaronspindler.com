@@ -1,4 +1,5 @@
 {% load static %}
+{% load css_version %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -7,7 +8,8 @@
   <title>Aaronspindler.com - {{ blog_title }}</title>
   
   {% block css %}
-  <link rel="stylesheet" href="{% static 'css/combined.min.css' %}">
+  {% versioned_css as css_file %}
+  <link rel="stylesheet" href="{% static css_file %}">
   {% endblock %}
 </head>
 
