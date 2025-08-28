@@ -101,10 +101,6 @@ jobs:
         run: |
           python manage.py makemigrations --check --dry-run
       
-      - name: Collect Static
-        run: |
-          python manage.py collectstatic --no-input
-      
       - name: Run Django System Checks
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
