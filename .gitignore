@@ -14,5 +14,13 @@ dump.rdb
 allstaticfiles/
 staticfiles/
 node_modules/
-package-lock.json
 .vscode/
+
+# Generated CSS files
+static/css/combined.min.css
+static/css/combined.min.*.css*
+static/css/combined.min.css.gz
+static/css/combined.min.css.br
+static/css/*.backup
+static/css/combined.processed.css
+static/css/critical.css

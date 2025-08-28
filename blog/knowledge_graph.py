@@ -17,7 +17,7 @@ from blog.utils import get_blog_from_template_name, get_all_blog_posts, find_blo
 
 logger = logging.getLogger(__name__)
 
-CACHE_TIMEOUT = 1
+CACHE_TIMEOUT = 1200 # 20 minutes
 
 
 class LinkParser:

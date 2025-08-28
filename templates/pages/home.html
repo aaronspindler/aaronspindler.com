@@ -8,10 +8,7 @@
 
 {% block css %}
 {{ block.super }}
-<link rel="preload" href="{% static 'css/books.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link rel="stylesheet" href="{% static 'css/books.css' %}"></noscript>
-<link rel="preload" href="{% static 'css/photos.css' %}" as="style" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link rel="stylesheet" href="{% static 'css/photos.css' %}"></noscript>
+
 {% endblock css %}
 
 {% block extra_js %}
@@ -51,11 +48,13 @@
             <tbody>
                 {% for post in blog_posts %}
                     <tr>
-                        <td>
+                        <td class="blog-post-cell">
                             {% if post.category %}
                                 <a href="{% url 'render_blog_template_with_category' post.category post.template_name %}">{{ post.blog_title }}</a>
+                                <span class="category-bubble category-{{ post.category }}" title="{{ post.category|title }} category">{{ post.category|title }}</span>
                             {% else %}
                                 <a href="{% url 'render_blog_template' post.template_name %}">{{ post.blog_title }}</a>
+                                <span class="category-bubble category-uncategorized" title="Uncategorized">Uncategorized</span>
                             {% endif %}
                         </td>
                     </tr>

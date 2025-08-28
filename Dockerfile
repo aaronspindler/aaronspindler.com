@@ -36,10 +36,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH"
 
-# Install runtime dependencies only
+# Install runtime dependencies and Node.js for CSS minification
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libpq5 \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy virtual environment from builder
@@ -57,18 +59,24 @@ WORKDIR /code
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
+# Copy package files for NPM installation
+COPY package*.json postcss.config.js purgecss.config.js ./
+
+# Install NPM dependencies for CSS build pipeline (including dev dependencies needed for build)
+RUN npm ci || npm install
+
 # Copy application code last (changes frequently)
 COPY . /code/
 
 # Expose port 80
 EXPOSE 80
 
-# Add healthcheck
-HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
-    CMD curl -fL http://127.0.0.1:80/ || exit 1
+# # Add healthcheck
+# HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
+#     CMD curl -fL http://127.0.0.1:80/ || exit 1
 
 # Use entrypoint script to handle initialization
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
 # Default command
-CMD ["gunicorn", "--bind", ":80", "--workers", "8", "config.wsgi", "--log-level", "info", "--access-logfile", "-", "--error-logfile", "-"]
+CMD ["gunicorn", "--bind", ":80", "--workers", "2", "config.wsgi", "--log-level", "info", "--access-logfile", "-", "--error-logfile", "-"]
