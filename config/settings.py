@@ -54,7 +54,12 @@ MIDDLEWARE = [
 
 MESSAGE_STORAGE = "django.contrib.messages.storage.fallback.FallbackStorage"
 
-DATABASES = {"default": env.db()}
+# Use default SQLite database for testing when DATABASE_URL is not set
+DATABASES = {
+    "default": env.db(
+        default="sqlite:///db.sqlite3"
+    )
+}
 
 ROOT_URLCONF = "config.urls"
 
@@ -143,9 +148,10 @@ ACCOUNT_UNIQUE_EMAIL = True
 
 # AWS S3 Configuration (Always use S3)
 # AWS Settings
-AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
-AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+# Use fake values for testing when AWS credentials are not set
+AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="fake-access-key-id")
+AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="fake-secret-access-key")
+AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME", default="test-bucket")
 AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="us-east-1")
 AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
 AWS_S3_OBJECT_PARAMETERS = {
