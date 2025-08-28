@@ -18,6 +18,8 @@ env:
   IMAGE_PREFIX: ${{ github.repository }}
   SECRET_KEY: "FAKE_SECRET_KEY"
   PYTHONUNBUFFERED: 1
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
 
 jobs:
   # First, run tests to ensure code quality
@@ -46,12 +48,16 @@ jobs:
         include:
           - service: web
             dockerfile: Dockerfile
+            build-platforms: linux/amd64
           - service: celery
             dockerfile: celery.Dockerfile
+            build-platforms: linux/amd64
           - service: celerybeat
             dockerfile: celerybeat.Dockerfile
+            build-platforms: linux/amd64
           - service: flower
             dockerfile: flower.Dockerfile
+            build-platforms: linux/amd64
     
     steps:
       - name: Checkout code
@@ -63,6 +69,10 @@ jobs:
           driver-opts: |
             image=moby/buildkit:latest
             network=host
+          buildkitd-flags: --debug
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 4
       
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3
@@ -93,16 +103,22 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: |
-            type=gha,scope=${{ matrix.service }}
+            type=gha,scope=${{ matrix.service }}-buildkit
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:buildcache
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:latest
           cache-to: |
-            type=gha,mode=max,scope=${{ matrix.service }}
+            type=gha,mode=max,scope=${{ matrix.service }}-buildkit
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:buildcache,mode=max
-          platforms: linux/amd64
+            type=inline
+          platforms: ${{ matrix.build-platforms }}
           build-args: |
             BUILDKIT_INLINE_CACHE=1
+            BUILDKIT_MAX_PARALLELISM=4
           provenance: false
           sbom: false
+          pull: true
+          no-cache-filters: |
+            install-playwright
   
   # Deploy to CapRover after successful build
   deploy:
