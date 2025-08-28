@@ -8,7 +8,7 @@ class StaticStorage(S3Boto3Storage):
     """Storage backend for static files"""
     location = 'public/static'
     default_acl = 'public-read'
-    file_overwrite = False
+    file_overwrite = True
     querystring_auth = False  # Don't add authentication to URLs for static files
     
     def _save(self, name, content):
@@ -37,7 +37,7 @@ class PublicMediaStorage(S3Boto3Storage):
     """Storage backend for public media files (like photos)"""
     location = 'public/media'
     default_acl = 'public-read'
-    file_overwrite = False
+    file_overwrite = True
     querystring_auth = False  # Don't add authentication to URLs for public media
     
     def _save(self, name, content):
@@ -73,7 +73,7 @@ class OptimizedImageStorage(S3Boto3Storage):
     """
     location = 'public/media/optimized'
     default_acl = 'public-read'
-    file_overwrite = False
+    file_overwrite = True
     querystring_auth = False
     
     # Set long cache times for optimized images
