@@ -23,7 +23,6 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
-    "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "django.contrib.sitemaps",
@@ -41,7 +40,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -112,15 +110,6 @@ STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
-STORAGES = {
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
@@ -174,7 +163,7 @@ AWS_S3_MIME_TYPES = {
     '.eot': 'application/vnd.ms-fontobject',
 }
 
-# S3 Storage Configuration
+# S3 Storage Configuration (Always use S3)
 STORAGES = {
     "default": {
         "BACKEND": "config.storage_backends.PublicMediaStorage",
@@ -213,22 +202,6 @@ if not DEBUG:
     CSP_IMG_SRC = ("'self'", "data:", "https:")
     CSP_CONNECT_SRC = ("'self'",)
 
-# WhiteNoise configuration for static files compression
-WHITENOISE_COMPRESS_OFFLINE = True
-WHITENOISE_USE_FINDERS = True
-WHITENOISE_AUTOREFRESH = DEBUG
-WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'zip', 'gz', 'tgz', 'bz2', 'tbz', 'xz', 'br']
-
-# Enable Brotli compression for WhiteNoise (falls back to gzip if not supported)
-# WhiteNoise will automatically serve .br files if they exist and browser supports it
-WHITENOISE_ENCODING = 'br'
-# Add Brotli support - WhiteNoise will look for .br and .gz versions
-def add_headers_function(headers, path, url):
-    """Add custom headers for WhiteNoise static files."""
-    headers['Vary'] = 'Accept-Encoding'
-    return headers
-
-WHITENOISE_ADD_HEADERS_FUNCTION = add_headers_function
 
 # Logging Configuration
 LOGGING = {
