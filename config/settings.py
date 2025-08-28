@@ -223,9 +223,12 @@ WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'zip
 # WhiteNoise will automatically serve .br files if they exist and browser supports it
 WHITENOISE_ENCODING = 'br'
 # Add Brotli support - WhiteNoise will look for .br and .gz versions
-WHITENOISE_ADD_HEADERS_FUNCTION = lambda headers, path, url: headers.update({
-    'Vary': 'Accept-Encoding'
-}) or headers
+def add_headers_function(headers, path, url):
+    """Add custom headers for WhiteNoise static files."""
+    headers['Vary'] = 'Accept-Encoding'
+    return headers
+
+WHITENOISE_ADD_HEADERS_FUNCTION = add_headers_function
 
 # Logging Configuration
 LOGGING = {
