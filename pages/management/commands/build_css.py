@@ -208,6 +208,10 @@ class Command(BaseCommand):
                     with open(file_path, 'r') as f:
                         content = f.read()
                         
+                        # Replace relative font URLs with S3 URLs when in production mode
+                        if not self.options.get('dev'):
+                            content = self._replace_font_urls(content)
+                        
                         # Remove duplicate @import statements
                         lines = []
                         for line in content.split('\n'):
@@ -225,6 +229,36 @@ class Command(BaseCommand):
         size = os.path.getsize(combined_path) / 1024
         self.stdout.write(f'  📊 Combined CSS: {size:.1f}KB')
         return combined_path
+    
+    def _replace_font_urls(self, content):
+        """Replace relative font URLs with absolute S3 URLs"""
+        # Import settings to get S3 configuration
+        from django.conf import settings
+        
+        # Get S3 URL base
+        if hasattr(settings, 'AWS_S3_CUSTOM_DOMAIN'):
+            s3_base = f'https://{settings.AWS_S3_CUSTOM_DOMAIN}/public/static'
+            
+            # Replace various font URL patterns
+            content = re.sub(
+                r'url\(["\']?/static/fonts/([^"\']+)["\']?\)',
+                rf'url("{s3_base}/fonts/\1")',
+                content
+            )
+            content = re.sub(
+                r'url\(["\']?static/fonts/([^"\']+)["\']?\)',
+                rf'url("{s3_base}/fonts/\1")',
+                content
+            )
+            content = re.sub(
+                r'url\(["\']?fonts/([^"\']+)["\']?\)',
+                rf'url("{s3_base}/fonts/\1")',
+                content
+            )
+            
+            self.stdout.write(f'  ✓ Replaced font URLs with S3 URLs')
+        
+        return content
     
     @timer
     def _run_postcss(self, base_dir, input_path, static_dir):

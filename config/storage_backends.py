@@ -17,9 +17,31 @@ class StaticStorage(S3Boto3Storage):
         
         # Special handling for font files to fix CORS issues
         if name.endswith(('.woff', '.woff2', '.ttf', '.otf', '.eot')):
+            # Set correct content type for fonts
+            if name.endswith('.woff2'):
+                content_type = 'font/woff2'
+            elif name.endswith('.woff'):
+                content_type = 'font/woff'
+            elif name.endswith('.ttf'):
+                content_type = 'font/ttf'
+            elif name.endswith('.otf'):
+                content_type = 'font/otf'
+            elif name.endswith('.eot'):
+                content_type = 'application/vnd.ms-fontobject'
+            
             self.object_parameters = {
                 'CacheControl': 'public, max-age=31536000',  # 1 year cache
-                'ContentType': content_type or 'font/woff2',
+                'ContentType': content_type,
+                'ACL': 'public-read',
+                'Metadata': {
+                    'Access-Control-Allow-Origin': '*',
+                }
+            }
+        elif name.endswith('.css'):
+            # CSS files also need proper headers
+            self.object_parameters = {
+                'CacheControl': 'public, max-age=86400',  # 1 day
+                'ContentType': 'text/css',
                 'ACL': 'public-read',
             }
         else:
