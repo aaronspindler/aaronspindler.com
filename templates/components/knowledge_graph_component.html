@@ -7,8 +7,10 @@
     </div>
 </div>
 
-<!-- Load D3.js from CDN -->
-<script src="https://d3js.org/d3.v7.min.js" crossorigin="anonymous"></script>
+<!-- Load D3.js from CDN with integrity check -->
+<script src="https://d3js.org/d3.v7.min.js" 
+        integrity="sha384-EYNwNOSalTyivlfWCSRN8tJqRpGWs6N5+TzISV7bVVMd1AHCqhLo/u2S9yD8lKQr" 
+        crossorigin="anonymous" defer></script>
 
 <!-- Load optimized knowledge graph JavaScript -->
-<script src="{% static 'js/knowledge_graph.js' %}" defer></script>
+<script src="{% static 'js/knowledge_graph.min.js' %}" defer></script>

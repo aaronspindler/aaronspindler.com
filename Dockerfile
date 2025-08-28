@@ -62,11 +62,14 @@ RUN chmod +x /docker-entrypoint.sh
 # Copy package files for NPM installation
 COPY package*.json postcss.config.js purgecss.config.js ./
 
-# Install NPM dependencies for CSS build pipeline (including dev dependencies needed for build)
+# Install NPM dependencies for CSS and JS build pipeline (including dev dependencies needed for build)
 RUN npm ci || npm install
 
 # Copy application code last (changes frequently)
 COPY . /code/
+
+# Build and optimize JavaScript files
+RUN npm run build:js
 
 # Expose port 80
 EXPOSE 80

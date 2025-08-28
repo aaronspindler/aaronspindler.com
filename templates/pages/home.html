@@ -13,7 +13,8 @@
 
 {% block extra_js %}
 {% if blog_posts %}
-<script src="https://d3js.org/d3.v7.min.js" defer></script>
+<!-- Preload D3.js for knowledge graph -->
+<link rel="preload" href="https://d3js.org/d3.v7.min.js" as="script">
 {% endif %}
 {% endblock extra_js %}
 

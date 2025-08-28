@@ -6,7 +6,11 @@
   "scripts": {
     "build:css": "python manage.py build_css",
     "build:css:critical": "python manage.py build_css --extract-critical",
-    "optimize:css": "python manage.py optimize_css_files"
+    "optimize:css": "python manage.py optimize_css_files",
+    "build:js": "npm run minify:js && npm run compress:js",
+    "minify:js": "terser static/js/base.js -o static/js/base.min.js -c -m && terser static/js/knowledge_graph.js -o static/js/knowledge_graph.min.js -c -m",
+    "compress:js": "node scripts/compress-js.js",
+    "build:all": "npm run build:css && npm run build:js"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",
@@ -17,7 +21,8 @@
     "postcss-cli": "^11.0.0",
     "postcss-import": "^15.1.0",
     "postcss-preset-env": "^9.3.0",
-    "purgecss": "^5.0.0"
+    "purgecss": "^5.0.0",
+    "terser": "^5.43.1"
   },
   "dependencies": {
     "brotli": "^1.3.3"
