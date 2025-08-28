@@ -82,4 +82,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
 # Default command
-CMD ["gunicorn", "--bind", ":80", "--workers", "2", "config.wsgi", "--log-level", "info", "--access-logfile", "-", "--error-logfile", "-"]
+CMD ["gunicorn", "--bind", ":80", "--workers", "4", "config.wsgi", "--log-level", "info", "--access-logfile", "-", "--error-logfile", "-"]
