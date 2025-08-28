@@ -1,6 +1,7 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.core.cache import cache
+from django.db import connection
 from django.db.models import Count
 
 from pages.models import PageVisit
@@ -14,6 +15,40 @@ import os
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+def health_check(request):
+    """
+    Simple health check endpoint for monitoring.
+    Returns 200 OK if the application is running and can connect to the database.
+    """
+    health_status = {
+        "status": "healthy",
+        "checks": {}
+    }
+    
+    # Check database connectivity
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+        health_status["checks"]["database"] = "ok"
+    except Exception as e:
+        logger.error(f"Health check database error: {e}")
+        health_status["status"] = "unhealthy"
+        health_status["checks"]["database"] = "failed"
+        return JsonResponse(health_status, status=503)
+    
+    # Check cache connectivity (optional, non-critical)
+    try:
+        cache.set("health_check", "test", 1)
+        cache.delete("health_check")
+        health_status["checks"]["cache"] = "ok"
+    except Exception as e:
+        logger.warning(f"Health check cache error: {e}")
+        health_status["checks"]["cache"] = "unavailable"
+    
+    return JsonResponse(health_status)
+
 
 def robotstxt(request):
     """Serve robots.txt from static file."""
