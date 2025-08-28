@@ -250,12 +250,6 @@ class Photo(models.Model):
             'display': self.image_display,
             'optimized': self.image_optimized,
             'original': self.image,
-            # Legacy mappings for compatibility
-            'thumbnail': self.image_display,
-            'small': self.image_display,
-            'medium': self.image_display,
-            'large': self.image_optimized,
-            'full': self.image,
         }
         
         image_field = size_field_map.get(size, self.image_display)
