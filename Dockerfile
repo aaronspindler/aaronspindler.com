@@ -71,12 +71,12 @@ COPY . /code/
 # Expose port 80
 EXPOSE 80
 
-# Add healthcheck
-HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
-    CMD curl -fL http://127.0.0.1:80/ || exit 1
+# # Add healthcheck
+# HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
+#     CMD curl -fL http://127.0.0.1:80/ || exit 1
 
 # Use entrypoint script to handle initialization
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
 # Default command
-CMD ["gunicorn", "--bind", ":80", "--workers", "8", "config.wsgi", "--log-level", "info", "--access-logfile", "-", "--error-logfile", "-"]
+CMD ["gunicorn", "--bind", ":80", "--workers", "2", "config.wsgi", "--log-level", "info", "--access-logfile", "-", "--error-logfile", "-"]
