@@ -41,6 +41,14 @@ module.exports = {
       'valid',
       'disabled',
       'readonly',
+      // Category bubble classes
+      'category-tech',
+      'category-personal',
+      'category-projects',
+      'category-guides',
+      'category-smart_home',
+      'category-reviews',
+      'category-uncategorized',
       // Keep all vendor prefixes
       /^-webkit-/,
       /^-moz-/,
