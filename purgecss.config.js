@@ -49,6 +49,13 @@ module.exports = {
       'category-smart_home',
       'category-reviews',
       'category-uncategorized',
+      // Theme toggle classes
+      'theme-toggle-container',
+      'theme-toggle-btn',
+      'theme-light',
+      'theme-dark',
+      'theme-auto',
+      'theme-transition',
       // Keep all vendor prefixes
       /^-webkit-/,
       /^-moz-/,
