@@ -58,32 +58,23 @@
             // Update data attribute for CSS styling
             btn.setAttribute('data-theme', currentTheme);
             
-            // Update icon with smooth transition
-            const iconMap = {
-                [this.THEME_LIGHT]: '🌙',
-                [this.THEME_DARK]: '☀️',
-                [this.THEME_AUTO]: '🔄'
-            };
-            
-            const icon = currentTheme === this.THEME_AUTO ? iconMap[this.THEME_AUTO] : 
-                        (isDark ? iconMap[this.THEME_DARK] : iconMap[this.THEME_LIGHT]);
-            
-            btn.innerHTML = `<span class="theme-icon">${icon}</span>`;
+            // Update button with simple text indicator
+            btn.innerHTML = `<span class="theme-text"></span>`;
             
             // Update tooltip
-            this.updateTooltip(btn, currentTheme);
+            this.updateTooltip(btn, currentTheme, isDark);
         },
         
         // Update tooltip to show current theme
-        updateTooltip(button, theme) {
-            const tooltipText = {
-                [this.THEME_LIGHT]: 'Light theme (Click for dark)',
-                [this.THEME_DARK]: 'Dark theme (Click for auto)',
-                [this.THEME_AUTO]: `Auto theme (${this.prefersDark() ? 'dark' : 'light'} mode)`
-            };
+        updateTooltip(button, theme, isDark) {
+            const nextTheme = theme === this.THEME_AUTO ? this.THEME_LIGHT :
+                            theme === this.THEME_LIGHT ? this.THEME_DARK : this.THEME_AUTO;
             
-            button.setAttribute('title', tooltipText[theme] || 'Toggle theme');
-            button.setAttribute('aria-label', tooltipText[theme] || 'Toggle theme');
+            const currentMode = theme === this.THEME_AUTO ? 
+                              `AUTO (${isDark ? 'DARK' : 'LIGHT'})` : theme.toUpperCase();
+            
+            button.setAttribute('title', `Theme: ${currentMode} → ${nextTheme.toUpperCase()}`);
+            button.setAttribute('aria-label', `Toggle theme. Current: ${currentMode}`);
         },
         
         // Get current theme from localStorage or system
@@ -203,22 +194,19 @@
             
             const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
             
-            // Modern browsers
+            // Use addEventListener (supported in all modern browsers)
+            const handleChange = () => {
+                if (this.getCurrentTheme() === this.THEME_AUTO) {
+                    this.applyTheme(this.THEME_AUTO);
+                    this.updateButtonIcon();
+                }
+            };
+            
             if (mediaQuery.addEventListener) {
-                mediaQuery.addEventListener('change', () => {
-                    if (this.getCurrentTheme() === this.THEME_AUTO) {
-                        this.applyTheme(this.THEME_AUTO);
-                        this.updateButtonIcon();
-                    }
-                });
+                mediaQuery.addEventListener('change', handleChange);
             } else if (mediaQuery.addListener) {
-                // Older browsers
-                mediaQuery.addListener(() => {
-                    if (this.getCurrentTheme() === this.THEME_AUTO) {
-                        this.applyTheme(this.THEME_AUTO);
-                        this.updateButtonIcon();
-                    }
-                });
+                // Fallback for very old browsers (deprecated but kept for compatibility)
+                mediaQuery.addListener(handleChange);
             }
         }
     };

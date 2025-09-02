@@ -7,6 +7,15 @@
   {% include '_meta.html' %}
   <title>Aaronspindler.com - {{ blog_title }}</title>
   
+  <!-- Theme detection script - prevents FOUC -->
+  <script>
+    (function(){
+      var stored = localStorage.getItem('theme-preference');
+      var theme = stored && ['light','dark'].includes(stored) ? stored : 'auto';
+      document.documentElement.className = 'theme-' + theme;
+    })();
+  </script>
+  
   {% block css %}
   {% versioned_css as css_file %}
   <link rel="stylesheet" href="{% static css_file %}">
@@ -36,7 +45,8 @@
   {% include '_footer.html' %}
 
   {% block javascript %}
-  <script src="{% static 'js/base.js' %}"></script>
+  <script src="{% static 'js/theme-toggle.js' %}" defer></script>
+  <script src="{% static 'js/base.js' %}" defer></script>
   {% endblock javascript %}
 </body>
 
