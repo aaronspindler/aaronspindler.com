@@ -1,0 +1,348 @@
+{% extends "_base.html" %}
+
+{% block title %}{{ resume.title }} - {{ resume.personal_info.full_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+    <!-- Header/Personal Info -->
+    {% if resume.personal_info %}
+    <header class="mb-8 border-b border-gray-300 dark:border-gray-700 pb-6">
+        <h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            {{ resume.personal_info.full_name }}
+        </h1>
+        <h2 class="text-2xl text-gray-700 dark:text-gray-300 mb-4">
+            {{ resume.personal_info.title }}
+        </h2>
+        
+        <div class="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
+            {% if resume.personal_info.email %}
+            <a href="mailto:{{ resume.personal_info.email }}" class="hover:text-blue-600 dark:hover:text-blue-400">
+                📧 {{ resume.personal_info.email }}
+            </a>
+            {% endif %}
+            
+            {% if resume.personal_info.phone %}
+            <span>📱 {{ resume.personal_info.phone }}</span>
+            {% endif %}
+            
+            {% if resume.personal_info.location %}
+            <span>📍 {{ resume.personal_info.location }}</span>
+            {% endif %}
+            
+            {% if resume.personal_info.linkedin %}
+            <a href="{{ resume.personal_info.linkedin }}" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400">
+                💼 LinkedIn
+            </a>
+            {% endif %}
+            
+            {% if resume.personal_info.github %}
+            <a href="{{ resume.personal_info.github }}" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400">
+                🐙 GitHub
+            </a>
+            {% endif %}
+            
+            {% if resume.personal_info.website %}
+            <a href="{{ resume.personal_info.website }}" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400">
+                🌐 Website
+            </a>
+            {% endif %}
+        </div>
+        
+        {% if resume.personal_info.summary %}
+        <div class="mt-4 text-gray-700 dark:text-gray-300">
+            {{ resume.personal_info.summary|linebreaks }}
+        </div>
+        {% endif %}
+    </header>
+    {% endif %}
+    
+    <!-- Work Experience -->
+    {% if work_experiences %}
+    <section class="mb-8">
+        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-300 dark:border-gray-700 pb-2">
+            Professional Experience
+        </h3>
+        
+        {% for exp in work_experiences %}
+        <div class="mb-6">
+            <div class="flex justify-between items-start mb-2">
+                <div>
+                    <h4 class="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                        {{ exp.position }}
+                    </h4>
+                    <p class="text-lg text-gray-700 dark:text-gray-300">
+                        {{ exp.company }}{% if exp.location %}, {{ exp.location }}{% endif %}
+                    </p>
+                </div>
+                <span class="text-sm text-gray-600 dark:text-gray-400">
+                    {{ exp.start_date|date:"M Y" }} - 
+                    {% if exp.end_date %}
+                        {{ exp.end_date|date:"M Y" }}
+                    {% else %}
+                        Present
+                    {% endif %}
+                </span>
+            </div>
+            
+            {% if exp.description %}
+            <p class="text-gray-700 dark:text-gray-300 mb-2">
+                {{ exp.description }}
+            </p>
+            {% endif %}
+            
+            {% if exp.achievements.all %}
+            <ul class="list-disc list-inside ml-4 text-gray-700 dark:text-gray-300">
+                {% for achievement in exp.achievements.all %}
+                <li>{{ achievement.description }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+    
+    <!-- Education -->
+    {% if education %}
+    <section class="mb-8">
+        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-300 dark:border-gray-700 pb-2">
+            Education
+        </h3>
+        
+        {% for edu in education %}
+        <div class="mb-4">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                        {{ edu.institution }}
+                    </h4>
+                    <p class="text-gray-700 dark:text-gray-300">
+                        {{ edu.get_degree_type_display }}{% if edu.field_of_study %} in {{ edu.field_of_study }}{% endif %}
+                    </p>
+                    {% if edu.gpa %}
+                    <p class="text-sm text-gray-600 dark:text-gray-400">GPA: {{ edu.gpa }}</p>
+                    {% endif %}
+                    {% if edu.honors %}
+                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ edu.honors }}</p>
+                    {% endif %}
+                </div>
+                <span class="text-sm text-gray-600 dark:text-gray-400">
+                    {% if edu.start_date and edu.end_date %}
+                        {{ edu.start_date|date:"Y" }} - {{ edu.end_date|date:"Y" }}
+                    {% elif edu.end_date %}
+                        {{ edu.end_date|date:"Y" }}
+                    {% endif %}
+                </span>
+            </div>
+            
+            {% if edu.relevant_coursework %}
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                <strong>Relevant Coursework:</strong> {{ edu.relevant_coursework }}
+            </p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+    
+    <!-- Skills -->
+    {% if skills_by_category %}
+    <section class="mb-8">
+        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-300 dark:border-gray-700 pb-2">
+            Skills
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for category, skills in skills_by_category.items %}
+            <div>
+                <h4 class="font-semibold text-gray-900 dark:text-gray-100 mb-2">{{ category }}</h4>
+                <div class="flex flex-wrap gap-2">
+                    {% for skill in skills %}
+                    <span class="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full text-sm">
+                        {{ skill.name }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+    
+    <!-- Projects -->
+    {% if projects %}
+    <section class="mb-8">
+        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-300 dark:border-gray-700 pb-2">
+            Projects
+        </h3>
+        
+        {% for project in projects %}
+        <div class="mb-4">
+            <div class="flex justify-between items-start">
+                <h4 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    {% if project.url %}
+                    <a href="{{ project.url }}" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400">
+                        {{ project.title }} 🔗
+                    </a>
+                    {% else %}
+                    {{ project.title }}
+                    {% endif %}
+                </h4>
+                {% if project.start_date %}
+                <span class="text-sm text-gray-600 dark:text-gray-400">
+                    {{ project.start_date|date:"M Y" }}
+                    {% if project.end_date %}
+                        - {{ project.end_date|date:"M Y" }}
+                    {% elif project.is_ongoing %}
+                        - Ongoing
+                    {% endif %}
+                </span>
+                {% endif %}
+            </div>
+            
+            <p class="text-gray-700 dark:text-gray-300 mt-2">{{ project.description }}</p>
+            
+            {% if project.technologies %}
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                <strong>Technologies:</strong> {{ project.technologies }}
+            </p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+    
+    <!-- Certifications -->
+    {% if certifications %}
+    <section class="mb-8">
+        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-300 dark:border-gray-700 pb-2">
+            Certifications
+        </h3>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for cert in certifications %}
+            <div class="p-3 border border-gray-200 dark:border-gray-700 rounded">
+                <h4 class="font-semibold text-gray-900 dark:text-gray-100">
+                    {% if cert.credential_url %}
+                    <a href="{{ cert.credential_url }}" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400">
+                        {{ cert.name }} 🔗
+                    </a>
+                    {% else %}
+                    {{ cert.name }}
+                    {% endif %}
+                </h4>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    {{ cert.issuing_organization }}
+                </p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">
+                    Issued: {{ cert.issue_date|date:"M Y" }}
+                    {% if cert.expiry_date %}
+                        | Expires: {{ cert.expiry_date|date:"M Y" }}
+                    {% endif %}
+                </p>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+    
+    <!-- Awards -->
+    {% if awards %}
+    <section class="mb-8">
+        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-300 dark:border-gray-700 pb-2">
+            Awards & Honors
+        </h3>
+        
+        {% for award in awards %}
+        <div class="mb-3">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h4 class="font-semibold text-gray-900 dark:text-gray-100">{{ award.title }}</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ award.issuer }}</p>
+                    {% if award.description %}
+                    <p class="text-gray-700 dark:text-gray-300 mt-1">{{ award.description }}</p>
+                    {% endif %}
+                </div>
+                <span class="text-sm text-gray-600 dark:text-gray-400">{{ award.date|date:"M Y" }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+    
+    <!-- Publications -->
+    {% if publications %}
+    <section class="mb-8">
+        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-300 dark:border-gray-700 pb-2">
+            Publications
+        </h3>
+        
+        {% for pub in publications %}
+        <div class="mb-4">
+            <h4 class="font-semibold text-gray-900 dark:text-gray-100">
+                {% if pub.url %}
+                <a href="{{ pub.url }}" target="_blank" class="hover:text-blue-600 dark:hover:text-blue-400">
+                    {{ pub.title }} 🔗
+                </a>
+                {% else %}
+                {{ pub.title }}
+                {% endif %}
+            </h4>
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                {{ pub.authors }}
+                {% if pub.publication_name %}| {{ pub.publication_name }}{% endif %}
+                | {{ pub.date|date:"M Y" }}
+            </p>
+            {% if pub.description %}
+            <p class="text-gray-700 dark:text-gray-300 mt-1">{{ pub.description }}</p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+    
+    <!-- Languages -->
+    {% if languages %}
+    <section class="mb-8">
+        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-300 dark:border-gray-700 pb-2">
+            Languages
+        </h3>
+        
+        <div class="flex flex-wrap gap-4">
+            {% for lang in languages %}
+            <div class="flex items-center gap-2">
+                <span class="font-semibold text-gray-900 dark:text-gray-100">{{ lang.name }}</span>
+                <span class="text-sm text-gray-600 dark:text-gray-400">({{ lang.get_proficiency_display }})</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+    
+    <!-- Custom Sections -->
+    {% for section in custom_sections %}
+    <section class="mb-8">
+        <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4 border-b border-gray-300 dark:border-gray-700 pb-2">
+            {{ section.title }}
+        </h3>
+        <div class="text-gray-700 dark:text-gray-300">
+            {{ section.content|linebreaks }}
+        </div>
+    </section>
+    {% endfor %}
+    
+    <!-- Export Options -->
+    <div class="mt-12 pt-6 border-t border-gray-300 dark:border-gray-700">
+        <div class="flex gap-4">
+            <a href="{% url 'resume:json' resume.slug %}" 
+               class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+                Export as JSON
+            </a>
+            <a href="{% url 'resume:pdf' resume.slug %}" 
+               class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">
+                Download PDF
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

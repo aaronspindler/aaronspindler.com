@@ -14,6 +14,7 @@ urlpatterns = [
     path("sitemap.xml", cache_page(43200)(index), {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.index"),
     path("sitemap-<section>.xml", cache_page(43200)(sitemap), {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
     path("photos/", include("photos.urls")),
+    path("resume/", include("resume.urls")),
     path("", include("pages.urls")),
     path("", include("blog.urls")),
 ]
