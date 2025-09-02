@@ -1,7 +1,8 @@
 # Simple Makefile for static file management
 
 # Variables
-PYTHON := python
+VENV := venv
+PYTHON := $(VENV)/bin/python
 MANAGE := $(PYTHON) manage.py
 
 # Default target
