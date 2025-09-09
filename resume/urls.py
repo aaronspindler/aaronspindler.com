@@ -16,3 +16,4 @@ urlpatterns = [
     path('<slug:slug>/json/', resume_json_view, name='json'),
     path('<slug:slug>/pdf/', resume_pdf_view, name='pdf'),
 ]
+
