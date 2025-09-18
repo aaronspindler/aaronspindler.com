@@ -2,8 +2,8 @@ amqp==5.3.1
 asgiref==3.9.1
 beautifulsoup4==4.13.5
 billiard==4.2.1
-boto3==1.40.32
-botocore==1.40.32
+boto3==1.40.33
+botocore==1.40.33
 celery==5.5.3
 certifi==2025.8.3
 charset-normalizer==3.4.3
@@ -20,7 +20,7 @@ django-redis==6.0.0
 django-storages==1.14.6
 django-timezone-field==7.1
 flower==2.0.1
-gevent==25.8.2
+gevent==25.9.1
 greenlet==3.2.4
 gunicorn==23.0.0
 humanize==4.13.0
