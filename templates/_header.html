@@ -1,10 +1,16 @@
 <header role="banner">
   <table class="header">
     <tr>
-      <td colspan="2" rowspan="2" class="width-auto">
+      <td colspan="2" rowspan="{% if RESUME_ENABLED %}3{% else %}2{% endif %}" class="width-auto">
         <h1 class="title">AARON SPINDLER</h1>
         <span class="subtitle">An engineer, father, husband, and a proud 🇨🇦</span>
       </td>
+      {% if RESUME_ENABLED %}
+      <th scope="row">Resume</th>
+      <td class="width-min"><a href="{% url 'resume' %}" aria-label="Download resume">/resume</a></td>
+    </tr>
+    <tr>
+      {% endif %}
       <th scope="row">GitHub</th>
       <td class="width-min"><a href="https://github.com/aaronspindler" rel="noopener noreferrer" target="_blank" aria-label="GitHub profile">/aaronspindler</a></td>
     </tr>

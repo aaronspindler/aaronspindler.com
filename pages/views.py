@@ -1,4 +1,4 @@
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, Http404, FileResponse
 from django.shortcuts import render
 from django.core.cache import cache
 from django.db import connection
@@ -57,6 +57,36 @@ def robotstxt(request):
     with open(robots_path, 'r') as f:
         content = f.read()
     return HttpResponse(content, content_type="text/plain")
+
+
+@track_page_visit
+def resume(request):
+    """Serve resume PDF file if enabled in settings."""
+    # Check if resume endpoint is enabled
+    if not getattr(settings, 'RESUME_ENABLED', False):
+        raise Http404("Resume not found")
+    
+    # Get resume filename from settings
+    resume_filename = getattr(settings, 'RESUME_FILENAME', 'Aaron_Spindler_Resume_2025.pdf')
+    resume_path = os.path.join(settings.BASE_DIR, 'static', 'files', resume_filename)
+    
+    # Check if file exists
+    if not os.path.exists(resume_path):
+        logger.error(f"Resume file not found at: {resume_path}")
+        raise Http404("Resume file not found")
+    
+    try:
+        # Serve the PDF file
+        response = FileResponse(
+            open(resume_path, 'rb'),
+            content_type='application/pdf'
+        )
+        # Optional: Set the filename for download
+        response['Content-Disposition'] = f'inline; filename="{resume_filename}"'
+        return response
+    except Exception as e:
+        logger.error(f"Error serving resume file: {e}")
+        raise Http404("Error serving resume")
 
 @track_page_visit
 def home(request):
