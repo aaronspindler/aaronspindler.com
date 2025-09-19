@@ -8,5 +8,5 @@ urlpatterns = [
     path("", track_page_visit(home), name="home"),
     path("robots.txt", track_page_visit(robotstxt), name="robotstxt"),
     path("health/", health_check, name="health_check"),
-    path("resume/", resume, name="resume"),
+    path("resume/", track_page_visit(resume), name="resume"),
 ]
