@@ -36,7 +36,6 @@ INSTALLED_APPS = [
     "pages",
     "blog",
     "photos",
-    "resume",
 ]
 
 MIDDLEWARE = [
@@ -291,3 +290,7 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 CELERY_WORKER_POOL_RESTARTS = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Resume Configuration
+RESUME_ENABLED = env('RESUME_ENABLED', default=True)
+RESUME_FILENAME = env('RESUME_FILENAME', default='Aaron_Spindler_Resume_2025.pdf')
