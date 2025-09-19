@@ -1,0 +1,174 @@
+{% extends "_base.html" %}
+
+{% block title %}Add New Endpoint{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Add New Endpoint</h2>
+    <form method="post" action="{% url 'add_endpoint'%}">
+        {% csrf_token %}
+        <div class="form-group mb-3">
+            <label for="{{ form.url.id_for_label }}" class="form-label">{{ form.url.label }}</label>
+            {{ form.url }}
+            <small class="form-text text-muted">{{ form.url.help_text }}</small>
+        </div>
+        <div class="form-group mb-3">
+            <label for="{{ form.http_method.id_for_label }}" class="form-label">{{ form.http_method.label }}</label>
+            {{ form.http_method }}
+            <small class="form-text text-muted">{{ form.http_method.help_text }}</small>
+        </div>
+        <div class="form-group mb-3">
+            <label for="{{ form.follow_redirects.id_for_label }}" class="form-label">{{ form.follow_redirects.label }}</label>
+            {{ form.follow_redirects }}
+            <small class="form-text text-muted">{{ form.follow_redirects.help_text }}</small>
+        </div>
+        <div class="form-group mb-3">
+            <label for="{{ form.up_status_codes.id_for_label }}" class="form-label">{{ form.up_status_codes.label }}</label>
+            {{ form.up_status_codes }}
+            <small class="form-text text-muted">{{ form.up_status_codes.help_text }}</small>
+        </div>
+        <div class="form-group mb-3">
+            <label for="{{ form.interval.id_for_label }}" class="form-label">{{ form.interval.label }}</label>
+            {{ form.interval }}
+            <small class="form-text text-muted">{{ form.interval.help_text }}</small>
+        </div>
+        <div class="form-group mb-3">
+            <label for="{{ form.request_timeout_seconds.id_for_label }}" class="form-label">{{ form.request_timeout_seconds.label }}</label>
+            <div class="d-flex align-items-center">
+                <input type="range" class="form-range me-2" style="flex-grow: 1;" id="{{ form.request_timeout_seconds.id_for_label }}" name="{{ form.request_timeout_seconds.html_name }}" min="1" max="300" value="{{ form.request_timeout_seconds.value|default:30 }}" oninput="updateTimeoutDisplay(this.value)">
+                <output id="timeoutDisplay" class="me-1">{{ form.request_timeout_seconds.value|default:30 }}</output>
+                <span id="timeoutUnit">seconds</span>
+            </div>
+            <small class="form-text text-muted">{{ form.request_timeout_seconds.help_text }}</small>
+        </div>
+        <script>
+            function updateTimeoutDisplay(value) {
+                const display = document.getElementById('timeoutDisplay');
+                const unit = document.getElementById('timeoutUnit');
+                if (value > 60) {
+                    display.textContent = (value / 60).toFixed(1);
+                    unit.textContent = 'minutes';
+                } else {
+                    display.textContent = value;
+                    unit.textContent = 'seconds';
+                }
+            }
+            // Initial call to set correct display
+            updateTimeoutDisplay({{ form.request_timeout_seconds.value|default:30 }});
+        </script>
+        <div class="form-group mb-3">
+            <label for="{{ form.check_ssl.id_for_label }}" class="form-label">{{ form.check_ssl.label }}</label>
+            {{ form.check_ssl }}
+            <small class="form-text text-muted">{{ form.check_ssl.help_text }}</small>
+        </div>
+        <div class="form-group mb-3">
+            <label for="{{ form.check_domain_expiration.id_for_label }}" class="form-label">{{ form.check_domain_expiration.label }}</label>
+            {{ form.check_domain_expiration }}
+            <small class="form-text text-muted">{{ form.check_domain_expiration.help_text }}</small>
+        </div>
+        <div class="accordion" id="advancedSettings">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingAdvanced">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAdvanced" aria-expanded="false" aria-controls="collapseAdvanced">
+                        Advanced Settings
+                    </button>
+                </h2>
+                <div id="collapseAdvanced" class="accordion-collapse collapse" aria-labelledby="headingAdvanced" data-bs-parent="#advancedSettings">
+                    <div class="accordion-body">
+                        {% if request.user.get_subscription_metadata.endpoint_regions %}
+                            <div class="form-group mb-3">
+                                <label for="{{ form.enabled_regions.id_for_label }}" class="form-label">{{ form.enabled_regions.label }}</label>
+                                {{ form.enabled_regions }}
+                                <small class="form-text text-muted">{{ form.enabled_regions.help_text }}</small>
+                            </div>
+                        {% endif %}
+                        <div class="form-group mb-3">
+                            <label for="{{ form.auth_type.id_for_label }}" class="form-label">{{ form.auth_type.label }}</label>
+                            {{ form.auth_type }}
+                            <small class="form-text text-muted">{{ form.auth_type.help_text }}</small>
+                        </div>
+                        <div id="auth-fields" class="ms-3">
+                            <div class="form-group mb-3">
+                                <label for="{{ form.auth_username.id_for_label }}" class="form-label">{{ form.auth_username.label }}</label>
+                                {{ form.auth_username }}
+                                <small class="form-text text-muted">{{ form.auth_username.help_text }}</small>
+                            </div>
+                            <div class="form-group mb-3">
+                                <label for="{{ form.auth_password.id_for_label }}" class="form-label">{{ form.auth_password.label }}</label>
+                                {{ form.auth_password }}
+                                <small class="form-text text-muted">{{ form.auth_password.help_text }}</small>
+                            </div>
+                        </div>
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function() {
+                                var authType = document.getElementById('{{ form.auth_type.id_for_label }}');
+                                var authFields = document.getElementById('auth-fields');
+                                
+                                function toggleAuthFields() {
+                                    if (authType.value === 'none') {
+                                        authFields.style.display = 'none';
+                                        authFields.querySelectorAll('input').forEach(function(input) {
+                                            input.disabled = true;
+                                        });
+                                    } else {
+                                        authFields.style.display = 'block';
+                                        authFields.querySelectorAll('input').forEach(function(input) {
+                                            input.disabled = false;
+                                        });
+                                    }
+                                }
+                                
+                                authType.addEventListener('change', toggleAuthFields);
+                                toggleAuthFields(); // Initial state
+                            });
+                        </script>
+                        <div class="form-group mb-3" id="request-body-group">
+                            <label for="{{ form.request_body.id_for_label }}" class="form-label">{{ form.request_body.label }}</label>
+                            {{ form.request_body }}
+                            <small class="form-text text-muted">{{ form.request_body.help_text }}</small>
+                            <div class="mt-2 border-start ps-3">
+                                <label for="{{ form.send_body_as_json.id_for_label }}" class="form-check-label">
+                                    {{ form.send_body_as_json }}
+                                    {{ form.send_body_as_json.label }}
+                                </label>
+                                <small class="d-block form-text text-muted">{{ form.send_body_as_json.help_text }}</small>
+                            </div>
+                        </div>
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function() {
+                                var httpMethod = document.getElementById('{{ form.http_method.id_for_label }}');
+                                var requestBodyGroup = document.getElementById('request-body-group');
+                                
+                                function toggleRequestBodyFields() {
+                                    if (httpMethod.value === 'GET' || httpMethod.value === 'HEAD') {
+                                        requestBodyGroup.style.display = 'none';
+                                        requestBodyGroup.querySelectorAll('input, textarea').forEach(function(input) {
+                                            input.disabled = true;
+                                        });
+                                    } else {
+                                        requestBodyGroup.style.display = 'block';
+                                        requestBodyGroup.querySelectorAll('input, textarea').forEach(function(input) {
+                                            input.disabled = false;
+                                        });
+                                    }
+                                }
+                                
+                                httpMethod.addEventListener('change', toggleRequestBodyFields);
+                                toggleRequestBodyFields(); // Initial state
+                            });
+                        </script>
+                        <div class="form-group mb-3">
+                            <label for="{{ form.request_headers.id_for_label }}" class="form-label">{{ form.request_headers.label }}</label>
+                            {{ form.request_headers }}
+                            <small class="form-text text-muted">{{ form.request_headers.help_text }}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary">Add Endpoint</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,5 @@
+Your verification code for ActionsUptime is: {{ verification_code }}
+
+Please enter this code to confirm your phone number. If you didn't request this, please ignore this message.
+
+Thank you for using ActionsUptime!

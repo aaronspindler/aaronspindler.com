@@ -1,0 +1,89 @@
+{% extends "_base.html" %}
+
+{% block title %}Endpoints Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-12">
+            <h1 class="mb-4">Endpoints Dashboard</h1>
+        </div>
+    </div>    
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Status</h5>
+                    <div class="mt-3" id="endpoints-status">
+                        <div class="alert alert-secondary" role="alert">
+                            <i class="bi bi-hourglass-split me-2"></i>
+                            Loading status...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            function updateEndpointsStatus() {
+                fetch('/web/endpoints_status')
+                    .then(response => response.json())
+                    .then(data => {
+                        const statusDiv = document.getElementById('endpoints-status');
+                        if (data.all_active) {
+                            statusDiv.innerHTML = `
+                                <div class="alert alert-success" role="alert">
+                                    <i class="bi bi-check-circle-fill me-2"></i>
+                                    All endpoints are currently active
+                                </div>
+                            `;
+                        } else {
+                            statusDiv.innerHTML = `
+                                <div class="alert alert-danger" role="alert">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    Some endpoints are currently failing
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        const statusDiv = document.getElementById('endpoints-status');
+                        statusDiv.innerHTML = `
+                            <div class="alert alert-danger" role="alert">
+                                <i class="bi bi-exclamation-circle-fill me-2"></i>
+                                Failed to load status
+                            </div>
+                        `;
+                    });
+            }
+            updateEndpointsStatus();
+            setInterval(updateEndpointsStatus, 60000); // Update every minute
+        });
+    </script>
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0">Monitored Endpoints</h5>
+                        <a href="{% url 'add_endpoint' %}" class="btn btn-success">
+                            <i class="bi bi-plus" aria-hidden="true"></i>
+                            <i class="bi bi-gear" aria-hidden="true"></i>
+                            Add Endpoint
+                        </a>
+                    </div>
+                    {% if endpoints %}
+                        {% for private_id in endpoints %}
+                            {% include "components/endpoint.html" with private_id=private_id %}
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-center text-muted">No endpoints being monitored yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+Hello,
+
+Thank you for adding this email address to your account. To complete the verification process, please use one of the following methods:
+
+1. Click on the link below to verify your email address:
+https://actionsuptime.com{% url 'verify_email' email_id=id code=verification_code %}
+
+2. If the link doesn't work, you can enter the following code on the verification page:
+{{ verification_code_small }}
+
+If you didn't request this verification, please ignore this email or contact our support team if you have any concerns.
+
+Best regards,
+The Team

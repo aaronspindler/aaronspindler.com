@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ActionsUptime Alert</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            padding: 20px;
+        }
+        h1 {
+            color: #0066cc;
+        }
+        .status-change {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0066cc;
+            margin: 10px 0;
+        }
+        .details-link {
+            display: inline-block;
+            background-color: #0066cc;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .unsubscribe {
+            font-size: 12px;
+            color: #666;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 ActionsUptime Alert 🚨</h1>
+        <p>Hello,</p>
+        <p>We have detected a status change for one of your actions:</p>
+        <p><strong>Action:</strong> {{ action_name }}<br>
+        <strong>Repository:</strong> {{ action_repo }}<br>
+        <strong>Branch:</strong> {{ action_branch }}</p>
+        <p class="status-change">
+            {% if previous_status == 'success' and status == 'failure' %}
+            ✅ Success -> ❌ Failure
+            {% elif previous_status == 'failure' and status == 'success' %}
+            ❌ Failure -> ✅ Success
+            {% else %}
+            {{ previous_status|default:"N/A" }} → {{ status }}
+            {% endif %}
+        </p>
+        <p><strong>🕒 Time:</strong> {{ created_at }}</p>
+        <p>To view more details about this status change, please click the link below:</p>
+        <a href="{{ details_url }}" class="details-link">View Details</a>
+        <p>Best regards,<br>The ActionsUptime Team</p>
+        <p class="unsubscribe">If you no longer wish to receive these notifications, <a href="{{ unsubscribe_url }}">click here to unsubscribe</a>.</p>
+    </div>
+</body>
+</html>

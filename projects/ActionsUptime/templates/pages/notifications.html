@@ -1,0 +1,102 @@
+{% extends '_base.html' %}
+{% load static %}
+
+{% block title %}Notifications{% endblock title %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-12">
+            <h1 class="mb-4">Notifications</h1>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-12">
+            {% if notifications %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead>
+                            <tr>
+                                <th scope="col">Type</th>
+                                <th scope="col">Message</th>
+                                <th scope="col">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for notification in notifications %}
+                                <tr class="{% if notification.type == 'success' %}table-success{% elif notification.type == 'failure' %}table-danger{% else %}table-info{% endif %}">
+                                    <td>
+                                        <i class="bi bi-{% if notification.type == 'success' %}check-circle-fill text-success{% elif notification.type == 'failure' %}x-circle-fill text-danger{% else %}info-circle-fill text-info{% endif %}"></i>
+                                        {{ notification.type|capfirst }}
+                                    </td>
+                                    <td>{{ notification.message }}</td>
+                                    <td class="notification-time" data-iso-time="{{ notification.get_iso_datetime }}">
+                                        {{ notification.get_iso_datetime }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <nav aria-label="Notifications pagination" class="mt-4">
+                    <ul class="pagination justify-content-end">
+                        {% if notifications.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ notifications.previous_page_number }}" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&laquo;</span>
+                            </li>
+                        {% endif %}
+                        
+                        {% for i in notifications.paginator.page_range %}
+                            {% if notifications.number == i %}
+                                <li class="page-item active" aria-current="page">
+                                    <span class="page-link bg-secondary border-secondary text-white">{{ i }}</span>
+                                </li>
+                            {% else %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if notifications.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ notifications.next_page_number }}" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">&raquo;</span>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% else %}
+                <div class="alert alert-info" role="alert">
+                    <i class="bi bi-info-circle-fill me-2"></i>
+                    No notifications yet.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const timeElements = document.querySelectorAll('.notification-time');
+        timeElements.forEach(element => {
+            const isoTime = element.getAttribute('data-iso-time');
+            const localTime = new Date(isoTime);
+            element.textContent = localTime.toLocaleString();
+        });
+    });
+</script>
+
+{% endblock content %}

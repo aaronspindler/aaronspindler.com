@@ -1,0 +1,177 @@
+<div class="d-flex flex-column justify-content-center align-items-center" style="height: 100%;">
+    <div class="d-flex justify-content-start w-100 mb-2">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Timeline type">
+            <input type="radio" class="btn-check" name="latencyTimelineType-{{ private_id }}" id="latencyHourly-{{ private_id }}" value="hourly" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="latencyHourly-{{ private_id }}">Hourly</label>
+
+            <input type="radio" class="btn-check" name="latencyTimelineType-{{ private_id }}" id="latencyDaily-{{ private_id }}" value="daily" autocomplete="off" checked>
+            <label class="btn btn-outline-secondary" for="latencyDaily-{{ private_id }}">Daily</label>
+
+            <input type="radio" class="btn-check" name="latencyTimelineType-{{ private_id }}" id="latencyMonthly-{{ private_id }}" value="monthly" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="latencyMonthly-{{ private_id }}">Monthly</label>
+        </div>
+    </div>
+    <canvas id="latency-chart-{{ private_id }}" style="width: 100%; height: calc(100% - 30px);"></canvas>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let latencyChart;
+        const colorMap = {};
+        let currentLatencyTimelineType = 'daily';
+
+        function formatDate(date) {
+            const options = {
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            };
+            
+            switch(currentLatencyTimelineType) {
+                case 'hourly':
+                    options.year = 'numeric';
+                    options.month = 'numeric';
+                    options.day = 'numeric';
+                    options.hour = 'numeric';
+                    options.hour12 = true;
+                    break;
+                case 'daily':
+                    options.year = 'numeric';
+                    options.month = '2-digit';
+                    options.day = '2-digit';
+                    break;
+                case 'monthly':
+                    options.year = 'numeric';
+                    options.month = '2-digit';
+                    break;
+            }
+            
+            return new Date(date).toLocaleString('default', options);
+        }
+
+        function getColorForRegion(region) {
+            if (!colorMap[region]) {
+                colorMap[region] = getRandomColor();
+            }
+            return colorMap[region];
+        }
+
+        function createLatencyChart(ctx, timeline) {
+            const labels = Object.keys(timeline).map(date => formatDate(date));
+            const regions = [...new Set(Object.values(timeline).flatMap(Object.keys))];
+            const datasets = regions.map(region => ({
+                label: region,
+                data: Object.entries(timeline).map(([date, regionData]) => ({
+                    x: formatDate(date),
+                    y: regionData[region] || null
+                })),
+                fill: false,
+                borderColor: getColorForRegion(region),
+                tension: 0.4
+            }));
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeOutQuart'
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: value => `${value}ms` }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: context => `${context.dataset.label}: ${context.parsed.y.toFixed(2)}ms`,
+                                title: tooltipItems => tooltipItems[0].label
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateLatencyChart(chart, timeline) {
+            const labels = Object.keys(timeline).map(date => formatDate(date));
+            const regions = [...new Set(Object.values(timeline).flatMap(Object.keys))];
+            const datasets = regions.map(region => ({
+                label: region,
+                data: Object.entries(timeline).map(([date, regionData]) => ({
+                    x: formatDate(date),
+                    y: regionData[region] || null
+                })),
+                fill: false,
+                borderColor: getColorForRegion(region),
+                tension: 0.4
+            }));
+
+            chart.data.labels = labels;
+
+            // Remove datasets that are no longer present
+            chart.data.datasets = chart.data.datasets.filter(dataset =>
+                regions.includes(dataset.label)
+            );
+
+            // Update existing datasets and add new ones
+            datasets.forEach(newDataset => {
+                const existingDataset = chart.data.datasets.find(dataset => dataset.label === newDataset.label);
+                if (existingDataset) {
+                    existingDataset.data = newDataset.data;
+                } else {
+                    chart.data.datasets.push(newDataset);
+                }
+            });
+
+            chart.update({
+                duration: 1000,
+                easing: 'easeOutQuart'
+            });
+        }
+
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        function loadLatencyGraph() {
+            fetch(`/web/graph/latency/{{ private_id }}?timeline_type=${currentLatencyTimelineType}`)
+                .then(response => response.json())
+                .then(graphData => {
+                    const ctx = document.getElementById('latency-chart-{{ private_id }}').getContext('2d');
+                    if (!latencyChart) {
+                        latencyChart = createLatencyChart(ctx, graphData.timeline);
+                    } else {
+                        updateLatencyChart(latencyChart, graphData.timeline);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading latency graph data:', error);
+                    document.getElementById('latency-chart-{{ private_id }}').innerHTML = '<p class="text-center text-muted">Failed to load latency graph data</p>';
+                });
+        }
+
+        // Add event listeners for radio buttons
+        document.querySelectorAll('input[name="latencyTimelineType-{{ private_id }}"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                currentLatencyTimelineType = this.value;
+                loadLatencyGraph();
+            });
+        });
+
+        loadLatencyGraph();
+        setInterval(loadLatencyGraph, 60000); // Refresh every 1 minute
+    });
+</script>

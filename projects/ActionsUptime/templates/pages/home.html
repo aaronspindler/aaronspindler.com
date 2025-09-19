@@ -1,0 +1,16 @@
+{% extends '_base.html' %}
+{% load static %}
+
+{% block title %}Home{% endblock title %}
+
+{% block content %}
+{% if user.is_authenticated %}
+    {% if user.is_paid %}
+        {% include "pages/paid_home.html" %}
+    {% else %}
+        {% include "pages/unpaid_home.html" %}
+    {% endif %}
+{% else %}
+    {% include "pages/landing_page.html" %}
+{% endif %}
+{% endblock content %}

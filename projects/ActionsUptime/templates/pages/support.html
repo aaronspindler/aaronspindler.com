@@ -1,0 +1,75 @@
+{% extends "_base.html" %}
+
+{% block title %}Support{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">Support</h1>
+
+    <div class="row">
+        <div class="col-md-8">
+            <h2>How Can We Help You?</h2>
+            <p>At ActionsUptime, we're committed to providing you with the best possible support. If you have any questions, concerns, or need assistance, we're here to help.</p>
+
+            <h3 class="mt-4">Frequently Asked Questions</h3>
+            <div class="accordion" id="faqAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingOne">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                            How do I get started with ActionsUptime?
+                        </button>
+                    </h2>
+                    <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            To get started, simply sign up for an account using your GitHub credentials. Once logged in, you can add your GitHub Actions workflows for monitoring.
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingTwo">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                            How does ActionsUptime notify me of failures?
+                        </button>
+                    </h2>
+                    <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            ActionsUptime sends notifications via email by default. Depending on your subscription, you may also have access to SMS notifications.
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingThree">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                            Can I monitor private repositories?
+                        </button>
+                    </h2>
+                    <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            Yes, ActionsUptime supports monitoring of both public and private repositories, depending on your subscription level.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="mt-4">Contact Us</h3>
+            <p>If you couldn't find the answer you were looking for, please don't hesitate to reach out to our support team.</p>
+            <ul class="list-unstyled">
+                <li><i class="bi bi-envelope me-2"></i>Email: <a href="mailto:support@actionsuptime.com">support@actionsuptime.com</a></li>
+                <li><i class="bi bi-clock me-2"></i>Response Time: Within 24 hours</li>
+            </ul>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Quick Links</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><a href="{% url 'home' %}">Home</a></li>
+                        <li class="list-group-item"><a href="{% url 'privacy-policy' %}">Privacy Policy</a></li>
+                        <li class="list-group-item"><a href="{% url 'terms-of-service' %}">Terms of Service</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

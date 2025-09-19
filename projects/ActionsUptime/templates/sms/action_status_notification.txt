@@ -1,0 +1,11 @@
+🚨 ActionsUptime Alert 🚨
+{{ action_name }} in {{ action_repo }} ({{ action_branch }})
+{% if previous_status == 'success' and status == 'failure' %}
+✅ -> ❌
+{% elif previous_status == 'failure' and status == 'success' %}
+❌ -> ✅
+{% else %}
+{{ previous_status|default:"N/A" }} → {{ status }}
+{% endif %}
+🕒 Time: {{ created_at }}
+🔍 View details: {{ details_url }}

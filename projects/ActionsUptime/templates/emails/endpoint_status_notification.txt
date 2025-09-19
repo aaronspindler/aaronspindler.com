@@ -1,0 +1,22 @@
+🚨 ActionsUptime Alert 🚨
+{{ url }}
+{% if status == 'success' %}
+✅ Up
+{% else %}
+❌ Down
+{% endif %}
+🕒 Time: {{ created_at }}
+🔢 Response Code: {{ response_code }}
+⏱️ Duration: {{ duration_ms }} ms
+🔒 SSL Valid: {% if ssl_valid %}Yes{% else %}No{% endif %}
+{% if ssl_expiration %}
+🔓 SSL Expiration: {{ ssl_expiration }}
+{% endif %}
+{% if domain_expiration %}
+🌐 Domain Expiration: {{ domain_expiration }}
+{% endif %}
+🌍 Region: {{ region }}
+
+🔍 View details: {{ details_url }}
+
+👉 Unsubscribe: {{ unsubscribe_url }}

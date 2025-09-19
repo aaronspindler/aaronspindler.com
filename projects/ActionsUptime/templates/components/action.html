@@ -1,0 +1,350 @@
+    <div class="card mb-4 shadow-sm h-100" id="action-card-{{ private_id }}">
+        <div class="card-body d-flex flex-column">
+            <div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
+                <h5 class="card-title mb-2 me-2">
+                    <span class="badge bg-secondary text-wrap action-badge">
+                        Loading...
+                    </span>
+                </h5>
+            </div>
+            <p class="card-text mb-2">
+                <i class="bi bi-clock"></i> Checked: <span class="action-last-checked">Loading...</span>
+                <span class="badge bg-secondary ms-2 action-interval">Loading...</span>
+            </p>
+            <p class="card-text mb-3">
+                <i class="bi bi-graph-up"></i> Success Rate: <span class="action-success-rate">--</span>%
+            </p>
+            <div class="mb-3">
+                <div class="btn-group" role="group" aria-label="Timeline type">
+                    <input type="radio" class="btn-check timeline-type-select" name="timelineType-{{ private_id }}" id="hourly-{{ private_id }}" value="hourly" autocomplete="off">
+                    <label class="btn btn-outline-secondary btn-sm rounded-start" for="hourly-{{ private_id }}">Hourly</label>
+
+                    <input type="radio" class="btn-check timeline-type-select" name="timelineType-{{ private_id }}" id="daily-{{ private_id }}" value="daily" autocomplete="off" checked>
+                    <label class="btn btn-outline-secondary btn-sm" for="daily-{{ private_id }}">Daily</label>
+
+                    <input type="radio" class="btn-check timeline-type-select" name="timelineType-{{ private_id }}" id="monthly-{{ private_id }}" value="monthly" autocomplete="off">
+                    <label class="btn btn-outline-secondary btn-sm rounded-end" for="monthly-{{ private_id }}">Monthly</label>
+                </div>
+            </div>
+            <div class="mt-auto d-flex justify-content-center align-items-center" style="height: 200px;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Modal -->
+    <div class="modal fade" id="notificationModal-{{ private_id }}" tabindex="-1" aria-labelledby="notificationModalLabel-{{ private_id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="notificationModalLabel-{{ private_id }}">Notification Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="notificationMethods-{{ private_id }}">
+                        Loading notification methods...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const actionCard = document.getElementById('action-card-{{ private_id }}');
+            let chart;
+            let actionId;
+            let currentTimelineType = 'daily';
+
+            function updateActionCard() {
+                fetch(`/actions/details/{{ private_id }}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Update card with fetched data
+                        actionCard.querySelector('.action-badge').innerHTML = `
+                            <a href="${data.url}" class="text-decoration-none text-white">
+                                <span class="action-repo-name">${data.repo_name}</span> (<span class="action-branch">${data.branch}</span>) - <span class="action-pretty-name">${data.pretty_name}</span>
+                            </a>
+                        `;
+                        
+                        const badge = actionCard.querySelector('.action-badge');
+                        badge.classList.remove('bg-secondary', 'bg-success', 'bg-danger');
+                        badge.classList.add(data.last_status === 'success' ? 'bg-success' : 
+                                            data.last_status === 'failure' ? 'bg-danger' : 'bg-secondary');
+                        
+                        // Update the interval
+                        actionCard.querySelector('.action-interval').innerHTML = `<i class="bi bi-arrow-repeat"></i> ${data.interval}`;
+                        
+                        if (data.is_owner && !actionCard.querySelector('.action-owner-controls')) {
+                            const ownerControls = `
+                                <div class="dropdown action-owner-controls">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item action-public-link" href="${data.public_url}"><i class="bi bi-link me-2"></i>Public Link</a></li>
+                                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#notificationModal-{{ private_id }}"><i class="bi bi-bell me-2"></i>Notifications</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <form class="action-delete-form" method="post" action="/actions/delete/${data.id}" onsubmit="return confirm('Are you sure you want to delete this action?');">
+                                                {% csrf_token %}
+                                                <button type="submit" class="dropdown-item text-danger"><i class="bi bi-trash me-2"></i>Delete</button>
+                                            </form>
+                                        </li>
+                                    </ul>
+                                </div>
+                            `;
+                            actionCard.querySelector('.d-flex.flex-wrap').insertAdjacentHTML('beforeend', ownerControls);
+                        }
+                        
+                        const lastChecked = new Date(data.last_checked);
+                        const options = { 
+                            year: 'numeric', month: 'numeric', day: 'numeric', 
+                            hour: 'numeric', minute: 'numeric',
+                            hour12: true
+                        };
+                        actionCard.querySelector('.action-last-checked').textContent = lastChecked.toLocaleString(undefined, options);
+                        
+                        actionCard.querySelector('.action-success-rate').textContent = data.success_rate;
+                        
+                        actionId = data.id;
+                        
+                        // Load graph data from action_graph endpoint
+                        loadGraphData();
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        actionCard.querySelector('.card-body').innerHTML = '<p class="text-center text-muted">Failed to load action data</p>';
+                    });
+            }
+
+            function loadGraphData() {
+                fetch(`/actions/graph/{{ private_id }}?timeline_type=${currentTimelineType}`)
+                    .then(response => response.json())
+                    .then(graphData => {
+                        if (!chart) {
+                            actionCard.querySelector('.mt-auto').innerHTML = '<canvas class="action-chart" width="400" height="200"></canvas>';
+                            const ctx = actionCard.querySelector('.action-chart').getContext('2d');
+                            chart = createChart(ctx, graphData.timeline);
+                        } else {
+                            updateChart(chart, graphData.timeline);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading graph data:', error);
+                        actionCard.querySelector('.mt-auto').innerHTML = '<p class="text-center text-muted">Failed to load graph data</p>';
+                    });
+            }
+
+            function createChart(ctx, timeline) {
+                const formatDate = (date) => {
+                    const options = {
+                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    };
+                    
+                    switch(currentTimelineType) {
+                        case 'hourly':
+                            options.year = 'numeric';
+                            options.month = 'numeric';
+                            options.day = 'numeric';
+                            options.hour = 'numeric';
+                            options.hour12 = true;
+                            break;
+                        case 'daily':
+                            options.year = 'numeric';
+                            options.month = '2-digit';
+                            options.day = '2-digit';
+                            break;
+                        case 'monthly':
+                            options.year = 'numeric';
+                            options.month = '2-digit';
+                            break;
+                    }
+                    
+                    return new Date(date).toLocaleString('default', options);
+                };
+
+                const labels = timeline.map(item => formatDate(item.date));
+                const successData = timeline.map(item => item.success_percentage);
+                const failureData = timeline.map(item => item.failure_percentage);
+
+                return new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Success Rate',
+                            data: successData,
+                            backgroundColor: 'rgba(25, 135, 84, 0.8)',
+                            borderColor: 'rgba(25, 135, 84, 1)',
+                            borderWidth: 1
+                        }, {
+                            label: 'Failure Rate',
+                            data: failureData,
+                            backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { stacked: true, display: false },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: { callback: value => `${value}%` }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: context => `${context.dataset.label}: ${context.parsed.y.toFixed(2)}%`,
+                                    title: tooltipItems => formatDate(timeline[tooltipItems[0].dataIndex].date)
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function updateChart(chart, timeline) {
+                const formatDate = (date) => {
+                    const options = {
+                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                    };
+                    
+                    switch(currentTimelineType) {
+                        case 'hourly':
+                            options.year = 'numeric';
+                            options.month = 'numeric';
+                            options.day = 'numeric';
+                            options.hour = 'numeric';
+                            options.hour12 = true;
+                            break;
+                        case 'daily':
+                            options.year = 'numeric';
+                            options.month = '2-digit';
+                            options.day = '2-digit';
+                            break;
+                        case 'monthly':
+                            options.year = 'numeric';
+                            options.month = '2-digit';
+                            break;
+                    }
+                    
+                    return new Date(date).toLocaleString('default', options);
+                };
+
+                chart.data.labels = timeline.map(item => formatDate(item.date));
+                chart.data.datasets[0].data = timeline.map(item => item.success_percentage);
+                chart.data.datasets[1].data = timeline.map(item => item.failure_percentage);
+                chart.update();
+            }
+
+            function loadNotificationMethods() {
+                fetch(`/actions/available_notification_methods/${actionId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const methodsContainer = document.getElementById(`notificationMethods-{{ private_id }}`);
+                        let html = '<h6>Email Notifications:</h6>';
+                        data.emails.forEach(email => {
+                            html += `
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="email-${email.id}" ${email.enabled ? 'checked' : ''}>
+                                    ${email.email}
+                                </div>
+                            `;
+                        });
+                        html += '<h6 class="mt-3">Phone Notifications:</h6>';
+                        data.phone_numbers.forEach(phone => {
+                            html += `
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="phone-${phone.id}" ${phone.enabled ? 'checked' : ''}>
+                                    ${phone.phone_number}
+                                </div>
+                            `;
+                        });
+                        methodsContainer.innerHTML = html;
+
+                        // Add event listeners to checkboxes
+                        data.emails.forEach(email => {
+                            document.getElementById(`email-${email.id}`).addEventListener('change', function() {
+                                updateNotificationMethod('email', email.id, this.checked);
+                            });
+                        });
+                        data.phone_numbers.forEach(phone => {
+                            document.getElementById(`phone-${phone.id}`).addEventListener('change', function() {
+                                updateNotificationMethod('phone', phone.id, this.checked);
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error loading notification methods:', error);
+                        document.getElementById(`notificationMethods-{{ private_id }}`).innerHTML = 'Failed to load notification methods';
+                    });
+            }
+
+            function updateNotificationMethod(type, id, enabled) {
+                const url = enabled ? 
+                    `/actions/add_${type}_notification/${actionId}` : 
+                    `/actions/remove_${type}_notification/${actionId}`;
+                const data = new FormData();
+                data.append(`${type}_id`, id);
+                fetch(url, {
+                    method: 'POST',
+                    body: data,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log(`${type} notification ${enabled ? 'added' : 'removed'} successfully`);
+                    } else {
+                        console.error(`Failed to ${enabled ? 'add' : 'remove'} ${type} notification`);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating notification method:', error);
+                });
+            }
+
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+
+            updateActionCard();
+            setInterval(updateActionCard, 60000); // Refresh every 1 minute
+
+            // Load notification methods when the modal is shown
+            const notificationModal = document.getElementById(`notificationModal-{{ private_id }}`);
+            notificationModal.addEventListener('show.bs.modal', loadNotificationMethods);
+
+            // Add event listener for timeline type select
+            const timelineTypeSelects = actionCard.querySelectorAll('.timeline-type-select');
+            timelineTypeSelects.forEach(select => {
+                select.addEventListener('change', function() {
+                    currentTimelineType = this.value;
+                    loadGraphData();
+                });
+            });
+        });
+    </script>

@@ -1,0 +1,164 @@
+<div class="d-flex flex-column justify-content-center align-items-center" style="height: 100%;">
+    <div class="d-flex justify-content-start w-100 mb-2">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Timeline type">
+            <input type="radio" class="btn-check timeline-type-select" name="timelineType-{{ private_id }}" id="hourly-{{ private_id }}" value="hourly" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="hourly-{{ private_id }}">Hourly</label>
+
+            <input type="radio" class="btn-check timeline-type-select" name="timelineType-{{ private_id }}" id="daily-{{ private_id }}" value="daily" autocomplete="off" checked>
+            <label class="btn btn-outline-secondary" for="daily-{{ private_id }}">Daily</label>
+
+            <input type="radio" class="btn-check timeline-type-select" name="timelineType-{{ private_id }}" id="monthly-{{ private_id }}" value="monthly" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="monthly-{{ private_id }}">Monthly</label>
+        </div>
+    </div>
+    <canvas id="status-chart-{{ private_id }}" style="width: 100%; height: calc(100% - 40px);"></canvas>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let statusChart;
+        let currentTimelineType = 'daily';
+
+        function formatDate(date) {
+            const options = {
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            };
+            
+            switch(currentTimelineType) {
+                case 'hourly':
+                    options.year = 'numeric';
+                    options.month = 'numeric';
+                    options.day = 'numeric';
+                    options.hour = 'numeric';
+                    options.hour12 = true;
+                    break;
+                case 'daily':
+                    options.year = 'numeric';
+                    options.month = '2-digit';
+                    options.day = '2-digit';
+                    break;
+                case 'monthly':
+                    options.year = 'numeric';
+                    options.month = '2-digit';
+                    break;
+            }
+            
+            return new Date(date).toLocaleString('default', options);
+        }
+        
+
+        function createStatusChart(ctx, timeline) {
+            const labels = timeline.map(item => formatDate(item.date, currentTimelineType));
+            const successData = timeline.map(item => item.success_percentage);
+            const failureData = timeline.map(item => item.failure_percentage);
+
+            return new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Success Rate',
+                        data: successData,
+                        backgroundColor: 'rgba(25, 135, 84, 0.8)',
+                        borderColor: 'rgba(25, 135, 84, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: 'Failure Rate',
+                        data: failureData,
+                        backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeOutQuart'
+                    },
+                    scales: {
+                        x: { 
+                            stacked: true, 
+                            display: false,
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { callback: value => `${value}%` },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: context => `${context.dataset.label}: ${context.parsed.y.toFixed(2)}%`,
+                                title: tooltipItems => formatDate(timeline[tooltipItems[0].dataIndex].date, currentTimelineType)
+                            },
+                            animation: {
+                                duration: 200
+                            }
+                        }
+                    },
+                    transitions: {
+                        active: {
+                            animation: {
+                                duration: 300
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateStatusChart(chart, timeline) {
+            const labels = timeline.map(item => formatDate(item.date, currentTimelineType));
+            const successData = timeline.map(item => item.success_percentage);
+            const failureData = timeline.map(item => item.failure_percentage);
+
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = successData;
+            chart.data.datasets[1].data = failureData;
+
+            chart.update({
+                duration: 1000,
+                easing: 'easeOutQuart'
+            });
+        }
+
+        function loadStatusGraph() {
+            fetch(`/web/graph/status/{{ private_id }}?timeline_type=${currentTimelineType}`)
+                .then(response => response.json())
+                .then(graphData => {
+                    const ctx = document.getElementById('status-chart-{{ private_id }}').getContext('2d');
+                    if (!statusChart) {
+                        statusChart = createStatusChart(ctx, graphData.timeline);
+                    } else {
+                        updateStatusChart(statusChart, graphData.timeline);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading status graph data:', error);
+                    document.getElementById('status-chart-{{ private_id }}').innerHTML = '<p class="text-center text-muted">Failed to load status graph data</p>';
+                });
+        }
+
+        // Add event listeners for radio buttons
+        document.querySelectorAll('.timeline-type-select').forEach(radio => {
+            radio.addEventListener('change', function() {
+                currentTimelineType = this.value;
+                loadStatusGraph();
+            });
+        });
+
+        loadStatusGraph();
+        setInterval(loadStatusGraph, 60000); // Refresh every 1 minute
+    });
+</script>

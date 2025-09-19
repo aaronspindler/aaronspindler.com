@@ -1,0 +1,63 @@
+{% extends "_base.html" %}
+{% load socialaccount %}
+
+{% block title %}Subscription Confirmation{% endblock title %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg">
+                <div class="card-header {% if valid_user %}bg-success{% else %}bg-danger{% endif %} text-white py-3">
+                    <h2 class="mb-0 text-center">
+                        {% if valid_user %}
+                            <i class="bi bi-check-circle-fill me-2"></i>Subscription Confirmed
+                        {% else %}
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>Action Required
+                        {% endif %}
+                    </h2>
+                </div>
+                <div class="card-body p-5">
+                    {% if valid_user %}
+                        <div class="text-center mb-4">
+                            <i class="bi bi-emoji-smile-fill text-success" style="font-size: 3rem;"></i>
+                        </div>
+                        <h3 class="card-title text-center mb-4">Thank you for subscribing!</h3>
+                        <p class="card-text text-center">Your subscription has been successfully processed. We appreciate your support.</p>
+                        <p class="card-text text-center mb-4">You now have access to all premium features of ActionsUptime.</p>
+                        {% if not user.is_authenticated %}
+                            <p class="card-text text-center mb-4">Please sign in to your account to access your dashboard.</p>
+                            <div class="text-center">
+                                <a href="{% provider_login_url 'github' %}" class="btn btn-success btn-lg"><i class="bi bi-github me-2"></i>Sign in with GitHub</a>
+                            </div>
+                        {% else %}
+                            <div class="text-center">
+                                <a href="{% url 'home' %}" class="btn btn-success btn-lg"><i class="bi bi-speedometer2 me-2"></i>Go to Dashboard</a>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center mb-4">
+                            <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 3rem;"></i>
+                        </div>
+                        <h3 class="card-title text-center mb-4">Oops! It looks like you haven't made an account yet.</h3>
+                        <p class="card-text text-center">To proceed, please make an account with the same email you used to subscribe.</p>
+                        <div class="text-center mt-4">
+                            <div class="d-flex justify-content-center">
+                                <form method="post" action="{% provider_login_url 'github' %}" class="me-2">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-success btn-lg">
+                                        <i class="bi bi-github me-2"></i>Sign up with GitHub
+                                    </button>
+                                </form>
+                                <a href="{% url 'support' %}" class="btn btn-outline-secondary btn-lg">
+                                    <i class="bi bi-headset me-2"></i>Contact Support
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

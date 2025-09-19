@@ -1,0 +1,91 @@
+{% load socialaccount %}
+
+<div class="mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <h1 class="text-center mb-4 display-4">Never Miss a Failed Action or Downed Website Again</h1>
+            <p class="lead text-center mb-5">ActionsUptime monitors your GitHub Actions and web endpoints 24/7, alerting you instantly when something goes wrong. Join to supercharge your CI/CD workflow and website reliability today!</p>
+            
+            <div class="mb-5">
+                <h2 class="text-center mb-4">Trusted by DevOps Teams and Indie Hackers Worldwide</h2>
+                <div class="row">
+                    {% for private_id in actions %}
+                        <div class="col-md-4 mb-4">
+                            {% include "components/action.html" with private_id=private_id %}
+                        </div>
+                    {% endfor %}
+                    {% for private_id in endpoints %}
+                        <div class="col-md-4 mb-4">
+                            {% include "components/endpoint.html" with private_id=private_id %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="mb-5">
+                <h2 class="text-center mb-4">Why Choose ActionsUptime?</h2>
+                <div class="row row-cols-1 row-cols-md-3 g-4">
+                    <div class="col">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="bi bi-clock-history text-success me-2"></i>Real-time Monitoring</h5>
+                                <p class="card-text">Get instant updates on your GitHub Actions and web endpoints status, 24/7.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="bi bi-bell-fill text-success me-2"></i>Instant Alerts</h5>
+                                <p class="card-text">Receive immediate notifications when workflows fail or websites go down, via email or SMS.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="bi bi-graph-up text-success me-2"></i>Actionable Insights</h5>
+                                <p class="card-text">Gain valuable insights to optimize your CI/CD pipeline and website performance.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="bi bi-link-45deg text-success me-2"></i>Comprehensive Monitoring</h5>
+                                <p class="card-text">Monitor both your GitHub Actions and web endpoints in one place for complete oversight.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="bi bi-globe text-success me-2"></i>Global Coverage</h5>
+                                <p class="card-text">Check your web endpoints from multiple regions worldwide for a truly global perspective.</p>
+                                <div class="mt-3 d-flex flex-wrap justify-content-center">
+                                    {% for region in regions %}
+                                        <span class="me-2 mb-2" title="{{ region.name }}">{{ region.get_flag }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="bi bi-rocket text-success me-2"></i>Continuous Innovation</h5>
+                                <p class="card-text">We're always developing new features to enhance your monitoring experience. Visit our <a href="{% url 'roadmap' %}">roadmap</a> to see what's coming next.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mb-5">
+                <h2 class="mb-4">Ready to Revolutionize Your Monitoring?</h2>
+                <p class="lead">Monitor your web endpoints from up to 15 global regions, ensuring comprehensive coverage and rapid issue detection.</p>
+            </div>
+        </div>
+        {% include "components/pricing_table.html" %}
+    </div>
+</div>

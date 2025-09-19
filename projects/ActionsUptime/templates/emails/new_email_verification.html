@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Verification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            padding: 20px;
+        }
+        h1 {
+            color: #0066cc;
+        }
+        .verification-link {
+            display: inline-block;
+            background-color: #0066cc;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .verification-code {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0066cc;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Email Verification</h1>
+        <p>Hello,</p>
+        <p>Thank you for adding this email address to your account. To complete the verification process, please use one of the following methods:</p>
+        <ol>
+            <li>
+                <p>Click on the link below to verify your email address:</p>
+                <a href="https://actionsuptime.com{% url 'verify_email' email_id=id code=verification_code %}" class="verification-link">Verify Email</a>
+            </li>
+            <li>
+                <p>If the link doesn't work, you can enter the following code on the verification page:</p>
+                <p class="verification-code">{{ verification_code_small }}</p>
+            </li>
+        </ol>
+        <p>If you didn't request this verification, please ignore this email or contact our support team if you have any concerns.</p>
+        <p>Best regards,<br>The Team</p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0">Notification Settings</h5>
+                    <div>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" style="min-width: 300px;">
+                                <li>
+                                    {% if request.subscription_metadata.sms_notifications %}
+                                    <form method="POST" action="{% url 'add_phone' %}" class="px-4 py-3">
+                                        {% csrf_token %}
+                                        <div class="mb-3">
+                                            <input type="tel" name="phone_number" class="form-control" placeholder="Phone number" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="bi bi-plus"></i>
+                                            <i class="bi bi-telephone"></i>
+                                            Add
+                                        </button>
+                                    </form>
+                                    {% else %}
+                                    <div class="px-4 py-3">
+                                        <div class="alert alert-warning mt-2" role="alert">
+                                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                            <strong>Upgrade your plan to use SMS notifications.</strong>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form method="POST" action="{% url 'add_email' %}" class="px-4 py-3">
+                                        {% csrf_token %}
+                                        <div class="mb-3">
+                                            <input type="email" name="email" class="form-control" placeholder="Email address" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="bi bi-plus"></i>
+                                            <i class="bi bi-envelope"></i>
+                                            Add
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Contact</th>
+                            <th>Verified</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for email in notification_emails %}
+                            <tr>
+                                <td>
+                                    <i class="bi bi-envelope" aria-hidden="true"></i>
+                                    <span class="visually-hidden">Email</span>
+                                </td>
+                                <td>{{ email.email }}</td>
+                                <td>
+                                    {% if email.verified %}
+                                        <span class="badge bg-success">Verified</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">Unverified</span>
+                                        <form method="POST" action="{% url 'verify_email' email.id %}" class="d-inline-flex ms-2">
+                                            {% csrf_token %}
+                                            <input type="text" name="code" class="form-control form-control-sm me-2" placeholder="Enter code" required>
+                                            <button type="submit" class="btn btn-success btn-sm">Verify</button>
+                                        </form>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <form method="POST" action="{% url 'delete_email' email.id %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        {% for phone in notification_phone_numbers %}
+                            <tr>
+                                <td>
+                                    <i class="bi bi-telephone" aria-hidden="true"></i>
+                                    <span class="visually-hidden">Phone</span>
+                                </td>
+                                <td>{{ phone }}</td>
+                                <td>
+                                    {% if phone.verified %}
+                                        <span class="badge bg-success">Verified</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">Unverified</span>
+                                        <form method="POST" action="{% url 'verify_phone' phone.id %}" class="d-inline-flex ms-2">
+                                            {% csrf_token %}
+                                            <input type="text" name="code" class="form-control form-control-sm me-2" placeholder="Enter code" required>
+                                            <button type="submit" class="btn btn-success btn-sm">Verify</button>
+                                        </form>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <form method="POST" action="{% url 'delete_phone' phone.id %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

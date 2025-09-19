@@ -1,0 +1,20 @@
+🚨 ActionsUptime Alert 🚨
+{{ url }}
+{% if status == 'failure' %}
+❌ Failure
+{% else %}
+✅ Success
+{% endif %}
+🕒 Time: {{ created_at }}
+🔢 Response Code: {{ response_code }}
+⏱️ Duration: {{ duration_ms }} ms
+🌐 Region: {{ region }}
+{% if ssl_valid != None %}
+🔒 SSL: {% if ssl_valid %}Valid{% else %}Invalid{% endif %}
+{% endif %}
+{% if ssl_expiration %}
+📅 SSL Expiry: {{ ssl_expiration }}
+{% endif %}
+{% if domain_expiration %}
+🔗 Domain Expiry: {{ domain_expiration }}
+{% endif %}
