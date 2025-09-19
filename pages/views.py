@@ -61,10 +61,10 @@ def robotstxt(request):
 
 @track_page_visit
 def resume(request):
-    """Serve resume PDF file if enabled in settings."""
+    """Serve resume PDF file if enabled in settings, otherwise show unavailable page."""
     # Check if resume endpoint is enabled
     if not getattr(settings, 'RESUME_ENABLED', False):
-        raise Http404("Resume not found")
+        return render(request, 'pages/resume_unavailable.html')
     
     # Get resume filename from settings
     resume_filename = getattr(settings, 'RESUME_FILENAME', 'Aaron_Spindler_Resume_2025.pdf')
