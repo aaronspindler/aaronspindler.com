@@ -1,0 +1,5 @@
+---
+globs: templates/blog/*/*.html
+alwaysApply: false
+---
+Utilize existing stylesheets for blog posts and try to maintain consistency.

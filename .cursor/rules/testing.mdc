@@ -1,0 +1,5 @@
+---
+description: apply this rule to chats that look to create tests
+alwaysApply: false
+---
+Do not try to write tests for code in this repository.
