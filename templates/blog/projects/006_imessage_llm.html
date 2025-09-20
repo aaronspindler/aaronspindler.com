@@ -1,0 +1,411 @@
+{% load static %}
+
+<h1>iMessage LLM: Transform Your Message History into Analyzable Data with AI</h1>
+
+<p>Ever wondered what patterns lie hidden in years of iMessage conversations? What themes emerged in your relationships? How communication evolved over time? I built <strong>iMessage LLM</strong>, a powerful Python tool that converts iMessage exports into structured data and provides AI-powered analysis using Large Language Models.</p>
+
+<h2>The Problem</h2>
+<p>We accumulate thousands of messages over years, but they're locked away in an unstructured format. Apple's Messages app doesn't provide meaningful analytics or search capabilities beyond basic keyword matching. Our digital conversations contain valuable insights about relationships, personal growth, and communication patterns - but we have no way to access them systematically.</p>
+
+<h2>The Solution: iMessage LLM</h2>
+<p>iMessage LLM is a comprehensive toolkit that:</p>
+<ul>
+    <li>Converts HTML exports from <a href="https://github.com/ReagentX/imessage-exporter">imessage-exporter</a> into structured CSV data</li>
+    <li>Intelligently groups messages into conversations using advanced algorithms</li>
+    <li>Provides AI-powered analysis using Ollama with DeepSeek-R1</li>
+    <li>Offers powerful filtering and search capabilities</li>
+    <li>Maintains conversation context for meaningful analysis</li>
+</ul>
+
+<h2>Smart Conversation Detection</h2>
+<p>One of the most innovative features is the intelligent conversation grouping. The tool doesn't just use simple time gaps - it employs multiple sophisticated signals:</p>
+
+<pre><code class="python"># Dynamic time thresholds based on time of day
+if (current_hour >= 22 or current_hour <= 6):
+    threshold = 3  # Night: shorter gaps
+elif 6 <= current_hour <= 10:
+    threshold = 8  # Morning: overnight gaps
+else:
+    threshold = 4  # Day: active conversation time
+
+# Content analysis for conversation boundaries
+starters = ['hey', 'hello', 'good morning', ...]
+enders = ['goodnight', 'bye', 'talk later', ...]
+
+# Momentum analysis - response times and engagement
+avg_response_time = calculate_response_times(messages)
+turn_changes = count_turn_exchanges(messages)
+engagement_score = calculate_engagement(turn_changes, response_time)</code></pre>
+
+<p>The algorithm also detects:</p>
+<ul>
+    <li><strong>Topic changes</strong> using semantic similarity</li>
+    <li><strong>Emotional tone shifts</strong> through emoji and keyword analysis</li>
+    <li><strong>Activity transitions</strong> ("just got to work", "heading home")</li>
+    <li><strong>Conversation momentum</strong> analyzing response patterns</li>
+</ul>
+
+<h2>AI-Powered Analysis</h2>
+<p>Once your messages are processed, the real magic begins. Using Ollama with DeepSeek-R1, you can ask natural language questions about your message history:</p>
+
+<pre><code class="bash"># Ask about specific years
+$ python ask_messages.py --year 2017 --question "What happened this year?"
+
+# Analyze relationship evolution
+$ python ask_messages.py --years 2017 2018 2019 --question "How did our relationship evolve?"
+
+# Examine specific conversations
+$ python ask_messages.py --conversation 42 --question "What is this conversation about?"
+
+# Filter by conversation characteristics
+$ python ask_messages.py --min-messages 50 --question "What are the themes in longer conversations?"</code></pre>
+
+<h2>Intelligent Features</h2>
+
+<h3>Token Optimization</h3>
+<p>The tool uses DeepSeek's tokenizer for accurate token counting and automatically chunks large conversations to fit within model context limits:</p>
+
+<pre><code class="python"># Compact message format to save tokens
+def compress_message_format(messages):
+    return "\n".join([
+        f"{msg['date']}|{msg['sender']}|{msg['message']}"
+        for msg in messages
+    ])</code></pre>
+
+<h3>Smart Caching</h3>
+<p>Analysis results are cached to speed up repeated queries. The cache is invalidated if messages change or you switch models:</p>
+
+<pre><code class="bash"># List cached results
+$ python ask_messages.py --list-cache
+
+# Force reprocessing
+$ python ask_messages.py --question "Analyze again" --force-reprocess
+
+# Clear all cached results
+$ python ask_messages.py --clear-cache</code></pre>
+
+<h3>Conversation History</h3>
+<p>The tool maintains conversation history, allowing you to build on previous analyses:</p>
+
+<pre><code class="bash"># First analysis
+$ python ask_messages.py --question "What are the main themes?" --save-conversation themes.json
+
+# Follow-up question using context
+$ python ask_messages.py --load-conversation themes.json --question "Tell me more about the second theme"</code></pre>
+
+<h2>Performance & Scale</h2>
+<p>The tool is optimized for large datasets:</p>
+<ul>
+    <li><strong>Streaming HTML parsing</strong> handles multi-gigabyte files efficiently</li>
+    <li><strong>Statistical sampling</strong> for quality analysis on massive datasets</li>
+    <li><strong>Adaptive algorithms</strong> that scale based on dataset size</li>
+    <li><strong>Progress tracking</strong> with real-time metrics and ETA</li>
+</ul>
+
+<pre><code class="text">═══════════════════════ CONVERSATION ANALYSIS ═══════════════════════
+                    Analyzing conversation patterns...
+
+✓ Assigned 1,234 conversations in 2.3s
+
+───────────────────── Decision Statistics ─────────────────────
+  Time Based: 856 (69.4%)
+  Topic Change: 187 (15.2%)
+  Starter Based: 98 (7.9%)
+  Momentum Based: 93 (7.5%)</code></pre>
+
+<h2>Real-World Use Cases</h2>
+<p>Here are some fascinating ways to use iMessage LLM:</p>
+
+<h3>Relationship Analysis</h3>
+<pre><code class="bash">$ python ask_messages.py --question "How has our communication style changed over the years?"</code></pre>
+
+<h3>Topic Discovery</h3>
+<pre><code class="bash">$ python ask_messages.py --question "What are the recurring themes in our conversations?"</code></pre>
+
+<h3>Memory Lane</h3>
+<pre><code class="bash">$ python ask_messages.py --year 2020 --question "What were we talking about during the pandemic?"</code></pre>
+
+<h3>Communication Patterns</h3>
+<pre><code class="bash">$ python ask_messages.py --question "When do we have our deepest conversations?"</code></pre>
+
+<h2>Getting Started</h2>
+<p>Setting up iMessage LLM is straightforward:</p>
+
+<pre><code class="bash"># 1. Export your messages with imessage-exporter
+$ brew install imessage-exporter
+$ imessage-exporter --format html --output ./data/
+
+# 2. Install dependencies
+$ pip install -r requirements.txt
+
+# 3. Setup Ollama with DeepSeek
+$ ollama serve
+$ ollama pull deepseek-r1:14b
+
+# 4. Process your messages
+$ python process.py
+
+# 5. Start analyzing!
+$ python ask_messages.py --question "What are the main themes in our conversations?"</code></pre>
+
+<h2>Technical Architecture</h2>
+<p>The project consists of several key components:</p>
+<ul>
+    <li><strong>process.py</strong>: Core processing engine with conversation detection algorithms</li>
+    <li><strong>ask_messages.py</strong>: AI analysis interface with caching and history management</li>
+    <li><strong>prompts.py</strong>: Centralized prompt templates for consistent AI interactions</li>
+    <li><strong>formatting_utils.py</strong>: Beautiful terminal output with progress tracking</li>
+    <li><strong>deepseek_tokenizer.py</strong>: Accurate token counting for context management</li>
+</ul>
+
+<h2>Privacy & Local Processing</h2>
+<p>Everything runs locally on your machine. Your messages never leave your computer - the AI analysis uses Ollama running locally, not cloud services. This ensures complete privacy while still providing powerful insights.</p>
+
+<h2>What I Learned</h2>
+<p>Building this tool taught me several valuable lessons:</p>
+<ul>
+    <li>Conversation boundaries are more nuanced than simple time gaps</li>
+    <li>Context windows and token management are crucial for LLM performance</li>
+    <li>Smart caching and chunking strategies enable analysis of massive datasets</li>
+    <li>Local AI models like DeepSeek-R1 are powerful enough for complex analysis tasks</li>
+</ul>
+
+<h2>The Build Process: From Concept to Reality</h2>
+<p>The journey of building iMessage LLM was both challenging and enlightening. It started with a simple curiosity: I had years of message history and wanted to understand what patterns and insights were hidden within. Here's how the project evolved from a weekend experiment to a comprehensive analysis toolkit.</p>
+
+<h3>Initial Prototype: The Naive Approach</h3>
+<p>My first attempt was embarrassingly simple - just dump all messages into a CSV and throw them at an LLM. The results were... disappointing:</p>
+
+<pre><code class="python"># Version 1: The naive approach that didn't work
+messages = parse_html_to_csv(html_file)
+prompt = f"Analyze these messages: {messages}"
+# ERROR: Token limit exceeded (500,000+ tokens!)</code></pre>
+
+<p>Reality hit hard. Years of messages meant millions of tokens, far exceeding any model's context window. I needed to be smarter about this.</p>
+
+<h3>Challenge #1: Parsing Apple's HTML Export Format</h3>
+<p>The imessage-exporter tool outputs HTML files with a specific structure that needed careful parsing. Apple's format includes attachments, reactions, and various message types that all required different handling:</p>
+
+<pre><code class="python"># Handling different message types
+def parse_message_element(element):
+    message_type = element.get('data-type', 'text')
+    
+    if message_type == 'attachment':
+        return handle_attachment(element)
+    elif message_type == 'reaction':
+        return handle_reaction(element)
+    elif message_type == 'edited':
+        return handle_edited_message(element)
+    else:
+        return extract_text_content(element)</code></pre>
+
+<p>The biggest surprise? Emojis and special characters. They required special handling to prevent encoding issues when converting to CSV. I spent an entire evening debugging why certain messages were causing pandas to throw UTF-8 errors.</p>
+
+<h3>Challenge #2: Defining "Conversations"</h3>
+<p>This was the hardest problem to solve. What exactly constitutes a conversation? My first approach used a simple 30-minute gap rule:</p>
+
+<pre><code class="python"># Version 2: Simple time-based splitting (too simplistic)
+def split_conversations_v1(messages):
+    conversations = []
+    current_convo = []
+    
+    for i, msg in enumerate(messages):
+        if i > 0:
+            time_gap = msg['timestamp'] - messages[i-1]['timestamp']
+            if time_gap > timedelta(minutes=30):
+                conversations.append(current_convo)
+                current_convo = []
+        current_convo.append(msg)
+    
+    return conversations</code></pre>
+
+<p>This worked... poorly. It would split ongoing conversations just because someone took a lunch break, or merge completely unrelated topics just because they happened quickly. I needed something more sophisticated.</p>
+
+<h3>The Breakthrough: Multi-Signal Conversation Detection</h3>
+<p>After analyzing my own message patterns, I realized conversations have multiple signals beyond just time gaps. This led to the current multi-signal approach:</p>
+
+<pre><code class="python"># Version 3: Multi-signal detection (the breakthrough)
+class ConversationDetector:
+    def __init__(self):
+        self.signals = [
+            TimeOfDaySignal(),      # Different thresholds for different times
+            ContentSignal(),         # Detect greeting/farewell patterns
+            TopicSimilaritySignal(), # Use embeddings for semantic similarity
+            MomentumSignal(),        # Analyze response patterns
+            EmotionalToneSignal()    # Track emoji usage and sentiment
+        ]
+    
+    def should_split(self, messages, index):
+        votes = [signal.vote(messages, index) for signal in self.signals]
+        return self.weighted_decision(votes)</code></pre>
+
+<p>Each signal votes on whether to split at a given point, and the final decision uses weighted voting. This dramatically improved conversation quality.</p>
+
+<h3>Challenge #3: Token Management and Context Windows</h3>
+<p>Even with conversations properly segmented, many were still too large for LLM context windows. I needed intelligent chunking that preserved context:</p>
+
+<pre><code class="python"># Smart chunking that maintains conversation flow
+def chunk_conversation(messages, max_tokens=8000):
+    chunks = []
+    current_chunk = []
+    current_tokens = 0
+    
+    # Always include conversation metadata
+    metadata = create_conversation_summary(messages)
+    metadata_tokens = count_tokens(metadata)
+    
+    for msg in messages:
+        msg_tokens = count_tokens(format_message(msg))
+        
+        if current_tokens + msg_tokens > max_tokens - metadata_tokens:
+            # Save current chunk with overlap for context
+            chunks.append({
+                'messages': current_chunk,
+                'metadata': metadata,
+                'continuation': True
+            })
+            # Keep last few messages for context continuity
+            overlap = get_context_overlap(current_chunk)
+            current_chunk = overlap
+            current_tokens = count_tokens(overlap)
+        
+        current_chunk.append(msg)
+        current_tokens += msg_tokens
+    
+    return chunks</code></pre>
+
+<h3>Challenge #4: Performance at Scale</h3>
+<p>Processing years of messages (100,000+) was initially taking hours. Profiling revealed the bottlenecks:</p>
+
+<pre><code class="text">Initial Performance Profile:
+- HTML Parsing: 45% of runtime (Beautiful Soup)
+- Conversation Detection: 30% of runtime (O(n²) similarity checks)  
+- CSV Writing: 15% of runtime (row-by-row pandas operations)
+- Token Counting: 10% of runtime (repeated tokenization)</code></pre>
+
+<p>The optimizations that made the biggest difference:</p>
+
+<pre><code class="python"># Optimization 1: Streaming HTML parser
+from lxml import etree
+parser = etree.iterparse(html_file, events=('start', 'end'))
+# 10x faster than Beautiful Soup for large files
+
+# Optimization 2: Batch similarity computations
+embeddings = compute_embeddings_batch(messages)  # Vectorized operations
+similarities = cosine_similarity_matrix(embeddings)  # NumPy magic
+
+# Optimization 3: Bulk CSV operations
+df = pd.DataFrame(all_messages)
+df.to_csv('messages.csv', index=False)  # Single write operation
+
+# Final performance: 100,000 messages in ~3 minutes</code></pre>
+
+<h3>The DeepSeek Integration Journey</h3>
+<p>Choosing the right model was crucial. I experimented with several options:</p>
+
+<ul>
+    <li><strong>GPT-3.5:</strong> Good but expensive for large-scale analysis, privacy concerns</li>
+    <li><strong>LLaMA 2:</strong> Decent but struggled with nuanced conversation analysis</li>
+    <li><strong>Mistral:</strong> Fast but less accurate for relationship insights</li>
+    <li><strong>DeepSeek-R1:</strong> The sweet spot - excellent reasoning, runs locally, great token efficiency</li>
+</ul>
+
+<p>DeepSeek-R1's ability to handle complex reasoning tasks while running entirely locally made it perfect for this privacy-sensitive application. The integration required custom tokenizer implementation:</p>
+
+<pre><code class="python"># Custom DeepSeek tokenizer for accurate token counting
+from transformers import AutoTokenizer
+
+class DeepSeekTokenizer:
+    def __init__(self):
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            'deepseek-ai/DeepSeek-R1-Distill-Llama-14B'
+        )
+        self._cache = {}  # Cache tokenization results
+    
+    def count_tokens(self, text):
+        if text in self._cache:
+            return self._cache[text]
+        
+        tokens = len(self.tokenizer.encode(text))
+        self._cache[text] = tokens
+        return tokens</code></pre>
+
+<h3>Testing with Real Data: Unexpected Discoveries</h3>
+<p>Testing with my own message history revealed fascinating edge cases:</p>
+
+<ul>
+    <li><strong>Group chats vs. one-on-one:</strong> Required different conversation detection logic</li>
+    <li><strong>Media-heavy conversations:</strong> Needed special handling for photo/video descriptions</li>
+    <li><strong>Time zone changes:</strong> Travel caused conversation splitting issues</li>
+    <li><strong>Language switching:</strong> Multilingual conversations needed special tokenization</li>
+</ul>
+
+<p>Each edge case led to refinements in the algorithm. For example, detecting time zone changes:</p>
+
+<pre><code class="python"># Detect potential timezone changes
+def detect_timezone_shift(messages):
+    hourly_distribution = defaultdict(int)
+    for msg in messages:
+        hourly_distribution[msg['timestamp'].hour] += 1
+    
+    # Sudden shift in active hours suggests timezone change
+    if has_distribution_shift(hourly_distribution):
+        return adjust_thresholds_for_timezone()</code></pre>
+
+<h3>The Caching System Evolution</h3>
+<p>Repeated analysis of the same conversations was wasteful. The caching system evolved through three iterations:</p>
+
+<pre><code class="python"># Version 1: Simple file cache (problematic)
+cache[question] = answer  # Too simplistic, ignored context
+
+# Version 2: Content-aware cache
+cache_key = hash(messages + question + model)  # Better but rigid
+
+# Version 3: Intelligent cache with invalidation
+class SmartCache:
+    def get_cache_key(self, messages, question, context):
+        # Include relevant factors that affect the answer
+        factors = {
+            'message_hash': self.hash_messages(messages),
+            'question_embedding': self.embed_question(question),
+            'model_version': self.model_version,
+            'context_summary': self.summarize_context(context)
+        }
+        return self.generate_stable_key(factors)
+    
+    def should_invalidate(self, cache_entry):
+        return (
+            cache_entry['age'] > self.max_age or
+            cache_entry['model'] != self.current_model or
+            self.messages_updated_since(cache_entry['timestamp'])
+        )</code></pre>
+
+<h3>Lessons from User Feedback</h3>
+<p>After sharing the tool with friends, I received valuable feedback that shaped the final version:</p>
+
+<ul>
+    <li><strong>"It's too slow for quick questions"</strong> → Added the statistical sampling mode for instant responses</li>
+    <li><strong>"I want to compare different time periods"</strong> → Built the multi-year comparison feature</li>
+    <li><strong>"The terminal output is hard to read"</strong> → Created the beautiful formatted output system</li>
+    <li><strong>"Can it remember previous analyses?"</strong> → Implemented conversation history management</li>
+</ul>
+
+<p>The most rewarding feedback was from a friend who used it to analyze conversations with a deceased relative - finding patterns and memories they had forgotten about. This reinforced the importance of building tools that help preserve and understand our digital memories.</p>
+
+<h2>Future Enhancements</h2>
+<p>Some ideas for future development:</p>
+<ul>
+    <li>Support for more messaging platforms (WhatsApp, Telegram, Discord)</li>
+    <li>Visualization dashboards for conversation patterns</li>
+    <li>Sentiment analysis over time</li>
+    <li>Export capabilities for research or archival purposes</li>
+    <li>Multi-language support for international conversations</li>
+</ul>
+
+<h2>Open Source</h2>
+<p>iMessage LLM is open source and available on <a href="https://github.com/aaronspindler/iMessageLLM">GitHub</a>. Feel free to contribute, suggest features, or adapt it for your own use cases. The codebase is well-documented and modular, making it easy to extend or customize.</p>
+
+<h2>Conclusion</h2>
+<p>Our digital conversations are a treasure trove of memories and insights. iMessage LLM unlocks this data, transforming years of messages into analyzable, searchable, and understandable information. Whether you're interested in relationship dynamics, personal growth, or simply want to revisit old conversations, this tool provides the infrastructure to explore your digital communication history meaningfully.</p>
+
+<p>Give it a try - you might be surprised by what patterns emerge from your message history!</p>
