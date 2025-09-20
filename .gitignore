@@ -29,5 +29,3 @@ static/css/critical.css
 static/js/*.min.js
 static/js/*.min.js.gz
 static/js/*.min.js.br
-
-.cursor/rules/
