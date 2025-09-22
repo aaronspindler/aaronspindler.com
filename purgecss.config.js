@@ -23,11 +23,22 @@ module.exports = {
       'helptext', 
       'required',
       'messages',
+      'messages-container',
       'message',
+      'message-text',
+      'message-close',
+      'message-success',
+      'message-info',
+      'message-warning',
+      'message-error',
+      'message-danger',
+      'message-debug',
       'error',
       'warning',
       'info',
       'success',
+      'debug',
+      'danger',
       // Dynamic classes that might be added via JS
       'active',
       'open',
@@ -79,7 +90,7 @@ module.exports = {
   },
   blocklist: [
     // Remove development-only classes if any
-    'debug',
+    // Note: 'debug' removed from blocklist as it's used for message-debug
     'test'
   ],
   keyframes: true,

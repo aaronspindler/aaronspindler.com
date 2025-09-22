@@ -52,6 +52,16 @@ MIDDLEWARE = [
 
 MESSAGE_STORAGE = "django.contrib.messages.storage.fallback.FallbackStorage"
 
+# Message tags configuration for CSS classes
+from django.contrib.messages import constants as messages
+MESSAGE_TAGS = {
+    messages.DEBUG: 'debug',
+    messages.INFO: 'info',
+    messages.SUCCESS: 'success',
+    messages.WARNING: 'warning',
+    messages.ERROR: 'error danger',  # Include both 'error' and 'danger' for compatibility
+}
+
 # Use default SQLite database for testing when DATABASE_URL is not set
 DATABASES = {
     "default": env.db(
