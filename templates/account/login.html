@@ -3,10 +3,46 @@
 {% block title %}Log in{% endblock %}
 
 {% block content %}
-<h2>Log in</h2>
-<form method="post">
-  {% csrf_token %}
-  {{ form }}
-  <button class="btn btn-success" type="submit">Log in</button>
-</form>
+<main class="content" role="main">
+  <h2>Log in</h2>
+  
+  <form method="post" class="auth-form">
+    {% csrf_token %}
+    
+    {% if form.non_field_errors %}
+      <div class="form-errors">
+        {% for error in form.non_field_errors %}
+          <p style="color: var(--text-color-alt); margin-bottom: var(--line-height);">{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+    
+    {% for field in form %}
+      <div class="form-field" style="margin-bottom: var(--line-height);">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}
+          {% for error in field.errors %}
+            <p style="color: var(--text-color-alt); font-size: 0.875rem; margin-top: calc(var(--line-height) / 2);">{{ error }}</p>
+          {% endfor %}
+        {% endif %}
+        {% if field.help_text %}
+          <p style="color: var(--text-color-alt); font-size: 0.875rem; margin-top: calc(var(--line-height) / 2);">{{ field.help_text }}</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+    
+    <div style="margin-top: calc(var(--line-height) * 2);">
+      <button type="submit" style="width: auto; min-width: 10ch;">Log in</button>
+    </div>
+    
+    {% if ACCOUNT_ALLOW_REGISTRATION %}
+    <div style="margin-top: calc(var(--line-height) * 2);">
+      <p style="margin: 0;">
+        Don't have an account? <a href="{% url 'account_signup' %}">Sign up</a>
+      </p>
+    </div>
+    {% endif %}
+  </form>
+</main>
 {% endblock content %}

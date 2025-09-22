@@ -2,16 +2,19 @@
 
 {% block title %}Log out{% endblock %}
 
-
 {% block content %}
-<h1>Sign Out</h1>
-
-<p>Are you sure you want to sign out?</p>
-
-<form method="post" action="{% url 'account_logout' %}">
-  {% csrf_token %}
-  {{ form }}
-  <button class="btn btn-danger" type="submit">Sign Out</button>
-</form>
-
+<main class="content" role="main">
+  <h2>Sign Out</h2>
+  
+  <p style="margin-bottom: calc(var(--line-height) * 2);">Are you sure you want to sign out?</p>
+  
+  <form method="post" action="{% url 'account_logout' %}" class="auth-form">
+    {% csrf_token %}
+    {{ form }}
+    <div style="margin-top: calc(var(--line-height) * 2);">
+      <button type="submit" style="width: auto; min-width: 10ch;">Sign Out</button>
+      <a href="{% url 'pages:home' %}" style="margin-left: 2ch;">Cancel</a>
+    </div>
+  </form>
+</main>
 {% endblock content %}
