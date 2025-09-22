@@ -1,13 +1,18 @@
 from django.http import HttpResponse, JsonResponse
 from django.template import TemplateDoesNotExist
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.db.models import Count, Q
 
 from pages.models import PageVisit
 from pages.decorators import track_page_visit
 from blog.utils import get_blog_from_template_name, get_all_blog_posts
 from blog.knowledge_graph import build_knowledge_graph, get_post_graph
+from blog.models import BlogComment
+from blog.forms import CommentForm, ReplyForm
 
 import os
 from django.conf import settings
@@ -23,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 @track_page_visit
 def render_blog_template(request, template_name, category=None):
-    """Render a blog post template."""
+    """Render a blog post template with comments."""
     try:
         blog_data = get_blog_from_template_name(template_name, category=category)
         # Include category in the page name for tracking if available
@@ -33,6 +38,23 @@ def render_blog_template(request, template_name, category=None):
             page_name = f'/b/{template_name}/'
         views = PageVisit.objects.filter(page_name=page_name).values_list('pk', flat=True).count()
         blog_data['views'] = views
+        
+        # Get approved comments for this blog post
+        comments = BlogComment.get_approved_comments(template_name, category)
+        blog_data['comments'] = comments
+        blog_data['comment_count'] = comments.count()
+        
+        # Add comment form
+        blog_data['comment_form'] = CommentForm(user=request.user)
+        
+        # Add pending comments count for staff
+        if request.user.is_staff:
+            blog_data['pending_comments_count'] = BlogComment.objects.filter(
+                blog_template_name=template_name,
+                blog_category=category,
+                status='pending'
+            ).count()
+        
         return render(request, "_blog_base.html", blog_data)
     except TemplateDoesNotExist:
         return render(request, "404.html")
@@ -295,3 +317,169 @@ def knowledge_graph_screenshot(request):
         # Mark generation as failed
         cache.set(cache_key, 'failed', timeout=3600)  # Cache failure for 1 hour
         return JsonResponse({'error': f'Failed to generate screenshot: {str(e)}'}, status=500)
+
+
+def submit_comment(request, template_name, category=None):
+    """Handle comment submission for a blog post."""
+    if request.method != 'POST':
+        return redirect('render_blog_template_with_category' if category else 'render_blog_template', 
+                       category=category, template_name=template_name)
+    
+    form = CommentForm(request.POST, user=request.user)
+    
+    if form.is_valid():
+        # Get client metadata for spam detection
+        ip_address = request.META.get('REMOTE_ADDR')
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        
+        # Save the comment
+        comment = form.save(
+            blog_template_name=template_name,
+            blog_category=category,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        # Set appropriate message based on comment status
+        if comment.status == 'approved':
+            messages.success(request, 'Your comment has been posted!')
+        else:
+            messages.info(request, 'Your comment has been submitted for review and will appear after approval.')
+        
+        # Redirect back to the blog post with anchor to comments section
+        if category:
+            return redirect(f'/b/{category}/{template_name}/#comments')
+        return redirect(f'/b/{template_name}/#comments')
+    
+    # If form is invalid, render the blog post with form errors
+    blog_data = get_blog_from_template_name(template_name, category=category)
+    if category:
+        page_name = f'/b/{category}/{template_name}/'
+    else:
+        page_name = f'/b/{template_name}/'
+    views = PageVisit.objects.filter(page_name=page_name).values_list('pk', flat=True).count()
+    blog_data['views'] = views
+    
+    # Get approved comments
+    comments = BlogComment.get_approved_comments(template_name, category)
+    blog_data['comments'] = comments
+    blog_data['comment_count'] = comments.count()
+    
+    # Add the form with errors
+    blog_data['comment_form'] = form
+    
+    return render(request, "_blog_base.html", blog_data)
+
+
+def reply_to_comment(request, comment_id):
+    """Handle replies to existing comments (supports nested replies)."""
+    parent_comment = get_object_or_404(BlogComment, id=comment_id, status='approved')
+    
+    if request.method != 'POST':
+        # Redirect back to the blog post
+        if parent_comment.blog_category:
+            return redirect(f'/b/{parent_comment.blog_category}/{parent_comment.blog_template_name}/#comment-{comment_id}')
+        return redirect(f'/b/{parent_comment.blog_template_name}/#comment-{comment_id}')
+    
+    # Check honeypot field first (simple spam protection)
+    if request.POST.get('website', ''):
+        messages.error(request, 'Bot detection triggered.')
+        if parent_comment.blog_category:
+            return redirect(f'/b/{parent_comment.blog_category}/{parent_comment.blog_template_name}/#comment-{comment_id}')
+        return redirect(f'/b/{parent_comment.blog_template_name}/#comment-{comment_id}')
+    
+    form = ReplyForm(request.POST, user=request.user)
+    
+    if form.is_valid():
+        # Get client metadata
+        ip_address = request.META.get('REMOTE_ADDR')
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        
+        # Save the reply
+        reply = form.save(
+            blog_template_name=parent_comment.blog_template_name,
+            blog_category=parent_comment.blog_category,
+            parent=parent_comment,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        # Set message based on reply status
+        if reply.status == 'approved':
+            messages.success(request, 'Your reply has been posted!')
+        else:
+            messages.info(request, 'Your reply has been submitted for review.')
+        
+    else:
+        messages.error(request, 'There was an error with your reply. Please try again.')
+    
+    # Redirect back to the blog post and parent comment
+    if parent_comment.blog_category:
+        return redirect(f'/b/{parent_comment.blog_category}/{parent_comment.blog_template_name}/#comment-{comment_id}')
+    return redirect(f'/b/{parent_comment.blog_template_name}/#comment-{comment_id}')
+
+
+@require_http_methods(["POST"])
+def moderate_comment(request, comment_id):
+    """Handle comment moderation (staff only)."""
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    comment = get_object_or_404(BlogComment, id=comment_id)
+    action = request.POST.get('action')
+    
+    if action == 'approve':
+        comment.approve(user=request.user)
+        messages.success(request, f'Comment by {comment.get_author_display()} approved.')
+    elif action == 'reject':
+        note = request.POST.get('note', '')
+        comment.reject(user=request.user, note=note)
+        messages.warning(request, f'Comment by {comment.get_author_display()} rejected.')
+    elif action == 'spam':
+        comment.mark_as_spam(user=request.user)
+        messages.warning(request, f'Comment by {comment.get_author_display()} marked as spam.')
+    else:
+        return JsonResponse({'error': 'Invalid action'}, status=400)
+    
+    # Return JSON response for AJAX requests
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'status': 'success',
+            'new_status': comment.status,
+            'message': f'Comment {action}ed successfully'
+        })
+    
+    # Otherwise redirect back
+    if comment.blog_category:
+        return redirect(f'/b/{comment.blog_category}/{comment.blog_template_name}/#comments')
+    return redirect(f'/b/{comment.blog_template_name}/#comments')
+
+
+def delete_comment(request, comment_id):
+    """Delete a comment (author or staff only)."""
+    comment = get_object_or_404(BlogComment, id=comment_id)
+    
+    # Check permissions
+    can_delete = (
+        request.user.is_staff or 
+        (request.user.is_authenticated and comment.author == request.user)
+    )
+    
+    if not can_delete:
+        messages.error(request, 'You do not have permission to delete this comment.')
+        if comment.blog_category:
+            return redirect(f'/b/{comment.blog_category}/{comment.blog_template_name}/#comments')
+        return redirect(f'/b/{comment.blog_template_name}/#comments')
+    
+    # Store blog info before deletion
+    template_name = comment.blog_template_name
+    category = comment.blog_category
+    
+    # Delete the comment (will cascade delete replies)
+    comment.delete()
+    messages.success(request, 'Comment deleted successfully.')
+    
+    # Redirect back to blog post
+    if category:
+        return redirect(f'/b/{category}/{template_name}/#comments')
+    return redirect(f'/b/{template_name}/#comments')
