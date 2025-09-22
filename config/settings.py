@@ -135,6 +135,9 @@ ACCOUNT_SESSION_REMEMBER = True
 ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*']
 ACCOUNT_UNIQUE_EMAIL = True
+# Disable signup/registration
+ACCOUNT_ALLOW_REGISTRATION = False
+ACCOUNT_ADAPTER = 'accounts.adapters.NoSignupAccountAdapter'
 
 # AWS S3 Configuration (Always use S3)
 # AWS Settings
