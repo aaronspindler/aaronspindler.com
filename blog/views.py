@@ -11,7 +11,7 @@ from pages.models import PageVisit
 from pages.decorators import track_page_visit
 from blog.utils import get_blog_from_template_name, get_all_blog_posts
 from blog.knowledge_graph import build_knowledge_graph, get_post_graph
-from blog.models import BlogComment
+from blog.models import BlogComment, CommentVote
 from blog.forms import CommentForm, ReplyForm
 
 import os
@@ -41,6 +41,15 @@ def render_blog_template(request, template_name, category=None):
         
         # Get approved comments for this blog post
         comments = BlogComment.get_approved_comments(template_name, category)
+        
+        # Add user vote information to each comment
+        if request.user.is_authenticated:
+            for comment in comments:
+                comment.user_vote = comment.get_user_vote(request.user)
+                # Also add user vote to replies
+                for reply in comment.get_replies():
+                    reply.user_vote = reply.get_user_vote(request.user)
+        
         blog_data['comments'] = comments
         blog_data['comment_count'] = comments.count()
         
@@ -483,3 +492,62 @@ def delete_comment(request, comment_id):
     if category:
         return redirect(f'/b/{category}/{template_name}/#comments')
     return redirect(f'/b/{template_name}/#comments')
+
+
+@require_http_methods(["POST"])
+def vote_comment(request, comment_id):
+    """Handle upvote/downvote on a comment."""
+    # Check if user is authenticated
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+    
+    # Get the comment
+    try:
+        comment = BlogComment.objects.get(id=comment_id, status='approved')
+    except BlogComment.DoesNotExist:
+        return JsonResponse({'error': 'Comment not found'}, status=404)
+    
+    # Get vote type from request
+    vote_type = request.POST.get('vote_type')
+    if vote_type not in ['upvote', 'downvote']:
+        return JsonResponse({'error': 'Invalid vote type'}, status=400)
+    
+    # Check if user already voted on this comment
+    try:
+        existing_vote = CommentVote.objects.get(comment=comment, user=request.user)
+        
+        if existing_vote.vote_type == vote_type:
+            # User is clicking the same vote button - remove the vote
+            existing_vote.delete()
+            action = 'removed'
+            user_vote = None
+        else:
+            # User is changing their vote
+            existing_vote.vote_type = vote_type
+            existing_vote.save()
+            action = 'changed'
+            user_vote = vote_type
+    except CommentVote.DoesNotExist:
+        # Create new vote
+        CommentVote.objects.create(
+            comment=comment,
+            user=request.user,
+            vote_type=vote_type,
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+        action = 'added'
+        user_vote = vote_type
+    
+    # Update vote counts (already done by CommentVote.save() but ensure it's current)
+    comment.update_vote_counts()
+    comment.refresh_from_db()
+    
+    # Return updated vote data
+    return JsonResponse({
+        'status': 'success',
+        'action': action,
+        'upvotes': comment.upvotes,
+        'downvotes': comment.downvotes,
+        'score': comment.score,
+        'user_vote': user_vote
+    })

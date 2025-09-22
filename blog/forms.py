@@ -38,7 +38,7 @@ class CommentForm(forms.ModelForm):
             })
         }
         labels = {
-            'content': 'Your Comment',
+            'content': '',
             'author_name': 'Name',
             'author_email': 'Email'
         }

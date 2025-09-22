@@ -9,7 +9,8 @@ from .views import (
     submit_comment,
     reply_to_comment,
     moderate_comment,
-    delete_comment
+    delete_comment,
+    vote_comment
 )
 
 urlpatterns = [
@@ -23,6 +24,7 @@ urlpatterns = [
     path("comment/<int:comment_id>/reply/", reply_to_comment, name="reply_to_comment"),
     path("comment/<int:comment_id>/moderate/", moderate_comment, name="moderate_comment"),
     path("comment/<int:comment_id>/delete/", delete_comment, name="delete_comment"),
+    path("comment/<int:comment_id>/vote/", vote_comment, name="vote_comment"),
     
     # Knowledge graph API routes
     path("api/knowledge-graph/", knowledge_graph_api, name="knowledge_graph_api"),

@@ -2,16 +2,43 @@
 <!-- Recursive comment template -->
 <div class="comment {% if is_reply %}reply reply-depth-{{ depth }}{% endif %}" id="comment-{{ comment.id }}">
   <div class="comment-header">
-    <span class="comment-author">
-      {% if comment.author and comment.author.is_staff %}
-        <span class="staff-badge">Staff</span>
+    <div class="comment-header-left">
+      <span class="comment-author">
+        {% if comment.author and comment.author.is_staff %}
+          <span class="staff-badge">Staff</span>
+        {% endif %}
+        {{ comment.get_author_display }}
+      </span>
+      <span class="comment-date">{{ comment.created_at|date:"F j, Y g:i A" }}</span>
+      {% if comment.is_edited %}
+      <span class="comment-edited">(edited)</span>
       {% endif %}
-      {{ comment.get_author_display }}
-    </span>
-    <span class="comment-date">{{ comment.created_at|date:"F j, Y g:i A" }}</span>
-    {% if comment.is_edited %}
-    <span class="comment-edited">(edited)</span>
-    {% endif %}
+    </div>
+    <div class="comment-header-right">
+      <div class="comment-votes" data-comment-id="{{ comment.id }}">
+        <button class="vote-btn upvote {% if comment.user_vote == 'upvote' %}active{% endif %}" 
+                data-vote-type="upvote"
+                onclick="voteComment({{ comment.id }}, 'upvote')"
+                {% if not user.is_authenticated %}title="Login to vote"{% endif %}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 19V6M12 6l-7 7M12 6l7 7"></path>
+          </svg>
+        </button>
+        
+        <span class="vote-score {% if comment.score > 0 %}positive{% elif comment.score < 0 %}negative{% endif %}" data-comment-id="{{ comment.id }}">
+          {% if comment.score > 0 %}+{% endif %}{{ comment.score|default:0 }}
+        </span>
+        
+        <button class="vote-btn downvote {% if comment.user_vote == 'downvote' %}active{% endif %}" 
+                data-vote-type="downvote"
+                onclick="voteComment({{ comment.id }}, 'downvote')"
+                {% if not user.is_authenticated %}title="Login to vote"{% endif %}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v13M12 18l7-7M12 18l-7-7"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
   </div>
   
   <div class="comment-content">

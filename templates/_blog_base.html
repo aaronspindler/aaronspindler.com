@@ -122,6 +122,81 @@
     }
   }
   
+  function voteComment(commentId, voteType) {
+    // Check if user is authenticated (basic check)
+    {% if not user.is_authenticated %}
+    alert('Please login to vote on comments.');
+    window.location.href = '{% url "account_login" %}?next=' + encodeURIComponent(window.location.pathname + '#comment-' + commentId);
+    return;
+    {% endif %}
+    
+    // Get CSRF token
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    
+    // Send vote request
+    fetch('/comment/' + commentId + '/vote/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': csrfToken,
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: 'vote_type=' + voteType
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success') {
+        // Update UI
+        var votesContainer = document.querySelector('.comment-votes[data-comment-id="' + commentId + '"]');
+        var scoreElement = document.querySelector('.vote-score[data-comment-id="' + commentId + '"]');
+        
+        if (votesContainer) {
+          // Update button states
+          var upvoteBtn = votesContainer.querySelector('.vote-btn.upvote');
+          var downvoteBtn = votesContainer.querySelector('.vote-btn.downvote');
+          
+          // Remove active classes
+          if (upvoteBtn) upvoteBtn.classList.remove('active');
+          if (downvoteBtn) downvoteBtn.classList.remove('active');
+          
+          // Add active class to current vote
+          if (data.user_vote === 'upvote' && upvoteBtn) {
+            upvoteBtn.classList.add('active');
+          } else if (data.user_vote === 'downvote' && downvoteBtn) {
+            downvoteBtn.classList.add('active');
+          }
+        }
+        
+        // Update score in header
+        if (scoreElement) {
+          var scoreText = data.score > 0 ? '+' + data.score : data.score.toString();
+          scoreElement.innerHTML = scoreText;
+          
+          // Update color classes
+          scoreElement.classList.remove('positive', 'negative');
+          if (data.score > 0) {
+            scoreElement.classList.add('positive');
+          } else if (data.score < 0) {
+            scoreElement.classList.add('negative');
+          }
+          
+          // Add a subtle animation to the score
+          scoreElement.style.transition = 'transform 0.2s ease';
+          scoreElement.style.transform = 'scale(1.1)';
+          setTimeout(() => {
+            scoreElement.style.transform = 'scale(1)';
+          }, 200);
+        }
+      } else if (data.error) {
+        alert('Error: ' + data.error);
+      }
+    })
+    .catch(error => {
+      console.error('Error voting:', error);
+      alert('Failed to vote. Please try again.');
+    });
+  }
+  
   // Character counter for main comment form
   document.addEventListener('DOMContentLoaded', function() {
     var mainTextarea = document.querySelector('.comment-form .comment-textarea');

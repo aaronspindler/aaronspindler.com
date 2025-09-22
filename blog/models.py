@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from django.core.validators import MaxLengthValidator
+from django.db.models import Sum
 
 
 class BlogComment(models.Model):
@@ -101,6 +102,11 @@ class BlogComment(models.Model):
     # Edit tracking
     is_edited = models.BooleanField(default=False)
     edited_at = models.DateTimeField(null=True, blank=True)
+    
+    # Vote tracking (cached for performance)
+    upvotes = models.IntegerField(default=0, help_text="Cached count of upvotes")
+    downvotes = models.IntegerField(default=0, help_text="Cached count of downvotes")
+    score = models.IntegerField(default=0, help_text="Net score (upvotes - downvotes)")
     
     class Meta:
         ordering = ['-created_at']
@@ -202,3 +208,80 @@ class BlogComment(models.Model):
     def get_pending_count(cls):
         """Get the count of pending comments for admin notification"""
         return cls.objects.filter(status='pending').count()
+    
+    def update_vote_counts(self):
+        """Update the cached vote counts from CommentVote records"""
+        from django.db.models import Count, Q
+        
+        votes = CommentVote.objects.filter(comment=self).aggregate(
+            upvotes=Count('id', filter=Q(vote_type='upvote')),
+            downvotes=Count('id', filter=Q(vote_type='downvote'))
+        )
+        
+        self.upvotes = votes['upvotes'] or 0
+        self.downvotes = votes['downvotes'] or 0
+        self.score = self.upvotes - self.downvotes
+        self.save(update_fields=['upvotes', 'downvotes', 'score'])
+    
+    def get_user_vote(self, user):
+        """Get the current user's vote on this comment"""
+        if not user or not user.is_authenticated:
+            return None
+        
+        try:
+            vote = CommentVote.objects.get(comment=self, user=user)
+            return vote.vote_type
+        except CommentVote.DoesNotExist:
+            return None
+
+
+class CommentVote(models.Model):
+    """Model to track individual votes on comments"""
+    
+    VOTE_CHOICES = [
+        ('upvote', 'Upvote'),
+        ('downvote', 'Downvote'),
+    ]
+    
+    comment = models.ForeignKey(
+        BlogComment,
+        on_delete=models.CASCADE,
+        related_name='votes'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='comment_votes'
+    )
+    vote_type = models.CharField(
+        max_length=10,
+        choices=VOTE_CHOICES
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Track IP for anonymous voting in the future
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text="IP address for anonymous voting tracking"
+    )
+    
+    class Meta:
+        # Ensure one vote per user per comment
+        unique_together = [('comment', 'user')]
+        indexes = [
+            models.Index(fields=['comment', 'user']),
+            models.Index(fields=['comment', 'vote_type']),
+        ]
+        verbose_name = 'Comment Vote'
+        verbose_name_plural = 'Comment Votes'
+    
+    def __str__(self):
+        return f"{self.user.username} {self.vote_type}d {self.comment}"
+    
+    def save(self, *args, **kwargs):
+        """Update comment vote counts when a vote is saved"""
+        super().save(*args, **kwargs)
+        # Update the cached counts on the comment
+        self.comment.update_vote_counts()
