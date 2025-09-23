@@ -25,13 +25,6 @@ def get_blog_from_template_name(template_name, load_content=True, category=None)
     
     blog_content = render_to_string(template_path) if load_content else ""
     
-    # These were removed because they don't actually work on the deployed server
-    # blog_post_path = os.path.join(settings.BASE_DIR, 'templates', 'blog', f'{template_name}.html')
-    # created_timestamp = os.path.getctime(blog_post_path)
-    # created_at = str(datetime.datetime.fromtimestamp(created_timestamp).strftime('%Y-%m-%d'))
-    # updated_timestamp = os.path.getmtime(blog_post_path)
-    # updated_at = str(datetime.datetime.fromtimestamp(updated_timestamp).strftime('%Y-%m-%d'))
-    
     # Adjust GitHub link to include category if present
     if category:
         github_path = f"templates/blog/{category}/{template_name}.html"
@@ -45,11 +38,6 @@ def get_blog_from_template_name(template_name, load_content=True, category=None)
         "blog_content": blog_content,
         "category": category,
         "github_link": f"https://github.com/aaronspindler/aaronspindler.com/commits/main/{github_path}",
-        
-        # "created_timestamp": created_timestamp,
-        # "updated_timestamp": updated_timestamp,
-        # "created_at": created_at,
-        # "updated_at": updated_at,
     }
 
 def find_blog_template(template_name):
