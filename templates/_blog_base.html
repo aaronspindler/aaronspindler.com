@@ -101,7 +101,7 @@
     <div class="comments-list">
       {% for comment in comments %}
         {% with is_reply=False depth=0 %}
-          {% include "blog/comment_thread.html" %}
+          {% include "components/comment_thread.html" %}
         {% endwith %}
       {% empty %}
       <p class="no-comments">No comments yet. Be the first to share your thoughts!</p>

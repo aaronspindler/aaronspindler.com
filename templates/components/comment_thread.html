@@ -84,7 +84,7 @@
   <div class="replies">
     {% for reply in comment.get_replies %}
       {% with comment=reply is_reply=True depth=depth|add:1 %}
-        {% include "blog/comment_thread.html" %}
+        {% include "components/comment_thread.html" %}
       {% endwith %}
     {% endfor %}
   </div>
