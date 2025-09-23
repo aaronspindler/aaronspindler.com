@@ -468,7 +468,7 @@ class GraphBuilder:
             blog_data = get_blog_from_template_name(template_name, load_content=False, category=category)
             return blog_data['blog_title']
         except Exception:
-            return template_name.replace('_', ' ').title()
+            return template_name.replace('_', ' ')  # Preserve original case from filename
     
     def _calculate_graph_metrics(self, nodes: Dict, edges: List[Dict], external_domains: Dict) -> Dict:
         """Calculate various graph metrics."""

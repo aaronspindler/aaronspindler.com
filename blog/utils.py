@@ -7,7 +7,7 @@ def get_blog_from_template_name(template_name, load_content=True, category=None)
     """Get blog data from template name, with optional category."""
     # Extract entry number and title
     entry_number = template_name.split("_")[0]
-    blog_title = template_name.replace("_", " ").title()
+    blog_title = template_name.replace("_", " ")  # Preserve original case from filename
     
     # Determine the template path based on category
     if category:
