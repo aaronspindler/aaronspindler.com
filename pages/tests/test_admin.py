@@ -26,7 +26,7 @@ class PageVisitAdminTest(TestCase):
         
     def test_list_display_fields(self):
         """Test that list display shows correct fields."""
-        expected_fields = ['page_name', 'ip_address', 'created_at', 'geo_data']
+        expected_fields = ('page_name', 'ip_address', 'created_at', 'geo_data')
         self.assertEqual(self.admin.list_display, expected_fields)
         
     def test_list_filter_fields(self):
@@ -196,10 +196,10 @@ class PageVisitAdminTest(TestCase):
         request.user = self.superuser
         
         self.admin.geolocate_ips(request)
-        
+
         # Should only process the IP without geo data
-        call_args = mock_post.call_args[0][0]
-        ips_sent = json.loads(call_args)
+        call_kwargs = mock_post.call_args.kwargs
+        ips_sent = json.loads(call_kwargs['data'])
         self.assertEqual(ips_sent, ['8.8.4.4'])
         
     @patch('pages.admin.requests.post')

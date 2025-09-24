@@ -65,8 +65,23 @@ class AlbumDetailViewTestCase(TestCase):
         self.private_album.photos.add(self.photo1)
     
     def _create_test_photo(self, title):
-        """Helper to create a test photo."""
-        return PhotoFactory.create_photo(title=title)
+        """Helper to create a test photo with unique image."""
+        # Create unique image to avoid duplicate detection
+        img = Image.new('RGB', (100, 100), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
+        img_io = BytesIO()
+        img.save(img_io, format='JPEG')
+        img_io.seek(0)
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        test_image = SimpleUploadedFile(
+            name=f'{title.lower().replace(" ", "_")}.jpg',
+            content=img_io.getvalue(),
+            content_type='image/jpeg'
+        )
+
+        photo = Photo(title=title, image=test_image)
+        photo.save(skip_duplicate_check=True)
+        return photo
     
     def test_public_album_anonymous_access(self):
         """Test anonymous users can access public albums."""
@@ -484,8 +499,23 @@ class AlbumDownloadStatusViewTestCase(TestCase):
         self.album.photos.add(self.photo1, self.photo2)
     
     def _create_test_photo(self, title):
-        """Helper to create a test photo."""
-        return PhotoFactory.create_photo(title=title)
+        """Helper to create a test photo with unique image."""
+        # Create unique image to avoid duplicate detection
+        img = Image.new('RGB', (100, 100), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
+        img_io = BytesIO()
+        img.save(img_io, format='JPEG')
+        img_io.seek(0)
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        test_image = SimpleUploadedFile(
+            name=f'{title.lower().replace(" ", "_")}.jpg',
+            content=img_io.getvalue(),
+            content_type='image/jpeg'
+        )
+
+        photo = Photo(title=title, image=test_image)
+        photo.save(skip_duplicate_check=True)
+        return photo
     
     def test_status_with_both_zips(self):
         """Test status when both zip files exist."""

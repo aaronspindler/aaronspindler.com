@@ -14,7 +14,7 @@ class VersionedCssTemplateTagTest(TestCase):
     def setUp(self):
         # Create a temporary directory for testing
         self.temp_dir = tempfile.mkdtemp()
-        self.static_css_dir = os.path.join(self.temp_dir, 'css')
+        self.static_css_dir = os.path.join(self.temp_dir, 'static', 'css')
         os.makedirs(self.static_css_dir)
         
     def tearDown(self):

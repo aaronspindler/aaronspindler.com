@@ -88,11 +88,15 @@ class BlogViewsTest(TestCase, TestDataMixin):
         }
         mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
 
-        # Create pending comments
+        # Create pending comments for the specific blog post
         BlogCommentFactory.create_pending_comment(
+            blog_template_name='0001_test_post',
+            blog_category=None,
             content='Pending 1'
         )
         BlogCommentFactory.create_pending_comment(
+            blog_template_name='0001_test_post',
+            blog_category=None,
             content='Pending 2'
         )
 
@@ -544,8 +548,9 @@ class KnowledgeGraphAPITest(TestCase):
         mock_build_graph.side_effect = Exception('Test error')
 
         response = self.client.get('/api/knowledge-graph/')
-        
+
         self.assertEqual(response.status_code, 500)
         data = json.loads(response.content)
         self.assertEqual(data['status'], 'error')
-        self.assertIn('Test error', data['error'])
+        # After security fix, error messages are generic
+        self.assertEqual(data['error'], 'An error occurred while processing your request')
