@@ -411,7 +411,9 @@ class GraphBuilder:
             return subgraph
             
         except Exception as e:
-            logger.error(f"Error getting post connections for {template_name}: {str(e)}")
+            # Sanitize template_name to prevent log injection
+            safe_template_name = str(template_name).replace('\n', '').replace('\r', '')[:100]
+            logger.error(f"Error getting post connections for {safe_template_name}: {str(e)}")
             return {
                 'nodes': [],
                 'edges': [],

@@ -18,7 +18,11 @@ def track_page_visit(view_func):
             ip_address = _get_client_ip_safe(request)
             user_agent = request.META.get('HTTP_USER_AGENT', 'unknown')[:255]  # Limit length for DB field
             
-            logger.info(f"Page visit: {request.path} | IP: {ip_address} | Method: {request.method} | User-Agent: {user_agent}")
+            # Sanitize user inputs to prevent log injection
+            safe_path = request.path.replace('\n', '').replace('\r', '')[:255]
+            safe_ip = ip_address.replace('\n', '').replace('\r', '')
+            safe_ua = user_agent.replace('\n', '').replace('\r', '')
+            logger.info(f"Page visit: {safe_path} | IP: {safe_ip} | Method: {request.method} | User-Agent: {safe_ua}")
             
             # Store in database with specific error handling
             try:
@@ -26,7 +30,8 @@ def track_page_visit(view_func):
                     ip_address=ip_address,
                     page_name=request.path[:255]  # Ensure it fits in DB field
                 )
-                logger.debug(f"Page visit recorded in database for {request.path}")
+                safe_path = request.path.replace('\n', '').replace('\r', '')[:255]
+                logger.debug(f"Page visit recorded in database for {safe_path}")
             except (OperationalError, DatabaseError) as e:
                 # Database connection issues (like DNS resolution failures)
                 logger.error(f"Database connection error when recording page visit: {e.__class__.__name__}: {e}")
