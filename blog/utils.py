@@ -50,30 +50,41 @@ def get_blog_from_template_name(template_name, load_content=True, category=None)
 def find_blog_template(template_name):
     """
     Find a blog template by name, searching through all categories.
-    
+
     Searches first in the root blog directory, then in category subdirectories.
-    
+
     Args:
         template_name: Name of the template file (without .html extension)
-        
+
     Returns:
         Relative template path for Django's template loader, or None if not found
     """
+    # Sanitize template_name to prevent directory traversal
+    import re
+    # Allow only alphanumeric, dash, underscore characters
+    if not re.match(r'^[a-zA-Z0-9_-]+$', template_name):
+        return None
+
+    # Further protection: use basename to strip any directory components
+    template_name = os.path.basename(template_name)
+
     blog_templates_path = os.path.join(settings.BASE_DIR, 'templates', 'blog')
-    
+
     # Check root blog directory first
     root_path = os.path.join(blog_templates_path, f'{template_name}.html')
-    if os.path.exists(root_path):
+    # Ensure the resolved path is within the expected directory
+    if os.path.exists(root_path) and os.path.commonpath([root_path, blog_templates_path]) == blog_templates_path:
         return f"blog/{template_name}.html"
-    
+
     # Search in category subdirectories
     for category in os.listdir(blog_templates_path):
         category_path = os.path.join(blog_templates_path, category)
         if os.path.isdir(category_path):
             file_path = os.path.join(category_path, f'{template_name}.html')
-            if os.path.exists(file_path):
+            # Ensure the resolved path is within the expected directory
+            if os.path.exists(file_path) and os.path.commonpath([file_path, blog_templates_path]) == blog_templates_path:
                 return f"blog/{category}/{template_name}.html"
-    
+
     return None
 
 def get_all_blog_posts():

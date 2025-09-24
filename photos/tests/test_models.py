@@ -96,11 +96,11 @@ class PhotoModelTestCase(TestCase):
             (0.5, 0.5)  # focal point
         )
         
-        # Create photo
+        # Create photo with skip_duplicate_check to avoid duplicate check but still process image
         photo = Photo(title="Test", image=self.test_image)
-        photo.save()
-        
-        # Verify processing was called
+        photo.save(skip_duplicate_check=True)
+
+        # Verify processing was called (hashes are computed in _process_image regardless of skip_duplicate_check)
         mock_hashes.assert_called_once()
         mock_metadata.assert_called_once()
         mock_exif.assert_called_once()
@@ -120,12 +120,13 @@ class PhotoModelTestCase(TestCase):
     @patch('photos.models.DuplicateDetector.find_duplicates')
     def test_photo_duplicate_detection_raises_error(self, mock_find_duplicates):
         """Test that duplicate detection raises ValidationError for exact duplicates."""
-        # Create existing photo
-        existing_photo = Photo.objects.create(
+        # Create existing photo with skip_duplicate_check to avoid issues
+        existing_photo = Photo(
             title="Existing Photo",
             image=self.test_image,
             file_hash='existinghash'
         )
+        existing_photo.save(skip_duplicate_check=True)
         
         # Setup mock to return exact duplicate
         mock_find_duplicates.return_value = {
@@ -146,11 +147,12 @@ class PhotoModelTestCase(TestCase):
     def test_photo_skip_duplicate_check(self, mock_find_duplicates):
         """Test that duplicate check can be skipped."""
         # Setup mock to return exact duplicate
-        existing_photo = Photo.objects.create(
+        existing_photo = Photo(
             title="Existing Photo",
             image=self.test_image,
             file_hash='existinghash'
         )
+        existing_photo.save(skip_duplicate_check=True)
         
         mock_find_duplicates.return_value = {
             'exact_duplicates': [existing_photo],
@@ -181,45 +183,54 @@ class PhotoModelTestCase(TestCase):
         photo3 = Photo(pk=3)
         self.assertEqual(str(photo3), "Photo 3")
     
-    @patch('photos.models.DuplicateDetector.compare_hashes')
-    def test_get_similar_images(self, mock_compare):
+    @patch('photos.models.Photo.objects')
+    def test_get_similar_images(self, mock_objects):
         """Test finding similar images."""
         # Create test photos
-        photo1 = Photo.objects.create(
+        photo1 = Photo(
+            pk=1,
             title="Photo 1",
-            image=self.test_image,
             perceptual_hash='hash1'
         )
-        photo2 = Photo.objects.create(
+        photo2 = Photo(
+            pk=2,
             title="Photo 2",
-            image=self.test_image,
             perceptual_hash='hash2'
         )
-        photo3 = Photo.objects.create(
+        photo3 = Photo(
+            pk=3,
             title="Photo 3",
-            image=self.test_image,
             perceptual_hash='hash3'
         )
-        
-        # Setup mock comparisons
-        def compare_side_effect(hash1, hash2, threshold=5):
-            if hash1 == 'hash1' and hash2 == 'hash2':
-                return True, 3  # Similar with distance 3
-            elif hash1 == 'hash1' and hash2 == 'hash3':
-                return True, 4  # Similar with distance 4
-            return False, 10
-        
-        mock_compare.side_effect = compare_side_effect
-        
-        # Get similar images
-        similar = photo1.get_similar_images(threshold=5)
-        
-        # Verify results are sorted by distance
-        self.assertEqual(len(similar), 2)
-        self.assertEqual(similar[0][0], photo2)
-        self.assertEqual(similar[0][1], 3)
-        self.assertEqual(similar[1][0], photo3)
-        self.assertEqual(similar[1][1], 4)
+
+        # Mock the queryset to return only our test photos
+        mock_qs = Mock()
+        mock_qs.exclude.return_value = mock_qs
+        mock_qs.__iter__ = Mock(return_value=iter([photo2, photo3]))
+
+        mock_objects.exclude.return_value = mock_qs
+
+        # Mock the DuplicateDetector.compare_hashes
+        with patch('photos.models.DuplicateDetector.compare_hashes') as mock_compare:
+            # Setup mock comparisons
+            def compare_side_effect(hash1, hash2, threshold=5):
+                if hash1 == 'hash1' and hash2 == 'hash2':
+                    return True, 3  # Similar with distance 3
+                elif hash1 == 'hash1' and hash2 == 'hash3':
+                    return True, 4  # Similar with distance 4
+                return False, 10
+
+            mock_compare.side_effect = compare_side_effect
+
+            # Get similar images
+            similar = photo1.get_similar_images(threshold=5)
+
+            # Verify results are sorted by distance
+            self.assertEqual(len(similar), 2)
+            self.assertEqual(similar[0][0], photo2)
+            self.assertEqual(similar[0][1], 3)
+            self.assertEqual(similar[1][0], photo3)
+            self.assertEqual(similar[1][1], 4)
     
     def test_get_image_url_different_sizes(self):
         """Test getting URLs for different image sizes."""
@@ -293,11 +304,11 @@ class PhotoAlbumModelTestCase(TestCase):
         """Set up test data."""
         self.test_image = self._create_test_image()
     
-    def _create_test_image(self):
+    def _create_test_image(self, size=(100, 100), color=(255, 0, 0), format='JPEG'):
         """Helper to create a test image."""
-        img = Image.new('RGB', (100, 100), color='red')
+        img = Image.new('RGB', size, color)
         img_io = BytesIO()
-        img.save(img_io, format='JPEG')
+        img.save(img_io, format=format)
         img_io.seek(0)
         return SimpleUploadedFile(
             name='test.jpg',
@@ -366,8 +377,13 @@ class PhotoAlbumModelTestCase(TestCase):
         """Test many-to-many relationship with photos."""
         # Create album and photos
         album = PhotoAlbum.objects.create(title="Test Album")
-        photo1 = Photo.objects.create(title="Photo 1", image=self.test_image)
-        photo2 = Photo.objects.create(title="Photo 2", image=self.test_image)
+        photo1 = Photo(title="Photo 1", image=self.test_image)
+        photo1.save(skip_duplicate_check=True)
+
+        # Use different image for photo2 to avoid duplicate detection
+        test_image_2 = self._create_test_image(color=(0, 255, 0))
+        photo2 = Photo(title="Photo 2", image=test_image_2)
+        photo2.save(skip_duplicate_check=True)
         
         # Add photos to album
         album.photos.add(photo1, photo2)
@@ -381,23 +397,30 @@ class PhotoAlbumModelTestCase(TestCase):
         self.assertIn(album, photo1.albums.all())
         self.assertIn(album, photo2.albums.all())
     
-    @patch('photos.models.PhotoAlbum.zip_file')
-    @patch('photos.models.PhotoAlbum.zip_file_optimized')
-    def test_get_download_url(self, mock_zip_optimized, mock_zip_original):
+    def test_get_download_url(self):
         """Test getting download URLs for album zips."""
         album = PhotoAlbum(allow_downloads=True)
-        
-        # Setup mocks
+
+        # Setup mock files with URL property
+        mock_zip_original = Mock()
+        mock_zip_original.name = 'test.zip'
         mock_zip_original.url = 'http://example.com/original.zip'
+
+        mock_zip_optimized = Mock()
+        mock_zip_optimized.name = 'test_optimized.zip'
         mock_zip_optimized.url = 'http://example.com/optimized.zip'
-        
+
+        # Assign mocked files to album
+        album.zip_file = mock_zip_original
+        album.zip_file_optimized = mock_zip_optimized
+
         # Test when downloads allowed
         self.assertEqual(album.get_download_url('original'), 'http://example.com/original.zip')
         self.assertEqual(album.get_download_url('optimized'), 'http://example.com/optimized.zip')
-        
+
         # Test default quality
         self.assertEqual(album.get_download_url(), 'http://example.com/optimized.zip')
-        
+
         # Test when downloads not allowed
         album.allow_downloads = False
         self.assertIsNone(album.get_download_url('original'))

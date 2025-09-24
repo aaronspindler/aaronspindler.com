@@ -31,12 +31,16 @@ python manage.py createsuperuser
 
 ### Testing
 ```bash
-# Run tests with parallel execution
-python manage.py test --parallel
+# Run tests locally (without parallel execution)
+python manage.py test
 
-# Run tests with coverage
-coverage run --source='.' manage.py test --no-input --parallel
+# Run tests with coverage locally (without parallel execution)
+coverage run --source='.' manage.py test --no-input
 coverage report
+
+# Run tests in CI/CD with parallel execution
+# Note: Only use --parallel flag in CI/CD environments, not locally
+python manage.py test --parallel
 
 # Security check
 safety check
@@ -170,7 +174,7 @@ Blog posts are HTML templates in `templates/blog/<category>/<filename>.html` wit
 
 ### Testing Approach
 - Django's built-in test framework
-- Parallel test execution supported
+- Parallel test execution supported (CI/CD only, not for local development)
 - Test files organized in app-specific `tests/` directories
 - Coverage reporting with coverage.py
 - CI/CD via GitHub Actions with PostgreSQL service container
