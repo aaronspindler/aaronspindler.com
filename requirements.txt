@@ -62,3 +62,4 @@ zope.event==6.0
 zope.interface==7.2
 Brotli
 coverage==7.6.10
+tblib==3.0.0

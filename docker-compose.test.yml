@@ -1,0 +1,252 @@
+services:
+  # LocalStack for AWS service mocking (S3, etc.)
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"  # LocalStack main endpoint
+      - "4510-4559:4510-4559"  # External service port range
+    environment:
+      - SERVICES=s3
+      - DEBUG=${LOCALSTACK_DEBUG:-0}
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - PERSISTENCE=0
+    volumes:
+      - "${TMPDIR:-/tmp}/localstack:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks:
+      - test_network
+
+  # PostgreSQL database for testing
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=test_user
+      - POSTGRES_PASSWORD=test_password
+      - POSTGRES_DB=test_aaronspindler
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    ports:
+      - "5433:5432"  # Use different port to avoid conflicts
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_aaronspindler"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - test_network
+
+  # Redis for caching and Celery broker
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"  # Use different port to avoid conflicts
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - test_network
+
+  # Web application (Django)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      sh -c "
+        echo 'Waiting for services to be healthy...' &&
+        while ! nc -z postgres 5432; do sleep 1; done &&
+        while ! nc -z redis 6379; do sleep 1; done &&
+        while ! nc -z localstack 4566; do sleep 1; done &&
+        echo 'Creating S3 buckets in LocalStack...' &&
+        aws --endpoint-url=http://localstack:4566 s3 mb s3://test-bucket || true &&
+        aws --endpoint-url=http://localstack:4566 s3api put-bucket-cors --bucket test-bucket --cors-configuration file:///code/test-cors.json || true &&
+        echo 'Running migrations...' &&
+        python manage.py migrate --no-input &&
+        echo 'Building CSS...' &&
+        python manage.py build_css || true &&
+        echo 'Collecting static files...' &&
+        python manage.py collectstatic --no-input || true &&
+        echo 'Starting test server...' &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+    volumes:
+      - .:/code
+      - static_volume:/code/staticfiles
+      - media_volume:/code/media
+    ports:
+      - "8001:8000"  # Use different port to avoid conflicts
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings_test
+      - SECRET_KEY=test-secret-key-for-testing-only
+      - DEBUG=True
+      - DATABASE_URL=postgres://test_user:test_password@postgres:5432/test_aaronspindler
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_STORAGE_BUCKET_NAME=test-bucket
+      - AWS_S3_REGION_NAME=us-east-1
+      - AWS_S3_ENDPOINT_URL=http://localstack:4566
+      - AWS_S3_USE_SSL=false
+      - AWS_S3_VERIFY=false
+      - USE_LOCALSTACK=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    networks:
+      - test_network
+
+  # Celery worker for background tasks
+  celery_worker:
+    build:
+      context: .
+      dockerfile: celery.Dockerfile
+    command: celery -A config worker -l info --concurrency=2
+    volumes:
+      - .:/code
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings_test
+      - SECRET_KEY=test-secret-key-for-testing-only
+      - DATABASE_URL=postgres://test_user:test_password@postgres:5432/test_aaronspindler
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_STORAGE_BUCKET_NAME=test-bucket
+      - AWS_S3_REGION_NAME=us-east-1
+      - AWS_S3_ENDPOINT_URL=http://localstack:4566
+      - AWS_S3_USE_SSL=false
+      - AWS_S3_VERIFY=false
+      - USE_LOCALSTACK=true
+    depends_on:
+      - postgres
+      - redis
+      - localstack
+      - web
+    networks:
+      - test_network
+
+  # Celery beat for scheduled tasks
+  celery_beat:
+    build:
+      context: .
+      dockerfile: celerybeat.Dockerfile
+    command: celery -A config beat -l info
+    volumes:
+      - .:/code
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings_test
+      - SECRET_KEY=test-secret-key-for-testing-only
+      - DATABASE_URL=postgres://test_user:test_password@postgres:5432/test_aaronspindler
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - postgres
+      - redis
+      - celery_worker
+    networks:
+      - test_network
+
+  # Flower for monitoring Celery (optional, but useful for debugging)
+  flower:
+    build:
+      context: .
+      dockerfile: flower.Dockerfile
+    command: celery -A config flower --port=5555
+    ports:
+      - "5556:5555"  # Use different port to avoid conflicts
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings_test
+      - SECRET_KEY=test-secret-key-for-testing-only
+      - DATABASE_URL=postgres://test_user:test_password@postgres:5432/test_aaronspindler
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - redis
+      - celery_worker
+    networks:
+      - test_network
+
+  # Test runner service
+  test_runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      sh -c "
+        echo 'Waiting for services to be ready...' &&
+        sleep 10 &&
+        echo 'Installing AWS CLI...' &&
+        pip install awscli --no-cache-dir &&
+        echo 'Creating S3 buckets in LocalStack...' &&
+        aws --endpoint-url=http://localstack:4566 s3 mb s3://test-bucket || true &&
+        echo 'Setting bucket ACL...' &&
+        aws --endpoint-url=http://localstack:4566 s3api put-bucket-acl --bucket test-bucket --acl public-read || true &&
+        echo 'Running migrations...' &&
+        python manage.py migrate --settings=config.settings_test --no-input &&
+        echo 'Running tests...' &&
+        python manage.py test --settings=config.settings_test --keepdb --verbosity=2
+      "
+    volumes:
+      - .:/code
+      - static_volume:/code/staticfiles
+      - media_volume:/code/media
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings_test
+      - SECRET_KEY=test-secret-key-for-testing-only
+      - DEBUG=False
+      - DATABASE_URL=postgres://test_user:test_password@postgres:5432/test_aaronspindler
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_STORAGE_BUCKET_NAME=test-bucket
+      - AWS_S3_REGION_NAME=us-east-1
+      - AWS_S3_ENDPOINT_URL=http://localstack:4566
+      - AWS_S3_USE_SSL=false
+      - AWS_S3_VERIFY=false
+      - USE_LOCALSTACK=true
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    networks:
+      - test_network
+    profiles:
+      - test
+
+volumes:
+  postgres_test_data:
+  static_volume:
+  media_volume:
+
+networks:
+  test_network:
+    driver: bridge
