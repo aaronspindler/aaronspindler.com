@@ -42,6 +42,21 @@ coverage report
 safety check
 ```
 
+### CSS and JavaScript Build
+```bash
+# Build and optimize CSS
+npm run build:css
+
+# Build critical CSS
+npm run build:css:critical
+
+# Build and minify JavaScript
+npm run build:js
+
+# Build all assets
+npm run build:all
+```
+
 ### Knowledge Graph Commands
 ```bash
 # Rebuild knowledge graph cache
@@ -53,8 +68,17 @@ python manage.py generate_knowledge_graph_screenshot --width 2400 --height 1600 
 
 ### Photo Management
 ```bash
-# Extract EXIF data from photos
-python manage.py extract_exif_data
+# Generate photo album zips
+python manage.py generate_album_zips
+```
+
+### Cache Management
+```bash
+# Clear all caches
+python manage.py clear_cache
+
+# Setup periodic tasks (for Celery)
+python manage.py setup_periodic_tasks
 ```
 
 ## Architecture Overview
@@ -64,12 +88,13 @@ python manage.py extract_exif_data
   - `settings.py`: Environment-based settings using django-environ
   - `urls.py`: Main URL routing
   - `storage_backends.py`: S3 storage configuration
+  - `celery.py`: Celery configuration for async tasks
 
 - **pages/**: Core website functionality
   - Page visit tracking with geo-location data
-  - Photo model with automatic image optimization (multiple sizes)
-  - EXIF metadata extraction
   - Custom decorators for visit tracking
+  - Context processors for resume settings
+  - Management commands for CSS/JS optimization
 
 - **blog/**: Blog system with unique features
   - Template-based blog posts stored in `templates/blog/`
@@ -77,7 +102,15 @@ python manage.py extract_exif_data
   - API endpoints for graph data and screenshots
   - Posts organized by category (personal, projects, reviews, tech)
 
+- **photos/**: Photo management system
+  - Photo model with automatic image optimization (multiple sizes)
+  - EXIF metadata extraction
+  - Album management with zip generation
+  - Private/public album support
+
 - **accounts/**: User authentication via django-allauth
+  - Custom user model
+  - Registration disabled by default (NoSignupAccountAdapter)
 
 ### Key Technical Features
 
@@ -85,29 +118,30 @@ python manage.py extract_exif_data
    - Builds interactive graph from blog post metadata
    - Uses Playwright for server-side screenshot generation
    - Caching system for performance
+   - LinkParser class for extracting internal/external links
+   - GraphBuilder for constructing graph structures
 
-2. **Image Optimization** (`pages/image_utils.py`)
-   - Automatic multi-resolution image generation (thumbnail, small, medium, large)
-   - EXIF data extraction and storage
-   - WebP format support
-
-3. **Static File Optimization**
-   - Custom `collectstatic_optimize` command
-   - Gzip compression for static assets
+2. **Static File Optimization**
+   - Custom `collectstatic_optimize` command with image compression
+   - CSS build pipeline with PostCSS, PurgeCSS, and critical CSS extraction
+   - JavaScript minification with Terser
+   - Brotli compression for static assets
    - WhiteNoise for serving in production
 
-4. **Blog Post System**
+3. **Blog Post System**
    - HTML templates as blog posts
    - Metadata extraction from templates
    - View count tracking per post
    - Category-based organization
+   - Template normalization for consistency
 
 ### Deployment Configuration
 - **Docker**: Multi-stage build with Playwright for screenshot generation
 - **Database**: PostgreSQL with psycopg3
 - **Storage**: AWS S3 support via django-storages
-- **Server**: Gunicorn with 5 workers
-- **Health checks**: Built-in Docker health check endpoint
+- **Server**: Gunicorn with 8 workers
+- **Cache**: Redis for caching and sessions
+- **Task Queue**: Celery with Redis broker
 
 ### Environment Variables
 Required environment variables (use django-environ):
@@ -119,6 +153,10 @@ Required environment variables (use django-environ):
   - `AWS_SECRET_ACCESS_KEY`
   - `AWS_STORAGE_BUCKET_NAME`
   - `AWS_S3_REGION_NAME` (optional, defaults to us-east-1)
+- `REDIS_URL`: Redis connection URL (for caching)
+- `CELERY_BROKER_URL`: Celery broker URL (defaults to REDIS_URL)
+- `RESUME_ENABLED`: Enable resume download feature
+- `RESUME_FILENAME`: Resume file name
 
 ### Blog Post Template Structure
 Blog posts are HTML templates in `templates/blog/<category>/<filename>.html` with metadata:
@@ -133,5 +171,13 @@ Blog posts are HTML templates in `templates/blog/<category>/<filename>.html` wit
 ### Testing Approach
 - Django's built-in test framework
 - Parallel test execution supported
+- Test files organized in app-specific `tests/` directories
 - Coverage reporting with coverage.py
 - CI/CD via GitHub Actions with PostgreSQL service container
+
+### Performance Optimizations
+- Graph data caching with 20-minute timeout
+- File modification time tracking for cache invalidation
+- Multi-resolution image generation (thumbnail, small, medium, large)
+- Static file compression and optimization
+- Database query optimization with select/prefetch related
