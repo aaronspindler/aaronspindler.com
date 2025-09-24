@@ -12,7 +12,7 @@ class PhotoAdmin(admin.ModelAdmin):
     list_display = ('image_preview', 'get_display_name', 'title', 'file_info', 'camera_info', 'has_duplicates', 'created_at')
     list_filter = ('created_at', 'updated_at', 'camera_make', 'camera_model')
     search_fields = ('title', 'description', 'original_filename', 'camera_make', 'camera_model', 'lens_model', 'file_hash', 'perceptual_hash')
-    list_editable = ('title',)  # Allow inline editing of titles in list view
+    list_editable = ('title',)
     list_display_links = ('image_preview', 'get_display_name')
     actions = ['add_to_album', 'find_duplicates_action']
     readonly_fields = (
@@ -113,14 +113,11 @@ class PhotoAdmin(admin.ModelAdmin):
         from django.contrib.admin.helpers import ActionForm
         from django import forms
         
-        # Get list of albums for the intermediate form
         albums = PhotoAlbum.objects.all()
         if not albums:
             messages.warning(request, "No albums exist. Please create an album first.")
             return
         
-        # For simplicity, add to the first album or show a message
-        # In production, you'd want to show a form to select the album
         selected = request.POST.getlist('_selected_action')
         if selected:
             messages.info(
@@ -169,10 +166,7 @@ class PhotoAdmin(admin.ModelAdmin):
         for label, image_field, dimensions in versions:
             if image_field:
                 try:
-                    # Check if the file actually exists before trying to access its properties
                     url = image_field.url
-                    
-                    # Get file size for each version
                     try:
                         file_size = image_field.size
                     except (ValueError, AttributeError, FileNotFoundError):
@@ -190,7 +184,6 @@ class PhotoAdmin(admin.ModelAdmin):
                         '''
                     )
                 except (ValueError, AttributeError, FileNotFoundError) as e:
-                    # File doesn't exist or can't generate URL
                     html_parts.append(
                         f'''<div style="display: inline-block; margin: 10px; text-align: center;">
                             <strong>{label}</strong><br>
@@ -209,16 +202,11 @@ class PhotoAdmin(admin.ModelAdmin):
         """Display file size and dimensions in list view."""
         try:
             if obj.file_size:
-                # Ensure size_mb is a plain float, not a SafeString
+                # Convert to plain float to avoid SafeString/format_html issues
                 size_mb = float(obj.file_size) / (1024 * 1024)
-                # Format the size first to avoid any issues with format_html
                 size_str = f"{size_mb:.1f}"
-                
-                # Ensure width and height are plain strings
                 width_str = str(int(obj.width)) if obj.width else '?'
                 height_str = str(int(obj.height)) if obj.height else '?'
-                
-                # Use format_html with pre-formatted strings
                 return format_html(
                     '<span>{} MB</span> • <span>{}×{}</span>',
                     size_str,
@@ -226,7 +214,6 @@ class PhotoAdmin(admin.ModelAdmin):
                     height_str
                 )
         except (TypeError, ValueError, AttributeError) as e:
-            # Log the error for debugging
             print(f"Error formatting file info for photo {obj.pk}: {e}")
             
         return "—"
@@ -268,8 +255,6 @@ class PhotoAdmin(admin.ModelAdmin):
         if obj.gps_latitude and obj.gps_longitude:
             lat_dir = 'N' if obj.gps_latitude >= 0 else 'S'
             lon_dir = 'E' if obj.gps_longitude >= 0 else 'W'
-            
-            # Create Google Maps link
             maps_url = f"https://www.google.com/maps?q={obj.gps_latitude},{obj.gps_longitude}"
             
             return format_html(
@@ -288,7 +273,6 @@ class PhotoAdmin(admin.ModelAdmin):
         if obj.exif_data:
             import json
             try:
-                # Pretty print the JSON data
                 formatted_json = json.dumps(obj.exif_data, indent=2, sort_keys=True)
                 return format_html(
                     '<pre style="background: #f5f5f5; padding: 10px; border-radius: 5px; '
@@ -360,7 +344,7 @@ class PhotoAdmin(admin.ModelAdmin):
         html_parts = ['<div style="background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffc107;">']
         html_parts.append('<strong>⚠️ Exact duplicates found:</strong><br/>')
         
-        for dup in duplicates[:5]:  # Show max 5 duplicates
+        for dup in duplicates[:5]:
             html_parts.append(
                 format_html(
                     '• <a href="/admin/photos/photo/{}/change/">Photo #{}</a>: "{}" (uploaded {})<br/>',
@@ -391,8 +375,9 @@ class PhotoAdmin(admin.ModelAdmin):
         html_parts = ['<div style="background: #e7f3ff; padding: 10px; border-radius: 5px; border: 1px solid #007bff;">']
         html_parts.append('<strong>Similar images found:</strong><br/>')
         
-        for photo, distance in similar[:5]:  # Show max 5 similar images
-            similarity = 100 - (distance * 100 / 64)  # Convert distance to similarity percentage
+        for photo, distance in similar[:5]:
+            # Convert Hamming distance to similarity percentage (64 bits total)
+            similarity = 100 - (distance * 100 / 64)
             html_parts.append(
                 format_html(
                     '• <a href="/admin/photos/photo/{}/change/">Photo #{}</a>: "{}" ({:.1f}% similar)<br/>',
@@ -464,7 +449,7 @@ class PhotoAdmin(admin.ModelAdmin):
                 
                 if result['skipped']:
                     skipped_msg = 'Skipped duplicates: '
-                    for filename, reason in result['skipped'][:5]:  # Show first 5
+                    for filename, reason in result['skipped'][:5]:
                         skipped_msg += f'\n• {filename}: {reason}'
                     if len(result['skipped']) > 5:
                         skipped_msg += f'\n... and {len(result["skipped"]) - 5} more'
@@ -472,7 +457,7 @@ class PhotoAdmin(admin.ModelAdmin):
                 
                 if result['errors']:
                     error_msg = 'Failed uploads: '
-                    for filename, error in result['errors'][:5]:  # Show first 5
+                    for filename, error in result['errors'][:5]:
                         error_msg += f'\n• {filename}: {error}'
                     if len(result['errors']) > 5:
                         error_msg += f'\n... and {len(result["errors"]) - 5} more'
@@ -494,7 +479,6 @@ class PhotoAdmin(admin.ModelAdmin):
         return render(request, 'admin/photos/photo/bulk_upload.html', context)
     
     def changelist_view(self, request, extra_context=None):
-        """Override to add bulk upload button."""
         extra_context = extra_context or {}
         extra_context['bulk_upload_url'] = reverse('admin:photos_photo_bulk_upload')
         return super().changelist_view(request, extra_context=extra_context)

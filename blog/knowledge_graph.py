@@ -17,35 +17,59 @@ from blog.utils import get_blog_from_template_name, get_all_blog_posts, find_blo
 
 logger = logging.getLogger(__name__)
 
-CACHE_TIMEOUT = 1200 # 20 minutes
+CACHE_TIMEOUT = 1200  # 20 minutes
 
 
 def normalize_template_name(template_name: str) -> str:
-    """Normalize template name to ensure consistent casing.
+    """
+    Normalize template names to lowercase for consistency.
     
-    Converts template names to lowercase to avoid duplicate nodes
-    caused by case differences between filesystem names and URL paths.
+    This prevents duplicate nodes in the graph caused by case differences
+    between filesystem names and URL paths (e.g., "About_Me" vs "about_me").
+    
+    Args:
+        template_name: The template name to normalize
+        
+    Returns:
+        Lowercase version of the template name
     """
     return template_name.lower() if template_name else template_name
 
 
 class LinkParser:
-    """Service for parsing HTML content and extracting links from blog posts."""
+    """
+    Service for parsing blog posts to extract internal and external links.
+    
+    This parser identifies links within blog content, categorizes them as
+    internal (to other blog posts) or external, and extracts surrounding
+    context for graph visualization.
+    """
     
     INTERNAL_BLOG_PATTERN = re.compile(r'/b/(\d{4}_[^/]+)/?')
     CACHE_TIMEOUT = CACHE_TIMEOUT
-    CONTEXT_LENGTH = 100
+    CONTEXT_LENGTH = 100  # Characters of context to extract around each link
     
     def __init__(self, base_url: str = ''):
         self.base_url = base_url.rstrip('/')
         
     def parse_blog_post(self, template_name: str, force_refresh: bool = False) -> Dict:
-        """Parse a single blog post and extract all links with context."""
-        # Normalize template name for consistent caching
+        """
+        Parse a blog post template and extract all links with their context.
+        
+        This method handles caching intelligently - it checks if the file has
+        been modified since the last parse and only re-parses if necessary.
+        
+        Args:
+            template_name: Name of the blog template to parse
+            force_refresh: If True, bypass cache and force re-parsing
+            
+        Returns:
+            Dict containing internal_links, external_links, and any parse_errors
+        """
         normalized_name = normalize_template_name(template_name)
         cache_key = f'blog:links:{normalized_name}'
         
-        # Check cache
+        # Use cached result if available and not stale
         if not force_refresh and not self._is_cache_stale(template_name, cache_key):
             cached_result = cache.get(cache_key)
             if cached_result:
@@ -56,10 +80,10 @@ class LinkParser:
             html_content = self._get_template_content(template_name)
             result = self._parse_html_content(html_content, normalized_name)
             
-            # Cache the result
+            # Cache the parsed result
             cache.set(cache_key, result, self.CACHE_TIMEOUT)
             
-            # Store cache metadata
+            # Store file modification time for cache staleness checking
             try:
                 template_path = Path(settings.BASE_DIR) / 'templates' / 'blog' / f'{template_name}.html'
                 if template_path.exists():
@@ -85,19 +109,25 @@ class LinkParser:
             }
     
     def _get_template_content(self, template_name: str) -> str:
-        """Get the raw HTML content from a blog template."""
+        """
+        Retrieve the raw HTML content from a blog template file.
+        
+        Attempts multiple strategies to find the template:
+        1. Use find_blog_template() helper to search categories
+        2. Try direct rendering if template is in standard location
+        3. Fall back to reading raw file content if rendering fails
+        """
         try:
-            # First try to find the template using our helper function
             template_path = find_blog_template(template_name)
             if template_path:
                 return render_to_string(template_path)
             else:
-                # Fallback to old direct path
+                # Try direct path as fallback
                 return render_to_string(f"blog/{template_name}.html")
         except Exception as e:
             logger.warning(f"Could not render template {template_name}, trying raw file: {str(e)}")
             
-            # Try to find the file in any category
+            # Last resort: read the raw file directly
             all_posts = get_all_blog_posts()
             for post in all_posts:
                 if post['template_name'] == template_name:
@@ -107,7 +137,22 @@ class LinkParser:
             raise FileNotFoundError(f"Blog template not found: {template_name}")
     
     def _parse_html_content(self, html_content: str, source_post: str) -> Dict:
-        """Parse HTML content and extract links with context."""
+        """
+        Extract and categorize all links from HTML content.
+        
+        This method performs the core parsing logic:
+        1. Cleans the HTML (removes scripts, styles, comments)
+        2. Finds all anchor tags with href attributes
+        3. Categorizes each link as internal (to another blog post) or external
+        4. Extracts surrounding text context for each link
+        
+        Args:
+            html_content: Raw HTML content to parse
+            source_post: Normalized name of the source blog post
+            
+        Returns:
+            Dict with categorized links and any parsing errors
+        """
         result = {
             'source_post': source_post,
             'internal_links': [],
@@ -118,7 +163,7 @@ class LinkParser:
         try:
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # Remove script/style tags and comments
+            # Clean HTML by removing non-content elements
             for element in soup(["script", "style"]):
                 element.decompose()
             for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
@@ -128,16 +173,16 @@ class LinkParser:
             
             for link in links:
                 href = link.get('href', '').strip()
-                if not href or href.startswith('#'):
+                if not href or href.startswith('#'):  # Skip empty or anchor links
                     continue
                 
                 link_text = link.get_text(strip=True)
                 context = self._extract_link_context(link)
                 
-                # Check link type and process accordingly
+                # Categorize link based on URL pattern
                 match = self.INTERNAL_BLOG_PATTERN.search(href)
                 if match:
-                    # Normalize the target template name
+                    # Internal blog link - normalize the target name
                     target = normalize_template_name(match.group(1))
                     result['internal_links'].append({
                         'target': target,
@@ -162,12 +207,23 @@ class LinkParser:
         return result
     
     def _is_external_link(self, href: str) -> bool:
-        """Check if a link is external based on URL scheme."""
+        """Determine if a URL points to an external site."""
         parsed = urlparse(href)
         return bool(parsed.scheme and parsed.netloc)
     
     def _extract_link_context(self, link_element) -> str:
-        """Extract surrounding context for a link element."""
+        """
+        Extract surrounding text context for a link.
+        
+        Gets CONTEXT_LENGTH characters before and after the link to provide
+        context about where and how the link appears in the content.
+        
+        Args:
+            link_element: BeautifulSoup link element
+            
+        Returns:
+            String containing the link text with surrounding context
+        """
         try:
             parent = link_element.parent
             if not parent:
@@ -176,13 +232,16 @@ class LinkParser:
             parent_text = parent.get_text()
             link_text = link_element.get_text()
             
+            # Find where the link text appears in parent
             link_start = parent_text.find(link_text)
             if link_start == -1:
                 return parent_text[:self.CONTEXT_LENGTH * 2]
             
+            # Extract context window around the link
             context_start = max(0, link_start - self.CONTEXT_LENGTH)
             context_end = min(len(parent_text), link_start + len(link_text) + self.CONTEXT_LENGTH)
             
+            # Clean up whitespace
             context = parent_text[context_start:context_end].strip()
             return re.sub(r'\s+', ' ', context)
             
@@ -191,7 +250,19 @@ class LinkParser:
             return ""
     
     def _is_cache_stale(self, template_name: str, cache_key: str) -> bool:
-        """Check if cache is stale by comparing file modification time."""
+        """
+        Check if cached data is stale by comparing file modification times.
+        
+        Compares the actual file's modification time against the cached
+        metadata to determine if the cache needs refreshing.
+        
+        Args:
+            template_name: Name of the template file
+            cache_key: Cache key used for this template
+            
+        Returns:
+            True if cache is stale or missing, False if cache is fresh
+        """
         try:
             template_path = Path(settings.BASE_DIR) / 'templates' / 'blog' / f'{template_name}.html'
             
@@ -204,6 +275,7 @@ class LinkParser:
             if not cache_meta:
                 return True
             
+            # Check if file has been modified since caching
             if file_mtime > cache_meta.get('file_mtime', 0):
                 logger.debug(f"Cache stale for {template_name}")
                 return True
@@ -212,23 +284,44 @@ class LinkParser:
             
         except Exception as e:
             logger.warning(f"Error checking cache staleness for {template_name}: {e}")
-            return True
+            return True  # Assume stale on error
 
 
 class GraphBuilder:
-    """Service for building graph data structures from parsed link data."""
+    """
+    Service for constructing graph data structures from parsed blog links.
+    
+    This builder creates two types of graphs:
+    1. Complete graph - all blog posts and their interconnections
+    2. Post-specific subgraphs - connections for a single post at various depths
+    """
     
     GRAPH_CACHE_TIMEOUT = CACHE_TIMEOUT
     SUBGRAPH_CACHE_TIMEOUT = CACHE_TIMEOUT
-    EXTERNAL_NODE_ID_LENGTH = 12
-    MAX_PATH_SNIPPET_LENGTH = 30
-    TOP_ITEMS_LIMIT = 5
+    EXTERNAL_NODE_ID_LENGTH = 12  # Length of hashed external URL identifiers
+    MAX_PATH_SNIPPET_LENGTH = 30  # Max length for URL path display
+    TOP_ITEMS_LIMIT = 5  # Number of top items to show in metrics
     
     def __init__(self, link_parser: LinkParser = None):
         self.link_parser = link_parser or LinkParser()
     
     def build_complete_graph(self, force_refresh: bool = False) -> Dict:
-        """Build a complete knowledge graph from all blog posts."""
+        """
+        Build the complete knowledge graph containing all blog posts.
+        
+        This method:
+        1. Collects all blog templates across categories
+        2. Parses each template to extract links
+        3. Builds a graph structure with nodes (posts) and edges (links)
+        4. Calculates metrics like most connected posts and orphans
+        5. Caches the result for performance
+        
+        Args:
+            force_refresh: If True, rebuild graph even if cached
+            
+        Returns:
+            Dict containing nodes, edges, metrics, categories, and any errors
+        """
         cache_key = 'blog:graph:complete'
         
         if not force_refresh:
@@ -241,22 +334,22 @@ class GraphBuilder:
             blog_templates = self._get_all_blog_templates()
             
             all_links_data = []
-            categories_info = {}  # Track categories and their posts
+            categories_info = {}  # Track which posts belong to which categories
             
             for template_info in blog_templates:
-                template_name = template_info['template_name']  # This is now normalized
+                template_name = template_info['template_name']  # Normalized version
                 original_name = template_info.get('original_name', template_name)
                 category = template_info['category']
                 
-                # Track categories with normalized names
+                # Build category mapping
                 if category:
                     if category not in categories_info:
                         categories_info[category] = []
                     categories_info[category].append(template_name)
                 
-                # Parse using original name for file access, but it will be normalized internally
+                # Parse each blog post for links
                 links_data = self.link_parser.parse_blog_post(original_name, force_refresh)
-                links_data['category'] = category  # Add category info to links data
+                links_data['category'] = category
                 all_links_data.append(links_data)
             
             graph = self._build_graph_structure(all_links_data, categories_info)

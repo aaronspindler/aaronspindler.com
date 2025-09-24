@@ -1,3 +1,9 @@
+"""
+Django management command to configure periodic Celery Beat tasks.
+
+Sets up automated tasks for sitemap generation, knowledge graph rebuilding,
+and knowledge graph screenshots.
+"""
 from django.core.management.base import BaseCommand
 from django_celery_beat.models import PeriodicTask, CrontabSchedule
 import json
@@ -7,7 +13,7 @@ class Command(BaseCommand):
     help = 'Setup periodic tasks for Celery Beat'
 
     def handle(self, *args, **options):
-        # Setup daily sitemap rebuild at 3 AM
+        # Daily sitemap rebuild at 3 AM
         schedule_daily_3am, created = CrontabSchedule.objects.get_or_create(
             minute='0',
             hour='3',
@@ -16,7 +22,6 @@ class Command(BaseCommand):
             month_of_year='*',
         )
         
-        # Create or update the sitemap rebuild task
         task, created = PeriodicTask.objects.update_or_create(
             name='Rebuild and cache sitemap daily',
             defaults={
@@ -41,7 +46,7 @@ class Command(BaseCommand):
                 )
             )
         
-        # Setup knowledge graph rebuild every 6 hours
+        # Knowledge graph rebuild every 6 hours
         schedule_every_6_hours, created = CrontabSchedule.objects.get_or_create(
             minute='0',
             hour='*/6',
@@ -50,7 +55,6 @@ class Command(BaseCommand):
             month_of_year='*',
         )
         
-        # Create or update the knowledge graph rebuild task
         kg_task, created = PeriodicTask.objects.update_or_create(
             name='Rebuild knowledge graph cache',
             defaults={
@@ -75,7 +79,7 @@ class Command(BaseCommand):
                 )
             )
         
-        # Setup knowledge graph screenshot generation daily at 4 AM
+        # Knowledge graph screenshot generation daily at 4 AM
         schedule_daily_4am, created = CrontabSchedule.objects.get_or_create(
             minute='0',
             hour='4',
@@ -84,7 +88,6 @@ class Command(BaseCommand):
             month_of_year='*',
         )
         
-        # Create or update the knowledge graph screenshot task
         kg_screenshot_task, created = PeriodicTask.objects.update_or_create(
             name='Generate knowledge graph screenshot',
             defaults={

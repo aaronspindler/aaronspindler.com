@@ -1,3 +1,9 @@
+"""
+Django management command to optimize JavaScript files.
+
+This command minifies JavaScript files and creates compressed versions
+(gzip and brotli) for efficient serving.
+"""
 import subprocess
 import os
 from django.core.management.base import BaseCommand

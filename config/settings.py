@@ -3,7 +3,6 @@ from pathlib import Path
 import environ
 
 env = environ.Env(
-    # set casting, default value
     DEBUG=(bool, False),
 )
 
@@ -26,12 +25,10 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sites",
     "django.contrib.sitemaps",
-    # Third-party
     "allauth",
     "allauth.account",
     "storages",  # AWS S3 storage
     "django_celery_beat",  # Celery Beat scheduler
-    # Local
     "accounts",
     "pages",
     "blog",
@@ -62,7 +59,6 @@ MESSAGE_TAGS = {
     messages.ERROR: 'error danger',  # Include both 'error' and 'danger' for compatibility
 }
 
-# Use default SQLite database for testing when DATABASE_URL is not set
 DATABASES = {
     "default": env.db(
         default="sqlite:///db.sqlite3"
@@ -149,8 +145,7 @@ ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_ALLOW_REGISTRATION = False
 ACCOUNT_ADAPTER = 'accounts.adapters.NoSignupAccountAdapter'
 
-# AWS S3 Configuration (Always use S3)
-# AWS Settings
+# AWS S3 Configuration
 # Use fake values for testing when AWS credentials are not set
 AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="fake-access-key-id")
 AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="fake-secret-access-key")
@@ -177,7 +172,7 @@ AWS_S3_MIME_TYPES = {
     '.eot': 'application/vnd.ms-fontobject',
 }
 
-# S3 Storage Configuration (Always use S3)
+# S3 Storage Configuration
 STORAGES = {
     "default": {
         "BACKEND": "config.storage_backends.PublicMediaStorage",
@@ -187,14 +182,11 @@ STORAGES = {
     },
 }
 
-# Media files configuration
 MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/media/'
 MEDIA_ROOT = ''  # Not used with S3, but Django might expect it
 
-# Static files configuration (overrides the previous STATIC_URL)
 STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/public/static/'
 
-# Security and Performance Optimizations for Production
 if not DEBUG:
     # Security Headers
     SECURE_SSL_REDIRECT = True
@@ -208,7 +200,6 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
     
-    # Content Security Policy
     CSP_DEFAULT_SRC = ("'self'",)
     CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://fonts.cdnfonts.com")
     CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "https://d3js.org", "https://cdnjs.cloudflare.com")
@@ -217,7 +208,6 @@ if not DEBUG:
     CSP_CONNECT_SRC = ("'self'",)
 
 
-# Logging Configuration
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -262,8 +252,6 @@ LOGGING = {
     },
 }
 
-# Cache Configuration
-# Redis cache backend configuration
 # Redis URL format: redis://username:password@host:port/db_number
 REDIS_URL = env('REDIS_URL', default='redis://127.0.0.1:6379/1')
 
@@ -277,8 +265,8 @@ CACHES = {
                 'max_connections': 50,
                 'retry_on_timeout': True,
             },
-            'SOCKET_CONNECT_TIMEOUT': 5,  # seconds
-            'SOCKET_TIMEOUT': 5,  # seconds
+            'SOCKET_CONNECT_TIMEOUT': 5,
+            'SOCKET_TIMEOUT': 5,
             'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
             'IGNORE_EXCEPTIONS': True,  # Fall back gracefully if Redis is down
         },
@@ -287,12 +275,10 @@ CACHES = {
     }
 }
 
-# Session configuration to use Redis
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
 SESSION_COOKIE_AGE = 86400  # 24 hours
 
-# Celery Configuration
 CELERY_BROKER_URL = env('CELERY_BROKER_URL', default=REDIS_URL)
 CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default=REDIS_URL)
 CELERY_ACCEPT_CONTENT = ['json']
@@ -305,6 +291,5 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 CELERY_WORKER_POOL_RESTARTS = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
-# Resume Configuration
 RESUME_ENABLED = env('RESUME_ENABLED', default=True)
 RESUME_FILENAME = env('RESUME_FILENAME', default='Aaron_Spindler_Resume_2025.pdf')

@@ -1,6 +1,3 @@
-"""
-Image processing utilities for optimizing images before uploading to S3.
-"""
 from PIL import Image, ImageFilter, ImageStat, ImageOps
 from PIL.ExifTags import TAGS, GPSTAGS
 from io import BytesIO
@@ -22,9 +19,7 @@ def reset_file_pointer(file_obj):
     
     Usage:
         with reset_file_pointer(image_file) as f:
-            # Do operations with the file
             img = Image.open(f)
-            # File pointer will be automatically reset when exiting
     """
     initial_position = file_obj.tell() if hasattr(file_obj, 'tell') else 0
     try:
@@ -81,12 +76,10 @@ class ExifExtractor:
         serializable = {}
         for key, value in exif_data.items():
             try:
-                # Try to serialize the value
-                json.dumps(value)
+                json.dumps(value)  # Test if serializable
                 serializable[key] = value
             except (TypeError, ValueError):
-                # If not serializable, convert to string
-                serializable[key] = str(value)
+                serializable[key] = str(value)  # Convert non-serializable to string
         return serializable
     
     @staticmethod
@@ -104,21 +97,18 @@ class ExifExtractor:
             image_file.seek(0)
             img = Image.open(image_file)
             
-            # Get basic EXIF data
             exif_data = img._getexif() if hasattr(img, '_getexif') else None
             
             if not exif_data:
                 return {}
             
-            # Convert EXIF data to readable format
             readable_exif = {}
             for tag_id, value in exif_data.items():
                 tag = TAGS.get(tag_id, tag_id)
                 readable_exif[tag] = value
             
-            # Extract specific fields
             extracted_data = {
-                'full_exif': readable_exif,  # Store complete EXIF data
+                'full_exif': readable_exif,
                 'camera_make': readable_exif.get('Make', '').strip() if 'Make' in readable_exif else '',
                 'camera_model': readable_exif.get('Model', '').strip() if 'Model' in readable_exif else '',
                 'lens_model': readable_exif.get('LensModel', '').strip() if 'LensModel' in readable_exif else '',
@@ -126,22 +116,17 @@ class ExifExtractor:
                 'date_taken': ExifExtractor._parse_datetime(readable_exif.get('DateTimeOriginal') or readable_exif.get('DateTime')),
             }
             
-            # Extract focal length
             focal_length = readable_exif.get('FocalLength')
             if focal_length:
                 extracted_data['focal_length'] = ExifExtractor._format_focal_length(focal_length)
             
-            # Extract aperture
             aperture = readable_exif.get('FNumber') or readable_exif.get('ApertureValue')
             if aperture:
                 extracted_data['aperture'] = ExifExtractor._format_aperture(aperture)
             
-            # Extract shutter speed
             shutter_speed = readable_exif.get('ExposureTime') or readable_exif.get('ShutterSpeedValue')
             if shutter_speed:
                 extracted_data['shutter_speed'] = ExifExtractor._format_shutter_speed(shutter_speed)
-            
-            # Extract GPS data
             gps_info = readable_exif.get('GPSInfo')
             if gps_info:
                 gps_data = ExifExtractor._extract_gps(gps_info)
@@ -159,8 +144,7 @@ class ExifExtractor:
         if not datetime_str:
             return None
         try:
-            # EXIF datetime format is typically 'YYYY:MM:DD HH:MM:SS'
-            return datetime.strptime(datetime_str, '%Y:%m:%d %H:%M:%S')
+            return datetime.strptime(datetime_str, '%Y:%m:%d %H:%M:%S')  # EXIF format: 'YYYY:MM:DD HH:MM:SS'
         except (ValueError, TypeError):
             return None
     
@@ -169,13 +153,11 @@ class ExifExtractor:
         """Format focal length value."""
         try:
             if isinstance(focal_length, tuple):
-                # Handle rational number format (numerator, denominator)
                 value = focal_length[0] / focal_length[1] if focal_length[1] != 0 else 0
             else:
                 value = float(focal_length)
             
-            # Format as integer if it's a whole number, otherwise with one decimal
-            if value == int(value):
+            if value == int(value):  # Format as integer if whole number
                 return f"{int(value)}mm"
             else:
                 return f"{value:.1f}mm"
@@ -187,12 +169,10 @@ class ExifExtractor:
         """Format aperture value."""
         try:
             if isinstance(aperture, tuple):
-                # Handle rational number format
                 value = aperture[0] / aperture[1] if aperture[1] != 0 else 0
             else:
                 value = float(aperture)
             
-            # Format with one decimal place
             return f"f/{value:.1f}"
         except:
             return str(aperture)
@@ -202,21 +182,17 @@ class ExifExtractor:
         """Format shutter speed value."""
         try:
             if isinstance(shutter_speed, tuple):
-                # Handle rational number format
                 numerator = shutter_speed[0]
                 denominator = shutter_speed[1]
                 
                 if denominator == 0:
                     return str(shutter_speed)
                 
-                # If exposure time is less than 1 second, show as fraction
-                if numerator < denominator:
-                    # Simplify the fraction if possible
+                if numerator < denominator:  # Less than 1 second - show as fraction
                     from math import gcd
                     common = gcd(numerator, denominator)
                     return f"{numerator//common}/{denominator//common}"
-                else:
-                    # Show as decimal seconds
+                else:  # 1 second or more - show as decimal
                     value = numerator / denominator
                     if value == int(value):
                         return f"{int(value)}s"
@@ -225,8 +201,7 @@ class ExifExtractor:
             else:
                 value = float(shutter_speed)
                 if value < 1:
-                    # Convert to fraction format
-                    return f"1/{int(1/value)}"
+                    return f"1/{int(1/value)}"  # Convert to fraction format
                 else:
                     return f"{value:.1f}s"
         except:
@@ -238,13 +213,11 @@ class ExifExtractor:
         gps_data = {}
         
         try:
-            # Convert GPS tag IDs to names
             gps_readable = {}
             for tag_id, value in gps_info.items():
                 tag = GPSTAGS.get(tag_id, tag_id)
                 gps_readable[tag] = value
             
-            # Extract latitude
             lat = gps_readable.get('GPSLatitude')
             lat_ref = gps_readable.get('GPSLatitudeRef')
             if lat and lat_ref:
@@ -253,7 +226,6 @@ class ExifExtractor:
                     lat_decimal = -lat_decimal
                 gps_data['gps_latitude'] = Decimal(str(lat_decimal))
             
-            # Extract longitude
             lon = gps_readable.get('GPSLongitude')
             lon_ref = gps_readable.get('GPSLongitudeRef')
             if lon and lon_ref:
@@ -261,8 +233,6 @@ class ExifExtractor:
                 if lon_ref == 'W':
                     lon_decimal = -lon_decimal
                 gps_data['gps_longitude'] = Decimal(str(lon_decimal))
-            
-            # Extract altitude
             alt = gps_readable.get('GPSAltitude')
             alt_ref = gps_readable.get('GPSAltitudeRef')
             if alt:
@@ -271,8 +241,7 @@ class ExifExtractor:
                 else:
                     alt_value = float(alt)
                 
-                # Below sea level if alt_ref is 1
-                if alt_ref == 1:
+                if alt_ref == 1:  # Below sea level
                     alt_value = -alt_value
                 
                 gps_data['gps_altitude'] = Decimal(str(alt_value))
@@ -286,7 +255,7 @@ class ExifExtractor:
     def _convert_to_degrees(value):
         """Convert GPS coordinates to decimal degrees."""
         try:
-            # GPS coordinates are stored as ((degrees, 1), (minutes, 1), (seconds, divisor))
+            # Format: ((degrees, 1), (minutes, 1), (seconds, divisor))
             d = value[0][0] / value[0][1] if value[0][1] != 0 else 0
             m = value[1][0] / value[1][1] if value[1][1] != 0 else 0
             s = value[2][0] / value[2][1] if value[2][1] != 0 else 0
@@ -310,16 +279,13 @@ class SmartCrop:
         Returns:
             tuple: (x, y) coordinates of the focal point as percentages (0-1)
         """
-        # Convert to RGB if necessary
         if img.mode != 'RGB':
             img = img.convert('RGB')
         
-        # Try multiple methods and combine results
         edge_point = SmartCrop._edge_detection_focal_point(img)
         entropy_point = SmartCrop._entropy_focal_point(img)
         
-        # Weight the different methods
-        # Entropy is usually more reliable for general images
+        # Weight: Entropy (0.7) is more reliable than edge detection (0.3) for general images
         x = (edge_point[0] * 0.3 + entropy_point[0] * 0.7)
         y = (edge_point[1] * 0.3 + entropy_point[1] * 0.7)
         
@@ -330,17 +296,12 @@ class SmartCrop:
         """
         Find focal point using edge detection.
         """
-        # Convert to grayscale
         gray = img.convert('L')
-        
-        # Apply edge detection filter
         edges = gray.filter(ImageFilter.FIND_EDGES)
         edges = edges.filter(ImageFilter.GaussianBlur(radius=2))
-        
-        # Convert to numpy array for analysis
         edge_array = np.array(edges)
         
-        # Find the center of mass of edges
+        # Find center of mass of edges
         height, width = edge_array.shape
         y_coords, x_coords = np.ogrid[:height, :width]
         
@@ -350,8 +311,6 @@ class SmartCrop:
         
         x_center = np.sum(x_coords * edge_array) / total_weight
         y_center = np.sum(y_coords * edge_array) / total_weight
-        
-        # Convert to percentages
         return (x_center / width, y_center / height)
     
     @staticmethod
@@ -369,11 +328,8 @@ class SmartCrop:
         
         for y in range(0, height - cell_height, cell_height // 2):
             for x in range(0, width - cell_width, cell_width // 2):
-                # Crop a section
                 box = (x, y, x + cell_width, y + cell_height)
                 region = img.crop(box)
-                
-                # Calculate entropy
                 entropy = SmartCrop._calculate_entropy(region)
                 
                 if entropy > max_entropy:
@@ -389,14 +345,10 @@ class SmartCrop:
         Calculate the entropy of an image region.
         Higher entropy means more information/detail.
         """
-        # Convert to grayscale for entropy calculation
         if img.mode != 'L':
             img = img.convert('L')
         
-        # Get histogram
         histogram = img.histogram()
-        
-        # Calculate entropy
         entropy = 0
         total_pixels = sum(histogram)
         
@@ -425,7 +377,6 @@ class SmartCrop:
         target_aspect = target_width / target_height
         current_aspect = width / height
         
-        # Find focal point if not provided
         if focal_point is None:
             focal_point = SmartCrop.find_focal_point(img)
         
@@ -433,7 +384,6 @@ class SmartCrop:
         focal_x = int(focal_point[0] * width)
         focal_y = int(focal_point[1] * height)
         
-        # Determine crop dimensions
         if current_aspect > target_aspect:
             # Image is wider than target - crop width
             new_width = int(height * target_aspect)
@@ -443,17 +393,13 @@ class SmartCrop:
             new_width = width
             new_height = int(width / target_aspect)
         
-        # Calculate crop box centered on focal point
         left = focal_x - new_width // 2
         top = focal_y - new_height // 2
-        
-        # Ensure crop box is within image bounds
         left = max(0, min(left, width - new_width))
         top = max(0, min(top, height - new_height))
         right = left + new_width
         bottom = top + new_height
         
-        # Crop and resize
         cropped = img.crop((left, top, right, bottom))
         cropped = cropped.resize((target_width, target_height), Image.Resampling.LANCZOS)
         
@@ -494,18 +440,13 @@ class ImageOptimizer:
         Returns:
             tuple: (ContentFile: Optimized image, focal_point: (x, y) or None)
         """
-        # For original, return the file without any processing
         if size_name == 'original':
             image_file.seek(0)
             return (ContentFile(image_file.read()), None)
-        
-        # Open the image for processing other sizes
         img = Image.open(image_file)
         computed_focal_point = None
         
-        # Convert RGBA to RGB if necessary (for JPEG compatibility)
         if img.mode in ('RGBA', 'LA', 'P'):
-            # Create a white background
             background = Image.new('RGB', img.size, (255, 255, 255))
             if img.mode == 'P':
                 img = img.convert('RGBA')
@@ -514,52 +455,38 @@ class ImageOptimizer:
         elif img.mode != 'RGB':
             img = img.convert('RGB')
         
-        # Get the original format
         original_format = img.format or 'JPEG'
         
-        # Process based on size name
         if size_name == 'optimized':
-            # For optimized, just compress without resizing
-            pass  # Will be handled in save section
+            pass  # Just compress without resizing
         elif size_name in cls.SIZES and cls.SIZES[size_name]:
             target_size = cls.SIZES[size_name]
             
-            # Use smart crop for display version
             if use_smart_crop and size_name == 'display':
-                # Find or use provided focal point
                 if focal_point is None:
                     computed_focal_point = SmartCrop.find_focal_point(img)
                 else:
                     computed_focal_point = focal_point
                 
-                # Apply smart crop
                 img = SmartCrop.smart_crop(img, target_size[0], target_size[1], computed_focal_point)
             elif maintain_aspect_ratio:
-                # Calculate the aspect ratio
                 img.thumbnail(target_size, Image.Resampling.LANCZOS)
             else:
-                # Resize to exact dimensions
                 img = img.resize(target_size, Image.Resampling.LANCZOS)
-        
-        # Save the optimized image to a BytesIO object
         output = BytesIO()
         quality = cls.QUALITY_SETTINGS.get(size_name, 90)
         
-        # Determine the format to save in
         save_format = 'JPEG'
         if original_format in ['PNG', 'GIF', 'WEBP']:
             save_format = original_format
-        
-        # Save with optimization
         save_kwargs = {
             'format': save_format,
             'optimize': True,
         }
         
-        # Add quality setting for JPEG
         if save_format == 'JPEG':
             save_kwargs['quality'] = quality
-            save_kwargs['progressive'] = True  # Enable progressive JPEG
+            save_kwargs['progressive'] = True  # Progressive JPEG for better web loading
         
         img.save(output, **save_kwargs)
         output.seek(0)
@@ -580,9 +507,8 @@ class ImageOptimizer:
         """
         name, ext = os.path.splitext(original_filename)
         
-        # Convert to .jpg for non-PNG formats when optimizing
         if size_name != 'original' and ext.lower() not in ['.png', '.gif', '.webp']:
-            ext = '.jpg'
+            ext = '.jpg'  # Convert to .jpg when optimizing (except PNG/GIF/WebP)
         
         if size_name == 'original':
             return f"{name}{ext}"
@@ -607,22 +533,16 @@ class ImageOptimizer:
         variants = {}
         focal_point = None
         
-        # Process only the required variants
         for size_name in ['display', 'optimized']:
-            # Reset file pointer
             image_file.seek(0)
-            
-            # Optimize the image (pass the focal point once computed)
             optimized, computed_focal = cls.optimize_image(image_file, size_name, focal_point=focal_point)
             
-            # Store the focal point from the first computation (from display version)
+            # Store focal point from first computation (display version)
             if computed_focal and not focal_point:
                 focal_point = computed_focal
             
-            # Generate filename for this variant
             variant_filename = cls.generate_filename(filename, size_name)
             optimized.name = variant_filename
-            
             variants[size_name] = optimized
         
         return (variants, focal_point)
@@ -662,7 +582,6 @@ class DuplicateDetector:
             str: Hexadecimal hash string
         """
         try:
-            # Choose hash algorithm
             if algorithm == 'md5':
                 hasher = hashlib.md5()
             elif algorithm == 'sha1':
@@ -670,14 +589,12 @@ class DuplicateDetector:
             else:  # Default to sha256
                 hasher = hashlib.sha256()
             
-            # Reset file pointer
             image_file.seek(0)
             
-            # Read file in chunks to handle large files efficiently
+            # Read in 8KB chunks for memory efficiency with large files
             for chunk in iter(lambda: image_file.read(8192), b''):
                 hasher.update(chunk)
             
-            # Reset file pointer after reading
             image_file.seek(0)
             
             return hasher.hexdigest()
@@ -703,27 +620,19 @@ class DuplicateDetector:
             str: Hexadecimal perceptual hash string
         """
         try:
-            # Reset file pointer
             image_file.seek(0)
-            
-            # Open image with PIL
             img = Image.open(image_file)
             
-            # Convert to RGB if necessary
             if img.mode not in ('RGB', 'L'):
                 if img.mode == 'RGBA':
-                    # Create white background for RGBA images
                     background = Image.new('RGB', img.size, (255, 255, 255))
                     background.paste(img, mask=img.split()[-1])
                     img = background
                 else:
                     img = img.convert('RGB')
             
-            # Compute perceptual hash using average hash algorithm
-            # You can also use dhash, phash, or whash for different characteristics
+            # Average hash algorithm - good balance of speed and accuracy
             phash = imagehash.average_hash(img, hash_size=hash_size)
-            
-            # Reset file pointer after processing
             image_file.seek(0)
             
             return str(phash)
@@ -743,13 +652,9 @@ class DuplicateDetector:
             dict: Dictionary containing different hash types
         """
         try:
-            # Reset file pointer
             image_file.seek(0)
-            
-            # Open image with PIL
             img = Image.open(image_file)
             
-            # Convert to RGB if necessary
             if img.mode not in ('RGB', 'L'):
                 if img.mode == 'RGBA':
                     background = Image.new('RGB', img.size, (255, 255, 255))
@@ -758,7 +663,7 @@ class DuplicateDetector:
                 else:
                     img = img.convert('RGB')
             
-            # Compute different types of hashes
+            # Multiple hash types for comprehensive comparison
             hashes = {
                 'average': str(imagehash.average_hash(img)),
                 'perceptual': str(imagehash.phash(img)),
@@ -766,7 +671,6 @@ class DuplicateDetector:
                 'wavelet': str(imagehash.whash(img)),
             }
             
-            # Reset file pointer after processing
             image_file.seek(0)
             
             return hashes
@@ -789,14 +693,9 @@ class DuplicateDetector:
             tuple: (is_similar: bool, distance: int)
         """
         try:
-            # Convert strings back to ImageHash objects
             h1 = imagehash.hex_to_hash(hash1)
             h2 = imagehash.hex_to_hash(hash2)
-            
-            # Calculate Hamming distance
-            distance = h1 - h2
-            
-            # Determine if images are similar based on threshold
+            distance = h1 - h2  # Hamming distance
             is_similar = distance <= threshold
             
             return is_similar, distance
@@ -830,7 +729,6 @@ class DuplicateDetector:
         }
         
         try:
-            # Compute hashes for the uploaded image
             file_hash = DuplicateDetector.compute_file_hash(image_file)
             result['file_hash'] = file_hash
             
@@ -838,14 +736,11 @@ class DuplicateDetector:
                 perceptual_hash = DuplicateDetector.compute_perceptual_hash(image_file)
                 result['perceptual_hash'] = perceptual_hash
             
-            # Check for exact duplicates by file hash
             if file_hash:
                 exact_matches = existing_photos_queryset.filter(file_hash=file_hash)
                 result['exact_duplicates'] = list(exact_matches)
             
-            # Check for similar images by perceptual hash
             if not exact_match_only and perceptual_hash:
-                # Get all photos with perceptual hashes
                 photos_with_hashes = existing_photos_queryset.exclude(
                     perceptual_hash__isnull=True
                 ).exclude(
@@ -856,14 +751,13 @@ class DuplicateDetector:
                     is_similar, distance = DuplicateDetector.compare_hashes(
                         perceptual_hash,
                         photo.perceptual_hash,
-                        threshold=5  # Adjust threshold as needed
+                        threshold=5
                     )
                     
                     if is_similar and photo not in result['exact_duplicates']:
-                        # Store photo with similarity score (lower distance = more similar)
                         result['similar_images'].append((photo, distance))
                 
-                # Sort similar images by similarity (lowest distance first)
+                # Sort by similarity score (lower distance = more similar)
                 result['similar_images'].sort(key=lambda x: x[1])
             
         except Exception as e:
