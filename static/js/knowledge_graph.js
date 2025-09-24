@@ -8,21 +8,31 @@ class HomepageKnowledgeGraph {
     }
     
     initConfig() {
-        // Consolidated configuration
         this.CONFIG = {
             dimensions: { width: 800, height: 500 },
             tooltip: { padding: 20, maxWidth: 380, offset: 20, animDuration: 250 },
-            node: { minRadius: 6, maxRadius: 16, externalRadius: 8, baseRadius: 5, multiplier: 1.5 },
+            node: { 
+                minRadius: 6,        // Base size for nodes with no connections
+                maxRadius: 16,       // Maximum size for highly connected nodes
+                externalRadius: 8,   // Fixed size for external link nodes
+                baseRadius: 5,       // Default radius fallback
+                multiplier: 1.5      // Growth factor per connection
+            },
             label: { maxLength: 26, shortLength: 18 },
             animation: { rippleDuration: 1000, rippleRadius: 50, resizeDebounce: 150 },
             force: {
-                linkDistance: 90, chargeStrength: -200, collisionRadius: 25,
-                centerStrength: 0.02, categoryStrength: 0.25, basePadding: 60,
-                paddingPerNode: 12, labelRepulsion: 40, labelRadius: 140
+                linkDistance: 90,        // Base distance between connected nodes
+                chargeStrength: -200,    // Repulsion between all nodes (negative = repel)
+                collisionRadius: 25,     // Minimum space between nodes
+                centerStrength: 0.02,    // Pull toward center (prevents drift)
+                categoryStrength: 0.25,  // Pull toward category centers
+                basePadding: 60,         // Base hull padding around categories
+                paddingPerNode: 12,      // Additional padding per node in category
+                labelRepulsion: 40,      // Space reserved for labels
+                labelRadius: 140         // Detection radius for label collision
             }
         };
         
-        // Color scheme
         this.COLORS = {
             blogPost: '#888', externalLink: '#aaa', highlight: '#fff',
             categories: {
@@ -48,25 +58,21 @@ class HomepageKnowledgeGraph {
     }
     
     initVisualization() {
-        // Setup SVG
         this.svg.attr("viewBox", [0, 0, this.width, this.height])
             .attr("width", this.width).attr("height", this.height);
         
-        // Setup zoom
         this.zoom = d3.zoom().scaleExtent([0.1, 3])
             .on("zoom", e => this.g.attr("transform", e.transform));
         this.svg.call(this.zoom);
         
-        // Create main group
         this.g = this.svg.append("g");
         
-        // Initial zoom state
+        // Start zoomed out to show entire graph (20% scale)
         const initScale = 0.2;
         this.svg.call(this.zoom.transform, d3.zoomIdentity
             .translate(this.width/2*(1-initScale), this.height/2*(1-initScale))
             .scale(initScale));
         
-        // Tooltip and controls
         this.tooltipGroup = this.svg.append("g").attr("class", "svg-tooltip");
         this.addControls();
     }
@@ -79,14 +85,12 @@ class HomepageKnowledgeGraph {
     }
     
     bindEvents() {
-        // Debounced resize handler
         let resizeTimeout;
         window.addEventListener('resize', () => {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => this.handleResize(), this.CONFIG.animation.resizeDebounce);
         });
         
-        // Keyboard shortcuts
         window.addEventListener('keydown', e => {
             if (!e.ctrlKey && !e.metaKey && !e.altKey) {
                 if (e.key === 'f') this.fitGraphToView();
@@ -107,10 +111,8 @@ class HomepageKnowledgeGraph {
             if (result.status === 'success') {
                 this.renderGraph(result.data);
             } else {
-                console.error('API error:', result.error);
             }
         } catch (error) {
-            console.error('Failed to load graph data:', error);
         } finally {
             this.loading.style("display", "none");
         }
@@ -128,23 +130,18 @@ class HomepageKnowledgeGraph {
         this.initializeNodePositions(nodes);
         this.createSimulation(nodes, edges);
         
-        // Create visual elements (order matters for layering)
+        // Layer order: hulls < links < nodes < labels < category labels
         this.hullGroup = this.g.append("g").attr("class", "hulls");
         this.createLinks(edges);
         this.createNodes(nodes);
         this.createLabels(nodes);
-        // Create category label group AFTER nodes to ensure labels are on top
         this.categoryLabelGroup = this.g.append("g").attr("class", "category-labels");
         
         this.addNodeInteractions();
         
-        // Start simulation
         this.simulation.alpha(1.0).alphaDecay(0.01).velocityDecay(0.5).restart();
-        // Immediate hull update to show labels right away
         this.updateCategoryHulls();
-        // Update again after initial settling
         setTimeout(() => this.updateCategoryHulls(), 500);
-        // Final update after more settling
         setTimeout(() => this.updateCategoryHulls(), 1500);
     }
     
@@ -152,7 +149,6 @@ class HomepageKnowledgeGraph {
         const centerX = this.width / 2, centerY = this.height / 2;
         const categoryGroups = {}, externalLinks = [];
         
-        // Group nodes
         nodes.forEach(node => {
             if (node.type === 'external_link') {
                 externalLinks.push(node);
@@ -162,11 +158,11 @@ class HomepageKnowledgeGraph {
             }
         });
         
-        // Position categories
         this.categoryCenters = {};
         const categories = Object.keys(categoryGroups);
+        // Distribute categories evenly around a circle
         const angleStep = (2 * Math.PI) / Math.max(categories.length, 1);
-        const groupRadius = Math.min(this.width, this.height) * 0.28;
+        const groupRadius = Math.min(this.width, this.height) * 0.28;  // 28% of viewport
         
         categories.forEach((cat, i) => {
             const angle = i * angleStep;
@@ -174,15 +170,15 @@ class HomepageKnowledgeGraph {
             const cy = centerY + groupRadius * Math.sin(angle);
             this.categoryCenters[cat] = { x: cx, y: cy };
             
-            // Position nodes in category
             this.positionCategoryNodes(categoryGroups[cat], cx, cy);
         });
         
-        // Position external links
         if (externalLinks.length) {
+            // Place external links in outer ring (42% of viewport)
             const outerRadius = Math.min(this.width, this.height) * 0.42;
             const extAngleStep = (2 * Math.PI) / externalLinks.length;
             externalLinks.forEach((node, i) => {
+                // Add slight randomness to prevent perfect circle (looks more organic)
                 const angle = i * extAngleStep + Math.random() * 0.1;
                 const r = outerRadius * (0.95 + Math.random() * 0.1);
                 node.x = centerX + r * Math.cos(angle);
@@ -197,6 +193,7 @@ class HomepageKnowledgeGraph {
             nodes[0].x = cx;
             nodes[0].y = cy;
         } else {
+            // Concentric ring placement: center node, then 6 per ring expanding outward
             const maxRadius = 80;
             let placed = 0, ring = 0;
             
@@ -218,6 +215,7 @@ class HomepageKnowledgeGraph {
     createSimulation(nodes, edges) {
         const linkForce = d3.forceLink(edges).id(d => d.id)
             .distance(d => {
+                // External links pushed further out (1.8x), same-category links pulled closer (0.8x)
                 if (d.source.type === 'external_link' || d.target.type === 'external_link') return this.CONFIG.force.linkDistance * 1.8;
                 if (d.source.category === d.target.category) return this.CONFIG.force.linkDistance * 0.8;
                 return this.CONFIG.force.linkDistance;
@@ -239,7 +237,6 @@ class HomepageKnowledgeGraph {
         
         this.forces = { link: linkForce, charge: chargeForce, collision: collisionForce };
         
-        // Optimized tick handler
         let tickCount = 0;
         let hasUpdatedOnStable = false;
         this.simulation.on("tick", () => {
@@ -247,19 +244,16 @@ class HomepageKnowledgeGraph {
             this.updateForceStrengths(alpha);
             this.updatePositions();
             
-            // Update hulls more frequently for first few ticks to ensure labels appear
             if (tickCount < 10 || tickCount % 3 === 0) {
                 requestAnimationFrame(() => this.updateCategoryHulls());
             }
             tickCount++;
             
-            // Ensure category labels appear when simulation stabilizes
             if (!hasUpdatedOnStable && alpha < 0.5) {
                 hasUpdatedOnStable = true;
                 requestAnimationFrame(() => this.updateCategoryHulls());
             }
             
-            // Auto-fit once
             if (!this.hasAutoFitted && alpha < 0.4) {
                 this.hasAutoFitted = true;
                 setTimeout(() => this.fitGraphToView(), 500);
@@ -287,11 +281,11 @@ class HomepageKnowledgeGraph {
         if (!this.forces) return;
         
         const progress = 1 - alpha;
+        // Custom easing: slow start (quadratic), linear middle, fast end (square root)
         const ease = progress < 0.3 ? progress * progress * 0.5 :
                      progress < 0.7 ? 0.045 + (progress - 0.3) * 1.14 :
                      0.5 + Math.sqrt((progress - 0.7) / 0.3) * 0.5;
         
-        // Update forces progressively
         this.forces.link.strength(d => {
             const base = d.source.type === 'external_link' || d.target.type === 'external_link' ? 0.5 :
                         d.source.category === d.target.category ? 1.5 : 1.0;
@@ -376,12 +370,13 @@ class HomepageKnowledgeGraph {
         const x = d.x || 0, y = d.y || 0;
         
         if (d.type === 'external_link') {
+            // Test 4 cardinal positions for label placement
             const positions = [
                 {x: x + radius + 8, y}, {x: x - radius - 8, y},
                 {x, y: y + radius + 15}, {x, y: y - radius - 15}
             ];
             
-            // Find least overlapping position
+            // Select position with minimum overlap with other nodes
             return positions.reduce((best, pos) => {
                 const overlap = allNodes.reduce((sum, other) => {
                     if (other === d) return sum;
@@ -402,7 +397,6 @@ class HomepageKnowledgeGraph {
         const categoryGroups = {};
         const nodes = this.simulation?.nodes() || [];
         
-        // Group nodes by category
         nodes.forEach(node => {
             if (node.type === 'blog_post' && node.category && node.x !== undefined && node.y !== undefined && 
                 !isNaN(node.x) && !isNaN(node.y)) {
@@ -410,12 +404,10 @@ class HomepageKnowledgeGraph {
             }
         });
         
-        // Clear and redraw
         this.hullGroup.selectAll("*").remove();
         this.categoryLabelGroup?.selectAll("*").remove();
         this.categoryLabelBounds = [];
         
-        // Draw hulls
         Object.entries(categoryGroups).forEach(([category, points]) => {
             if (!points.length) return;
             
@@ -438,8 +430,7 @@ class HomepageKnowledgeGraph {
             .attr("cx", x).attr("cy", y).attr("r", padding)
             .style("fill", color.hull).style("stroke", color.border);
         
-        // Position label at the top of the hull (inside)
-        const labelY = y - padding + 25; // Position near the top inner edge
+        const labelY = y - padding + 25;
         this.addCategoryLabel(x, labelY, category, color);
     }
     
@@ -456,10 +447,8 @@ class HomepageKnowledgeGraph {
             .attr("transform", `rotate(${angle} ${midX} ${midY})`)
             .style("fill", color.hull).style("stroke", color.border);
         
-        // Position label at the top of the hull (inside)
-        // Find the topmost point of the two nodes
         const topY = Math.min(y1, y2);
-        const labelY = topY - padding + 25; // Position near the top inner edge
+        const labelY = topY - padding + 25;
         this.addCategoryLabel(midX, labelY, category, color);
     }
     
@@ -475,10 +464,9 @@ class HomepageKnowledgeGraph {
             .attr("d", path)
             .style("fill", color.hull).style("stroke", color.border);
         
-        // Position label at the top of the hull (inside)
         const centroid = d3.polygonCentroid(points);
         const topY = Math.min(...points.map(p => p[1]));
-        const labelY = topY - padding + 25; // Position near the top inner edge
+        const labelY = topY - padding + 25;
         this.addCategoryLabel(centroid[0], labelY, category, color);
     }
     
@@ -488,6 +476,7 @@ class HomepageKnowledgeGraph {
             const dx = point[0] - centroid[0], dy = point[1] - centroid[1];
             const dist = Math.hypot(dx, dy);
             if (dist === 0) return point;
+            // Add 10% random variation to hull padding for organic appearance
             const scale = (dist + padding * (1 + (Math.random() - 0.5) * 0.1)) / dist;
             return [centroid[0] + dx * scale, centroid[1] + dy * scale];
         });
@@ -495,44 +484,37 @@ class HomepageKnowledgeGraph {
     
     addCategoryLabel(x, y, category, color) {
         if (!this.categoryLabelGroup) return;
-        // Ensure position is valid
         if (!isFinite(x) || !isFinite(y)) return;
         
-        // Calculate text width approximation  
-        const textWidth = category.length * 12 + 20;  // Add padding
+        const textWidth = category.length * 12 + 20;
         const textHeight = 24;
         
-        // Create a group for the label and background
         const labelGroup = this.categoryLabelGroup.append("g")
             .attr("class", "category-label-group");
         
-        // Add a semi-transparent background rect for better visibility
         labelGroup.append("rect")
             .attr("x", x - textWidth/2)
             .attr("y", y - textHeight/2)
             .attr("width", textWidth)
             .attr("height", textHeight)
-            .attr("rx", 4)  // Rounded corners
+            .attr("rx", 4)
             .attr("ry", 4)
-            .style("fill", "rgba(0, 0, 0, 0.5)")  // Semi-transparent black for visibility on both backgrounds
-            .style("stroke", "rgba(255, 255, 255, 0.3)")  // Subtle white border
+            .style("fill", "rgba(0, 0, 0, 0.5)")
+            .style("stroke", "rgba(255, 255, 255, 0.3)")
             .style("stroke-width", 1);
         
-        // Add label text on top
         labelGroup.append("text")
             .attr("class", "category-label")
             .attr("x", x)
             .attr("y", y)
             .text(category.toUpperCase());
         
-        // Log for debugging
-        console.log(`Added category label: ${category} at (${x.toFixed(1)}, ${y.toFixed(1)})`);
-        
         this.categoryLabelBounds.push({x: x, y: y, width: textWidth, height: textHeight, category});
     }
     
     getNodeRadius(node) {
         if (node.type === 'blog_post') {
+            // Node size scales with connectivity (more connections = larger node)
             const connections = (node.in_degree || 0) + (node.out_degree || 0);
             return Math.max(this.CONFIG.node.minRadius, 
                            Math.min(this.CONFIG.node.maxRadius, 
@@ -543,6 +525,7 @@ class HomepageKnowledgeGraph {
     
     getNodeLabel(node) {
         if (node.type === 'blog_post') {
+            // Extract 4-digit year prefix from blog post ID (e.g., "2024" from "2024-01-15-title")
             const match = node.id.match(/^(\d{4})/);
             return match ? match[1] : node.label.substring(0, this.CONFIG.label.shortLength);
         }
@@ -565,6 +548,8 @@ class HomepageKnowledgeGraph {
         
         let label = node.label;
         if (node.type === 'blog_post') {
+            // Clean up blog post filename to readable title:
+            // Remove year prefix, replace underscores with spaces, remove .html extension
             label = label.replace(/^\d{1,4}[_\-\s]*/, '').replace(/_/g, ' ').replace(/\.html?$/i, '').trim();
             if (label.length) label = label.charAt(0).toUpperCase() + label.slice(1);
         } else if (node.type === 'external_link' && node.domain) {
@@ -637,6 +622,7 @@ class HomepageKnowledgeGraph {
         const nodes = this.simulation?.nodes() || [];
         if (!nodes.length) return;
         
+        // Calculate bounding box of all nodes including their radii
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
         
         nodes.forEach(node => {
@@ -653,6 +639,7 @@ class HomepageKnowledgeGraph {
         minX -= padding; maxX += padding; minY -= padding; maxY += padding;
         
         const width = maxX - minX, height = maxY - minY;
+        // Calculate scale to fit graph in viewport (min 25%, max 100%)
         const scale = Math.max(0.25, Math.min(1.0, Math.min(this.width / width, this.height / height)));
         const translateX = this.width/2 - scale * (minX + maxX)/2;
         const translateY = this.height/2 - scale * (minY + maxY)/2;
@@ -675,11 +662,9 @@ class HomepageKnowledgeGraph {
     }
 }
 
-// Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     try {
         new HomepageKnowledgeGraph();
     } catch (error) {
-        console.error('Failed to initialize knowledge graph:', error);
     }
 });
