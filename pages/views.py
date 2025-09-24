@@ -160,6 +160,18 @@ def home(request):
                 "description": "Spindlers is a full service technology consulting company, specializing in custom software solutions, web development, and bringing small/medium businesses into the digital age.",
                 "link": "https://spindlers.ca",
                 "tech": ["Software Development", "Web Design", "Graphic Design", "SEO", "Marketing", "Consulting"]
+            },
+            {
+                "name": "iMessageLLM",
+                "description": "iMessageLLM brings the power of large language models directly to your iMessage conversations, understand context, summarize years of message history, and extract key insights.",
+                "link": "https://github.com/aaronspindler/iMessageLLM",
+                "tech": ["Python", "LLMs", "Data Analysis", "iMessage"]
+            },
+            {
+                "name": "Lightroom Blur",
+                "description": "Clean up unintentionally blurry and duplicate photos in Lightroom and Apple Photos automatically with AI-powered image classification and blur detection.",
+                "link": "https://github.com/aaronspindler/lightroom",
+                "tech": ["Python", "Image Processing", "Machine Learning", "Blur Detection", "Apple Photos", "Lightroom"]
             }
         ]
         # Cache for 24 hours
