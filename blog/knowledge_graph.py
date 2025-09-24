@@ -20,6 +20,15 @@ logger = logging.getLogger(__name__)
 CACHE_TIMEOUT = 1200 # 20 minutes
 
 
+def normalize_template_name(template_name: str) -> str:
+    """Normalize template name to ensure consistent casing.
+    
+    Converts template names to lowercase to avoid duplicate nodes
+    caused by case differences between filesystem names and URL paths.
+    """
+    return template_name.lower() if template_name else template_name
+
+
 class LinkParser:
     """Service for parsing HTML content and extracting links from blog posts."""
     
@@ -32,7 +41,9 @@ class LinkParser:
         
     def parse_blog_post(self, template_name: str, force_refresh: bool = False) -> Dict:
         """Parse a single blog post and extract all links with context."""
-        cache_key = f'blog:links:{template_name}'
+        # Normalize template name for consistent caching
+        normalized_name = normalize_template_name(template_name)
+        cache_key = f'blog:links:{normalized_name}'
         
         # Check cache
         if not force_refresh and not self._is_cache_stale(template_name, cache_key):
@@ -43,7 +54,7 @@ class LinkParser:
         
         try:
             html_content = self._get_template_content(template_name)
-            result = self._parse_html_content(html_content, template_name)
+            result = self._parse_html_content(html_content, normalized_name)
             
             # Cache the result
             cache.set(cache_key, result, self.CACHE_TIMEOUT)
@@ -67,7 +78,7 @@ class LinkParser:
             error_msg = f"Error parsing blog post {template_name}: {str(e)}"
             logger.error(error_msg)
             return {
-                'source_post': template_name,
+                'source_post': normalized_name,
                 'internal_links': [],
                 'external_links': [],
                 'parse_errors': [error_msg]
@@ -126,8 +137,10 @@ class LinkParser:
                 # Check link type and process accordingly
                 match = self.INTERNAL_BLOG_PATTERN.search(href)
                 if match:
+                    # Normalize the target template name
+                    target = normalize_template_name(match.group(1))
                     result['internal_links'].append({
-                        'target': match.group(1),
+                        'target': target,
                         'text': link_text,
                         'context': context,
                         'href': href
@@ -231,16 +244,18 @@ class GraphBuilder:
             categories_info = {}  # Track categories and their posts
             
             for template_info in blog_templates:
-                template_name = template_info['template_name']
+                template_name = template_info['template_name']  # This is now normalized
+                original_name = template_info.get('original_name', template_name)
                 category = template_info['category']
                 
-                # Track categories
+                # Track categories with normalized names
                 if category:
                     if category not in categories_info:
                         categories_info[category] = []
                     categories_info[category].append(template_name)
                 
-                links_data = self.link_parser.parse_blog_post(template_name, force_refresh)
+                # Parse using original name for file access, but it will be normalized internally
+                links_data = self.link_parser.parse_blog_post(original_name, force_refresh)
                 links_data['category'] = category  # Add category info to links data
                 all_links_data.append(links_data)
             
@@ -262,7 +277,9 @@ class GraphBuilder:
     
     def get_post_connections(self, template_name: str, depth: int = 1) -> Dict:
         """Get connections for a specific blog post."""
-        cache_key = f'blog:graph:post:{template_name}:depth:{depth}'
+        # Normalize the template name for consistent caching and processing
+        normalized_name = normalize_template_name(template_name)
+        cache_key = f'blog:graph:post:{normalized_name}:depth:{depth}'
         
         cached_result = cache.get(cache_key)
         if cached_result:
@@ -270,23 +287,28 @@ class GraphBuilder:
         
         try:
             visited = set()
-            to_process = [(template_name, 0)]
+            to_process = [(template_name, 0)]  # Use original for file access
             all_links_data = []
             
             while to_process:
                 current_template, current_depth = to_process.pop(0)
                 
-                if current_template in visited or current_depth >= depth:
+                # Normalize for visited tracking
+                current_normalized = normalize_template_name(current_template)
+                
+                if current_normalized in visited or current_depth >= depth:
                     continue
                 
-                visited.add(current_template)
+                visited.add(current_normalized)
                 
                 links_data = self.link_parser.parse_blog_post(current_template)
                 all_links_data.append(links_data)
                 
                 for link in links_data['internal_links']:
-                    target = link['target']
+                    target = link['target']  # Already normalized in parse_blog_post
                     if target not in visited:
+                        # Need to get the original template name for file access
+                        # For now, we'll use the normalized name as links already point to it
                         to_process.append((target, current_depth + 1))
             
             subgraph = self._build_graph_structure(all_links_data)
@@ -310,8 +332,10 @@ class GraphBuilder:
         blog_templates = []
         
         for post in all_posts:
+            # Store both normalized and original names
             blog_templates.append({
-                'template_name': post['template_name'],
+                'template_name': normalize_template_name(post['template_name']),
+                'original_name': post['template_name'],  # Keep original for file access
                 'category': post['category']
             })
         
@@ -522,8 +546,10 @@ def parse_all_blog_posts(force_refresh: bool = False) -> List[Dict]:
     blog_templates = graph_builder._get_all_blog_templates()
     
     all_links_data = []
-    for template_name in blog_templates:
-        links_data = graph_builder.link_parser.parse_blog_post(template_name, force_refresh)
+    for template_info in blog_templates:
+        # Use original name for file access
+        original_name = template_info.get('original_name', template_info['template_name'])
+        links_data = graph_builder.link_parser.parse_blog_post(original_name, force_refresh)
         all_links_data.append(links_data)
     
     return all_links_data
