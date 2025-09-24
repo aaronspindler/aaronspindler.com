@@ -3,6 +3,7 @@ from django.contrib.messages import get_messages
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.urls import reverse
 from accounts.views import signup_disabled
+from tests.factories import MockDataFactory
 
 
 class SignupDisabledViewTest(TestCase):
@@ -52,12 +53,8 @@ class SignupDisabledViewTest(TestCase):
 
     def test_post_to_signup_disabled(self):
         """Test POST request to signup_disabled view."""
-        response = self.client.post('/accounts/signup/', {
-            'username': 'testuser',
-            'email': 'test@example.com',
-            'password1': 'testpass123',
-            'password2': 'testpass123',
-        })
+        form_data = MockDataFactory.get_common_form_data()['user_form']
+        response = self.client.post('/accounts/signup/', form_data)
         
         # Should still redirect to login
         self.assertEqual(response.status_code, 302)

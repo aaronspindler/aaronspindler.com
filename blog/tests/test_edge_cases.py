@@ -6,6 +6,7 @@ from unittest.mock import patch, MagicMock
 from blog.models import BlogComment, CommentVote
 from blog.forms import CommentForm
 from blog.knowledge_graph import normalize_template_name, LinkParser, GraphBuilder
+from tests.factories import UserFactory, BlogCommentFactory, MockDataFactory
 import json
 
 User = get_user_model()
@@ -16,17 +17,12 @@ class EdgeCaseTests(TestCase):
 
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
+        self.user = UserFactory.create_user()
 
     def test_comment_at_max_length(self):
         """Test comment exactly at maximum length."""
         max_content = 'x' * 2000
-        comment = BlogComment.objects.create(
-            blog_template_name='test',
+        comment = BlogCommentFactory.create_comment(
             content=max_content
         )
         
@@ -59,19 +55,15 @@ class EdgeCaseTests(TestCase):
 
     def test_deeply_nested_comments(self):
         """Test handling of deeply nested comment threads."""
-        parent = BlogComment.objects.create(
-            blog_template_name='test',
-            content='Level 0',
-            status='approved'
+        parent = BlogCommentFactory.create_approved_comment(
+            content='Level 0'
         )
         
         current = parent
         for i in range(1, 10):  # Create 9 levels of nesting
-            current = BlogComment.objects.create(
-                blog_template_name='test',
+            current = BlogCommentFactory.create_approved_comment(
                 content=f'Level {i}',
-                parent=current,
-                status='approved'
+                parent=current
             )
         
         # Test depth calculation
@@ -84,13 +76,11 @@ class EdgeCaseTests(TestCase):
 
     def test_circular_reference_prevention(self):
         """Test that circular parent references are prevented."""
-        comment1 = BlogComment.objects.create(
-            blog_template_name='test',
+        comment1 = BlogCommentFactory.create_comment(
             content='Comment 1'
         )
         
-        comment2 = BlogComment.objects.create(
-            blog_template_name='test',
+        comment2 = BlogCommentFactory.create_comment(
             content='Comment 2',
             parent=comment1
         )
@@ -105,14 +95,12 @@ class EdgeCaseTests(TestCase):
 
     def test_vote_on_own_comment(self):
         """Test user voting on their own comment."""
-        comment = BlogComment.objects.create(
-            blog_template_name='test',
+        comment = BlogCommentFactory.create_approved_comment(
             content='My comment',
-            author=self.user,
-            status='approved'
+            author=self.user
         )
         
-        self.client.login(username='testuser', password='testpass123')
+        self.client.login(username=self.user.username, password='testpass123')
         response = self.client.post(f'/comment/{comment.id}/vote/', {
             'vote_type': 'upvote'
         })
@@ -124,14 +112,10 @@ class EdgeCaseTests(TestCase):
 
     def test_simultaneous_vote_changes(self):
         """Test handling simultaneous vote changes."""
-        comment = BlogComment.objects.create(
-            blog_template_name='test',
-            content='Test',
-            status='approved'
-        )
+        comment = BlogCommentFactory.create_approved_comment()
         
         # Create initial vote
-        vote = CommentVote.objects.create(
+        vote = BlogCommentFactory.create_comment_vote(
             comment=comment,
             user=self.user,
             vote_type='upvote'
@@ -156,8 +140,7 @@ class EdgeCaseTests(TestCase):
         """Test handling of Unicode characters in comments."""
         unicode_content = '测试 テスト тест 🎉 emoji test ñoño'
         
-        comment = BlogComment.objects.create(
-            blog_template_name='test',
+        comment = BlogCommentFactory.create_comment(
             content=unicode_content,
             author_name='José García'
         )
@@ -166,11 +149,12 @@ class EdgeCaseTests(TestCase):
         self.assertEqual(comment.author_name, 'José García')
         
         # Test in form
-        form = CommentForm(data={
+        form_data = MockDataFactory.get_common_form_data()['comment_form']
+        form_data.update({
             'content': unicode_content,
-            'author_name': 'José García',
-            'website': ''
+            'author_name': 'José García'
         })
+        form = CommentForm(data=form_data)
         
         self.assertTrue(form.is_valid())
 
@@ -184,8 +168,7 @@ class EdgeCaseTests(TestCase):
         ]
         
         for xss in xss_attempts:
-            comment = BlogComment.objects.create(
-                blog_template_name='test',
+            comment = BlogCommentFactory.create_comment(
                 content=xss
             )
             
@@ -196,8 +179,7 @@ class EdgeCaseTests(TestCase):
         """Test that SQL injection attempts are handled safely."""
         sql_injection = "'; DROP TABLE blog_blogcomment; --"
         
-        comment = BlogComment.objects.create(
-            blog_template_name='test',
+        comment = BlogCommentFactory.create_comment(
             content=sql_injection,
             author_name=sql_injection
         )
@@ -212,10 +194,9 @@ class EdgeCaseTests(TestCase):
         """Test handling of extremely long URLs in comment content."""
         long_url = 'https://example.com/' + 'x' * 1900
         
-        form = CommentForm(data={
-            'content': f'Check out {long_url}',
-            'website': ''
-        })
+        form_data = MockDataFactory.get_common_form_data()['comment_form']
+        form_data['content'] = f'Check out {long_url}'
+        form = CommentForm(data=form_data)
         
         # Should handle long URL (counts as 1 URL, not spam)
         # But total content exceeds 2000 chars
@@ -231,11 +212,12 @@ class EdgeCaseTests(TestCase):
         ]
         
         for input_email, expected in test_cases:
-            form = CommentForm(data={
+            form_data = MockDataFactory.get_common_form_data()['comment_form']
+            form_data.update({
                 'content': 'Test',
-                'author_email': input_email,
-                'website': ''
+                'author_email': input_email
             })
+            form = CommentForm(data=form_data)
             
             self.assertTrue(form.is_valid())
             self.assertEqual(form.cleaned_data['author_email'], expected)
@@ -245,10 +227,8 @@ class EdgeCaseTests(TestCase):
         """Test handling of comments on non-existent blog posts."""
         mock_get_blog.side_effect = Exception('Template not found')
         
-        response = self.client.post('/b/nonexistent/comment/', {
-            'content': 'Test comment',
-            'website': ''
-        })
+        form_data = MockDataFactory.get_common_form_data()['comment_form']
+        response = self.client.post('/b/nonexistent/comment/', form_data)
         
         # Should handle gracefully
         self.assertIn(response.status_code, [404, 302, 200])
@@ -288,15 +268,13 @@ class EdgeCaseTests(TestCase):
         content = 'Concurrent test comment'
         
         # Simulate two "simultaneous" submissions
-        response1 = self.client.post('/b/test/comment/', {
-            'content': content + ' 1',
-            'website': ''
-        })
+        form_data1 = MockDataFactory.get_common_form_data()['comment_form']
+        form_data1['content'] = content + ' 1'
+        response1 = self.client.post('/b/test/comment/', form_data1)
         
-        response2 = self.client.post('/b/test/comment/', {
-            'content': content + ' 2',
-            'website': ''
-        })
+        form_data2 = MockDataFactory.get_common_form_data()['comment_form']
+        form_data2['content'] = content + ' 2'
+        response2 = self.client.post('/b/test/comment/', form_data2)
         
         # Both should succeed
         self.assertEqual(response1.status_code, 302)
@@ -308,17 +286,13 @@ class EdgeCaseTests(TestCase):
 
     def test_comment_with_null_fields(self):
         """Test comment with various null/empty field combinations."""
-        comment = BlogComment.objects.create(
-            blog_template_name='test',
+        comment = BlogCommentFactory.create_comment(
             content='Test',
             author=None,
             author_name='',
             author_email='',
             blog_category=None,
-            parent=None,
-            moderation_note='',
-            ip_address=None,
-            user_agent=''
+            parent=None
         )
         
         # Should handle all null/empty fields gracefully
@@ -328,13 +302,9 @@ class EdgeCaseTests(TestCase):
 
     def test_invalid_vote_type(self):
         """Test handling of invalid vote types."""
-        comment = BlogComment.objects.create(
-            blog_template_name='test',
-            content='Test',
-            status='approved'
-        )
+        comment = BlogCommentFactory.create_approved_comment()
         
-        self.client.login(username='testuser', password='testpass123')
+        self.client.login(username=self.user.username, password='testpass123')
         
         # Try invalid vote type
         response = self.client.post(f'/comment/{comment.id}/vote/', {

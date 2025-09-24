@@ -5,6 +5,7 @@ from blog.utils import (
     find_blog_template,
     get_all_blog_posts
 )
+from tests.factories import MockDataFactory
 import os
 
 
@@ -15,14 +16,16 @@ class BlogUtilsTest(TestCase):
     @patch('blog.utils.find_blog_template')
     def test_get_blog_from_template_name_with_category(self, mock_find, mock_render):
         """Test getting blog data with category specified."""
-        mock_render.return_value = '<p>Blog content</p>'
+        # Use consistent mock blog data structure
+        mock_blog_data = MockDataFactory.get_mock_blog_data()
+        mock_render.return_value = mock_blog_data['blog_content']
         
         result = get_blog_from_template_name('0001_test_post', category='tech')
         
         self.assertEqual(result['entry_number'], '0001')
         self.assertEqual(result['template_name'], '0001_test_post')
         self.assertEqual(result['blog_title'], '0001 test post')
-        self.assertEqual(result['blog_content'], '<p>Blog content</p>')
+        self.assertEqual(result['blog_content'], mock_blog_data['blog_content'])
         self.assertEqual(result['category'], 'tech')
         self.assertIn('github.com', result['github_link'])
         self.assertIn('tech/0001_test_post.html', result['github_link'])

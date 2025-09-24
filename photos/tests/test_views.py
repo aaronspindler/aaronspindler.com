@@ -18,6 +18,7 @@ from io import BytesIO
 from PIL import Image
 
 from photos.models import Photo, PhotoAlbum
+from tests.factories import UserFactory, PhotoFactory
 
 
 User = get_user_model()
@@ -29,28 +30,27 @@ class AlbumDetailViewTestCase(TestCase):
     def setUp(self):
         """Set up test data."""
         self.client = Client()
-        
+
         # Create test users
-        self.regular_user = User.objects.create_user(
+        self.regular_user = UserFactory.create_user(
             username='regular',
             password='testpass123'
         )
-        self.staff_user = User.objects.create_user(
+        self.staff_user = UserFactory.create_staff_user(
             username='staff',
-            password='testpass123',
-            is_staff=True
+            password='testpass123'
         )
-        
+
         # Create test albums
-        self.public_album = PhotoAlbum.objects.create(
+        self.public_album = PhotoFactory.create_photo_album(
             title="Public Album",
             slug="public-album",
             description="A public album",
             is_private=False
         )
-        
-        self.private_album = PhotoAlbum.objects.create(
-            title="Private Album", 
+
+        self.private_album = PhotoFactory.create_photo_album(
+            title="Private Album",
             slug="private-album",
             description="A private album",
             is_private=True
@@ -66,16 +66,7 @@ class AlbumDetailViewTestCase(TestCase):
     
     def _create_test_photo(self, title):
         """Helper to create a test photo."""
-        img = Image.new('RGB', (100, 100), color='red')
-        img_io = BytesIO()
-        img.save(img_io, format='JPEG')
-        img_io.seek(0)
-        
-        photo = Photo.objects.create(
-            title=title,
-            image=ContentFile(img_io.getvalue(), name=f'{title}.jpg')
-        )
-        return photo
+        return PhotoFactory.create_photo(title=title)
     
     def test_public_album_anonymous_access(self):
         """Test anonymous users can access public albums."""
@@ -186,14 +177,13 @@ class DownloadPhotoViewTestCase(TestCase):
         self.client = Client()
         
         # Create staff user
-        self.staff_user = User.objects.create_user(
+        self.staff_user = UserFactory.create_staff_user(
             username='staff',
-            password='testpass123',
-            is_staff=True
+            password='testpass123'
         )
-        
+
         # Create album and photo
-        self.album = PhotoAlbum.objects.create(
+        self.album = PhotoFactory.create_photo_album(
             title="Test Album",
             slug="test-album",
             is_private=False,
@@ -205,17 +195,10 @@ class DownloadPhotoViewTestCase(TestCase):
     
     def _create_test_photo(self, title):
         """Helper to create a test photo."""
-        img = Image.new('RGB', (100, 100), color='blue')
-        img_io = BytesIO()
-        img.save(img_io, format='JPEG')
-        img_io.seek(0)
-        
-        photo = Photo.objects.create(
+        return PhotoFactory.create_photo(
             title=title,
-            original_filename=f"{title}.jpg",
-            image=ContentFile(img_io.getvalue(), name=f'{title}.jpg')
+            original_filename=f"{title}.jpg"
         )
-        return photo
     
     @patch('requests.get')
     def test_download_photo_success(self, mock_get):
@@ -343,18 +326,17 @@ class DownloadAlbumViewTestCase(TestCase):
         self.client = Client()
         
         # Create users
-        self.regular_user = User.objects.create_user(
+        self.regular_user = UserFactory.create_user(
             username='regular',
             password='testpass123'
         )
-        self.staff_user = User.objects.create_user(
+        self.staff_user = UserFactory.create_staff_user(
             username='staff',
-            password='testpass123',
-            is_staff=True
+            password='testpass123'
         )
-        
+
         # Create album
-        self.album = PhotoAlbum.objects.create(
+        self.album = PhotoFactory.create_photo_album(
             title="Download Test Album",
             slug="download-test",
             is_private=False,
@@ -483,14 +465,13 @@ class AlbumDownloadStatusViewTestCase(TestCase):
         self.client = Client()
         
         # Create users
-        self.staff_user = User.objects.create_user(
+        self.staff_user = UserFactory.create_staff_user(
             username='staff',
-            password='testpass123',
-            is_staff=True
+            password='testpass123'
         )
-        
+
         # Create album with photos
-        self.album = PhotoAlbum.objects.create(
+        self.album = PhotoFactory.create_photo_album(
             title="Status Test Album",
             slug="status-test",
             is_private=False,
@@ -504,16 +485,7 @@ class AlbumDownloadStatusViewTestCase(TestCase):
     
     def _create_test_photo(self, title):
         """Helper to create a test photo."""
-        img = Image.new('RGB', (100, 100), color='green')
-        img_io = BytesIO()
-        img.save(img_io, format='JPEG')
-        img_io.seek(0)
-        
-        photo = Photo.objects.create(
-            title=title,
-            image=ContentFile(img_io.getvalue(), name=f'{title}.jpg')
-        )
-        return photo
+        return PhotoFactory.create_photo(title=title)
     
     def test_status_with_both_zips(self):
         """Test status when both zip files exist."""

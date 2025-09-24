@@ -5,49 +5,32 @@ from django.db import transaction
 from unittest.mock import patch, MagicMock
 from blog.models import BlogComment, CommentVote
 from blog.forms import CommentForm
+from tests.factories import UserFactory, BlogCommentFactory, MockDataFactory, TestDataMixin
 import json
 
 User = get_user_model()
 
 
-class BlogIntegrationTest(TransactionTestCase):
+class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
     """Integration tests for the complete blog commenting system."""
 
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
-        self.staff_user = User.objects.create_user(
-            username='staffuser',
-            email='staff@example.com',
-            password='testpass123',
-            is_staff=True
-        )
+        self.setUp_users()
+        self.setUp_blog_data()
         cache.clear()
 
     @patch('blog.views.get_blog_from_template_name')
     @patch('blog.views.PageVisit')
     def test_complete_comment_workflow(self, mock_page_visit, mock_get_blog):
         """Test complete workflow from submission to approval to voting."""
-        mock_get_blog.return_value = {
-            'entry_number': '0001',
-            'template_name': '0001_test_post',
-            'blog_title': '0001 test post',
-            'blog_content': '<p>Test content</p>',
-            'category': 'tech',
-            'github_link': 'https://github.com/test'
-        }
+        mock_get_blog.return_value = self.mock_blog_data
         mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
 
         # Step 1: User submits comment
-        self.client.login(username='testuser', password='testpass123')
-        response = self.client.post('/b/tech/0001_test_post/comment/', {
-            'content': 'This is a test comment',
-            'website': ''  # Honeypot
-        })
+        self.client.login(username=self.user.username, password='testpass123')
+        form_data = MockDataFactory.get_common_form_data()['comment_form']
+        response = self.client.post('/b/tech/0001_test_post/comment/', form_data)
         self.assertEqual(response.status_code, 302)
         
         comment = BlogComment.objects.get(content='This is a test comment')
@@ -55,7 +38,7 @@ class BlogIntegrationTest(TransactionTestCase):
         comment_id = comment.id
 
         # Step 2: Staff approves comment
-        self.client.login(username='staffuser', password='testpass123')
+        self.client.login(username=self.staff_user.username, password='testpass123')
         response = self.client.post(f'/comment/{comment_id}/moderate/', {
             'action': 'approve'
         })
@@ -65,8 +48,8 @@ class BlogIntegrationTest(TransactionTestCase):
         self.assertEqual(comment.status, 'approved')
 
         # Step 3: Another user votes on the comment
-        other_user = User.objects.create_user('other', 'other@test.com', 'pass')
-        self.client.login(username='other', password='pass')
+        other_user = UserFactory.create_user(username='other')
+        self.client.login(username=other_user.username, password='testpass123')
         response = self.client.post(f'/comment/{comment_id}/vote/', {
             'vote_type': 'upvote'
         })
@@ -76,11 +59,10 @@ class BlogIntegrationTest(TransactionTestCase):
         self.assertEqual(data['upvotes'], 1)
 
         # Step 4: User replies to the comment
-        self.client.login(username='testuser', password='testpass123')
-        response = self.client.post(f'/comment/{comment_id}/reply/', {
-            'content': 'This is a reply',
-            'website': ''
-        })
+        self.client.login(username=self.user.username, password='testpass123')
+        reply_data = MockDataFactory.get_common_form_data()['comment_form']
+        reply_data['content'] = 'This is a reply'
+        response = self.client.post(f'/comment/{comment_id}/reply/', reply_data)
         self.assertEqual(response.status_code, 302)
         
         reply = BlogComment.objects.get(content='This is a reply')
@@ -100,37 +82,29 @@ class BlogIntegrationTest(TransactionTestCase):
         mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
 
         # Create parent comment
-        parent = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
+        parent = BlogCommentFactory.create_approved_comment(
             content='Parent comment',
-            author=self.user,
-            status='approved'
+            author=self.user
         )
 
         # Create child comments
-        child1 = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
+        child1 = BlogCommentFactory.create_approved_comment(
             content='Child 1',
             author=self.user,
-            parent=parent,
-            status='approved'
+            parent=parent
         )
 
-        child2 = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
+        child2 = BlogCommentFactory.create_approved_comment(
             content='Child 2',
             author=self.staff_user,
-            parent=parent,
-            status='approved'
+            parent=parent
         )
 
         # Create grandchild
-        grandchild = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
+        grandchild = BlogCommentFactory.create_approved_comment(
             content='Grandchild',
             author=self.user,
-            parent=child1,
-            status='approved'
+            parent=child1
         )
 
         # Test blog view includes nested structure
@@ -149,20 +123,16 @@ class BlogIntegrationTest(TransactionTestCase):
 
     def test_concurrent_voting(self):
         """Test handling concurrent votes on the same comment."""
-        comment = BlogComment.objects.create(
-            blog_template_name='test',
-            content='Test comment',
-            status='approved'
-        )
+        comment = BlogCommentFactory.create_approved_comment()
 
         users = []
         for i in range(5):
-            user = User.objects.create_user(f'user{i}', f'user{i}@test.com', 'pass')
+            user = UserFactory.create_user(username=f'user{i}')
             users.append(user)
 
         # Simulate concurrent voting
         for user in users:
-            self.client.login(username=user.username, password='pass')
+            self.client.login(username=user.username, password='testpass123')
             response = self.client.post(f'/comment/{comment.id}/vote/', {
                 'vote_type': 'upvote'
             })
@@ -177,11 +147,12 @@ class BlogIntegrationTest(TransactionTestCase):
         # Simulate spam patterns
         spam_content = 'Buy cheap viagra at http://spam1.com http://spam2.com http://spam3.com http://spam4.com'
         
-        response = self.client.post('/b/test_post/comment/', {
+        form_data = MockDataFactory.get_common_form_data()['comment_form']
+        form_data.update({
             'content': spam_content,
-            'author_name': 'Spammer',
-            'website': ''
+            'author_name': 'Spammer'
         })
+        response = self.client.post('/b/test_post/comment/', form_data)
 
         # Form should reject due to too many URLs
         comments = BlogComment.objects.filter(content=spam_content)
@@ -191,13 +162,11 @@ class BlogIntegrationTest(TransactionTestCase):
         """Test moderation queue for multiple pending comments."""
         # Create multiple pending comments
         for i in range(5):
-            BlogComment.objects.create(
-                blog_template_name='test_post',
-                content=f'Comment {i}',
-                status='pending'
+            BlogCommentFactory.create_pending_comment(
+                content=f'Comment {i}'
             )
 
-        self.client.login(username='staffuser', password='testpass123')
+        self.client.login(username=self.staff_user.username, password='testpass123')
 
         # Get pending count
         pending_count = BlogComment.get_pending_count()
@@ -231,29 +200,25 @@ class BlogIntegrationTest(TransactionTestCase):
         mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
 
         # Create comment structure
-        parent = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
+        parent = BlogCommentFactory.create_approved_comment(
             content='Parent',
-            author=self.user,
-            status='approved'
+            author=self.user
         )
 
-        child = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
+        child = BlogCommentFactory.create_approved_comment(
             content='Child',
-            parent=parent,
-            status='approved'
+            parent=parent
         )
 
         # Add votes
-        CommentVote.objects.create(
+        BlogCommentFactory.create_comment_vote(
             comment=parent,
             user=self.staff_user,
             vote_type='upvote'
         )
 
         # Delete parent
-        self.client.login(username='testuser', password='testpass123')
+        self.client.login(username=self.user.username, password='testpass123')
         response = self.client.get(f'/comment/{parent.id}/delete/')
         
         # Check cascade deletion
@@ -351,23 +316,19 @@ class PerformanceTest(TestCase):
     def test_comment_query_optimization(self):
         """Test that comment queries are optimized."""
         # Create test data
-        user = User.objects.create_user('test', 'test@test.com', 'pass')
+        user = UserFactory.create_user()
         
         for i in range(10):
-            comment = BlogComment.objects.create(
-                blog_template_name='test_post',
+            comment = BlogCommentFactory.create_approved_comment(
                 content=f'Comment {i}',
-                author=user if i % 2 == 0 else None,
-                status='approved'
+                author=user if i % 2 == 0 else None
             )
             
             # Add replies
             for j in range(3):
-                BlogComment.objects.create(
-                    blog_template_name='test_post',
+                BlogCommentFactory.create_approved_comment(
                     content=f'Reply {i}-{j}',
-                    parent=comment,
-                    status='approved'
+                    parent=comment
                 )
 
         # Test optimized query

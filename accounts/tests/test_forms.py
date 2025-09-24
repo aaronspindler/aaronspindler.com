@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from accounts.forms import CustomUserCreationForm, CustomUserChangeForm
+from tests.factories import UserFactory, MockDataFactory
 
 User = get_user_model()
 
@@ -20,9 +21,10 @@ class CustomUserCreationFormTest(TestCase):
 
     def test_form_valid_data(self):
         """Test form with valid data."""
+        user_data = UserFactory.get_common_user_data()
         form_data = {
-            'username': 'newuser',
-            'email': 'newuser@example.com',
+            'username': user_data['username'],
+            'email': user_data['email'],
             'password1': 'testpass123!@#',
             'password2': 'testpass123!@#',
         }
@@ -31,9 +33,10 @@ class CustomUserCreationFormTest(TestCase):
 
     def test_form_save(self):
         """Test that the form saves a user correctly."""
+        user_data = UserFactory.get_common_user_data()
         form_data = {
-            'username': 'saveduser',
-            'email': 'saved@example.com',
+            'username': user_data['username'],
+            'email': user_data['email'],
             'password1': 'testpass123!@#',
             'password2': 'testpass123!@#',
         }
@@ -41,8 +44,8 @@ class CustomUserCreationFormTest(TestCase):
         self.assertTrue(form.is_valid())
         
         user = form.save()
-        self.assertEqual(user.username, 'saveduser')
-        self.assertEqual(user.email, 'saved@example.com')
+        self.assertEqual(user.username, user_data['username'])
+        self.assertEqual(user.email, user_data['email'])
         self.assertTrue(user.check_password('testpass123!@#'))
 
     def test_form_password_mismatch(self):
@@ -72,14 +75,10 @@ class CustomUserCreationFormTest(TestCase):
     def test_form_duplicate_username(self):
         """Test form with duplicate username."""
         # Create an existing user
-        User.objects.create_user(
-            username='existinguser',
-            email='existing@example.com',
-            password='existingpass123'
-        )
+        existing_user = UserFactory.create_user()
         
         form_data = {
-            'username': 'existinguser',  # Duplicate username
+            'username': existing_user.username,  # Duplicate username
             'email': 'new@example.com',
             'password1': 'testpass123!@#',
             'password2': 'testpass123!@#',
@@ -125,11 +124,7 @@ class CustomUserChangeFormTest(TestCase):
 
     def setUp(self):
         """Set up test data."""
-        self.user = User.objects.create_user(
-            username='changeuser',
-            email='change@example.com',
-            password='originalpass123'
-        )
+        self.user = UserFactory.create_user()
 
     def test_form_has_expected_fields(self):
         """Test that the change form has the expected fields."""
@@ -142,13 +137,13 @@ class CustomUserChangeFormTest(TestCase):
     def test_form_initial_data(self):
         """Test that the form loads with correct initial data."""
         form = CustomUserChangeForm(instance=self.user)
-        self.assertEqual(form.initial['username'], 'changeuser')
-        self.assertEqual(form.initial['email'], 'change@example.com')
+        self.assertEqual(form.initial['username'], self.user.username)
+        self.assertEqual(form.initial['email'], self.user.email)
 
     def test_form_update_email(self):
         """Test updating user email through the form."""
         form_data = {
-            'username': 'changeuser',
+            'username': self.user.username,
             'email': 'newemail@example.com',
         }
         form = CustomUserChangeForm(data=form_data, instance=self.user)
@@ -160,7 +155,7 @@ class CustomUserChangeFormTest(TestCase):
         """Test updating username through the form."""
         form_data = {
             'username': 'newusername',
-            'email': 'change@example.com',
+            'email': self.user.email,
         }
         form = CustomUserChangeForm(data=form_data, instance=self.user)
         if form.is_valid():
@@ -170,15 +165,11 @@ class CustomUserChangeFormTest(TestCase):
     def test_form_duplicate_username_on_update(self):
         """Test that duplicate username is prevented on update."""
         # Create another user
-        User.objects.create_user(
-            username='anotheruser',
-            email='another@example.com',
-            password='anotherpass123'
-        )
+        another_user = UserFactory.create_user()
         
         form_data = {
-            'username': 'anotheruser',  # Try to use existing username
-            'email': 'change@example.com',
+            'username': another_user.username,  # Try to use existing username
+            'email': self.user.email,
         }
         form = CustomUserChangeForm(data=form_data, instance=self.user)
         self.assertFalse(form.is_valid())

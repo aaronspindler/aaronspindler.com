@@ -5,6 +5,7 @@ from django.urls import reverse
 from unittest.mock import patch, MagicMock
 from pages.models import PageVisit
 from pages.admin import PageVisitAdmin
+from tests.factories import PageVisitFactory, UserFactory
 import json
 
 User = get_user_model()
@@ -16,7 +17,7 @@ class PageVisitAdminTest(TestCase):
     def setUp(self):
         self.site = AdminSite()
         self.admin = PageVisitAdmin(PageVisit, self.site)
-        self.superuser = User.objects.create_superuser(
+        self.superuser = UserFactory.create_superuser(
             username='admin',
             email='admin@test.com',
             password='admin123'
@@ -55,9 +56,9 @@ class PageVisitAdminTest(TestCase):
     def test_geolocate_ips_action(self, mock_post):
         """Test batch geolocation action."""
         # Create test visits without geo data
-        PageVisit.objects.create(ip_address='8.8.8.8', page_name='/test1/')
-        PageVisit.objects.create(ip_address='8.8.4.4', page_name='/test2/')
-        PageVisit.objects.create(ip_address='127.0.0.1', page_name='/local/')  # Local IP
+        PageVisitFactory.create_visit(ip_address='8.8.8.8', page_name='/test1/')
+        PageVisitFactory.create_visit(ip_address='8.8.4.4', page_name='/test2/')
+        PageVisitFactory.create_visit(ip_address='127.0.0.1', page_name='/local/')  # Local IP
         
         # Mock API response
         mock_response = MagicMock()
@@ -97,7 +98,7 @@ class PageVisitAdminTest(TestCase):
     @patch('pages.admin.requests.post')
     def test_geolocate_ips_handles_api_error(self, mock_post):
         """Test that geolocation handles API errors gracefully."""
-        PageVisit.objects.create(ip_address='8.8.8.8', page_name='/test/')
+        PageVisitFactory.create_visit(ip_address='8.8.8.8', page_name='/test/')
         
         mock_post.side_effect = Exception('API error')
         
@@ -113,11 +114,11 @@ class PageVisitAdminTest(TestCase):
     def test_clean_local_ips_action(self):
         """Test cleaning local IP addresses."""
         # Create visits with various IPs
-        PageVisit.objects.create(ip_address='192.168.1.1', page_name='/test1/')
-        PageVisit.objects.create(ip_address='127.0.0.1', page_name='/local1/')
-        PageVisit.objects.create(ip_address='10.0.2.2', page_name='/local2/')
-        PageVisit.objects.create(ip_address='10.0.1.5', page_name='/local3/')
-        PageVisit.objects.create(ip_address='8.8.8.8', page_name='/public/')
+        PageVisitFactory.create_visit(ip_address='192.168.1.1', page_name='/test1/')
+        PageVisitFactory.create_visit(ip_address='127.0.0.1', page_name='/local1/')
+        PageVisitFactory.create_visit(ip_address='10.0.2.2', page_name='/local2/')
+        PageVisitFactory.create_visit(ip_address='10.0.1.5', page_name='/local3/')
+        PageVisitFactory.create_visit(ip_address='8.8.8.8', page_name='/public/')
         
         request = MagicMock()
         request.user = self.superuser
@@ -141,7 +142,7 @@ class PageVisitAdminTest(TestCase):
         """Test that IPs are processed in batches of 100."""
         # Create 150 visits (should be 2 batches)
         for i in range(150):
-            PageVisit.objects.create(
+            PageVisitFactory.create_visit(
                 ip_address=f'1.2.3.{i % 256}',
                 page_name=f'/test{i}/'
             )
@@ -170,12 +171,12 @@ class PageVisitAdminTest(TestCase):
     def test_geolocate_ips_filters_existing_geodata(self, mock_post):
         """Test that geolocation skips IPs that already have geo data."""
         # Create visits with and without geo data
-        PageVisit.objects.create(
+        PageVisitFactory.create_visit(
             ip_address='8.8.8.8',
             page_name='/test1/',
             geo_data={'country': 'Existing'}
         )
-        PageVisit.objects.create(
+        PageVisitFactory.create_visit(
             ip_address='8.8.4.4',
             page_name='/test2/',
             geo_data=None
@@ -204,7 +205,7 @@ class PageVisitAdminTest(TestCase):
     @patch('pages.admin.requests.post')
     def test_geolocate_ips_handles_failed_status(self, mock_post):
         """Test handling of failed geolocation status."""
-        PageVisit.objects.create(ip_address='192.168.1.1', page_name='/test/')
+        PageVisitFactory.create_visit(ip_address='192.168.1.1', page_name='/test/')
         
         mock_response = MagicMock()
         mock_response.json.return_value = [

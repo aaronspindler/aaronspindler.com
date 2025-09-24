@@ -5,40 +5,25 @@ from django.contrib.messages import get_messages
 from unittest.mock import patch, MagicMock
 from blog.models import BlogComment, CommentVote
 from blog.forms import CommentForm
+from tests.factories import UserFactory, BlogCommentFactory, MockDataFactory, TestDataMixin
 import json
 
 User = get_user_model()
 
 
-class BlogViewsTest(TestCase):
+class BlogViewsTest(TestCase, TestDataMixin):
     """Test blog rendering and basic view functionality."""
 
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
-        self.staff_user = User.objects.create_user(
-            username='staffuser',
-            email='staff@example.com',
-            password='testpass123',
-            is_staff=True
-        )
+        self.setUp_users()
+        self.setUp_blog_data()
 
     @patch('blog.views.get_blog_from_template_name')
     @patch('blog.views.PageVisit')
     def test_render_blog_template_success(self, mock_page_visit, mock_get_blog):
         """Test successful blog post rendering."""
-        mock_get_blog.return_value = {
-            'entry_number': '0001',
-            'template_name': '0001_test_post',
-            'blog_title': '0001 test post',
-            'blog_content': '<p>Test content</p>',
-            'category': 'tech',
-            'github_link': 'https://github.com/test'
-        }
+        mock_get_blog.return_value = self.mock_blog_data
         mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 42
 
         response = self.client.get('/b/0001_test_post/')
@@ -52,14 +37,7 @@ class BlogViewsTest(TestCase):
     @patch('blog.views.get_blog_from_template_name')
     def test_render_blog_template_with_category(self, mock_get_blog):
         """Test blog post rendering with category."""
-        mock_get_blog.return_value = {
-            'entry_number': '0001',
-            'template_name': '0001_test_post',
-            'blog_title': '0001 test post',
-            'blog_content': '<p>Test content</p>',
-            'category': 'tech',
-            'github_link': 'https://github.com/test'
-        }
+        mock_get_blog.return_value = self.mock_blog_data
 
         response = self.client.get('/b/tech/0001_test_post/')
         
@@ -81,17 +59,11 @@ class BlogViewsTest(TestCase):
         mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
 
         # Create comments with different statuses
-        BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            blog_category='tech',
-            content='Approved comment',
-            status='approved'
+        BlogCommentFactory.create_approved_comment(
+            content='Approved comment'
         )
-        BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            blog_category='tech',
-            content='Pending comment',
-            status='pending'
+        BlogCommentFactory.create_pending_comment(
+            content='Pending comment'
         )
 
         response = self.client.get('/b/tech/0001_test_post/')
@@ -117,15 +89,11 @@ class BlogViewsTest(TestCase):
         mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
 
         # Create pending comments
-        BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            content='Pending 1',
-            status='pending'
+        BlogCommentFactory.create_pending_comment(
+            content='Pending 1'
         )
-        BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            content='Pending 2',
-            status='pending'
+        BlogCommentFactory.create_pending_comment(
+            content='Pending 2'
         )
 
         # Test as regular user - shouldn't see pending count
@@ -133,41 +101,31 @@ class BlogViewsTest(TestCase):
         self.assertNotIn('pending_comments_count', response.context)
 
         # Test as staff user - should see pending count
-        self.client.login(username='staffuser', password='testpass123')
+        self.client.login(username=self.staff_user.username, password='testpass123')
         response = self.client.get('/b/0001_test_post/')
         self.assertEqual(response.context['pending_comments_count'], 2)
 
 
-class CommentSubmissionTest(TestCase):
+class CommentSubmissionTest(TestCase, TestDataMixin):
     """Test comment submission functionality."""
 
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
+        self.setUp_users()
+        self.setUp_blog_data()
 
     @patch('blog.views.get_blog_from_template_name')
     @patch('blog.views.PageVisit')
     def test_submit_comment_authenticated(self, mock_page_visit, mock_get_blog):
         """Test authenticated user submitting a comment."""
-        mock_get_blog.return_value = {
-            'entry_number': '0001',
-            'template_name': '0001_test_post',
-            'blog_title': '0001 test post',
-            'blog_content': '<p>Test</p>',
-            'category': 'tech'
-        }
+        mock_get_blog.return_value = self.mock_blog_data
         mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
 
-        self.client.login(username='testuser', password='testpass123')
+        self.client.login(username=self.user.username, password='testpass123')
         
-        response = self.client.post('/b/tech/0001_test_post/comment/', {
-            'content': 'Great post!',
-            'website': ''  # Honeypot field
-        })
+        form_data = MockDataFactory.get_common_form_data()['comment_form']
+        form_data['content'] = 'Great post!'
+        response = self.client.post('/b/tech/0001_test_post/comment/', form_data)
 
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, '/b/tech/0001_test_post/#comments')
@@ -184,12 +142,13 @@ class CommentSubmissionTest(TestCase):
 
     def test_submit_comment_anonymous(self):
         """Test anonymous user submitting a comment."""
-        response = self.client.post('/b/0001_test_post/comment/', {
+        form_data = MockDataFactory.get_common_form_data()['comment_form']
+        form_data.update({
             'content': 'Anonymous comment',
             'author_name': 'John Doe',
-            'author_email': 'john@example.com',
-            'website': ''  # Honeypot
+            'author_email': 'john@example.com'
         })
+        response = self.client.post('/b/0001_test_post/comment/', form_data)
 
         self.assertEqual(response.status_code, 302)
         
@@ -201,10 +160,12 @@ class CommentSubmissionTest(TestCase):
 
     def test_honeypot_protection(self):
         """Test that honeypot field catches bots."""
-        response = self.client.post('/b/0001_test_post/comment/', {
+        form_data = MockDataFactory.get_common_form_data()['comment_form']
+        form_data.update({
             'content': 'Spam comment',
             'website': 'http://spam.com'  # Bot filled honeypot
         })
+        response = self.client.post('/b/0001_test_post/comment/', form_data)
 
         # Should get form error, not create comment
         self.assertEqual(BlogComment.objects.filter(content='Spam comment').count(), 0)
@@ -222,41 +183,32 @@ class CommentSubmissionTest(TestCase):
         }
         mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
 
-        response = self.client.post('/b/0001_test_post/comment/', {
-            'content': '',  # Empty content
-            'website': ''
-        })
+        form_data = MockDataFactory.get_common_form_data()['comment_form']
+        form_data['content'] = ''  # Empty content
+        response = self.client.post('/b/0001_test_post/comment/', form_data)
 
         self.assertEqual(response.status_code, 200)
         self.assertFormError(response.context['comment_form'], 'content', 'This field is required.')
 
 
-class CommentReplyTest(TestCase):
+class CommentReplyTest(TestCase, TestDataMixin):
     """Test comment reply functionality."""
 
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
-        self.parent_comment = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            blog_category='tech',
+        self.setUp_users()
+        self.parent_comment = BlogCommentFactory.create_approved_comment(
             content='Parent comment',
-            author=self.user,
-            status='approved'
+            author=self.user
         )
 
     def test_reply_to_comment(self):
         """Test replying to a comment."""
-        self.client.login(username='testuser', password='testpass123')
+        self.client.login(username=self.user.username, password='testpass123')
         
-        response = self.client.post(f'/comment/{self.parent_comment.id}/reply/', {
-            'content': 'This is a reply',
-            'website': ''  # Honeypot
-        })
+        form_data = MockDataFactory.get_common_form_data()['comment_form']
+        form_data['content'] = 'This is a reply'
+        response = self.client.post(f'/comment/{self.parent_comment.id}/reply/', form_data)
 
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, f'/b/tech/0001_test_post/#comment-{self.parent_comment.id}')
@@ -268,57 +220,41 @@ class CommentReplyTest(TestCase):
 
     def test_reply_to_non_approved_comment(self):
         """Test that replying to non-approved comments fails."""
-        pending_comment = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            content='Pending comment',
-            status='pending'
+        pending_comment = BlogCommentFactory.create_pending_comment(
+            content='Pending comment'
         )
 
-        response = self.client.post(f'/comment/{pending_comment.id}/reply/', {
-            'content': 'Reply attempt',
-            'website': ''
-        })
+        form_data = MockDataFactory.get_common_form_data()['comment_form']
+        form_data['content'] = 'Reply attempt'
+        response = self.client.post(f'/comment/{pending_comment.id}/reply/', form_data)
 
         self.assertEqual(response.status_code, 404)
 
     def test_reply_honeypot_protection(self):
         """Test honeypot protection in reply form."""
-        response = self.client.post(f'/comment/{self.parent_comment.id}/reply/', {
+        form_data = MockDataFactory.get_common_form_data()['comment_form']
+        form_data.update({
             'content': 'Spam reply',
             'website': 'http://spam.com'  # Bot filled honeypot
         })
+        response = self.client.post(f'/comment/{self.parent_comment.id}/reply/', form_data)
 
         messages = list(get_messages(response.wsgi_request))
         self.assertIn('Bot detection', str(messages[0]))
         self.assertEqual(BlogComment.objects.filter(content='Spam reply').count(), 0)
 
 
-class CommentModerationTest(TestCase):
+class CommentModerationTest(TestCase, TestDataMixin):
     """Test comment moderation functionality."""
 
     def setUp(self):
         self.client = Client()
-        self.staff_user = User.objects.create_user(
-            username='staffuser',
-            email='staff@example.com',
-            password='testpass123',
-            is_staff=True
-        )
-        self.regular_user = User.objects.create_user(
-            username='regularuser',
-            email='regular@example.com',
-            password='testpass123'
-        )
-        self.comment = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            blog_category='tech',
-            content='Test comment',
-            status='pending'
-        )
+        self.setUp_users()
+        self.comment = BlogCommentFactory.create_pending_comment()
 
     def test_moderate_comment_approve(self):
         """Test staff approving a comment."""
-        self.client.login(username='staffuser', password='testpass123')
+        self.client.login(username=self.staff_user.username, password='testpass123')
         
         response = self.client.post(f'/comment/{self.comment.id}/moderate/', {
             'action': 'approve'
@@ -331,7 +267,7 @@ class CommentModerationTest(TestCase):
 
     def test_moderate_comment_reject(self):
         """Test staff rejecting a comment."""
-        self.client.login(username='staffuser', password='testpass123')
+        self.client.login(username=self.staff_user.username, password='testpass123')
         
         response = self.client.post(f'/comment/{self.comment.id}/moderate/', {
             'action': 'reject',
@@ -345,7 +281,7 @@ class CommentModerationTest(TestCase):
 
     def test_moderate_comment_spam(self):
         """Test marking comment as spam."""
-        self.client.login(username='staffuser', password='testpass123')
+        self.client.login(username=self.staff_user.username, password='testpass123')
         
         response = self.client.post(f'/comment/{self.comment.id}/moderate/', {
             'action': 'spam'
@@ -357,7 +293,7 @@ class CommentModerationTest(TestCase):
 
     def test_moderate_comment_non_staff(self):
         """Test that non-staff cannot moderate comments."""
-        self.client.login(username='regularuser', password='testpass123')
+        self.client.login(username=self.user.username, password='testpass123')
         
         response = self.client.post(f'/comment/{self.comment.id}/moderate/', {
             'action': 'approve'
@@ -369,7 +305,7 @@ class CommentModerationTest(TestCase):
 
     def test_moderate_ajax_request(self):
         """Test AJAX moderation returns JSON response."""
-        self.client.login(username='staffuser', password='testpass123')
+        self.client.login(username=self.staff_user.username, password='testpass123')
         
         response = self.client.post(
             f'/comment/{self.comment.id}/moderate/',
@@ -383,25 +319,17 @@ class CommentModerationTest(TestCase):
         self.assertEqual(data['new_status'], 'approved')
 
 
-class CommentVotingTest(TestCase):
+class CommentVotingTest(TestCase, TestDataMixin):
     """Test comment voting functionality."""
 
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
-        self.comment = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            content='Test comment',
-            status='approved'
-        )
+        self.setUp_users()
+        self.comment = BlogCommentFactory.create_approved_comment()
 
     def test_vote_comment_authenticated(self):
         """Test authenticated user voting on a comment."""
-        self.client.login(username='testuser', password='testpass123')
+        self.client.login(username=self.user.username, password='testpass123')
         
         response = self.client.post(f'/comment/{self.comment.id}/vote/', {
             'vote_type': 'upvote'
@@ -417,7 +345,7 @@ class CommentVotingTest(TestCase):
 
     def test_vote_toggle(self):
         """Test toggling vote (clicking same vote type removes it)."""
-        self.client.login(username='testuser', password='testpass123')
+        self.client.login(username=self.user.username, password='testpass123')
         
         # Add upvote
         self.client.post(f'/comment/{self.comment.id}/vote/', {'vote_type': 'upvote'})
@@ -434,7 +362,7 @@ class CommentVotingTest(TestCase):
 
     def test_vote_change(self):
         """Test changing vote from upvote to downvote."""
-        self.client.login(username='testuser', password='testpass123')
+        self.client.login(username=self.user.username, password='testpass123')
         
         # Add upvote
         self.client.post(f'/comment/{self.comment.id}/vote/', {'vote_type': 'upvote'})
@@ -463,13 +391,9 @@ class CommentVotingTest(TestCase):
 
     def test_vote_non_approved_comment(self):
         """Test voting on non-approved comments fails."""
-        pending_comment = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            content='Pending comment',
-            status='pending'
-        )
+        pending_comment = BlogCommentFactory.create_pending_comment()
         
-        self.client.login(username='testuser', password='testpass123')
+        self.client.login(username=self.user.username, password='testpass123')
         
         response = self.client.post(f'/comment/{pending_comment.id}/vote/', {
             'vote_type': 'upvote'
@@ -479,7 +403,7 @@ class CommentVotingTest(TestCase):
 
     def test_invalid_vote_type(self):
         """Test invalid vote type returns error."""
-        self.client.login(username='testuser', password='testpass123')
+        self.client.login(username=self.user.username, password='testpass123')
         
         response = self.client.post(f'/comment/{self.comment.id}/vote/', {
             'vote_type': 'invalid'
@@ -490,38 +414,21 @@ class CommentVotingTest(TestCase):
         self.assertEqual(data['error'], 'Invalid vote type')
 
 
-class CommentDeletionTest(TestCase):
+class CommentDeletionTest(TestCase, TestDataMixin):
     """Test comment deletion functionality."""
 
     def setUp(self):
         self.client = Client()
-        self.author = User.objects.create_user(
-            username='author',
-            email='author@example.com',
-            password='testpass123'
-        )
-        self.other_user = User.objects.create_user(
-            username='other',
-            email='other@example.com',
-            password='testpass123'
-        )
-        self.staff_user = User.objects.create_user(
-            username='staff',
-            email='staff@example.com',
-            password='testpass123',
-            is_staff=True
-        )
-        self.comment = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            blog_category='tech',
-            content='Test comment',
-            author=self.author,
-            status='approved'
+        self.setUp_users()
+        self.author = UserFactory.create_user(username='author')
+        self.other_user = UserFactory.create_user(username='other')
+        self.comment = BlogCommentFactory.create_approved_comment(
+            author=self.author
         )
 
     def test_author_can_delete_own_comment(self):
         """Test that comment authors can delete their own comments."""
-        self.client.login(username='author', password='testpass123')
+        self.client.login(username=self.author.username, password='testpass123')
         
         response = self.client.get(f'/comment/{self.comment.id}/delete/')
         
@@ -530,7 +437,7 @@ class CommentDeletionTest(TestCase):
 
     def test_staff_can_delete_any_comment(self):
         """Test that staff can delete any comment."""
-        self.client.login(username='staff', password='testpass123')
+        self.client.login(username=self.staff_user.username, password='testpass123')
         
         response = self.client.get(f'/comment/{self.comment.id}/delete/')
         
@@ -539,7 +446,7 @@ class CommentDeletionTest(TestCase):
 
     def test_other_user_cannot_delete_comment(self):
         """Test that other users cannot delete comments."""
-        self.client.login(username='other', password='testpass123')
+        self.client.login(username=self.other_user.username, password='testpass123')
         
         response = self.client.get(f'/comment/{self.comment.id}/delete/')
         
@@ -550,15 +457,12 @@ class CommentDeletionTest(TestCase):
 
     def test_deleting_parent_deletes_replies(self):
         """Test that deleting parent comment cascades to replies."""
-        reply = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            blog_category='tech',
+        reply = BlogCommentFactory.create_approved_comment(
             content='Reply',
-            parent=self.comment,
-            status='approved'
+            parent=self.comment
         )
         
-        self.client.login(username='staff', password='testpass123')
+        self.client.login(username=self.staff_user.username, password='testpass123')
         self.client.get(f'/comment/{self.comment.id}/delete/')
         
         self.assertFalse(BlogComment.objects.filter(id=self.comment.id).exists())

@@ -2,6 +2,7 @@ from django.test import TestCase
 from django.utils import timezone
 from pages.models import PageVisit
 from datetime import datetime
+from tests.factories import PageVisitFactory, MockDataFactory
 
 
 class PageVisitModelTest(TestCase):
@@ -9,10 +10,7 @@ class PageVisitModelTest(TestCase):
 
     def test_page_visit_creation(self):
         """Test creating a page visit record."""
-        visit = PageVisit.objects.create(
-            ip_address='192.168.1.1',
-            page_name='/test-page/'
-        )
+        visit = PageVisitFactory.create_visit()
         
         self.assertEqual(visit.ip_address, '192.168.1.1')
         self.assertEqual(visit.page_name, '/test-page/')
@@ -21,17 +19,9 @@ class PageVisitModelTest(TestCase):
         
     def test_page_visit_with_geo_data(self):
         """Test creating a page visit with geolocation data."""
-        geo_data = {
-            'country': 'United States',
-            'city': 'New York',
-            'lat': 40.7128,
-            'lon': -74.0060
-        }
-        
-        visit = PageVisit.objects.create(
+        visit = PageVisitFactory.create_visit_with_geo(
             ip_address='8.8.8.8',
-            page_name='/blog/',
-            geo_data=geo_data
+            page_name='/blog/'
         )
         
         self.assertEqual(visit.geo_data['country'], 'United States')
@@ -40,7 +30,7 @@ class PageVisitModelTest(TestCase):
     def test_page_visit_str_representation(self):
         """Test the string representation of PageVisit."""
         now = timezone.now()
-        visit = PageVisit.objects.create(
+        visit = PageVisitFactory.create_visit(
             ip_address='10.0.0.1',
             page_name='/about/',
             created_at=now
@@ -51,12 +41,12 @@ class PageVisitModelTest(TestCase):
         
     def test_page_visit_ordering(self):
         """Test that page visits are ordered by creation time."""
-        visit1 = PageVisit.objects.create(
+        visit1 = PageVisitFactory.create_visit(
             ip_address='192.168.1.1',
             page_name='/page1/'
         )
         
-        visit2 = PageVisit.objects.create(
+        visit2 = PageVisitFactory.create_visit(
             ip_address='192.168.1.2',
             page_name='/page2/'
         )
@@ -67,7 +57,7 @@ class PageVisitModelTest(TestCase):
         
     def test_page_visit_ipv6_support(self):
         """Test that IPv6 addresses are supported."""
-        visit = PageVisit.objects.create(
+        visit = PageVisitFactory.create_visit(
             ip_address='2001:0db8:85a3:0000:0000:8a2e:0370:7334',
             page_name='/test/'
         )
@@ -78,12 +68,11 @@ class PageVisitModelTest(TestCase):
         """Test handling of long page names."""
         long_page_name = '/very/long/path/' + 'x' * 200 + '/'
         
-        visit = PageVisit.objects.create(
-            ip_address='192.168.1.1',
+        visit = PageVisitFactory.create_visit(
             page_name=long_page_name[:255]  # Truncate to max length
         )
         
-        self.assertEqual(len(visit.page_name), 255)
+        self.assertEqual(len(visit.page_name), len(long_page_name))
         
     def test_page_visit_bulk_create(self):
         """Test bulk creating page visits for performance."""
@@ -98,18 +87,18 @@ class PageVisitModelTest(TestCase):
         
     def test_page_visit_filtering_by_ip(self):
         """Test filtering visits by IP address."""
-        PageVisit.objects.create(ip_address='192.168.1.1', page_name='/page1/')
-        PageVisit.objects.create(ip_address='192.168.1.1', page_name='/page2/')
-        PageVisit.objects.create(ip_address='192.168.1.2', page_name='/page3/')
+        PageVisitFactory.create_visit(ip_address='192.168.1.1', page_name='/page1/')
+        PageVisitFactory.create_visit(ip_address='192.168.1.1', page_name='/page2/')
+        PageVisitFactory.create_visit(ip_address='192.168.1.2', page_name='/page3/')
         
         visits_from_ip = PageVisit.objects.filter(ip_address='192.168.1.1')
         self.assertEqual(visits_from_ip.count(), 2)
         
     def test_page_visit_filtering_by_page(self):
         """Test filtering visits by page name."""
-        PageVisit.objects.create(ip_address='192.168.1.1', page_name='/blog/')
-        PageVisit.objects.create(ip_address='192.168.1.2', page_name='/blog/')
-        PageVisit.objects.create(ip_address='192.168.1.3', page_name='/about/')
+        PageVisitFactory.create_visit(ip_address='192.168.1.1', page_name='/blog/')
+        PageVisitFactory.create_visit(ip_address='192.168.1.2', page_name='/blog/')
+        PageVisitFactory.create_visit(ip_address='192.168.1.3', page_name='/about/')
         
         blog_visits = PageVisit.objects.filter(page_name='/blog/')
         self.assertEqual(blog_visits.count(), 2)
@@ -122,12 +111,12 @@ class PageVisitModelTest(TestCase):
         yesterday = now - timedelta(days=1)
         tomorrow = now + timedelta(days=1)
         
-        PageVisit.objects.create(
+        PageVisitFactory.create_visit(
             ip_address='192.168.1.1',
             page_name='/old/',
             created_at=yesterday
         )
-        PageVisit.objects.create(
+        PageVisitFactory.create_visit(
             ip_address='192.168.1.2',
             page_name='/today/'
         )

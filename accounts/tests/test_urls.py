@@ -1,6 +1,7 @@
 from django.test import TestCase, SimpleTestCase
 from django.urls import reverse, resolve
 from accounts.views import signup_disabled
+from tests.factories import MockDataFactory
 
 
 class AccountsURLTest(SimpleTestCase):
@@ -91,12 +92,8 @@ class AccountsIntegrationTest(TestCase):
 
     def test_post_to_signup_disabled(self):
         """Test that POST to signup is also disabled."""
-        response = self.client.post(reverse('account_signup'), {
-            'username': 'newuser',
-            'email': 'new@example.com',
-            'password1': 'testpass123',
-            'password2': 'testpass123',
-        })
+        form_data = MockDataFactory.get_common_form_data()['user_form']
+        response = self.client.post(reverse('account_signup'), form_data)
         # Should redirect to login
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(response, reverse('account_login'))
@@ -104,4 +101,4 @@ class AccountsIntegrationTest(TestCase):
         # Verify user was NOT created
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        self.assertFalse(User.objects.filter(username='newuser').exists())
+        self.assertFalse(User.objects.filter(username=form_data['username']).exists())

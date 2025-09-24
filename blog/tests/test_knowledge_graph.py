@@ -9,6 +9,7 @@ from blog.knowledge_graph import (
     build_knowledge_graph,
     get_post_graph
 )
+from tests.factories import MockDataFactory
 from pathlib import Path
 
 

@@ -5,6 +5,7 @@ from django.conf import settings
 from unittest.mock import patch, MagicMock, mock_open
 from pages.models import PageVisit
 from photos.models import PhotoAlbum, Photo
+from tests.factories import PhotoFactory
 import os
 import tempfile
 
@@ -189,12 +190,11 @@ class HomeViewTest(TestCase):
     def test_home_view_with_photo_albums(self):
         """Test home view with photo albums."""
         # Create test photo and album
-        photo = Photo.objects.create(
-            title='Test Photo',
-            image='test.jpg'
+        photo = PhotoFactory.create_photo(
+            title='Test Photo'
         )
-        
-        album = PhotoAlbum.objects.create(
+
+        album = PhotoFactory.create_photo_album(
             title='Test Album',
             slug='test-album',
             is_private=False
@@ -210,18 +210,17 @@ class HomeViewTest(TestCase):
         
     def test_home_view_excludes_private_albums(self):
         """Test that home view excludes private photo albums."""
-        photo = Photo.objects.create(
-            title='Private Photo',
-            image='private.jpg'
+        photo = PhotoFactory.create_photo(
+            title='Private Photo'
         )
-        
-        public_album = PhotoAlbum.objects.create(
+
+        public_album = PhotoFactory.create_photo_album(
             title='Public Album',
             slug='public',
             is_private=False
         )
-        
-        private_album = PhotoAlbum.objects.create(
+
+        private_album = PhotoFactory.create_photo_album(
             title='Private Album',
             slug='private',
             is_private=True

@@ -16,6 +16,7 @@ from PIL import Image
 
 from photos.models import Photo, PhotoAlbum
 from photos import signals
+from tests.factories import PhotoFactory
 
 
 class AlbumPhotosChangeSignalTestCase(TestCase):
@@ -23,28 +24,18 @@ class AlbumPhotosChangeSignalTestCase(TestCase):
     
     def setUp(self):
         """Set up test data."""
-        self.album = PhotoAlbum.objects.create(
+        self.album = PhotoFactory.create_photo_album(
             title="Test Album",
             slug="test-album",
             allow_downloads=True
         )
-        
+
         self.photo1 = self._create_test_photo("Photo 1")
         self.photo2 = self._create_test_photo("Photo 2")
-    
+
     def _create_test_photo(self, title):
         """Helper to create a test photo."""
-        img = Image.new('RGB', (100, 100), color='red')
-        img_io = BytesIO()
-        img.save(img_io, format='JPEG')
-        img_io.seek(0)
-        
-        from django.core.files.base import ContentFile
-        photo = Photo.objects.create(
-            title=title,
-            image=ContentFile(img_io.getvalue(), name=f'{title}.jpg')
-        )
-        return photo
+        return PhotoFactory.create_photo(title=title)
     
     @patch('photos.signals.generate_album_zip.delay')
     def test_add_photos_triggers_zip_generation(self, mock_task):
@@ -142,23 +133,13 @@ class AlbumSaveSignalTestCase(TestCase):
     
     def _create_test_photo(self, title):
         """Helper to create a test photo."""
-        img = Image.new('RGB', (100, 100), color='blue')
-        img_io = BytesIO()
-        img.save(img_io, format='JPEG')
-        img_io.seek(0)
-        
-        from django.core.files.base import ContentFile
-        photo = Photo.objects.create(
-            title=title,
-            image=ContentFile(img_io.getvalue(), name=f'{title}.jpg')
-        )
-        return photo
+        return PhotoFactory.create_photo(title=title)
     
     @patch('photos.signals.generate_album_zip.delay')
     def test_new_album_with_downloads_and_photos(self, mock_task):
         """Test new album with downloads enabled and photos triggers generation."""
         # Create album with downloads enabled
-        album = PhotoAlbum.objects.create(
+        album = PhotoFactory.create_photo_album(
             title="New Album",
             slug="new-album",
             allow_downloads=True
@@ -181,7 +162,7 @@ class AlbumSaveSignalTestCase(TestCase):
     @patch('photos.signals.generate_album_zip.delay')
     def test_new_album_without_downloads(self, mock_task):
         """Test new album without downloads doesn't trigger generation."""
-        album = PhotoAlbum.objects.create(
+        album = PhotoFactory.create_photo_album(
             title="New Album",
             slug="new-album",
             allow_downloads=False
@@ -203,7 +184,7 @@ class AlbumSaveSignalTestCase(TestCase):
     @patch('photos.signals.generate_album_zip.delay')
     def test_new_album_without_photos(self, mock_task):
         """Test new album without photos doesn't trigger generation."""
-        album = PhotoAlbum.objects.create(
+        album = PhotoFactory.create_photo_album(
             title="New Album",
             slug="new-album",
             allow_downloads=True
@@ -226,7 +207,7 @@ class AlbumSaveSignalTestCase(TestCase):
     def test_enable_downloads_on_existing_album(self, mock_task):
         """Test enabling downloads on existing album triggers generation."""
         # Create album with downloads disabled
-        album = PhotoAlbum.objects.create(
+        album = PhotoFactory.create_photo_album(
             title="Existing Album",
             slug="existing-album",
             allow_downloads=False
@@ -244,7 +225,7 @@ class AlbumSaveSignalTestCase(TestCase):
     def test_disable_downloads_deletes_zip_files(self, mock_logger):
         """Test disabling downloads deletes existing zip files."""
         # Create album with downloads and mock zip files
-        album = PhotoAlbum.objects.create(
+        album = PhotoFactory.create_photo_album(
             title="Album With Zips",
             slug="album-with-zips",
             allow_downloads=True
@@ -279,7 +260,7 @@ class AlbumSaveSignalTestCase(TestCase):
     @patch('photos.signals.generate_album_zip.delay')
     def test_update_album_no_download_change(self, mock_task):
         """Test updating album without changing download setting."""
-        album = PhotoAlbum.objects.create(
+        album = PhotoFactory.create_photo_album(
             title="Album",
             slug="album",
             allow_downloads=True
@@ -302,13 +283,13 @@ class PhotoUpdateSignalTestCase(TestCase):
         """Set up test data."""
         self.photo = self._create_test_photo("Test Photo")
         
-        self.album1 = PhotoAlbum.objects.create(
+        self.album1 = PhotoFactory.create_photo_album(
             title="Album 1",
             slug="album-1",
             allow_downloads=True
         )
         
-        self.album2 = PhotoAlbum.objects.create(
+        self.album2 = PhotoFactory.create_photo_album(
             title="Album 2", 
             slug="album-2",
             allow_downloads=False
@@ -319,17 +300,7 @@ class PhotoUpdateSignalTestCase(TestCase):
     
     def _create_test_photo(self, title):
         """Helper to create a test photo."""
-        img = Image.new('RGB', (100, 100), color='green')
-        img_io = BytesIO()
-        img.save(img_io, format='JPEG')
-        img_io.seek(0)
-        
-        from django.core.files.base import ContentFile
-        photo = Photo.objects.create(
-            title=title,
-            image=ContentFile(img_io.getvalue(), name=f'{title}.jpg')
-        )
-        return photo
+        return PhotoFactory.create_photo(title=title)
     
     @patch('photos.signals.generate_album_zip.delay')
     def test_photo_update_triggers_album_regeneration(self, mock_task):
@@ -361,7 +332,7 @@ class PhotoUpdateSignalTestCase(TestCase):
     def test_photo_update_multiple_albums(self, mock_task):
         """Test photo in multiple albums only triggers for download-enabled ones."""
         # Create another album with downloads
-        album3 = PhotoAlbum.objects.create(
+        album3 = PhotoFactory.create_photo_album(
             title="Album 3",
             slug="album-3",
             allow_downloads=True
@@ -401,13 +372,13 @@ class PhotoDeleteSignalTestCase(TestCase):
         """Set up test data."""
         self.photo = self._create_test_photo("Photo to Delete")
         
-        self.album1 = PhotoAlbum.objects.create(
+        self.album1 = PhotoFactory.create_photo_album(
             title="Album 1",
             slug="album-1",
             allow_downloads=True
         )
         
-        self.album2 = PhotoAlbum.objects.create(
+        self.album2 = PhotoFactory.create_photo_album(
             title="Album 2",
             slug="album-2",
             allow_downloads=False
@@ -418,17 +389,7 @@ class PhotoDeleteSignalTestCase(TestCase):
     
     def _create_test_photo(self, title):
         """Helper to create a test photo."""
-        img = Image.new('RGB', (100, 100), color='yellow')
-        img_io = BytesIO()
-        img.save(img_io, format='JPEG')
-        img_io.seek(0)
-        
-        from django.core.files.base import ContentFile
-        photo = Photo.objects.create(
-            title=title,
-            image=ContentFile(img_io.getvalue(), name=f'{title}.jpg')
-        )
-        return photo
+        return PhotoFactory.create_photo(title=title)
     
     @patch('photos.signals.generate_album_zip.apply_async')
     def test_photo_delete_schedules_regeneration(self, mock_task):
@@ -456,7 +417,7 @@ class PhotoDeleteSignalTestCase(TestCase):
     def test_photo_delete_multiple_albums(self, mock_task):
         """Test photo in multiple download-enabled albums."""
         # Create another album with downloads
-        album3 = PhotoAlbum.objects.create(
+        album3 = PhotoFactory.create_photo_album(
             title="Album 3",
             slug="album-3",
             allow_downloads=True

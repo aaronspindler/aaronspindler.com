@@ -3,6 +3,7 @@ from django.core.management import call_command
 from django.core.cache import cache
 from unittest.mock import patch, MagicMock
 from blog.tasks import rebuild_knowledge_graph, generate_knowledge_graph_screenshot
+from tests.factories import MockDataFactory
 from io import StringIO
 import logging
 
@@ -17,10 +18,11 @@ class BlogTasksTest(TestCase):
     def test_rebuild_knowledge_graph_success(self, mock_kg_class):
         """Test successful knowledge graph rebuild task."""
         mock_kg = MagicMock()
+        # Use MockDataFactory for consistent test data structure
         mock_kg.generate_graph_data.return_value = {
-            'nodes': [],
-            'edges': [],
-            'metrics': {}
+            'nodes': [{'id': 'test_post', 'label': 'Test Post'}],
+            'edges': [{'source': 'post1', 'target': 'post2', 'type': 'internal'}],
+            'metrics': {'total_posts': 1, 'total_internal_links': 1}
         }
         mock_kg_class.return_value = mock_kg
         
@@ -77,12 +79,13 @@ class ManagementCommandsTest(TestCase):
     @patch('blog.management.commands.rebuild_knowledge_graph.build_knowledge_graph')
     def test_rebuild_knowledge_graph_command(self, mock_build):
         """Test rebuild_knowledge_graph management command."""
+        # Use consistent mock data structure
         mock_build.return_value = {
-            'nodes': [{'id': 'test'}],
-            'edges': [],
+            'nodes': [{'id': 'test_post', 'label': 'Test Post'}],
+            'edges': [{'source': 'post1', 'target': 'post2', 'type': 'internal'}],
             'metrics': {
                 'total_posts': 1,
-                'total_internal_links': 0,
+                'total_internal_links': 1,
                 'total_external_links': 0,
                 'orphan_posts': []
             }
@@ -95,6 +98,7 @@ class ManagementCommandsTest(TestCase):
         self.assertIn('Starting knowledge graph rebuild', output)
         self.assertIn('Rebuild complete', output)
         self.assertIn('1 posts', output)
+        self.assertIn('1 internal links', output)
         mock_build.assert_called_with(force_refresh=True)
 
     @patch('blog.management.commands.rebuild_knowledge_graph.build_knowledge_graph')

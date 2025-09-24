@@ -4,50 +4,33 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from blog.models import BlogComment, CommentVote
 from unittest.mock import patch
+from tests.factories import UserFactory, BlogCommentFactory, TestDataMixin
 
 User = get_user_model()
 
 
-class BlogCommentModelTest(TestCase):
+class BlogCommentModelTest(TestCase, TestDataMixin):
     """Test BlogComment model functionality including moderation and threading."""
 
     def setUp(self):
-        self.user = User.objects.create_user(
-            username='testuser',
-            email='test@example.com',
-            password='testpass123'
-        )
-        self.staff_user = User.objects.create_user(
-            username='staffuser',
-            email='staff@example.com',
-            password='testpass123',
-            is_staff=True
-        )
-        self.comment_data = {
-            'blog_template_name': '0001_test_post',
-            'blog_category': 'tech',
-            'content': 'This is a test comment',
-            'author': self.user
-        }
+        self.setUp_users()
+        self.setUp_blog_data()
 
     def test_comment_creation_with_user(self):
         """Test creating a comment with an authenticated user."""
-        comment = BlogComment.objects.create(**self.comment_data)
+        comment = BlogCommentFactory.create_comment(**self.comment_data)
         
         self.assertEqual(comment.blog_template_name, '0001_test_post')
         self.assertEqual(comment.blog_category, 'tech')
         self.assertEqual(comment.content, 'This is a test comment')
         self.assertEqual(comment.author, self.user)
         self.assertEqual(comment.status, 'pending')
-        self.assertEqual(str(comment), 'Comment by testuser on tech/0001_test_post')
+        self.assertEqual(str(comment), f'Comment by {self.user.username} on tech/0001_test_post')
 
     def test_comment_creation_anonymous(self):
         """Test creating a comment as an anonymous user."""
-        comment = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            content='Anonymous comment',
-            author_name='John Doe',
-            author_email='john@example.com'
+        comment = BlogCommentFactory.create_anonymous_comment(
+            content='Anonymous comment'
         )
         
         self.assertIsNone(comment.author)
