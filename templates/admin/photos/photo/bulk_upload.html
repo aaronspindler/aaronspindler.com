@@ -106,10 +106,21 @@
                                 item.className = 'file-preview-item';
                                 
                                 reader.onload = function(e) {
-                                    item.innerHTML = `
-                                        <img src="${e.target.result}" alt="${file.name}">
-                                        <div class="filename" title="${file.name}">${file.name}</div>
-                                    `;
+                                    // Create elements safely to prevent XSS
+                                    const img = document.createElement('img');
+                                    img.src = e.target.result;
+                                    // Escape file name for alt attribute
+                                    const escapedName = file.name.replace(/[<>\"']/g, '');
+                                    img.alt = escapedName;
+
+                                    const filenameDiv = document.createElement('div');
+                                    filenameDiv.className = 'filename';
+                                    filenameDiv.title = escapedName;
+                                    // Use textContent to prevent XSS
+                                    filenameDiv.textContent = file.name;
+
+                                    item.appendChild(img);
+                                    item.appendChild(filenameDiv);
                                 };
                                 
                                 reader.readAsDataURL(file);

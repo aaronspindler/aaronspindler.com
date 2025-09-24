@@ -94,12 +94,13 @@ def knowledge_graph_api(request):
         }
         
         return JsonResponse(response_data)
-        
+
     except ValueError as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        logger.error(f"ValueError in knowledge graph API: {str(e)}")
+        return JsonResponse({'error': 'Invalid request data'}, status=400)
     except Exception as e:
-        logger.error(f"Error in knowledge graph API: {str(e)}")
-        return JsonResponse({'status': 'error', 'error': str(e)}, status=500)
+        logger.error(f"Error in knowledge graph API: {str(e)}", exc_info=True)
+        return JsonResponse({'status': 'error', 'error': 'An error occurred while processing your request'}, status=500)
 
 
 def _get_graph_data(request):
@@ -329,10 +330,10 @@ def knowledge_graph_screenshot(request):
             'error': 'Playwright is not installed. Please install it with: pip install playwright && playwright install chromium'
         }, status=500)
     except Exception as e:
-        logger.error(f"Error generating knowledge graph screenshot: {str(e)}")
+        logger.error(f"Error generating knowledge graph screenshot: {str(e)}", exc_info=True)
         # Mark generation as failed
         cache.set(cache_key, 'failed', timeout=3600)  # Cache failure for 1 hour
-        return JsonResponse({'error': f'Failed to generate screenshot: {str(e)}'}, status=500)
+        return JsonResponse({'error': 'Failed to generate screenshot. Please try again later.'}, status=500)
 
 
 def submit_comment(request, template_name, category=None):
@@ -367,9 +368,13 @@ def submit_comment(request, template_name, category=None):
             messages.info(request, 'Your comment has been submitted for review and will appear after approval.')
         
         # Redirect to comments section
+        # Use Django's reverse function for safe URL construction
+        from django.urls import reverse
         if category:
-            return redirect(f'/b/{category}/{template_name}/#comments')
-        return redirect(f'/b/{template_name}/#comments')
+            url = reverse('blog:blog_detail_category', kwargs={'category': category, 'template_name': template_name})
+        else:
+            url = reverse('blog:blog_detail', kwargs={'template_name': template_name})
+        return redirect(url + '#comments')
     
     # Re-render page with form errors if validation failed
     blog_data = get_blog_from_template_name(template_name, category=category)
@@ -398,16 +403,28 @@ def reply_to_comment(request, comment_id):
     parent_comment = get_object_or_404(BlogComment, id=comment_id, status='approved')
     
     if request.method != 'POST':
+        from django.urls import reverse
         if parent_comment.blog_category:
-            return redirect(f'/b/{parent_comment.blog_category}/{parent_comment.blog_template_name}/#comment-{comment_id}')
-        return redirect(f'/b/{parent_comment.blog_template_name}/#comment-{comment_id}')
+            url = reverse('blog:blog_detail_category', kwargs={
+                'category': parent_comment.blog_category,
+                'template_name': parent_comment.blog_template_name
+            })
+        else:
+            url = reverse('blog:blog_detail', kwargs={'template_name': parent_comment.blog_template_name})
+        return redirect(url + f'#comment-{comment_id}')
     
     # Honeypot check for bot protection
     if request.POST.get('website', ''):
         messages.error(request, 'Bot detection triggered.')
+        from django.urls import reverse
         if parent_comment.blog_category:
-            return redirect(f'/b/{parent_comment.blog_category}/{parent_comment.blog_template_name}/#comment-{comment_id}')
-        return redirect(f'/b/{parent_comment.blog_template_name}/#comment-{comment_id}')
+            url = reverse('blog:blog_detail_category', kwargs={
+                'category': parent_comment.blog_category,
+                'template_name': parent_comment.blog_template_name
+            })
+        else:
+            url = reverse('blog:blog_detail', kwargs={'template_name': parent_comment.blog_template_name})
+        return redirect(url + f'#comment-{comment_id}')
     
     form = ReplyForm(request.POST, user=request.user)
     
@@ -431,9 +448,15 @@ def reply_to_comment(request, comment_id):
         messages.error(request, 'There was an error with your reply. Please try again.')
     
     # Return to parent comment location
+    from django.urls import reverse
     if parent_comment.blog_category:
-        return redirect(f'/b/{parent_comment.blog_category}/{parent_comment.blog_template_name}/#comment-{comment_id}')
-    return redirect(f'/b/{parent_comment.blog_template_name}/#comment-{comment_id}')
+        url = reverse('blog:blog_detail_category', kwargs={
+            'category': parent_comment.blog_category,
+            'template_name': parent_comment.blog_template_name
+        })
+    else:
+        url = reverse('blog:blog_detail', kwargs={'template_name': parent_comment.blog_template_name})
+    return redirect(url + f'#comment-{comment_id}')
 
 
 @require_http_methods(["POST"])
