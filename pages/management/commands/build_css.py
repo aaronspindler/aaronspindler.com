@@ -503,7 +503,18 @@ critical.generate({
     # CSS Parsing and Optimization Methods
     
     def _parse_css(self, content):
-        """Parse CSS content into structured rules"""
+        """
+        Parse CSS content into structured rules.
+        
+        Breaks down CSS into:
+        - @import statements
+        - @font-face rules
+        - @keyframes animations
+        - @media queries
+        - Regular CSS rules
+        
+        Returns list of structured rule dictionaries.
+        """
         rules = []
         
         # Remove comments first
@@ -675,7 +686,18 @@ critical.generate({
         return rules
     
     def _consolidate_shorthand(self, props, prefix):
-        """Consolidate individual properties into shorthand"""
+        """
+        Consolidate individual properties into shorthand notation.
+        
+        Converts margin-top, margin-right, margin-bottom, margin-left
+        into a single margin property (same for padding, border).
+        
+        Optimizes based on value patterns:
+        - All same: "10px"
+        - Vertical/horizontal same: "10px 20px"
+        - Bottom different: "10px 20px 30px"  
+        - All different: "10px 20px 30px 40px"
+        """
         sides = ['top', 'right', 'bottom', 'left']
         individual_props = [f'{prefix}-{side}' for side in sides]
         

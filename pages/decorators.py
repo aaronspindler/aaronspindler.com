@@ -8,16 +8,16 @@ import socket
 logger = logging.getLogger(__name__)
 
 def track_page_visit(view_func):
+    """
+    Decorator to track page visits in the database.
+    Continues executing the view even if tracking fails.
+    """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         try:
-            # Get IP address with error handling
             ip_address = _get_client_ip_safe(request)
-            
-            # Get user agent
             user_agent = request.META.get('HTTP_USER_AGENT', 'unknown')[:255]  # Limit length for DB field
             
-            # Log the page visit
             logger.info(f"Page visit: {request.path} | IP: {ip_address} | Method: {request.method} | User-Agent: {user_agent}")
             
             # Store in database with specific error handling
@@ -37,7 +37,6 @@ def track_page_visit(view_func):
                 # Other unexpected errors
                 logger.error(f"Unexpected error recording page visit: {e.__class__.__name__}: {e}", exc_info=True)
         except Exception as e:
-            # Log error but don't break the view
             logger.error(f"Error in track_page_visit decorator: {e}", exc_info=True)
 
         # Always execute the view function, regardless of tracking errors
@@ -51,16 +50,13 @@ def _get_client_ip_safe(request):
     Returns 'unknown' if extraction fails.
     """
     try:
-        # Check for X-Forwarded-For header (when behind proxy/load balancer)
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
             # X-Forwarded-For can contain multiple IPs, get the first one
             ip_address = x_forwarded_for.split(',')[0].strip()
         else:
-            # Fall back to REMOTE_ADDR
             ip_address = request.META.get('REMOTE_ADDR', 'unknown')
         
-        # Validate IP address isn't empty
         if not ip_address or ip_address == '':
             return 'unknown'
             
@@ -70,4 +66,5 @@ def _get_client_ip_safe(request):
         return 'unknown'
 
 def track_page_visit_cbv(cls):
+    """Class-based view decorator for tracking page visits."""
     return method_decorator(track_page_visit, name='dispatch')(cls)

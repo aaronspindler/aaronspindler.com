@@ -16,7 +16,6 @@ def rebuild_and_cache_sitemap():
         from django.contrib.sites.models import Site
         from config.sitemaps import sitemaps
         
-        # Create a test client to make internal requests
         client = Client()
         
         # Request the main sitemap index to cache it

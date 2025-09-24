@@ -6,9 +6,8 @@ from django.db.models import Sum
 
 
 class BlogComment(models.Model):
-    """Model for blog comments with moderation support"""
+    """Model for blog comments with moderation support and threaded discussions."""
     
-    # Status choices for moderation
     STATUS_CHOICES = [
         ('pending', 'Pending Review'),
         ('approved', 'Approved'),
@@ -16,7 +15,6 @@ class BlogComment(models.Model):
         ('spam', 'Spam'),
     ]
     
-    # Blog identification (using template name and category)
     blog_template_name = models.CharField(
         max_length=255,
         help_text="Template name of the blog post (e.g., '0001_what_even_is_this')"
@@ -28,7 +26,6 @@ class BlogComment(models.Model):
         help_text="Category of the blog post (e.g., 'tech', 'personal')"
     )
     
-    # Comment author information
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -38,7 +35,6 @@ class BlogComment(models.Model):
         help_text="Registered user who made the comment"
     )
     
-    # For anonymous comments
     author_name = models.CharField(
         max_length=100,
         blank=True,
@@ -49,13 +45,11 @@ class BlogComment(models.Model):
         help_text="Email for anonymous commenters (not displayed publicly)"
     )
     
-    # Comment content
     content = models.TextField(
         validators=[MaxLengthValidator(2000)],
         help_text="Comment content (max 2000 characters)"
     )
     
-    # Parent comment for threaded discussions
     parent = models.ForeignKey(
         'self',
         on_delete=models.CASCADE,
@@ -64,11 +58,9 @@ class BlogComment(models.Model):
         related_name='replies'
     )
     
-    # Metadata
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     
-    # Moderation
     status = models.CharField(
         max_length=10,
         choices=STATUS_CHOICES,
@@ -88,7 +80,6 @@ class BlogComment(models.Model):
         help_text="Internal note about moderation decision"
     )
     
-    # User engagement
     ip_address = models.GenericIPAddressField(
         null=True,
         blank=True,
@@ -99,11 +90,10 @@ class BlogComment(models.Model):
         help_text="Browser user agent for spam detection"
     )
     
-    # Edit tracking
     is_edited = models.BooleanField(default=False)
     edited_at = models.DateTimeField(null=True, blank=True)
     
-    # Vote tracking (cached for performance)
+    # Cached vote counts for performance (updated via update_vote_counts())
     upvotes = models.IntegerField(default=0, help_text="Cached count of upvotes")
     downvotes = models.IntegerField(default=0, help_text="Cached count of downvotes")
     score = models.IntegerField(default=0, help_text="Net score (upvotes - downvotes)")
@@ -125,7 +115,7 @@ class BlogComment(models.Model):
         return f"Comment by {author_display} on {blog_display}"
     
     def get_author_display(self):
-        """Get the display name for the comment author"""
+        """Get the display name for the comment author (username or anonymous name)."""
         if self.author:
             return self.author.username
         elif self.author_name:
@@ -134,20 +124,20 @@ class BlogComment(models.Model):
             return "Anonymous"
     
     def get_author_email(self):
-        """Get the email address of the comment author"""
+        """Get the email address of the comment author."""
         if self.author:
             return self.author.email
         return self.author_email
     
     def approve(self, user=None):
-        """Approve the comment"""
+        """Approve the comment and record moderation metadata."""
         self.status = 'approved'
         self.moderated_at = timezone.now()
         self.moderated_by = user
         self.save(update_fields=['status', 'moderated_at', 'moderated_by'])
     
     def reject(self, user=None, note=''):
-        """Reject the comment"""
+        """Reject the comment with optional moderation note."""
         self.status = 'rejected'
         self.moderated_at = timezone.now()
         self.moderated_by = user
@@ -155,14 +145,17 @@ class BlogComment(models.Model):
         self.save(update_fields=['status', 'moderated_at', 'moderated_by', 'moderation_note'])
     
     def mark_as_spam(self, user=None):
-        """Mark the comment as spam"""
+        """Mark the comment as spam and record who made the decision."""
         self.status = 'spam'
         self.moderated_at = timezone.now()
         self.moderated_by = user
         self.save(update_fields=['status', 'moderated_at', 'moderated_by'])
     
     def get_replies(self):
-        """Get approved replies to this comment (supports deep nesting)"""
+        """
+        Get approved replies with optimized prefetching for nested structure.
+        Includes author data and nested replies for performance.
+        """
         return self.replies.filter(status='approved').select_related('author').prefetch_related('replies').order_by('created_at')
     
     def get_blog_url(self):
@@ -182,10 +175,22 @@ class BlogComment(models.Model):
     
     @classmethod
     def get_approved_comments(cls, template_name, category=None):
-        """Get all approved comments for a specific blog post with optimized prefetching"""
+        """
+        Get all approved comments for a blog post with optimized nested prefetching.
+        
+        This method uses recursive prefetching to load nested replies efficiently,
+        avoiding N+1 query problems for threaded comment structures.
+        
+        Args:
+            template_name: The blog template name
+            category: Optional blog category
+            
+        Returns:
+            QuerySet of top-level approved comments with prefetched replies
+        """
         from django.db.models import Prefetch
         
-        # Create a recursive prefetch for nested replies
+        # Build recursive prefetch for nested reply structure (2 levels deep)
         replies_prefetch = Prefetch(
             'replies',
             queryset=cls.objects.filter(status='approved').select_related('author').prefetch_related(
@@ -196,7 +201,7 @@ class BlogComment(models.Model):
         queryset = cls.objects.filter(
             blog_template_name=template_name,
             status='approved',
-            parent__isnull=True  # Only get top-level comments
+            parent__isnull=True  # Top-level comments only
         ).select_related('author', 'moderated_by').prefetch_related(replies_prefetch)
         
         if category:
@@ -206,11 +211,14 @@ class BlogComment(models.Model):
     
     @classmethod
     def get_pending_count(cls):
-        """Get the count of pending comments for admin notification"""
+        """Get the count of pending comments for admin notification badge."""
         return cls.objects.filter(status='pending').count()
     
     def update_vote_counts(self):
-        """Update the cached vote counts from CommentVote records"""
+        """
+        Recalculate and cache vote counts from the CommentVote table.
+        Called automatically when votes are added/removed/changed.
+        """
         from django.db.models import Count, Q
         
         votes = CommentVote.objects.filter(comment=self).aggregate(
@@ -224,7 +232,7 @@ class BlogComment(models.Model):
         self.save(update_fields=['upvotes', 'downvotes', 'score'])
     
     def get_user_vote(self, user):
-        """Get the current user's vote on this comment"""
+        """Check if a user has voted on this comment and return the vote type."""
         if not user or not user.is_authenticated:
             return None
         
@@ -236,7 +244,10 @@ class BlogComment(models.Model):
 
 
 class CommentVote(models.Model):
-    """Model to track individual votes on comments"""
+    """
+    Track individual user votes on comments.
+    Each user can have one vote per comment (upvote or downvote).
+    """
     
     VOTE_CHOICES = [
         ('upvote', 'Upvote'),
@@ -260,7 +271,7 @@ class CommentVote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    # Track IP for anonymous voting in the future
+    # Store IP for potential future anonymous voting feature
     ip_address = models.GenericIPAddressField(
         null=True,
         blank=True,
@@ -268,8 +279,7 @@ class CommentVote(models.Model):
     )
     
     class Meta:
-        # Ensure one vote per user per comment
-        unique_together = [('comment', 'user')]
+        unique_together = [('comment', 'user')]  # One vote per user per comment
         indexes = [
             models.Index(fields=['comment', 'user']),
             models.Index(fields=['comment', 'vote_type']),
@@ -281,7 +291,6 @@ class CommentVote(models.Model):
         return f"{self.user.username} {self.vote_type}d {self.comment}"
     
     def save(self, *args, **kwargs):
-        """Update comment vote counts when a vote is saved"""
+        """Automatically update comment's cached vote counts after saving."""
         super().save(*args, **kwargs)
-        # Update the cached counts on the comment
         self.comment.update_vote_counts()

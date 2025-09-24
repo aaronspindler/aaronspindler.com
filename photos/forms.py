@@ -31,7 +31,7 @@ class PhotoBulkUploadForm(forms.Form):
         required=True
     )
     album = forms.ModelChoiceField(
-        queryset=None,  # Will be set in __init__
+        queryset=None,
         required=False,
         help_text='Optional: Add all uploaded photos to this album'
     )
@@ -64,7 +64,6 @@ class PhotoBulkUploadForm(forms.Form):
             'errors': []
         }
         
-        # Handle single file or list of files
         if not isinstance(images, list):
             images = [images]
         
@@ -72,7 +71,6 @@ class PhotoBulkUploadForm(forms.Form):
             filename = getattr(image_file, 'name', 'unknown')
             
             try:
-                # Check for duplicates before creating
                 existing_photos = Photo.objects.all()
                 duplicates = DuplicateDetector.find_duplicates(
                     image_file,
@@ -80,7 +78,6 @@ class PhotoBulkUploadForm(forms.Form):
                     exact_match_only=False
                 )
                 
-                # Check for exact duplicates
                 if duplicates['exact_duplicates']:
                     duplicate = duplicates['exact_duplicates'][0]
                     if skip_duplicates:
@@ -94,25 +91,19 @@ class PhotoBulkUploadForm(forms.Form):
                             f"{filename}: Exact duplicate of '{duplicate}'"
                         )
                 
-                # Check for similar images (optional warning)
                 if duplicates['similar_images']:
                     similar_count = len(duplicates['similar_images'])
-                    # You could add a warning here or handle similar images differently
-                    # For now, we'll allow similar images to be uploaded
                 
-                # Create a photo for each uploaded file
                 photo = Photo(
                     image=image_file,
                     # Store computed hashes to avoid recomputing
                     file_hash=duplicates.get('file_hash', ''),
                     perceptual_hash=duplicates.get('perceptual_hash', ''),
                 )
-                
                 # Skip duplicate check in save since we already checked
                 photo.save(skip_duplicate_check=True)
                 result['created'].append(photo)
                 
-                # Add to album if specified
                 if album:
                     album.photos.add(photo)
                     

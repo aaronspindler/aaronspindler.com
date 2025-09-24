@@ -20,8 +20,7 @@ class PhotoAlbumSitemap(Sitemap):
         
         if albums is None:
             albums = list(PhotoAlbum.objects.filter(is_private=False).order_by('-created_at'))
-            # Cache for 12 hours
-            cache.set(cache_key, albums, 43200)
+            cache.set(cache_key, albums, 43200)  # Cache for 12 hours
         
         return albums
 
@@ -60,20 +59,17 @@ class PhotoSitemap(Sitemap):
         photos = cache.get(cache_key)
         
         if photos is None:
-            # Only include photos from public albums
             public_albums = PhotoAlbum.objects.filter(is_private=False).values_list('id', flat=True)
             photos = list(Photo.objects.filter(
                 albums__in=public_albums
             ).distinct().select_related().prefetch_related('albums').order_by('-created_at'))
-            # Cache for 12 hours
-            cache.set(cache_key, photos, 43200)
+            cache.set(cache_key, photos, 43200)  # Cache for 12 hours
         
         return photos
 
     def location(self, obj):
         """Get the URL for each photo"""
-        # If you have individual photo pages, return their URLs here
-        # For now, we'll link to the album with a photo anchor
+        # Link to album with photo anchor (no individual photo pages yet)
         album = obj.albums.filter(is_private=False).first()
         if album:
             return f"{reverse('photos:album_detail', kwargs={'slug': album.slug})}#photo-{obj.id}"

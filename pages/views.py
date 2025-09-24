@@ -62,26 +62,21 @@ def robotstxt(request):
 @track_page_visit
 def resume(request):
     """Serve resume PDF file if enabled in settings, otherwise show unavailable page."""
-    # Check if resume endpoint is enabled
     if not getattr(settings, 'RESUME_ENABLED', False):
         return render(request, 'pages/resume_unavailable.html')
     
-    # Get resume filename from settings
     resume_filename = getattr(settings, 'RESUME_FILENAME', 'Aaron_Spindler_Resume_2025.pdf')
     resume_path = os.path.join(settings.BASE_DIR, 'static', 'files', resume_filename)
     
-    # Check if file exists
     if not os.path.exists(resume_path):
         logger.error(f"Resume file not found at: {resume_path}")
         raise Http404("Resume file not found")
     
     try:
-        # Serve the PDF file
         response = FileResponse(
             open(resume_path, 'rb'),
             content_type='application/pdf'
         )
-        # Optional: Set the filename for download
         response['Content-Disposition'] = f'inline; filename="{resume_filename}"'
         return response
     except Exception as e:
@@ -90,9 +85,13 @@ def resume(request):
 
 @track_page_visit
 def home(request):
+    """
+    Display home page with blog posts, projects, books, and photo albums.
+    Uses caching for performance optimization.
+    """
     logger.info("Home page requested")
     
-    # Cache blog posts since they don't change often
+    # Cache blog posts (1 hour TTL)
     blog_cache_key = 'home_blog_posts_v2'
     cached_blog_data = cache.get(blog_cache_key)
     
@@ -100,10 +99,9 @@ def home(request):
         blog_posts = cached_blog_data['blog_posts']
         blog_posts_by_category = cached_blog_data['blog_posts_by_category']
     else:
-        # Blog - Get all blog posts from all categories
         all_posts = get_all_blog_posts()
         blog_posts = []
-        blog_posts_by_category = {}  # Organize posts by category
+        blog_posts_by_category = {}
         
         for post_info in all_posts:
             blog_data = get_blog_from_template_name(
@@ -119,20 +117,18 @@ def home(request):
                 blog_posts_by_category[category] = []
             blog_posts_by_category[category].append(blog_data)
         
-        # Sort posts within each category
+        # Sort posts within each category by entry number (newest first)
         for category in blog_posts_by_category:
             blog_posts_by_category[category].sort(key=lambda x: x['entry_number'], reverse=True)
         
-        # Sort all posts for backward compatibility
         blog_posts.sort(key=lambda x: x['entry_number'], reverse=True)
         
-        # Cache for 1 hour
         cache.set(blog_cache_key, {
             'blog_posts': blog_posts,
             'blog_posts_by_category': blog_posts_by_category
         }, 3600)
     
-    # Projects - Cache since they're static
+    # Projects (24 hour cache)
     projects_cache_key = 'home_projects_v1'
     projects = cache.get(projects_cache_key)
     
@@ -174,32 +170,29 @@ def home(request):
                 "tech": ["Python", "Image Processing", "Machine Learning", "Blur Detection", "Apple Photos", "Lightroom"]
             }
         ]
-        # Cache for 24 hours
-        cache.set(projects_cache_key, projects, 86400)
+        cache.set(projects_cache_key, projects, 86400)  # Cache for 24 hours
     
-    # Books - Cache since they're static
+    # Books (24 hour cache)
     books_cache_key = 'home_books_v1'
     books = cache.get(books_cache_key)
     
     if not books:
         books = get_books()
-        # Cache for 24 hours
         cache.set(books_cache_key, books, 86400)
     
-    # Photo Albums - Get only public albums with efficient photo counting
+    # Photo Albums - Get public albums with annotated photo counts for efficiency
     albums = PhotoAlbum.objects.filter(is_private=False).annotate(
         photo_count=Count('photos')
     ).order_by('-created_at')
     
     album_data = []
     for album in albums:
-        # Get a random photo for cover using database-level random selection
-        # Only query for one photo instead of loading all
+        # Get random cover photo using database-level selection
         cover_photo = album.photos.order_by('?').first()
         album_data.append({
             'album': album,
             'cover_photo': cover_photo,
-            'photo_count': album.photo_count  # Use annotated count
+            'photo_count': album.photo_count
         })
     
     return render(

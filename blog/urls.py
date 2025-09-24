@@ -1,7 +1,5 @@
 from django.urls import path
-
 from pages.decorators import track_page_visit
-
 from .views import (
     render_blog_template, 
     knowledge_graph_api, 
@@ -14,11 +12,11 @@ from .views import (
 )
 
 urlpatterns = [
-    # Blog routes
+    # Blog post routes (with optional category)
     path("b/<str:category>/<str:template_name>/", track_page_visit(render_blog_template), name="render_blog_template_with_category"),
     path("b/<str:template_name>/", track_page_visit(render_blog_template), name="render_blog_template"),
     
-    # Comment routes
+    # Comment management routes
     path("b/<str:category>/<str:template_name>/comment/", submit_comment, name="submit_comment_with_category"),
     path("b/<str:template_name>/comment/", submit_comment, name="submit_comment"),
     path("comment/<int:comment_id>/reply/", reply_to_comment, name="reply_to_comment"),
@@ -26,7 +24,7 @@ urlpatterns = [
     path("comment/<int:comment_id>/delete/", delete_comment, name="delete_comment"),
     path("comment/<int:comment_id>/vote/", vote_comment, name="vote_comment"),
     
-    # Knowledge graph API routes
+    # Knowledge graph API endpoints
     path("api/knowledge-graph/", knowledge_graph_api, name="knowledge_graph_api"),
     path("api/knowledge-graph/screenshot/", knowledge_graph_screenshot, name="knowledge_graph_screenshot"),
 ]

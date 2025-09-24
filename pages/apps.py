@@ -9,5 +9,4 @@ class PagesConfig(AppConfig):
     name = 'pages'
 
     def ready(self):
-        """Initialize pages app."""
         logger.info("Pages app ready")

@@ -11,7 +11,6 @@ from photos.image_utils import (
 )
 import os
 
-# Private storage for secure files
 private_storage = PrivateMediaStorage()
 
 
@@ -19,10 +18,8 @@ class Photo(models.Model):
     title = models.CharField(max_length=255, blank=True, default='')
     description = models.TextField(blank=True)
     
-    # Original image (full resolution, untouched)
     image = models.ImageField(upload_to='photos/original/', verbose_name='Original Full Resolution')
     
-    # Optimized full size (compressed but same dimensions)
     image_optimized = models.ImageField(
         upload_to='photos/optimized/', 
         blank=True, 
@@ -30,7 +27,6 @@ class Photo(models.Model):
         verbose_name='Optimized Full Size'
     )
     
-    # Smart cropped medium version for gallery display
     image_display = models.ImageField(
         upload_to='photos/display/', 
         blank=True, 
@@ -38,13 +34,11 @@ class Photo(models.Model):
         verbose_name='Display Version (Smart Cropped)'
     )
     
-    # Metadata
     original_filename = models.CharField(max_length=255, blank=True)
     file_size = models.PositiveIntegerField(null=True, blank=True, help_text='Original file size in bytes')
     width = models.PositiveIntegerField(null=True, blank=True, help_text='Original image width')
     height = models.PositiveIntegerField(null=True, blank=True, help_text='Original image height')
     
-    # Duplicate detection fields
     file_hash = models.CharField(
         max_length=64, 
         blank=True, 
@@ -58,7 +52,6 @@ class Photo(models.Model):
         help_text='Perceptual hash for similar image detection'
     )
     
-    # Smart Crop Focal Point
     focal_point_x = models.FloatField(
         null=True, blank=True,
         help_text='X coordinate of focal point (0-1)'
@@ -68,7 +61,6 @@ class Photo(models.Model):
         help_text='Y coordinate of focal point (0-1)'
     )
     
-    # EXIF Metadata
     exif_data = models.JSONField(null=True, blank=True, help_text='Full EXIF data as JSON')
     camera_make = models.CharField(max_length=100, blank=True, help_text='Camera manufacturer')
     camera_model = models.CharField(max_length=100, blank=True, help_text='Camera model')
@@ -94,10 +86,8 @@ class Photo(models.Model):
         Override save to automatically create optimized versions when a new image is uploaded.
         Also checks for duplicates before saving.
         """
-        # Check if this is a new upload or an update to the main image
         try:
             if self.pk is None or (self.pk and self._image_changed()):
-                # Check for duplicates before processing
                 skip_duplicate_check = kwargs.pop('skip_duplicate_check', False)
                 
                 if not skip_duplicate_check:
@@ -105,10 +95,8 @@ class Photo(models.Model):
                 
                 self._process_image()
         except ValidationError:
-            # Re-raise validation errors (duplicate detection)
             raise
         except Exception as e:
-            # Log the error but don't prevent saving
             print(f"Error processing image: {e}")
         
         super().save(*args, **kwargs)
@@ -134,25 +122,21 @@ class Photo(models.Model):
         if not self.image:
             return
         
-        # Don't check against self if updating
         existing_photos = Photo.objects.all()
         if self.pk:
             existing_photos = existing_photos.exclude(pk=self.pk)
         
-        # Find duplicates
         duplicates = DuplicateDetector.find_duplicates(
             self.image,
             existing_photos,
             exact_match_only=False
         )
         
-        # Store the computed hashes (these will be reused in _process_image if needed)
+        # Store computed hashes for reuse
         if duplicates['file_hash']:
             self.file_hash = duplicates['file_hash']
         if duplicates['perceptual_hash']:
             self.perceptual_hash = duplicates['perceptual_hash']
-        
-        # Check for exact duplicates
         if duplicates['exact_duplicates']:
             duplicate = duplicates['exact_duplicates'][0]
             raise ValidationError(
@@ -168,36 +152,25 @@ class Photo(models.Model):
         if not self.image:
             return
         
-        # Compute hashes if not already computed (in case duplicate check was skipped)
         if not self.file_hash or not self.perceptual_hash:
             hashes = DuplicateDetector.compute_and_store_hashes(self.image)
             self.file_hash = hashes['file_hash'] or ''
             self.perceptual_hash = hashes['perceptual_hash'] or ''
         
-        # Store original filename
         self.original_filename = os.path.basename(self.image.name)
-        
-        # Get image dimensions and file size using the new utility
         metadata = ImageMetadataExtractor.extract_basic_metadata(self.image)
         self.width = metadata['width']
         self.height = metadata['height']
         self.file_size = metadata['file_size']
         
-        # Extract EXIF data
         self.image.seek(0)  # Reset file pointer before reading EXIF
         exif_data = ExifExtractor.extract_exif(self.image)
         
-        # Store EXIF metadata
         if exif_data:
-            # Store full EXIF data as JSON (excluding the full_exif for now to avoid serialization issues)
             full_exif = exif_data.pop('full_exif', {})
-            
-            # Convert full EXIF data to JSON-serializable format using the utility
             serializable_exif = ExifExtractor.make_exif_serializable(full_exif)
             
             self.exif_data = serializable_exif
-            
-            # Store individual EXIF fields
             self.camera_make = exif_data.get('camera_make', '')
             self.camera_model = exif_data.get('camera_model', '')
             self.lens_model = exif_data.get('lens_model', '')
@@ -210,16 +183,12 @@ class Photo(models.Model):
             self.gps_longitude = exif_data.get('gps_longitude')
             self.gps_altitude = exif_data.get('gps_altitude')
         
-        # Generate optimized versions with smart cropping
         self.image.seek(0)  # Reset file pointer before processing
         variants, focal_point = ImageOptimizer.process_uploaded_image(self.image, self.original_filename)
         
-        # Store focal point if computed
         if focal_point:
             self.focal_point_x = focal_point[0]
             self.focal_point_y = focal_point[1]
-        
-        # Assign the optimized versions to their respective fields
         if 'optimized' in variants:
             self.image_optimized.save(
                 variants['optimized'].name,
@@ -234,7 +203,6 @@ class Photo(models.Model):
                 save=False
             )
         
-        # The original image is already saved as-is
     
     def get_image_url(self, size='display'):
         """
@@ -257,12 +225,9 @@ class Photo(models.Model):
         try:
             if image_field:
                 return image_field.url
-            
-            # Fallback to the original image if the requested size doesn't exist
             return self.image.url if self.image else None
         except (ValueError, AttributeError):
-            # File doesn't exist or can't generate URL
-            return None
+            return None  # File doesn't exist or can't generate URL
     
     def get_similar_images(self, threshold=5):
         """
@@ -291,8 +256,7 @@ class Photo(models.Model):
             if is_similar:
                 similar.append((photo, distance))
         
-        # Sort by distance (most similar first)
-        similar.sort(key=lambda x: x[1])
+        similar.sort(key=lambda x: x[1])  # Sort by distance (most similar first)
         return similar
     
     def __str__(self):
@@ -316,7 +280,6 @@ class PhotoAlbum(models.Model):
     
     allow_downloads = models.BooleanField(default=False)
     
-    # Zip file fields
     zip_file = models.FileField(
         upload_to='albums/zips/original/',
         storage=private_storage,
@@ -339,7 +302,6 @@ class PhotoAlbum(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.title)
-            # Ensure uniqueness
             original_slug = self.slug
             counter = 1
             while PhotoAlbum.objects.filter(slug=self.slug).exists():
