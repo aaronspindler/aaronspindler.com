@@ -74,7 +74,13 @@
                     <tr>
                         <td><a href="{{ project.link }}">{{ project.name }}</a></td>
                         <td>{{ project.description }}</td>
-                        <td>{{ project.tech|join:", " }}</td>
+                        <td>
+                            <div class="tech-pills">
+                                {% for tech in project.tech %}
+                                    <span class="tech-bubble">{{ tech }}</span>
+                                {% endfor %}
+                            </div>
+                        </td>
                     </tr>
                 {% endfor %}
             </tbody>
