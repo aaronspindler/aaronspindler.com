@@ -3,3 +3,9 @@ description: apply this rule to chats that look to create tests
 alwaysApply: false
 ---
 Do not try to write tests for code in this repository.
+
+When running tests locally, do not use the --parallel flag. Run tests with:
+- `python manage.py test` (without --parallel)
+- `coverage run --source='.' manage.py test --no-input` (without --parallel)
+
+The --parallel flag should only be used in CI/CD environments, not for local development.
