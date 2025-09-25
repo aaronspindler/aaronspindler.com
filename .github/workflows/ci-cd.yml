@@ -22,7 +22,7 @@ env:
 jobs:
   # First, run tests to ensure code quality
   test:
-    uses: ./.github/reusable-workflows/test-and-check.yml
+    uses: ./.github/workflows/test-and-check.yml
     permissions:
       contents: read
     with:
