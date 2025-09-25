@@ -1,4 +1,4 @@
-name: Reusable Test and Check
+name: Reusable Test and Check (Optimized)
 
 on:
   workflow_call:
@@ -20,45 +20,158 @@ on:
         default: ''
 
 env:
-  PYTHONUNBUFFERED: 1  # Better logging output
+  PYTHONUNBUFFERED: 1
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
 
 permissions:
   contents: read
 
 jobs:
-  test-and-check:
+  # Job 1: Build and push Docker image to GitHub Container Registry for reuse
+  build-docker:
     runs-on: ubuntu-latest
-    timeout-minutes: 20  # Increased timeout for Docker operations
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
     steps:
       - uses: actions/checkout@v5
         with:
-          # Use the provided ref if specified, otherwise use default behavior
           ref: ${{ inputs.ref }}
-          # Use github.token which has read access to Dependabot PRs
           token: ${{ github.token }}
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
-      - name: Cache Docker layers
-        uses: actions/cache@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Verify Docker Compose file exists
-        run: |
-          if [ ! -f docker-compose.test.yml ]; then
-            echo "❌ docker-compose.test.yml not found!"
-            exit 1
-          fi
-          echo "✅ docker-compose.test.yml found"
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/test
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
       
-      - name: Build Docker images
+      - name: Build and push Docker image
+        uses: docker/build-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+      
+      - name: Export image tag
+        run: echo "IMAGE_TAG=${{ steps.meta.outputs.tags }}" >> $GITHUB_OUTPUT
+
+  # Job 2: Security checks (runs in parallel)
+  security-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          token: ${{ github.token }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
+      
+      - name: Install dependencies
         run: |
-          docker compose -f docker-compose.test.yml build
+          python -m pip install --upgrade pip
+          pip install safety bandit
+      
+      - name: Run Safety check
+        run: safety check --json || true
+        continue-on-error: true
+      
+      - name: Run Bandit security linter
+        run: bandit -r . -f json -o bandit-report.json || true
+        continue-on-error: true
+
+  # Job 3: Django checks (migrations and system checks)
+  django-checks:
+    runs-on: ubuntu-latest
+    needs: build-docker
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        check: [migrations, system, template]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          token: ${{ github.token }}
+      
+      - name: Set up Docker Compose
+        run: |
+          # Use the pre-built image from the build job
+          export TEST_IMAGE="${{ needs.build-docker.outputs.image-tag }}"
+          # Update docker-compose.test.yml to use the pre-built image
+          sed -i "s|build: .|image: ${TEST_IMAGE}|g" docker-compose.test.yml
+      
+      - name: Start required services
+        run: |
+          docker compose -f docker-compose.test.yml up -d postgres redis
+          # Wait for services to be healthy
+          timeout 60s bash -c 'until docker compose -f docker-compose.test.yml ps | grep -q "healthy"; do sleep 2; done' || true
+      
+      - name: Run Django ${{ matrix.check }} check
+        run: |
+          case "${{ matrix.check }}" in
+            migrations)
+              docker compose -f docker-compose.test.yml run --rm test_runner \
+                python manage.py makemigrations --check --dry-run --settings=config.settings_test
+              ;;
+            system)
+              docker compose -f docker-compose.test.yml run --rm test_runner \
+                python manage.py check --deploy --settings=config.settings_test
+              ;;
+            template)
+              docker compose -f docker-compose.test.yml run --rm test_runner \
+                python manage.py check --tag templates --settings=config.settings_test
+              ;;
+          esac
+      
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
+
+  # Job 4: Run tests with coverage (split by app)
+  test-suite:
+    runs-on: ubuntu-latest
+    needs: build-docker
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [accounts, blog, pages, photos, config]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          token: ${{ github.token }}
+      
+      - name: Set up Docker Compose
+        run: |
+          # Use the pre-built image from the build job
+          export TEST_IMAGE="${{ needs.build-docker.outputs.image-tag }}"
+          sed -i "s|build: .|image: ${TEST_IMAGE}|g" docker-compose.test.yml
       
       - name: Start test services
         run: |
@@ -66,67 +179,117 @@ jobs:
           # Wait for services to be healthy
           timeout 60s bash -c 'until docker compose -f docker-compose.test.yml ps | grep -q "healthy"; do sleep 2; done'
       
-      - name: Set up Python (for local checks)
+      - name: Run tests for ${{ matrix.app }}
+        run: |
+          mkdir -p ./test_output
+          docker compose -f docker-compose.test.yml run --rm -v $(pwd)/test_output:/code/test_output test_runner sh -c "
+            pip install coverage --no-cache-dir &&
+            coverage run --source='.' manage.py test ${{ matrix.app }} --settings=config.settings_test --no-input --parallel --verbosity=2 &&
+            coverage xml -o /code/test_output/coverage-${{ matrix.app }}.xml
+          "
+      
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.app }}
+          path: ./test_output/coverage-${{ matrix.app }}.xml
+          retention-days: 1
+      
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
+
+  # Job 5: Combine coverage reports and upload
+  coverage-upload:
+    runs-on: ubuntu-latest
+    needs: test-suite
+    if: inputs.upload-coverage
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          token: ${{ github.token }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python-version }}
+      
+      - name: Install coverage
+        run: pip install coverage
+      
+      - name: Download all coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+          path: ./coverage-reports
+      
+      - name: Combine coverage reports
+        run: |
+          # Combine all coverage XML files
+          coverage combine ./coverage-reports/coverage-*.xml || true
+          coverage xml -o coverage.xml
+      
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.0.2
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+          verbose: true
+
+  # Job 6: Static code analysis (runs in parallel)
+  static-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        tool: [pylint, mypy, ruff]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          token: ${{ github.token }}
+      
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: ${{ inputs.python-version }}
           cache: 'pip'
-          cache-dependency-path: |
-            requirements.txt
-            requirements-*.txt
+          cache-dependency-path: requirements.txt
       
-      - name: Install local dependencies (for checks only)
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install safety
+          pip install -r requirements.txt
+          pip install ${{ matrix.tool }}
       
-      - name: Security Check
+      - name: Run ${{ matrix.tool }}
         run: |
-          safety check --json || true
+          case "${{ matrix.tool }}" in
+            pylint)
+              pylint **/*.py --exit-zero --output-format=json > pylint-report.json || true
+              ;;
+            mypy)
+              mypy . --ignore-missing-imports --no-error-summary || true
+              ;;
+            ruff)
+              ruff check . --output-format=json > ruff-report.json || true
+              ;;
+          esac
         continue-on-error: true
-      
-      - name: Check Migrations
+
+  # Final job to ensure all checks pass
+  all-checks:
+    runs-on: ubuntu-latest
+    needs: [security-check, django-checks, test-suite, static-analysis]
+    if: always()
+    steps:
+      - name: Check if all jobs passed
         run: |
-          docker compose -f docker-compose.test.yml run --rm test_runner sh -c "python manage.py makemigrations --check --dry-run --settings=config.settings_test"
-      
-      - name: Run Django System Checks
-        run: |
-          docker compose -f docker-compose.test.yml run --rm test_runner sh -c "python manage.py check --deploy --settings=config.settings_test"
-      
-      - name: Run Tests with Coverage
-        run: |
-          # Create a directory for coverage output
-          mkdir -p ./test_output
-          docker compose -f docker-compose.test.yml run --rm -v $(pwd)/test_output:/code/test_output test_runner sh -c "
-            echo 'Installing coverage...' &&
-            pip install coverage --no-cache-dir &&
-            echo 'Running tests with coverage...' &&
-            coverage run --source='.' manage.py test --settings=config.settings_test --no-input --parallel --verbosity=2 &&
-            coverage report &&
-            coverage xml -o /code/test_output/coverage.xml &&
-            echo 'Coverage report saved to test_output/coverage.xml'
-          "
-      
-      - name: Move coverage report
-        run: |
-          # Move coverage report to expected location
-          if [ -f ./test_output/coverage.xml ]; then
-            cp ./test_output/coverage.xml ./coverage.xml
-            echo "Coverage report found and copied"
-          else
-            echo "Coverage report not found, creating minimal one"
-            echo '<?xml version="1.0"?><coverage version="0.0" timestamp="0"></coverage>' > coverage.xml
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more checks failed"
+            exit 1
           fi
-      
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.0.2
-        if: inputs.upload-coverage
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
-      
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose -f docker-compose.test.yml down -v
-          docker system prune -f
+          echo "All checks passed successfully!"
