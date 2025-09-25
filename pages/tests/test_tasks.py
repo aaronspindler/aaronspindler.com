@@ -20,7 +20,7 @@ class RebuildAndCacheSitemapTaskTest(TestCase):
         mock_client.get.return_value = mock_response
         
         # Mock sitemaps configuration
-        with patch('pages.tasks.sitemaps', {'static': None, 'blog': None}):
+        with patch('config.sitemaps.sitemaps', {'static': None, 'blog': None}):
             result = rebuild_and_cache_sitemap()
             
         # Verify the main sitemap was requested
@@ -54,7 +54,7 @@ class RebuildAndCacheSitemapTaskTest(TestCase):
         ]
         mock_client.get.side_effect = responses
         
-        with patch('pages.tasks.sitemaps', {'static': None, 'blog': None}):
+        with patch('config.sitemaps.sitemaps', {'static': None, 'blog': None}):
             result = rebuild_and_cache_sitemap()
             
         # Verify warnings for failures
@@ -97,7 +97,7 @@ class RebuildAndCacheSitemapTaskTest(TestCase):
         mock_client.get.return_value = mock_response
         
         # Empty sitemaps dictionary
-        with patch('pages.tasks.sitemaps', {}):
+        with patch('config.sitemaps.sitemaps', {}):
             result = rebuild_and_cache_sitemap()
             
         # Should only request main sitemap
@@ -125,7 +125,7 @@ class RebuildAndCacheSitemapTaskTest(TestCase):
             'projects': None,
         }
         
-        with patch('pages.tasks.sitemaps', sections):
+        with patch('config.sitemaps.sitemaps', sections):
             result = rebuild_and_cache_sitemap()
             
         # Should request main + all sections
@@ -137,14 +137,13 @@ class RebuildAndCacheSitemapTaskTest(TestCase):
             
         self.assertTrue(result)
         
-    @patch('pages.tasks.shared_task')
-    def test_task_decorator(self, mock_shared_task):
+    def test_task_decorator(self):
         """Test that the task is properly decorated with @shared_task."""
-        # Import should trigger decorator
-        from pages import tasks
+        from pages.tasks import rebuild_and_cache_sitemap
         
-        # Verify the function was decorated
-        mock_shared_task.assert_called()
+        # Verify the function has Celery task attributes
+        self.assertTrue(hasattr(rebuild_and_cache_sitemap, 'delay'))
+        self.assertTrue(hasattr(rebuild_and_cache_sitemap, 'apply_async'))
         
     @patch('pages.tasks.Client')
     def test_rebuild_and_cache_sitemap_url_format(self, mock_client_class):
@@ -156,7 +155,7 @@ class RebuildAndCacheSitemapTaskTest(TestCase):
         mock_response.status_code = 200
         mock_client.get.return_value = mock_response
         
-        with patch('pages.tasks.sitemaps', {'test_section': None}):
+        with patch('config.sitemaps.sitemaps', {'test_section': None}):
             rebuild_and_cache_sitemap()
             
         # Check URL format

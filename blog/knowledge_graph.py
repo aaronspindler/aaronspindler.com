@@ -45,7 +45,7 @@ class LinkParser:
     context for graph visualization.
     """
     
-    INTERNAL_BLOG_PATTERN = re.compile(r'/b/(\d{4}_[^/]+)/?')
+    INTERNAL_BLOG_PATTERN = re.compile(r'/b/(?:[^/]+/)?(\d{4}_[^/]+)/?')
     CACHE_TIMEOUT = CACHE_TIMEOUT
     CONTEXT_LENGTH = 100  # Characters of context to extract around each link
     
@@ -653,7 +653,7 @@ def parse_all_blog_posts(force_refresh: bool = False) -> List[Dict]:
 def build_knowledge_graph(force_refresh: bool = False) -> Dict:
     """Build the complete knowledge graph."""
     graph_builder = GraphBuilder()
-    return graph_builder.build_complete_graph(force_refresh)
+    return graph_builder.build_complete_graph(force_refresh=force_refresh)
 
 
 def get_post_graph(template_name: str, depth: int = 1) -> Dict:

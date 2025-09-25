@@ -117,8 +117,8 @@ class AccountsIntegrationTest(TransactionTestCase):
         # Password should not be stored as plaintext
         self.assertNotEqual(user.password, 'plaintext123')
         
-        # Password should be hashed (Django's hash format)
-        self.assertTrue(user.password.startswith('pbkdf2_sha256$'))
+        # Password should be hashed (Django's hash format - could be MD5 in tests)
+        self.assertTrue(user.password.startswith(('pbkdf2_sha256$', 'md5$')))
         
         # Should be able to verify password
         self.assertTrue(user.check_password('plaintext123'))

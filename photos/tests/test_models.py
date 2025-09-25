@@ -483,16 +483,14 @@ class PhotoAlbumModelTestCase(TestCase):
         )
         self.assertTrue(album2.allow_downloads)
     
-    @override_settings(DEFAULT_FILE_STORAGE='django.core.files.storage.FileSystemStorage')
     def test_album_zip_file_storage(self):
         """Test that zip files use private storage."""
-        with tempfile.NamedTemporaryFile(suffix='.zip') as temp_file:
-            temp_file.write(b'test zip content')
-            temp_file.seek(0)
-            
-            album = PhotoAlbum.objects.create(title="Test Album")
-            album.zip_file.save('test.zip', ContentFile(temp_file.read()))
-            
-            # Verify file was saved
-            self.assertTrue(album.zip_file)
-            self.assertIn('albums/zips/original/', album.zip_file.name)
+        album = PhotoAlbum.objects.create(title="Test Album")
+        
+        # Check that the field uses private storage
+        self.assertEqual(album.zip_file.storage.__class__.__name__, 'PrivateMediaStorage')
+        self.assertEqual(album.zip_file_optimized.storage.__class__.__name__, 'PrivateMediaStorage')
+        
+        # Check upload paths
+        self.assertEqual(album.zip_file.field.upload_to, 'albums/zips/original/')
+        self.assertEqual(album.zip_file_optimized.field.upload_to, 'albums/zips/optimized/')

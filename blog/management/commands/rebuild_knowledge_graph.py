@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.core.cache import cache
-from pages.knowledge_graph import build_knowledge_graph, GraphBuilder
+from blog.knowledge_graph import build_knowledge_graph, GraphBuilder
 
 
 class Command(BaseCommand):

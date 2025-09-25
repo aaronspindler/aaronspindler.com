@@ -430,7 +430,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
     
     def test_form_invalid_no_images(self):
         """Test form is invalid without images."""
-        form = PhotoBulkUploadForm(data={})
+        form = PhotoBulkUploadForm(data={}, files={})
         self.assertFalse(form.is_valid())
         self.assertIn('images', form.errors)
     

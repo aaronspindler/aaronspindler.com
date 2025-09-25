@@ -246,13 +246,15 @@ class PhotoFactory:
         if image is None:
             image = PhotoFactory.create_test_image()
         
-        return Photo.objects.create(
+        photo = Photo(
             title=title,
             description=description,
             image=image,
             original_filename=original_filename,
             **kwargs
         )
+        photo.save(skip_duplicate_check=True)
+        return photo
     
     @staticmethod
     def create_photo_with_exif(
@@ -341,6 +343,8 @@ class MockDataFactory:
         return {
             'comment_form': {
                 'content': 'This is a test comment',
+                'author_name': 'Test User',
+                'author_email': 'test@example.com',
                 'website': ''  # Honeypot field
             },
             'user_form': {

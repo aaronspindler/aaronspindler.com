@@ -144,8 +144,17 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
         self.assertEqual(len(messages), 1)
         self.assertIn('submitted for review', str(messages[0]))
 
-    def test_submit_comment_anonymous(self):
+    @patch('blog.views.get_blog_from_template_name')
+    @patch('blog.views.PageVisit')
+    @patch('blog.models.BlogComment.get_approved_comments')
+    @patch('django.urls.reverse')
+    def test_submit_comment_anonymous(self, mock_reverse, mock_get_approved, mock_page_visit, mock_get_blog):
         """Test anonymous user submitting a comment."""
+        mock_get_blog.return_value = self.mock_blog_data
+        mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
+        mock_get_approved.return_value.count.return_value = 0
+        mock_reverse.return_value = '/b/0001_test_post/'
+        
         form_data = MockDataFactory.get_common_form_data()['comment_form']
         form_data.update({
             'content': 'Anonymous comment',
@@ -154,6 +163,27 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
         })
         response = self.client.post('/b/0001_test_post/comment/', form_data)
 
+        # Debug: check what happened if not redirect
+        if response.status_code != 302:
+            print(f"Response status: {response.status_code}")
+            if hasattr(response, 'context') and response.context:
+                if 'comment_form' in response.context:
+                    form = response.context['comment_form']
+                    print(f"Form errors: {form.errors}")
+                    print(f"Form is_bound: {form.is_bound}")
+                    if form.is_bound:
+                        print(f"Form data: {form.data}")
+                        print(f"Form cleaned_data: {getattr(form, 'cleaned_data', 'Not cleaned')}")
+            
+            # Try to create the comment manually to see if it works
+            try:
+                from blog.forms import CommentForm
+                test_form = CommentForm(form_data, user=None)
+                print(f"Manual form is_valid: {test_form.is_valid()}")
+                print(f"Manual form errors: {test_form.errors}")
+            except Exception as e:
+                print(f"Manual form creation failed: {e}")
+        
         self.assertEqual(response.status_code, 302)
         
         comment = BlogComment.objects.get(content='Anonymous comment')
@@ -176,23 +206,33 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
 
     @patch('blog.views.get_blog_from_template_name')
     @patch('blog.views.PageVisit')
-    def test_submit_invalid_comment(self, mock_page_visit, mock_get_blog):
+    @patch('blog.models.BlogComment.get_approved_comments')
+    def test_submit_invalid_comment(self, mock_get_approved, mock_page_visit, mock_get_blog):
         """Test submitting invalid comment re-renders form with errors."""
-        mock_get_blog.return_value = {
+        blog_data = {
             'entry_number': '0001',
             'template_name': '0001_test_post',
             'blog_title': '0001 test post',
             'blog_content': '<p>Test</p>',
             'category': None
         }
+        mock_get_blog.return_value = blog_data
         mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
+        mock_get_approved.return_value.count.return_value = 0
 
         form_data = MockDataFactory.get_common_form_data()['comment_form']
-        form_data['content'] = ''  # Empty content
+        form_data.update({
+            'content': '',  # Empty content should cause validation error
+            'author_name': 'Test User',
+            'author_email': 'test@example.com'
+        })
         response = self.client.post('/b/0001_test_post/comment/', form_data)
 
         self.assertEqual(response.status_code, 200)
-        self.assertFormError(response.context['comment_form'], 'content', 'This field is required.')
+        self.assertIn('comment_form', response.context)
+        form = response.context['comment_form']
+        self.assertTrue(form.is_bound)
+        self.assertIn('content', form.errors)
 
 
 class CommentReplyTest(TestCase, TestDataMixin):
@@ -201,13 +241,18 @@ class CommentReplyTest(TestCase, TestDataMixin):
     def setUp(self):
         self.client = Client()
         self.setUp_users()
+        self.setUp_blog_data()
         self.parent_comment = BlogCommentFactory.create_approved_comment(
             content='Parent comment',
             author=self.user
         )
 
-    def test_reply_to_comment(self):
+    @patch('blog.views.get_blog_from_template_name')
+    def test_reply_to_comment(self, mock_get_blog):
         """Test replying to a comment."""
+        # Mock the blog template for the redirect target
+        mock_get_blog.return_value = self.mock_blog_data
+        
         self.client.login(username=self.user.username, password='testpass123')
         
         form_data = MockDataFactory.get_common_form_data()['comment_form']

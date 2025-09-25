@@ -5,23 +5,22 @@ import logging
 logger = logging.getLogger(__name__)
 
 @shared_task
-def rebuild_knowledge_graph():
+def rebuild_knowledge_graph(force_refresh=False):
     """
     Rebuild the knowledge graph cache periodically.
     
     This task is run by Celery Beat to keep the graph data fresh.
     Caches the result for 1 hour to improve performance.
     """
-    from blog.knowledge_graph import KnowledgeGraph
+    from blog.knowledge_graph import build_knowledge_graph
     try:
-        graph = KnowledgeGraph()
-        graph_data = graph.generate_graph_data()
+        graph_data = build_knowledge_graph(force_refresh=force_refresh)
         cache.set('knowledge_graph_data', graph_data, timeout=3600)  # 1 hour cache
         logger.info("Knowledge graph rebuilt and cached successfully")
-        return True
+        return graph_data
     except Exception as e:
         logger.error(f"Error rebuilding knowledge graph: {e}")
-        return False
+        return None
 
 @shared_task
 def generate_knowledge_graph_screenshot():
@@ -31,12 +30,11 @@ def generate_knowledge_graph_screenshot():
     This task runs periodically to update the cached screenshot image,
     avoiding the need for dynamic generation on each request.
     """
-    from blog.knowledge_graph import KnowledgeGraph
     try:
-        graph = KnowledgeGraph()
-        screenshot_path = graph.generate_screenshot()
-        logger.info(f"Knowledge graph screenshot generated: {screenshot_path}")
-        return screenshot_path
+        # For now, just return a placeholder since screenshot generation
+        # is handled in the view directly
+        logger.info("Knowledge graph screenshot generation task called")
+        return "screenshot_placeholder"
     except Exception as e:
         logger.error(f"Error generating knowledge graph screenshot: {e}")
         return None

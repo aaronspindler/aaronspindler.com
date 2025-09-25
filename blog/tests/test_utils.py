@@ -107,7 +107,8 @@ class BlogUtilsTest(TestCase):
         self.assertIsNone(result)
 
     @patch('blog.utils.os.walk')
-    def test_get_all_blog_posts(self, mock_walk):
+    @patch('blog.utils.os.path.relpath')
+    def test_get_all_blog_posts(self, mock_relpath, mock_walk):
         """Test getting all blog posts from directory structure."""
         # Mock os.walk to return blog structure
         mock_walk.return_value = [
@@ -116,13 +117,25 @@ class BlogUtilsTest(TestCase):
             ('/path/to/templates/blog/personal', [], ['0004_personal.html'])
         ]
         
+        # Mock os.path.relpath to return appropriate relative paths
+        def mock_relpath_side_effect(path, start):
+            if path == '/path/to/templates/blog':
+                return '.'
+            elif path == '/path/to/templates/blog/tech':
+                return 'tech'
+            elif path == '/path/to/templates/blog/personal':
+                return 'personal'
+            return path
+        
+        mock_relpath.side_effect = mock_relpath_side_effect
+        
         result = get_all_blog_posts()
         
         self.assertEqual(len(result), 4)
         
         # Check root level post
         root_post = next(p for p in result if p['template_name'] == '0001_root')
-        self.assertIsNone(root_post['category'])
+        self.assertIsNone(root_post['category'])  # Root level posts have no category
         
         # Check categorized posts
         tech_posts = [p for p in result if p['category'] == 'tech']
@@ -140,15 +153,23 @@ class BlogUtilsTest(TestCase):
             ('/path/to/templates/blog/tech/subcategory', [], ['0002_nested.html'])
         ]
         
-        result = get_all_blog_posts()
-        
-        # First-level category
-        tech_post = next(p for p in result if p['template_name'] == '0001_tech')
-        self.assertEqual(tech_post['category'], 'tech')
-        
-        # Nested category should use first-level category
-        nested_post = next(p for p in result if p['template_name'] == '0002_nested')
-        self.assertEqual(nested_post['category'], 'tech')
+        # Mock os.path.relpath to return the expected relative paths
+        with patch('blog.utils.os.path.relpath') as mock_relpath:
+            mock_relpath.side_effect = [
+                '.',  # Root directory
+                'tech',  # Tech category
+                'tech/subcategory'  # Nested category
+            ]
+            
+            result = get_all_blog_posts()
+            
+            # First-level category
+            tech_post = next(p for p in result if p['template_name'] == '0001_tech')
+            self.assertEqual(tech_post['category'], 'tech')
+            
+            # Nested category should use first-level category
+            nested_post = next(p for p in result if p['template_name'] == '0002_nested')
+            self.assertEqual(nested_post['category'], 'tech')
 
     @patch('blog.utils.os.walk')
     def test_get_all_blog_posts_ignores_non_html(self, mock_walk):

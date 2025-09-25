@@ -75,11 +75,15 @@ class ExifExtractor:
         """
         serializable = {}
         for key, value in exif_data.items():
-            try:
-                json.dumps(value)  # Test if serializable
-                serializable[key] = value
-            except (TypeError, ValueError):
-                serializable[key] = str(value)  # Convert non-serializable to string
+            # Check for specific non-serializable types
+            if isinstance(value, (tuple, bytes, bytearray)):
+                serializable[key] = str(value)
+            else:
+                try:
+                    json.dumps(value)  # Test if serializable
+                    serializable[key] = value
+                except (TypeError, ValueError):
+                    serializable[key] = str(value)  # Convert non-serializable to string
         return serializable
     
     @staticmethod
@@ -153,7 +157,9 @@ class ExifExtractor:
         """Format focal length value."""
         try:
             if isinstance(focal_length, tuple):
-                value = focal_length[0] / focal_length[1] if focal_length[1] != 0 else 0
+                if focal_length[1] == 0:
+                    return str(focal_length)
+                value = focal_length[0] / focal_length[1]
             else:
                 value = float(focal_length)
             
@@ -169,7 +175,9 @@ class ExifExtractor:
         """Format aperture value."""
         try:
             if isinstance(aperture, tuple):
-                value = aperture[0] / aperture[1] if aperture[1] != 0 else 0
+                if aperture[1] == 0:
+                    return str(aperture)
+                value = aperture[0] / aperture[1]
             else:
                 value = float(aperture)
             

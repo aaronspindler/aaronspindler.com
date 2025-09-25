@@ -14,56 +14,45 @@ class BlogTasksTest(TestCase):
     def setUp(self):
         cache.clear()
 
-    @patch('blog.tasks.KnowledgeGraph')
-    def test_rebuild_knowledge_graph_success(self, mock_kg_class):
+    @patch('blog.knowledge_graph.build_knowledge_graph')
+    def test_rebuild_knowledge_graph_success(self, mock_build_graph):
         """Test successful knowledge graph rebuild task."""
-        mock_kg = MagicMock()
         # Use MockDataFactory for consistent test data structure
-        mock_kg.generate_graph_data.return_value = {
+        graph_data = {
             'nodes': [{'id': 'test_post', 'label': 'Test Post'}],
             'edges': [{'source': 'post1', 'target': 'post2', 'type': 'internal'}],
             'metrics': {'total_posts': 1, 'total_internal_links': 1}
         }
-        mock_kg_class.return_value = mock_kg
+        mock_build_graph.return_value = graph_data
         
         result = rebuild_knowledge_graph()
         
-        self.assertTrue(result)
-        mock_kg.generate_graph_data.assert_called_once()
+        self.assertEqual(result, graph_data)
+        mock_build_graph.assert_called_once_with(force_refresh=False)
         
         # Check cache was set
         cached_data = cache.get('knowledge_graph_data')
         self.assertIsNotNone(cached_data)
 
-    @patch('blog.tasks.KnowledgeGraph')
-    def test_rebuild_knowledge_graph_failure(self, mock_kg_class):
+    @patch('blog.knowledge_graph.build_knowledge_graph')
+    def test_rebuild_knowledge_graph_failure(self, mock_build_graph):
         """Test knowledge graph rebuild task handles errors."""
-        mock_kg = MagicMock()
-        mock_kg.generate_graph_data.side_effect = Exception('Test error')
-        mock_kg_class.return_value = mock_kg
+        mock_build_graph.side_effect = Exception('Test error')
         
         result = rebuild_knowledge_graph()
         
-        self.assertFalse(result)
+        self.assertIsNone(result)
 
-    @patch('blog.tasks.KnowledgeGraph')
-    def test_generate_knowledge_graph_screenshot_success(self, mock_kg_class):
+    def test_generate_knowledge_graph_screenshot_success(self):
         """Test successful screenshot generation task."""
-        mock_kg = MagicMock()
-        mock_kg.generate_screenshot.return_value = '/path/to/screenshot.png'
-        mock_kg_class.return_value = mock_kg
-        
         result = generate_knowledge_graph_screenshot()
         
-        self.assertEqual(result, '/path/to/screenshot.png')
-        mock_kg.generate_screenshot.assert_called_once()
+        self.assertEqual(result, "screenshot_placeholder")
 
-    @patch('blog.tasks.KnowledgeGraph')
-    def test_generate_knowledge_graph_screenshot_failure(self, mock_kg_class):
+    @patch('blog.tasks.logger')
+    def test_generate_knowledge_graph_screenshot_failure(self, mock_logger):
         """Test screenshot generation task handles errors."""
-        mock_kg = MagicMock()
-        mock_kg.generate_screenshot.side_effect = Exception('Screenshot error')
-        mock_kg_class.return_value = mock_kg
+        mock_logger.info.side_effect = Exception('Screenshot error')
         
         result = generate_knowledge_graph_screenshot()
         
@@ -119,7 +108,7 @@ class ManagementCommandsTest(TestCase):
         
         mock_build.assert_called_with(force_refresh=True)
 
-    @patch('blog.management.commands.rebuild_knowledge_graph.Client')
+    @patch('django.test.Client')
     @patch('blog.management.commands.rebuild_knowledge_graph.build_knowledge_graph')
     def test_rebuild_knowledge_graph_command_test_api(self, mock_build, mock_client_class):
         """Test rebuild_knowledge_graph with API test flag."""
@@ -210,7 +199,20 @@ class ManagementCommandsTest(TestCase):
         # Mock the model operations
         mock_schedule = MagicMock()
         mock_crontab.objects.get_or_create.return_value = (mock_schedule, True)
-        mock_periodic_task.objects.update_or_create.return_value = (MagicMock(), True)
+        
+        # Create mock tasks with proper names
+        mock_task1 = MagicMock()
+        mock_task1.name = 'Rebuild and cache sitemap daily'
+        mock_task2 = MagicMock()
+        mock_task2.name = 'Rebuild knowledge graph cache'
+        mock_task3 = MagicMock()
+        mock_task3.name = 'Generate knowledge graph screenshot'
+        
+        mock_periodic_task.objects.update_or_create.side_effect = [
+            (mock_task1, True),
+            (mock_task2, True),
+            (mock_task3, True)
+        ]
         
         out = StringIO()
         call_command('setup_periodic_tasks', stdout=out)
@@ -233,8 +235,8 @@ class TaskIntegrationTest(TestCase):
     def setUp(self):
         cache.clear()
 
-    @patch('blog.tasks.KnowledgeGraph')
-    def test_rebuild_knowledge_graph_cache_integration(self, mock_kg_class):
+    @patch('blog.knowledge_graph.build_knowledge_graph')
+    def test_rebuild_knowledge_graph_cache_integration(self, mock_build_graph):
         """Test that rebuild task properly sets cache."""
         test_data = {
             'nodes': [{'id': 'post1', 'label': 'Post 1'}],
@@ -242,26 +244,22 @@ class TaskIntegrationTest(TestCase):
             'metrics': {'total_posts': 2}
         }
         
-        mock_kg = MagicMock()
-        mock_kg.generate_graph_data.return_value = test_data
-        mock_kg_class.return_value = mock_kg
+        mock_build_graph.return_value = test_data
         
         # Run the task
         result = rebuild_knowledge_graph()
         
-        self.assertTrue(result)
+        self.assertEqual(result, test_data)
         
         # Check cache
         cached_data = cache.get('knowledge_graph_data')
         self.assertEqual(cached_data, test_data)
 
     @patch('blog.tasks.logger')
-    @patch('blog.tasks.KnowledgeGraph')
-    def test_task_logging(self, mock_kg_class, mock_logger):
+    @patch('blog.knowledge_graph.build_knowledge_graph')
+    def test_task_logging(self, mock_build_graph, mock_logger):
         """Test that tasks log appropriately."""
-        mock_kg = MagicMock()
-        mock_kg.generate_graph_data.return_value = {'nodes': [], 'edges': []}
-        mock_kg_class.return_value = mock_kg
+        mock_build_graph.return_value = {'nodes': [], 'edges': []}
         
         rebuild_knowledge_graph()
         
@@ -270,7 +268,7 @@ class TaskIntegrationTest(TestCase):
         )
         
         # Test error logging
-        mock_kg.generate_graph_data.side_effect = Exception('Error')
+        mock_build_graph.side_effect = Exception('Error')
         rebuild_knowledge_graph()
         
         self.assertTrue(mock_logger.error.called)

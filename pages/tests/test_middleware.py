@@ -132,6 +132,8 @@ class RequestLoggingMiddlewareTest(TestCase):
         middleware = RequestLoggingMiddleware(self.get_response)
         
         request = self.factory.get('/test/')
+        # Remove REMOTE_ADDR to simulate missing IP
+        del request.META['REMOTE_ADDR']
         
         ip = middleware._get_client_ip(request)
         
