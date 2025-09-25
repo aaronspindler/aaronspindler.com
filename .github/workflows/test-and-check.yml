@@ -184,7 +184,7 @@ jobs:
           mkdir -p ./test_output
           docker compose -f docker-compose.test.yml run --rm -v $(pwd)/test_output:/code/test_output test_runner sh -c "
             pip install coverage --no-cache-dir &&
-            coverage run --source='.' manage.py test ${{ matrix.app }} --settings=config.settings_test --no-input --parallel --verbosity=2 &&
+            coverage run --source='.' manage.py test ${{ matrix.app }} --settings=config.settings_test --no-input --verbosity=2 &&
             coverage xml -o /code/test_output/coverage-${{ matrix.app }}.xml
           "
       
