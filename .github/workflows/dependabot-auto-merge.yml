@@ -23,12 +23,9 @@ jobs:
     uses: ./.github/workflows/test-and-check.yml
     with:
       python-version: '3.12.2'
-      postgres-version: '15'
       upload-coverage: false  # Don't upload coverage for Dependabot PRs
       # CRITICAL: Must checkout PR head to test actual PR code, not base branch
       ref: ${{ github.event.pull_request.head.sha }}
-    secrets:
-      DATABASE_URL: ${{secrets.DATABASE_URL}}
 
   # Auto-merge after tests pass
   dependabot-auto-merge:

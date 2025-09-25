@@ -27,10 +27,7 @@ jobs:
       contents: read
     with:
       python-version: '3.12.2'
-      postgres-version: '15'
       upload-coverage: true
-    secrets:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   # Build Docker images after tests pass (only for main branch)
   build-and-push:
