@@ -2,8 +2,8 @@ amqp==5.3.1
 asgiref==3.9.2
 beautifulsoup4==4.13.5
 billiard==4.2.2
-boto3==1.40.37
-botocore==1.40.37
+boto3==1.40.38
+botocore==1.40.38
 celery==5.5.3
 certifi==2025.8.3
 charset-normalizer==3.4.3
@@ -59,7 +59,7 @@ urllib3==2.5.0
 vine==5.1.0
 wcwidth==0.2.14
 zope.event==6.0
-zope.interface==7.2
+zope.interface==8.0.1
 Brotli
 coverage==7.6.10
 tblib==3.0.0
