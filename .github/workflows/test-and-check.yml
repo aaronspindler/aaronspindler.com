@@ -60,33 +60,17 @@ jobs:
       
       - name: Build Docker image
         run: |
-          docker compose -f docker-compose.test.yml build \
+          # Build the test_runner service directly with the target image name
+          # This avoids the need to figure out what Docker Compose named it
+          docker build \
+            -f Dockerfile \
+            -t ${{ env.DOCKER_IMAGE_NAME }}:latest \
             --build-arg BUILDKIT_INLINE_CACHE=1 \
-            test_runner
+            .
           
-          # Docker Compose v2 creates images with pattern: <project>-<service>
-          # The project name is derived from the directory name
-          PROJECT_NAME=$(basename $(pwd) | tr '[:upper:]' '[:lower:]' | tr '.' '-')
-          IMAGE_NAME="${PROJECT_NAME}-test_runner"
-          echo "Looking for image: $IMAGE_NAME"
-          
-          # List images for debugging
-          echo "Available images after build:"
-          docker images | grep -E "(REPOSITORY|${PROJECT_NAME})"
-          
-          # Tag the image for easier reference
-          if docker image inspect "${IMAGE_NAME}:latest" >/dev/null 2>&1; then
-            echo "Tagging ${IMAGE_NAME}:latest as ${{ env.DOCKER_IMAGE_NAME }}:latest"
-            docker tag "${IMAGE_NAME}:latest" "${{ env.DOCKER_IMAGE_NAME }}:latest"
-          elif docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
-            echo "Tagging ${IMAGE_NAME} as ${{ env.DOCKER_IMAGE_NAME }}:latest"
-            docker tag "${IMAGE_NAME}" "${{ env.DOCKER_IMAGE_NAME }}:latest"
-          else
-            echo "Error: Could not find built image ${IMAGE_NAME}"
-            echo "All available images:"
-            docker images
-            exit 1
-          fi
+          echo "Successfully built image: ${{ env.DOCKER_IMAGE_NAME }}:latest"
+          echo "Available images:"
+          docker images | head -5
       
       - name: Save Docker image to file
         run: |
