@@ -20,7 +20,7 @@ jobs:
     if: |
       github.actor == 'dependabot[bot]' &&
       !contains(github.event.pull_request.title, '[skip ci]')
-    uses: ./.github/workflows/test-and-check.yml
+    uses: ./.github/reusable-workflows/test-and-check.yml
     with:
       python-version: '3.12.2'
       upload-coverage: false  # Don't upload coverage for Dependabot PRs
