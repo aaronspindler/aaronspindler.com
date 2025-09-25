@@ -64,21 +64,29 @@ jobs:
             --build-arg BUILDKIT_INLINE_CACHE=1 \
             test_runner
           
-          # Get the full image name from docker compose and tag it
-          IMAGE_NAME=$(docker compose -f docker-compose.test.yml config | grep "image:" | grep -v "^#" | head -1 | awk '{print $2}')
+          # Docker Compose v2 creates images with pattern: <project>-<service>
+          # The project name is derived from the directory name
+          PROJECT_NAME=$(basename $(pwd) | tr '[:upper:]' '[:lower:]' | tr '.' '-')
+          IMAGE_NAME="${PROJECT_NAME}-test_runner"
+          echo "Looking for image: $IMAGE_NAME"
           
-          # If no explicit image name, construct it from the project
-          if [ -z "$IMAGE_NAME" ] || [ "$IMAGE_NAME" = "null" ]; then
-            # Docker Compose v2 creates images with pattern: <project>-<service>
-            PROJECT_NAME=$(basename $(pwd) | tr '[:upper:]' '[:lower:]' | tr '.' '-')
-            IMAGE_NAME="${PROJECT_NAME}-test_runner"
-            echo "Using constructed image name: $IMAGE_NAME"
-          fi
+          # List images for debugging
+          echo "Available images after build:"
+          docker images | grep -E "(REPOSITORY|${PROJECT_NAME})"
           
           # Tag the image for easier reference
-          docker tag "${IMAGE_NAME}:latest" ${{ env.DOCKER_IMAGE_NAME }}:latest || \
-          docker tag "${IMAGE_NAME}" ${{ env.DOCKER_IMAGE_NAME }}:latest || \
-          (echo "Error: Could not tag image. Available images:" && docker images && exit 1)
+          if docker image inspect "${IMAGE_NAME}:latest" >/dev/null 2>&1; then
+            echo "Tagging ${IMAGE_NAME}:latest as ${{ env.DOCKER_IMAGE_NAME }}:latest"
+            docker tag "${IMAGE_NAME}:latest" "${{ env.DOCKER_IMAGE_NAME }}:latest"
+          elif docker image inspect "${IMAGE_NAME}" >/dev/null 2>&1; then
+            echo "Tagging ${IMAGE_NAME} as ${{ env.DOCKER_IMAGE_NAME }}:latest"
+            docker tag "${IMAGE_NAME}" "${{ env.DOCKER_IMAGE_NAME }}:latest"
+          else
+            echo "Error: Could not find built image ${IMAGE_NAME}"
+            echo "All available images:"
+            docker images
+            exit 1
+          fi
       
       - name: Save Docker image to file
         run: |
