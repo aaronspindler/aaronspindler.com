@@ -48,15 +48,23 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
       
+      - name: Verify Docker Compose file exists
+        run: |
+          if [ ! -f docker-compose.test.yml ]; then
+            echo "❌ docker-compose.test.yml not found!"
+            exit 1
+          fi
+          echo "✅ docker-compose.test.yml found"
+      
       - name: Build Docker images
         run: |
-          docker-compose -f docker-compose.test.yml build --cache-from type=local,src=/tmp/.buildx-cache
+          docker compose -f docker-compose.test.yml build
       
       - name: Start test services
         run: |
-          docker-compose -f docker-compose.test.yml up -d postgres redis localstack
+          docker compose -f docker-compose.test.yml up -d postgres redis localstack
           # Wait for services to be healthy
-          timeout 60s bash -c 'until docker-compose -f docker-compose.test.yml ps | grep -q "healthy"; do sleep 2; done'
+          timeout 60s bash -c 'until docker compose -f docker-compose.test.yml ps | grep -q "healthy"; do sleep 2; done'
       
       - name: Set up Python (for local checks)
         uses: actions/setup-python@v6
@@ -79,17 +87,17 @@ jobs:
       
       - name: Check Migrations
         run: |
-          docker-compose -f docker-compose.test.yml run --rm test_runner sh -c "python manage.py makemigrations --check --dry-run --settings=config.settings_test"
+          docker compose -f docker-compose.test.yml run --rm test_runner sh -c "python manage.py makemigrations --check --dry-run --settings=config.settings_test"
       
       - name: Run Django System Checks
         run: |
-          docker-compose -f docker-compose.test.yml run --rm test_runner sh -c "python manage.py check --deploy --settings=config.settings_test"
+          docker compose -f docker-compose.test.yml run --rm test_runner sh -c "python manage.py check --deploy --settings=config.settings_test"
       
       - name: Run Tests with Coverage
         run: |
           # Create a directory for coverage output
           mkdir -p ./test_output
-          docker-compose -f docker-compose.test.yml run --rm -v $(pwd)/test_output:/code/test_output test_runner sh -c "
+          docker compose -f docker-compose.test.yml run --rm -v $(pwd)/test_output:/code/test_output test_runner sh -c "
             echo 'Installing coverage...' &&
             pip install coverage --no-cache-dir &&
             echo 'Running tests with coverage...' &&
@@ -120,5 +128,5 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          docker-compose -f docker-compose.test.yml down -v
+          docker compose -f docker-compose.test.yml down -v
           docker system prune -f
