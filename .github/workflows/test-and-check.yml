@@ -64,8 +64,21 @@ jobs:
             --build-arg BUILDKIT_INLINE_CACHE=1 \
             test_runner
           
+          # Get the full image name from docker compose and tag it
+          IMAGE_NAME=$(docker compose -f docker-compose.test.yml config | grep "image:" | grep -v "^#" | head -1 | awk '{print $2}')
+          
+          # If no explicit image name, construct it from the project
+          if [ -z "$IMAGE_NAME" ] || [ "$IMAGE_NAME" = "null" ]; then
+            # Docker Compose v2 creates images with pattern: <project>-<service>
+            PROJECT_NAME=$(basename $(pwd) | tr '[:upper:]' '[:lower:]' | tr '.' '-')
+            IMAGE_NAME="${PROJECT_NAME}-test_runner"
+            echo "Using constructed image name: $IMAGE_NAME"
+          fi
+          
           # Tag the image for easier reference
-          docker tag $(docker compose -f docker-compose.test.yml images -q test_runner) ${{ env.DOCKER_IMAGE_NAME }}:latest
+          docker tag "${IMAGE_NAME}:latest" ${{ env.DOCKER_IMAGE_NAME }}:latest || \
+          docker tag "${IMAGE_NAME}" ${{ env.DOCKER_IMAGE_NAME }}:latest || \
+          (echo "Error: Could not tag image. Available images:" && docker images && exit 1)
       
       - name: Save Docker image to file
         run: |
