@@ -1,50 +1,60 @@
 name: Dependabot Auto-Merge
 
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review]
-
-# Cancel previous runs for the same PR
-concurrency:
-  group: dependabot-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  # Trigger when the test workflow completes
+  workflow_run:
+    workflows: ["Test Dependabot PRs"]
+    types: [completed]
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  # Run tests for Dependabot PRs
-  test-dependabot-pr:
-    # Only run on Dependabot PRs and skip if [skip ci] is in the title
-    if: |
-      github.actor == 'dependabot[bot]' &&
-      !contains(github.event.pull_request.title, '[skip ci]')
-    uses: ./.github/workflows/test-and-check.yml
-    with:
-      python-version: '3.12.2'
-      upload-coverage: false  # Don't upload coverage for Dependabot PRs
-      # CRITICAL: Must checkout PR head to test actual PR code, not base branch
-      ref: ${{ github.event.pull_request.head.sha }}
-
   # Auto-merge after tests pass
   dependabot-auto-merge:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: test-dependabot-pr
-    # Only run on Dependabot PRs and if tests passed
-    if: github.actor == 'dependabot[bot]' && needs.test-dependabot-pr.result == 'success'
+    # Only run if the test workflow succeeded and was for a Dependabot PR
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
     
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+      # Note: We do NOT checkout the PR code for security reasons
+      # We only need the GitHub API to enable auto-merge
+      
+      # Get the PR number from the workflow run
+      - name: Get PR data
+        id: pr
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
         with:
-          # Use the PR head to get the correct commit
-          ref: ${{ github.event.pull_request.head.sha }}
+          script: |
+            // Get the PR associated with the workflow run
+            const pullRequests = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:${context.payload.workflow_run.head_branch}`
+            });
+            
+            if (pullRequests.data.length === 0) {
+              core.setFailed('No PR found for this workflow run');
+              return;
+            }
+            
+            const pr = pullRequests.data[0];
+            core.setOutput('number', pr.number);
+            core.setOutput('html_url', pr.html_url);
+            core.setOutput('labels', JSON.stringify(pr.labels.map(l => l.name)));
+            
+            // Log PR info
+            console.log(`Found PR #${pr.number}: ${pr.title}`);
+            console.log(`Labels: ${pr.labels.map(l => l.name).join(', ')}`);
       
       - name: Get Dependabot metadata
         id: metadata
-        uses: dependabot/fetch-metadata@08eff52bf64351f401fb50d4972fa95b9f2c2d1b  # v2.4.0
+        uses: dependabot/fetch-metadata@dbb049abf0d677abbd7f7eee0375145b417fdd34  # v2.2.0
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
       
@@ -57,7 +67,7 @@ jobs:
         # 2. Tests must have passed (enforced by job dependency)
         # 3. Only merge minor and patch updates automatically, skip major updates
         if: |
-          contains(github.event.pull_request.labels.*.name, 'auto-merge') &&
+          contains(fromJson(steps.pr.outputs.labels), 'auto-merge') &&
           (steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
            steps.metadata.outputs.update-type == 'version-update:semver-patch')
         run: |
@@ -66,13 +76,13 @@ jobs:
           # Enable auto-merge (will merge when all checks pass and requirements are met)
           gh pr merge --auto --squash "$PR_URL"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_URL: ${{ steps.pr.outputs.html_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Add comment for major updates
         # Notify for major updates that require manual review
         if: |
-          contains(github.event.pull_request.labels.*.name, 'auto-merge') &&
+          contains(fromJson(steps.pr.outputs.labels), 'auto-merge') &&
           steps.metadata.outputs.update-type == 'version-update:semver-major'
         run: |
           gh pr comment "$PR_URL" --body "⚠️ **Major version update detected** for ${{ steps.metadata.outputs.dependency-names }}
@@ -85,18 +95,18 @@ jobs:
           
           Please review the changelog and test thoroughly before merging."
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_URL: ${{ steps.pr.outputs.html_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Enable auto-merge for security updates
         # Always auto-merge security updates regardless of version type
         if: |
-          contains(github.event.pull_request.labels.*.name, 'security') &&
-          contains(github.event.pull_request.labels.*.name, 'auto-merge')
+          contains(fromJson(steps.pr.outputs.labels), 'security') &&
+          contains(fromJson(steps.pr.outputs.labels), 'auto-merge')
         run: |
           echo "🔒 Security update detected - enabling auto-merge"
           # Enable auto-merge for security updates (will merge when all checks pass)
           gh pr merge --auto --squash "$PR_URL"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_URL: ${{ steps.pr.outputs.html_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
