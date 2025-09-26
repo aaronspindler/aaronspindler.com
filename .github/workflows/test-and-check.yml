@@ -36,8 +36,6 @@ on:
 
 env:
   PYTHONUNBUFFERED: 1
-  DOCKER_BUILDKIT: 1
-  COMPOSE_DOCKER_CLI_BUILD: 1
   DOCKER_IMAGE_NAME: test-runner
 
 permissions:
@@ -57,14 +55,11 @@ jobs:
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db  # v3.6.1
-      
-      - name: Cache Docker layers
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9  # v4.0.2
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ hashFiles('Dockerfile', 'requirements.txt', 'docker-compose.test.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
+          driver-opts: |
+            network=host
+      
+      # Note: Docker layer caching is now handled via GitHub Actions cache in the build step
       
       - name: Verify Docker Compose file
         run: |
@@ -75,23 +70,23 @@ jobs:
           echo "✅ docker-compose.test.yml found"
       
       - name: Build Docker image
-        run: |
-          # Build the test_runner service directly with the target image name
-          # This avoids the need to figure out what Docker Compose named it
-          docker build \
-            -f Dockerfile \
-            -t ${{ env.DOCKER_IMAGE_NAME }}:latest \
-            --build-arg BUILDKIT_INLINE_CACHE=1 \
-            .
-          
-          echo "Successfully built image: ${{ env.DOCKER_IMAGE_NAME }}:latest"
-          echo "Available images:"
-          docker images | head -5
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75  # v6.9.0
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
       
       - name: Save Docker image to file
         run: |
           docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | gzip > test-runner-image.tar.gz
           echo "Image size: $(du -h test-runner-image.tar.gz | cut -f1)"
+          echo "Available images:"
+          docker images | grep test-runner || true
       
       - name: Upload Docker image as artifact
         uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874  # v4.4.0
