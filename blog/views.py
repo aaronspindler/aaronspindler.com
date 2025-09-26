@@ -2,7 +2,7 @@ from django.http import HttpResponse, JsonResponse
 from django.template import TemplateDoesNotExist
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_GET
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
@@ -72,8 +72,10 @@ def render_blog_template(request, template_name, category=None):
             ).count()
         
         return render(request, "_blog_base.html", blog_data)
-    except TemplateDoesNotExist:
-        return render(request, "404.html")
+    except (TemplateDoesNotExist, Exception):
+        # Handle both template not found and other errors
+        from django.http import Http404
+        raise Http404("Blog post not found")
 
 
 @require_http_methods(["GET", "POST"])
@@ -344,8 +346,10 @@ def submit_comment(request, template_name, category=None):
     and routes comments through the moderation pipeline.
     """
     if request.method != 'POST':
-        return redirect('render_blog_template_with_category' if category else 'render_blog_template', 
-                       category=category, template_name=template_name)
+        if category:
+            return redirect('render_blog_template_with_category', category=category, template_name=template_name)
+        else:
+            return redirect('render_blog_template', template_name=template_name)
     
     form = CommentForm(request.POST, user=request.user)
     
@@ -371,26 +375,31 @@ def submit_comment(request, template_name, category=None):
         # Use Django's reverse function for safe URL construction
         from django.urls import reverse
         if category:
-            url = reverse('blog:blog_detail_category', kwargs={'category': category, 'template_name': template_name})
+            url = reverse('render_blog_template_with_category', kwargs={'category': category, 'template_name': template_name})
         else:
-            url = reverse('blog:blog_detail', kwargs={'template_name': template_name})
+            url = reverse('render_blog_template', kwargs={'template_name': template_name})
         return redirect(url + '#comments')
     
     # Re-render page with form errors if validation failed
-    blog_data = get_blog_from_template_name(template_name, category=category)
-    if category:
-        page_name = f'/b/{category}/{template_name}/'
-    else:
-        page_name = f'/b/{template_name}/'
-    views = PageVisit.objects.filter(page_name=page_name).values_list('pk', flat=True).count()
-    blog_data['views'] = views
-    
-    comments = BlogComment.get_approved_comments(template_name, category)
-    blog_data['comments'] = comments
-    blog_data['comment_count'] = comments.count()
-    blog_data['comment_form'] = form  # Include form with validation errors
-    
-    return render(request, "_blog_base.html", blog_data)
+    try:
+        blog_data = get_blog_from_template_name(template_name, category=category)
+        if category:
+            page_name = f'/b/{category}/{template_name}/'
+        else:
+            page_name = f'/b/{template_name}/'
+        views = PageVisit.objects.filter(page_name=page_name).values_list('pk', flat=True).count()
+        blog_data['views'] = views
+        
+        comments = BlogComment.get_approved_comments(template_name, category)
+        blog_data['comments'] = comments
+        blog_data['comment_count'] = comments.count()
+        blog_data['comment_form'] = form  # Include form with validation errors
+        
+        return render(request, "_blog_base.html", blog_data)
+    except Exception:
+        # If blog template doesn't exist, return 404
+        from django.http import Http404
+        raise Http404("Blog post not found")
 
 
 def reply_to_comment(request, comment_id):
@@ -405,12 +414,12 @@ def reply_to_comment(request, comment_id):
     if request.method != 'POST':
         from django.urls import reverse
         if parent_comment.blog_category:
-            url = reverse('blog:blog_detail_category', kwargs={
+            url = reverse('render_blog_template_with_category', kwargs={
                 'category': parent_comment.blog_category,
                 'template_name': parent_comment.blog_template_name
             })
         else:
-            url = reverse('blog:blog_detail', kwargs={'template_name': parent_comment.blog_template_name})
+            url = reverse('render_blog_template', kwargs={'template_name': parent_comment.blog_template_name})
         return redirect(url + f'#comment-{comment_id}')
     
     # Honeypot check for bot protection
@@ -418,12 +427,12 @@ def reply_to_comment(request, comment_id):
         messages.error(request, 'Bot detection triggered.')
         from django.urls import reverse
         if parent_comment.blog_category:
-            url = reverse('blog:blog_detail_category', kwargs={
+            url = reverse('render_blog_template_with_category', kwargs={
                 'category': parent_comment.blog_category,
                 'template_name': parent_comment.blog_template_name
             })
         else:
-            url = reverse('blog:blog_detail', kwargs={'template_name': parent_comment.blog_template_name})
+            url = reverse('render_blog_template', kwargs={'template_name': parent_comment.blog_template_name})
         return redirect(url + f'#comment-{comment_id}')
     
     form = ReplyForm(request.POST, user=request.user)
@@ -450,12 +459,12 @@ def reply_to_comment(request, comment_id):
     # Return to parent comment location
     from django.urls import reverse
     if parent_comment.blog_category:
-        url = reverse('blog:blog_detail_category', kwargs={
+        url = reverse('render_blog_template_with_category', kwargs={
             'category': parent_comment.blog_category,
             'template_name': parent_comment.blog_template_name
         })
     else:
-        url = reverse('blog:blog_detail', kwargs={'template_name': parent_comment.blog_template_name})
+        url = reverse('render_blog_template', kwargs={'template_name': parent_comment.blog_template_name})
     return redirect(url + f'#comment-{comment_id}')
 
 

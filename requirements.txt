@@ -61,3 +61,5 @@ wcwidth==0.2.14
 zope.event==6.0
 zope.interface==8.0.1
 Brotli
+coverage==7.6.10
+tblib==3.0.0

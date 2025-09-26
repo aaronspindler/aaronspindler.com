@@ -1,6 +1,17 @@
-# = aaronspindler.com
+# aaronspindler.com
 
 > *A Django-powered personal website with a twist - featuring interactive knowledge graphs, smart photo management, and a blog system that thinks outside the database*
+
+📚 **[View Complete Documentation](./DOCUMENTATION.md)** - Comprehensive guide with all features, setup instructions, and API reference
+
+## Quick Links
+
+- 📖 [Complete Documentation](./DOCUMENTATION.md) - All-in-one documentation
+- 🚀 [Getting Started](./DOCUMENTATION.md#getting-started) - Setup and installation
+- 🧪 [Testing Guide](./DOCUMENTATION.md#testing) - Test factories and Docker testing
+- 🔧 [Development Guide](./DOCUMENTATION.md#development-guide) - Commands and architecture
+- 📦 [Deployment](./DOCUMENTATION.md#deployment) - Production configuration
+- 📡 [API Reference](./DOCUMENTATION.md#api-reference) - Endpoint documentation
 
 [![Django](https://img.shields.io/badge/Django-5.2.5-green?style=for-the-badge&logo=django)](https://www.djangoproject.com/)
 [![Python](https://img.shields.io/badge/Python-3.13-blue?style=for-the-badge&logo=python)](https://www.python.org/)

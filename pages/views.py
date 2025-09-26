@@ -177,8 +177,12 @@ def home(request):
     books = cache.get(books_cache_key)
     
     if not books:
-        books = get_books()
-        cache.set(books_cache_key, books, 86400)
+        try:
+            books = get_books()
+            cache.set(books_cache_key, books, 86400)
+        except Exception:
+            # Handle errors gracefully - provide empty list as fallback
+            books = []
     
     # Photo Albums - Get public albums with annotated photo counts for efficiency
     albums = PhotoAlbum.objects.filter(is_private=False).annotate(

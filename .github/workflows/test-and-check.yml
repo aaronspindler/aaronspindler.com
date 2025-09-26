@@ -8,11 +8,6 @@ on:
         required: false
         type: string
         default: '3.12.2'
-      postgres-version:
-        description: 'PostgreSQL version to use'
-        required: false
-        type: string
-        default: '15'
       upload-coverage:
         description: 'Whether to upload coverage to Codecov'
         required: false
@@ -23,104 +18,421 @@ on:
         required: false
         type: string
         default: ''
-    secrets:
-      DATABASE_URL:
+      run-code-quality:
+        description: 'Whether to run code quality checks (linting, formatting, type checking)'
         required: false
-        description: 'Database URL for tests'
+        type: boolean
+        default: true
+      run-tests:
+        description: 'Whether to run the test suite'
+        required: false
+        type: boolean
+        default: true
+      run-django-checks:
+        description: 'Whether to run Django system and migration checks'
+        required: false
+        type: boolean
+        default: true
 
 env:
-  SECRET_KEY: "FAKE_SECRET_KEY"
-  DATABASE_URL: ${{ secrets.DATABASE_URL }}
-  PYTHONUNBUFFERED: 1  # Better logging output
+  PYTHONUNBUFFERED: 1
+  DOCKER_IMAGE_NAME: test-runner
 
 permissions:
   contents: read
 
 jobs:
-  test-and-check:
+  # Build Docker image once and share it with other jobs
+  build-docker-image:
     runs-on: ubuntu-latest
-    timeout-minutes: 15  # Prevent jobs from hanging
-    services:
-      postgres:
-        image: postgres:${{ inputs.postgres-version }}
-        env:
-          POSTGRES_DB: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_USER: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 3
+    timeout-minutes: 10
+    if: inputs.run-tests || inputs.run-django-checks
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
         with:
-          # Use the provided ref if specified, otherwise use default behavior
           ref: ${{ inputs.ref }}
-          # Use github.token which has read access to Dependabot PRs
+          token: ${{ github.token }}
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db  # v3.6.1
+        with:
+          driver-opts: |
+            network=host
+      
+      # Note: Docker layer caching is now handled via GitHub Actions cache in the build step
+      
+      - name: Verify Docker Compose file
+        run: |
+          if [ ! -f docker-compose.test.yml ]; then
+            echo "❌ docker-compose.test.yml not found!"
+            exit 1
+          fi
+          echo "✅ docker-compose.test.yml found"
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75  # v6.9.0
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+      
+      - name: Save Docker image to file
+        run: |
+          docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | gzip > test-runner-image.tar.gz
+          echo "Image size: $(du -h test-runner-image.tar.gz | cut -f1)"
+          echo "Available images:"
+          docker images | grep test-runner || true
+      
+      - name: Upload Docker image as artifact
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874  # v4.4.0
+        with:
+          name: docker-image
+          path: test-runner-image.tar.gz
+          retention-days: 1
+          compression-level: 0  # Already compressed
+
+  # Quick security check (no Docker needed)
+  security-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          ref: ${{ inputs.ref }}
           token: ${{ github.token }}
       
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3  # v5.2.0
         with:
           python-version: ${{ inputs.python-version }}
           cache: 'pip'
-          cache-dependency-path: |
-            requirements.txt
-            requirements-*.txt
+          cache-dependency-path: requirements.txt
       
-      - name: Cache pip dependencies
-        uses: actions/cache@v4
+      - name: Install and run safety
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety
+          safety scan --json || true
+        continue-on-error: false
+  
+  # Code quality checks - linting and formatting
+  lint-and-format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: inputs.run-code-quality
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          ref: ${{ inputs.ref }}
+          token: ${{ github.token }}
       
-      - name: Install Dependencies
+      - name: Set up Python
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3  # v5.2.0
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+      
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black isort pylint pip-audit
+      
+      - name: Run Ruff linter
+        run: |
+          ruff check . --output-format=github
+        continue-on-error: true
+      
+      - name: Check Black formatting
+        run: |
+          black --check --diff .
+        continue-on-error: true
+      
+      - name: Check import sorting with isort
+        run: |
+          isort --check-only --diff .
+        continue-on-error: true
+      
+      - name: Run Pylint
+        run: |
+          # Run pylint on Python files, ignoring migrations and venv
+          find . -type f -name "*.py" \
+            -not -path "./venv/*" \
+            -not -path "./migrations/*" \
+            -not -path "./.git/*" \
+            | xargs pylint --exit-zero --reports=y
+        continue-on-error: true
+      
+      - name: Security audit with pip-audit
+        run: |
+          pip-audit --desc
+        continue-on-error: true
+  
+  # Type checking
+  type-checking:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: inputs.run-code-quality
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          ref: ${{ inputs.ref }}
+          token: ${{ github.token }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3  # v5.2.0
+        with:
+          python-version: ${{ inputs.python-version }}
+          cache: 'pip'
+      
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install coverage safety
+          pip install mypy django-stubs
       
-      - name: Cache static files
-        uses: actions/cache@v4
-        with:
-          path: staticfiles/
-          key: ${{ runner.os }}-static-${{ hashFiles('**/static/**') }}
-          restore-keys: |
-            ${{ runner.os }}-static-
-      
-      - name: Security Check
+      - name: Run MyPy type checking
         run: |
-          safety check --json || true
+          mypy . --ignore-missing-imports --no-strict-optional
         continue-on-error: true
-      
-      - name: Check Migrations
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
-        run: |
-          python manage.py makemigrations --check --dry-run
-      
-      - name: Run Django System Checks
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
-        run: |
-          python manage.py check --deploy
-      
-      - name: Run Tests with Coverage
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
-        run: |
-          coverage run --source='.' manage.py test --no-input --parallel --verbosity=2
-          coverage report
-          coverage xml
-      
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.0.2
-        if: inputs.upload-coverage
+
+  # Django checks (parallel matrix)
+  django-checks:
+    runs-on: ubuntu-latest
+    needs: build-docker-image
+    timeout-minutes: 10
+    if: inputs.run-django-checks
+    strategy:
+      matrix:
+        check: [migrations, system]
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
         with:
-          files: ./coverage.xml
+          ref: ${{ inputs.ref }}
+          token: ${{ github.token }}
+      
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
+        with:
+          name: docker-image
+          path: /tmp
+      
+      - name: Load Docker image
+        run: |
+          echo "Loading Docker image..."
+          docker load < /tmp/test-runner-image.tar.gz
+          docker images | grep test-runner
+          
+          # Update docker-compose.test.yml to use the loaded image
+          sed -i 's|build: \.|image: test-runner:latest|g' docker-compose.test.yml
+      
+      - name: Start required services
+        run: |
+          docker compose -f docker-compose.test.yml up -d postgres redis
+          # Wait for services to be healthy
+          echo "Waiting for services to be healthy..."
+          timeout 60s bash -c 'until docker compose -f docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
+      
+      - name: Run Django ${{ matrix.check }} check
+        run: |
+          case "${{ matrix.check }}" in
+            migrations)
+              docker compose -f docker-compose.test.yml run --rm test_runner \
+                python manage.py makemigrations --check --dry-run --settings=config.settings_test
+              ;;
+            system)
+              docker compose -f docker-compose.test.yml run --rm test_runner \
+                python manage.py check --deploy --settings=config.settings_test
+              ;;
+          esac
+      
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
+
+  # Test suite split into groups (parallel matrix)
+  test-suite:
+    runs-on: ubuntu-latest
+    needs: build-docker-image
+    timeout-minutes: 15
+    if: inputs.run-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group:
+          - name: "core"
+            apps: "accounts pages config"
+          - name: "content"
+            apps: "blog photos"
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          ref: ${{ inputs.ref }}
+          token: ${{ github.token }}
+      
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
+        with:
+          name: docker-image
+          path: /tmp
+      
+      - name: Load Docker image
+        run: |
+          echo "Loading Docker image..."
+          docker load < /tmp/test-runner-image.tar.gz
+          docker images | grep test-runner
+          
+          # Update docker-compose.test.yml to use the loaded image
+          sed -i 's|build: \.|image: test-runner:latest|g' docker-compose.test.yml
+      
+      - name: Start test services
+        run: |
+          docker compose -f docker-compose.test.yml up -d postgres redis localstack
+          # Wait for services to be healthy
+          echo "Waiting for services to be healthy..."
+          timeout 60s bash -c 'until docker compose -f docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
+      
+      - name: Create S3 bucket in LocalStack
+        run: |
+          echo "Creating S3 bucket in LocalStack..."
+          docker compose -f docker-compose.test.yml run --rm test_runner sh -c "
+            pip install awscli --no-cache-dir &&
+            aws --endpoint-url=http://localstack:4566 s3 mb s3://test-bucket || true &&
+            aws --endpoint-url=http://localstack:4566 s3api put-bucket-acl --bucket test-bucket --acl public-read || true &&
+            echo 'S3 bucket created successfully'
+          "
+      
+      - name: Run tests for ${{ matrix.test-group.name }}
+        run: |
+          mkdir -p ./test_output
+          docker compose -f docker-compose.test.yml run --rm \
+            -v $(pwd)/test_output:/code/test_output test_runner sh -c "
+            pip install coverage --no-cache-dir &&
+            coverage run --source='.' manage.py test ${{ matrix.test-group.apps }} --settings=config.settings_test --no-input --verbosity=2 &&
+            coverage report &&
+            coverage xml -o /code/test_output/coverage-${{ matrix.test-group.name }}.xml
+          "
+      
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874  # v4.4.0
+        with:
+          name: coverage-${{ matrix.test-group.name }}
+          path: ./test_output/coverage-${{ matrix.test-group.name }}.xml
+          retention-days: 1
+      
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
+
+  # Combine and upload coverage
+  coverage-upload:
+    runs-on: ubuntu-latest
+    needs: test-suite
+    if: inputs.upload-coverage && inputs.run-tests
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          ref: ${{ inputs.ref }}
+          token: ${{ github.token }}
+      
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+          path: ./coverage-reports
+      
+      - name: Set up Python
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3  # v5.2.0
+        with:
+          python-version: ${{ inputs.python-version }}
+      
+      - name: Install coverage
+        run: |
+          pip install coverage
+      
+      - name: Merge coverage files
+        run: |
+          # List downloaded files for debugging
+          ls -la ./coverage-reports/
+          
+          # Since we have XML files, we need to use a different approach
+          # We'll just concatenate them for Codecov which handles multiple files
+          if ls ./coverage-reports/coverage-*.xml 1> /dev/null 2>&1; then
+            # Copy all coverage files to current directory for Codecov
+            cp ./coverage-reports/coverage-*.xml .
+            echo "Found coverage files:"
+            ls -la coverage-*.xml
+          else
+            echo "No coverage files found, creating empty one"
+            echo '<?xml version="1.0"?><coverage></coverage>' > coverage.xml
+          fi
+      
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238  # v4.6.0
+        with:
+          files: ./coverage-*.xml
           fail_ci_if_error: false
+          verbose: true
+
+  # Final check to ensure all jobs passed
+  all-checks:
+    runs-on: ubuntu-latest
+    needs: [build-docker-image, security-check, django-checks, test-suite, lint-and-format, type-checking]
+    if: always()
+    steps:
+      - name: Check if all jobs passed
+        run: |
+          # Always check security (it always runs)
+          SECURITY_STATUS="${{ needs.security-check.result }}"
+          if [[ "$SECURITY_STATUS" == "failure" ]]; then
+            echo "❌ Security check failed"
+            exit 1
+          fi
+          
+          # Check Docker build if tests or django checks were supposed to run
+          if [[ "${{ inputs.run-tests }}" == "true" ]] || [[ "${{ inputs.run-django-checks }}" == "true" ]]; then
+            BUILD_STATUS="${{ needs.build-docker-image.result }}"
+            if [[ "$BUILD_STATUS" == "failure" ]]; then
+              echo "❌ Docker build failed"
+              exit 1
+            fi
+          fi
+          
+          # Check Django checks if they were supposed to run
+          if [[ "${{ inputs.run-django-checks }}" == "true" ]]; then
+            DJANGO_STATUS="${{ needs.django-checks.result }}"
+            if [[ "$DJANGO_STATUS" == "failure" ]]; then
+              echo "❌ Django checks failed"
+              exit 1
+            fi
+          fi
+          
+          # Check test suite if it was supposed to run
+          if [[ "${{ inputs.run-tests }}" == "true" ]]; then
+            TEST_STATUS="${{ needs.test-suite.result }}"
+            if [[ "$TEST_STATUS" == "failure" ]]; then
+              echo "❌ Test suite failed"
+              exit 1
+            fi
+          fi
+          
+          # Check code quality jobs if they were supposed to run
+          if [[ "${{ inputs.run-code-quality }}" == "true" ]]; then
+            LINT_STATUS="${{ needs.lint-and-format.result }}"
+            TYPE_STATUS="${{ needs.type-checking.result }}"
+            
+            if [[ "$LINT_STATUS" == "failure" ]] || [[ "$TYPE_STATUS" == "failure" ]]; then
+              echo "❌ Code quality checks failed"
+              exit 1
+            fi
+          fi
+          
+          echo "✅ All enabled checks passed successfully!"

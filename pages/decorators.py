@@ -26,8 +26,10 @@ def track_page_visit(view_func):
             
             # Store in database with specific error handling
             try:
+                # Use a valid IP address if 'unknown' is returned (PostgreSQL requirement)
+                db_ip_address = ip_address if ip_address != 'unknown' else '127.0.0.1'
                 PageVisit.objects.create(
-                    ip_address=ip_address,
+                    ip_address=db_ip_address,
                     page_name=request.path[:255]  # Ensure it fits in DB field
                 )
                 safe_path = request.path.replace('\n', '').replace('\r', '')[:255]
