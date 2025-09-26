@@ -24,7 +24,6 @@ updates:
     labels:
       - "dependencies"
       - "python"
-      - "auto-merge"
     ignore:
       # Ignore major version updates for critical packages
       - dependency-name: "django"
@@ -61,7 +60,6 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
-      - "auto-merge"
     groups:
       actions:
         patterns:
@@ -85,4 +83,3 @@ updates:
     labels:
       - "dependencies"
       - "docker"
-      - "auto-merge"
