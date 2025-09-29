@@ -78,7 +78,7 @@ class LinkParser:
         
         try:
             html_content = self._get_template_content(template_name)
-            result = self._parse_html_content(html_content, normalized_name)
+            result = self._parse_html_content(html_content, template_name, normalized_name)
             
             # Cache the parsed result
             cache.set(cache_key, result, self.CACHE_TIMEOUT)
@@ -136,7 +136,7 @@ class LinkParser:
             
             raise FileNotFoundError(f"Blog template not found: {template_name}")
     
-    def _parse_html_content(self, html_content: str, source_post: str) -> Dict:
+    def _parse_html_content(self, html_content: str, source_post: str, source_post_normalized: str = None) -> Dict:
         """
         Extract and categorize all links from HTML content.
         
@@ -148,13 +148,18 @@ class LinkParser:
         
         Args:
             html_content: Raw HTML content to parse
-            source_post: Normalized name of the source blog post
+            source_post: Original name of the source blog post (preserves casing)
+            source_post_normalized: Normalized (lowercase) name of the source blog post
             
         Returns:
             Dict with categorized links and any parsing errors
         """
+        if source_post_normalized is None:
+            source_post_normalized = normalize_template_name(source_post)
+            
         result = {
             'source_post': source_post,
+            'source_post_normalized': source_post_normalized,
             'internal_links': [],
             'external_links': [],
             'parse_errors': []
@@ -182,10 +187,24 @@ class LinkParser:
                 # Categorize link based on URL pattern
                 match = self.INTERNAL_BLOG_PATTERN.search(href)
                 if match:
-                    # Internal blog link - normalize the target name
-                    target = normalize_template_name(match.group(1))
+                    # Internal blog link - preserve original casing when possible
+                    target_raw = match.group(1)
+                    target_normalized = normalize_template_name(target_raw)
+                    
+                    # Try to find the original casing from all blog posts
+                    target_original = target_raw  # Default to what we extracted
+                    try:
+                        all_posts = get_all_blog_posts()
+                        for post in all_posts:
+                            if normalize_template_name(post['template_name']) == target_normalized:
+                                target_original = post['template_name']
+                                break
+                    except Exception:
+                        pass  # Use the raw extracted value if lookup fails
+                    
                     result['internal_links'].append({
-                        'target': target,
+                        'target': target_original,
+                        'target_normalized': target_normalized,
                         'text': link_text,
                         'context': context,
                         'href': href
@@ -341,11 +360,11 @@ class GraphBuilder:
                 original_name = template_info.get('original_name', template_name)
                 category = template_info['category']
                 
-                # Build category mapping
+                # Build category mapping - use original name to preserve casing
                 if category:
                     if category not in categories_info:
                         categories_info[category] = []
-                    categories_info[category].append(template_name)
+                    categories_info[category].append(original_name)
                 
                 # Parse each blog post for links
                 links_data = self.link_parser.parse_blog_post(original_name, force_refresh)
@@ -579,13 +598,27 @@ class GraphBuilder:
             # Try to get the blog data with category information
             all_posts = get_all_blog_posts()
             category = None
-            for post in all_posts:
-                if post['template_name'] == template_name:
-                    category = post['category']
-                    break
+            normalized_input = normalize_template_name(template_name)
             
-            blog_data = get_blog_from_template_name(template_name, load_content=False, category=category)
-            return blog_data['blog_title']
+            for post in all_posts:
+                # Compare normalized versions for matching
+                if normalize_template_name(post['template_name']) == normalized_input:
+                    category = post['category']
+                    # Use the original template name from the post for lookup
+                    blog_data = get_blog_from_template_name(post['template_name'], load_content=False, category=category)
+                    # If blog_title is found, use it; otherwise use the original cased template name
+                    if 'blog_title' in blog_data and blog_data['blog_title']:
+                        return blog_data['blog_title']
+                    else:
+                        return post['template_name'].replace('_', ' ')
+            
+            # If not found in posts, try with the provided name
+            blog_data = get_blog_from_template_name(template_name, load_content=False, category=None)
+            if 'blog_title' in blog_data and blog_data['blog_title']:
+                return blog_data['blog_title']
+            else:
+                return template_name.replace('_', ' ')  # Preserve original case from filename
+                
         except Exception:
             return template_name.replace('_', ' ')  # Preserve original case from filename
     

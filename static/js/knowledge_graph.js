@@ -547,7 +547,10 @@ class HomepageKnowledgeGraph {
             label = node.domain;
         }
         
-        const padding = 8, width = Math.min(200, Math.max(label.length * 7 + padding * 2, 60)), height = 24;
+        // Increased padding for better spacing around text
+        const paddingX = 16, paddingY = 8;
+        const width = Math.min(250, Math.max(label.length * 7 + paddingX * 2, 80));
+        const height = 32;
         const x = Math.max(10, Math.min((node.x || 0) - width/2, this.width - width - 10));
         const y = Math.max(10, (node.y || 0) - this.getNodeRadius(node) - height - 10);
         
