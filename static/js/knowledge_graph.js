@@ -517,9 +517,13 @@ class HomepageKnowledgeGraph {
     
     getNodeLabel(node) {
         if (node.type === 'blog_post') {
-            // Extract 4-digit year prefix from blog post ID (e.g., "2024" from "2024-01-15-title")
-            const match = node.id.match(/^(\d{4})/);
-            return match ? match[1] : node.label.substring(0, this.CONFIG.label.shortLength);
+            // Extract any leading numeric identifier from blog post ID
+            const numericMatch = node.id.match(/^(\d+)/);
+            if (numericMatch) {
+                return numericMatch[1];
+            }
+            // Fallback: if no leading digits, return empty string to show just the node circle
+            return '';
         }
         if (node.type === 'external_link') {
             return node.domain ? node.domain.substring(0, this.CONFIG.label.maxLength) : 

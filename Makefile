@@ -8,11 +8,17 @@ MANAGE := $(PYTHON) manage.py
 # Default target
 .DEFAULT_GOAL := static
 
-# Build CSS and collect static files
+# Build CSS and JavaScript, then collect static files
 .PHONY: static
 static:
 	@echo "Building CSS..."
 	$(MANAGE) build_css
+	@echo "Building and optimizing JavaScript..."
+	@if command -v npm >/dev/null 2>&1; then \
+		npm run build:js; \
+	else \
+		echo "Warning: npm not found, skipping JavaScript optimization"; \
+	fi
 	@echo "Collecting static files..."
 	$(MANAGE) collectstatic_optimize
 	@echo "Static files ready!"
@@ -21,6 +27,18 @@ static:
 .PHONY: css
 css:
 	$(MANAGE) build_css
+
+# Just build and optimize JavaScript
+.PHONY: js
+js:
+	@if command -v npm >/dev/null 2>&1; then \
+		echo "Building JavaScript..."; \
+		npm run build:js; \
+		echo "JavaScript build complete!"; \
+	else \
+		echo "Error: npm not found. Please install Node.js and npm."; \
+		exit 1; \
+	fi
 
 # Just collect static files
 .PHONY: collect
@@ -37,6 +55,7 @@ collect-optimize:
 clean:
 	rm -rf staticfiles/
 	rm -f static/css/combined.min.css*
+	rm -f static/js/*.min.js static/js/*.min.js.gz static/js/*.min.js.br
 
 # Docker test commands
 .PHONY: test-build
@@ -127,8 +146,9 @@ help:
 	@echo "Available commands:"
 	@echo ""
 	@echo "Static File Management:"
-	@echo "  make static          - Build CSS and collect/optimize static files (default)"
+	@echo "  make static         - Build CSS, optimize JS, and collect/optimize static files (default)"
 	@echo "  make css            - Build CSS only"
+	@echo "  make js             - Build and optimize JavaScript only"
 	@echo "  make collect        - Collect static files only"
 	@echo "  make collect-optimize - Collect and optimize static files"
 	@echo "  make clean          - Remove generated static files"
