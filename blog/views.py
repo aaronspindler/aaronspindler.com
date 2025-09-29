@@ -148,8 +148,8 @@ def knowledge_graph_screenshot(request):
     python manage.py generate_knowledge_graph_screenshot
     """
     try:
-        # Get the most recent screenshot from database
-        screenshot_obj = KnowledgeGraphScreenshot.objects.latest('created_at')
+        # Get the most recently updated screenshot from database
+        screenshot_obj = KnowledgeGraphScreenshot.objects.latest('updated_at')
         
         if screenshot_obj and screenshot_obj.image:
             # Serve the screenshot from the database

@@ -331,7 +331,7 @@ class KnowledgeGraphScreenshot(models.Model):
         """
         if not force_regenerate:
             try:
-                return cls.objects.latest('created_at')
+                return cls.objects.latest('updated_at')
             except cls.DoesNotExist:
                 pass
         
