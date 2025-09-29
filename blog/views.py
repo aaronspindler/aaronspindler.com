@@ -21,7 +21,6 @@ import json
 import asyncio
 from io import BytesIO
 from pathlib import Path
-from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -142,189 +141,40 @@ def _get_post_graph_from_data(data):
 
 @require_http_methods(["GET"])
 def knowledge_graph_screenshot(request):
-    """Serve the knowledge graph screenshot from database if it exists, otherwise generate it dynamically."""
-    force_regenerate = request.GET.get('force_regenerate', 'false').lower() == 'true'
+    """
+    Serve a screenshot of the knowledge graph from the database.
     
-    # Try to get existing screenshot from database
-    screenshot_obj = KnowledgeGraphScreenshot.get_latest(force_regenerate=force_regenerate)
-    
-    if screenshot_obj and screenshot_obj.image:
-        # Serve the screenshot from the database
-        try:
-            response = HttpResponse(screenshot_obj.image.read(), content_type='image/png')
-            response['Content-Disposition'] = 'inline; filename="knowledge_graph.png"'
-            response['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
-            return response
-        except Exception as e:
-            logger.error(f"Error reading screenshot from database: {str(e)}")
-    
-    # Check if screenshot generation is already in progress or has been attempted
-    cache_key = 'knowledge_graph_screenshot_generation'
-    generation_status = cache.get(cache_key)
-    
-    if not force_regenerate and generation_status == 'failed':
-        # If generation has failed before, don't retry automatically
-        return JsonResponse({
-            'error': 'Knowledge graph screenshot generation previously failed. Add ?force_regenerate=true to retry.'
-        }, status=503)
-    
-    if not force_regenerate and generation_status == 'in_progress':
-        # If generation is in progress, return a temporary response
-        return JsonResponse({
-            'error': 'Knowledge graph screenshot is being generated. Please try again in a few moments.'
-        }, status=503)
-    
-
-    # Mark generation as in progress
-    cache.set(cache_key, 'in_progress', timeout=300)  # 5 minute timeout
-    
-    # Dynamic generation code (original implementation)
-    # This is now only used if force_regenerate=true is passed as a query parameter
+    Screenshots are generated via the management command:
+    python manage.py generate_knowledge_graph_screenshot
+    """
     try:
-        # Import Playwright here to avoid issues if not installed
-        from playwright.sync_api import sync_playwright
+        # Get the most recent screenshot from database
+        screenshot_obj = KnowledgeGraphScreenshot.objects.latest('created_at')
         
-        # Get parameters from the request (with higher default resolution)
-        width = int(request.GET.get('width', 2400))  # Doubled from 1200 for higher resolution
-        height = int(request.GET.get('height', 1600))  # Doubled from 800 for higher resolution
-        full_page = request.GET.get('full_page', 'false').lower() == 'true'
-        wait_time = int(request.GET.get('wait_time', 10000))  # Increased from 3000 for better rendering
-        
-        # Build the full URL for the page with the knowledge graph
-        host = request.get_host()
-        protocol = 'https' if request.is_secure() else 'http'
-        base_url = f"{protocol}://{host}"
-        
-        # Run Playwright to capture the screenshot
-        with sync_playwright() as p:
-            # Launch headless browser with Docker-compatible settings and high quality
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    '--no-sandbox',  # Required for Docker
-                    '--disable-setuid-sandbox',  # Required for Docker
-                    '--disable-dev-shm-usage',  # Overcome limited resource problems
-                    '--disable-gpu',  # Disable GPU hardware acceleration
-                    '--single-process',  # Run in single process mode for containers
-                    '--force-device-scale-factor=2.0',  # Force high DPI for better quality
-                    '--high-dpi-support=1',  # Enable high DPI support
-                    '--force-color-profile=srgb'  # Ensure consistent color profile
-                ]
-            )
-            
+        if screenshot_obj and screenshot_obj.image:
+            # Serve the screenshot from the database
             try:
-                # Create a new page with specified viewport and high DPI settings
-                context = browser.new_context(
-                    viewport={'width': width, 'height': height},
-                    device_scale_factor=2.0,  # Retina quality
-                    screen={'width': width, 'height': height}  # Set screen size as well
-                )
-                page = context.new_page()
-                
-                # Navigate to the home page (where the knowledge graph is)
-                page.goto(f"{base_url}/", wait_until='networkidle')
-                
-                # Wait for the knowledge graph container to be visible
-                page.wait_for_selector('#knowledge-graph-container', state='visible', timeout=10000)
-                
-                # Wait for the SVG element to be present
-                page.wait_for_selector('#knowledge-graph-svg', state='visible', timeout=10000)
-                
-                # Wait for the graph to render (check for nodes)
-                page.wait_for_selector('#knowledge-graph-svg .node', state='visible', timeout=10000)
-                
-                # Additional wait to ensure animation and layout stabilization at high resolution
-                # Use longer wait time for better quality rendering
-                actual_wait_time = max(wait_time, 10000)  # Minimum 10 seconds for high res
-                page.wait_for_timeout(actual_wait_time)
-                
-                # Optionally zoom out to fit the entire graph
-                if request.GET.get('fit_view', 'true').lower() == 'true':
-                    # Trigger the fit view function
-                    page.evaluate("""
-                        if (window.homepageGraph && typeof window.homepageGraph.fitGraphToView === 'function') {
-                            window.homepageGraph.fitGraphToView();
-                        }
-                    """)
-                    # Wait a bit for the zoom animation
-                    page.wait_for_timeout(500)
-                
-                # Take high-quality screenshot of the knowledge graph container
-                if full_page:
-                    screenshot = page.screenshot(
-                        full_page=True,
-                        animations='disabled',  # Disable animations for cleaner screenshot
-                        scale='device'  # Use device scale factor for high DPI
-                    )
-                else:
-                    # Get the knowledge graph element specifically
-                    element = page.query_selector('#knowledge-graph-container')
-                    if element:
-                        screenshot = element.screenshot(
-                            animations='disabled',  # Disable animations
-                            scale='device',  # Use device scale factor
-                            timeout=30000  # Longer timeout for large screenshots
-                        )
-                    else:
-                        # Fallback to high-quality full page if element not found
-                        screenshot = page.screenshot(
-                            full_page=True,
-                            animations='disabled',
-                            scale='device'
-                        )
-                
-                # Save the screenshot to the database
-                try:
-                    from django.core.files.base import ContentFile
-                    import hashlib
-                    import json
-                    
-                    # Generate hash of current graph data
-                    graph_data = build_knowledge_graph()
-                    graph_hash = hashlib.sha256(
-                        json.dumps(graph_data, sort_keys=True).encode()
-                    ).hexdigest()
-                    
-                    # Create new screenshot object
-                    screenshot_obj = KnowledgeGraphScreenshot()
-                    screenshot_obj.graph_data_hash = graph_hash
-                    screenshot_obj.image.save(
-                        f"knowledge_graph_{graph_hash[:8]}.png",
-                        ContentFile(screenshot),
-                        save=True
-                    )
-                    
-                    logger.info(f"Screenshot saved to database with hash: {graph_hash[:8]}")
-                    
-                    # Mark generation as successful
-                    cache.set(cache_key, 'success', timeout=86400)  # Cache for 24 hours
-                    
-                except Exception as save_error:
-                    logger.error(f"Could not save screenshot to database: {save_error}")
-                    # Still return the screenshot even if saving failed
-                
-                # Return the screenshot as PNG
-                response = HttpResponse(screenshot, content_type='image/png')
+                response = HttpResponse(screenshot_obj.image.read(), content_type='image/png')
                 response['Content-Disposition'] = 'inline; filename="knowledge_graph.png"'
-                response['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
-                
+                # Prevent caching of the knowledge graph image
+                response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                response['Pragma'] = 'no-cache'
+                response['Expires'] = '0'
                 return response
-                
-            finally:
-                browser.close()
-                
-    except ImportError:
-        logger.error("Playwright is not installed. Please install it with: pip install playwright && playwright install chromium")
-        # Mark generation as failed
-        cache.set(cache_key, 'failed', timeout=3600)  # Cache failure for 1 hour
-        return JsonResponse({
-            'error': 'Playwright is not installed. Please install it with: pip install playwright && playwright install chromium'
-        }, status=500)
-    except Exception as e:
-        logger.error(f"Error generating knowledge graph screenshot: {str(e)}", exc_info=True)
-        # Mark generation as failed
-        cache.set(cache_key, 'failed', timeout=3600)  # Cache failure for 1 hour
-        return JsonResponse({'error': 'Failed to generate screenshot. Please try again later.'}, status=500)
+            except Exception as e:
+                logger.error(f"Error reading screenshot from database: {str(e)}")
+                return JsonResponse({
+                    'error': 'Failed to read screenshot from database.'
+                }, status=500)
+    
+    except KnowledgeGraphScreenshot.DoesNotExist:
+        # No screenshot available
+        pass
+    
+    # Return error if no screenshot is available
+    return JsonResponse({
+        'error': 'Knowledge graph screenshot not available. Please run the management command: python manage.py generate_knowledge_graph_screenshot'
+    }, status=404)
 
 
 def submit_comment(request, template_name, category=None):
