@@ -27,10 +27,21 @@ class Command(BaseCommand):
                 json.dumps(graph_data, sort_keys=True).encode()
             ).hexdigest()
             
-            # Save to database
+            # Check if a screenshot with this hash already exists
+            self.stdout.write('Checking for existing screenshot with same hash...')
+            try:
+                screenshot_obj = KnowledgeGraphScreenshot.objects.get(graph_data_hash=graph_hash)
+                self.stdout.write(f'Found existing screenshot with hash {graph_hash[:8]}, updating image...')
+                # Delete the old image file if it exists
+                if screenshot_obj.image:
+                    screenshot_obj.image.delete(save=False)
+            except KnowledgeGraphScreenshot.DoesNotExist:
+                self.stdout.write(f'No existing screenshot with hash {graph_hash[:8]}, creating new entry...')
+                screenshot_obj = KnowledgeGraphScreenshot()
+                screenshot_obj.graph_data_hash = graph_hash
+            
+            # Save the new image
             self.stdout.write('Saving screenshot to database...')
-            screenshot_obj = KnowledgeGraphScreenshot()
-            screenshot_obj.graph_data_hash = graph_hash
             screenshot_obj.image.save(
                 f"knowledge_graph_{graph_hash[:8]}.png",
                 ContentFile(screenshot_data),
