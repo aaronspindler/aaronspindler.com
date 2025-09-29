@@ -12,11 +12,9 @@ class HomepageKnowledgeGraph {
             dimensions: { width: 800, height: 500 },
             tooltip: { padding: 20, maxWidth: 380, offset: 20, animDuration: 250 },
             node: { 
-                minRadius: 6,        // Base size for nodes with no connections
-                maxRadius: 16,       // Maximum size for highly connected nodes
-                externalRadius: 8,   // Fixed size for external link nodes
-                baseRadius: 5,       // Default radius fallback
-                multiplier: 1.5      // Growth factor per connection
+                blogPostRadius: 20,  // Fixed size for all blog post nodes
+                externalRadius: 15,   // Fixed size for external link nodes
+                baseRadius: 10        // Default radius fallback
             },
             label: { maxLength: 26, shortLength: 18 },
             animation: { rippleDuration: 1000, rippleRadius: 50, resizeDebounce: 150 },
@@ -506,11 +504,8 @@ class HomepageKnowledgeGraph {
     
     getNodeRadius(node) {
         if (node.type === 'blog_post') {
-            // Node size scales with connectivity (more connections = larger node)
-            const connections = (node.in_degree || 0) + (node.out_degree || 0);
-            return Math.max(this.CONFIG.node.minRadius, 
-                           Math.min(this.CONFIG.node.maxRadius, 
-                                   this.CONFIG.node.minRadius + connections * this.CONFIG.node.multiplier));
+            // Use a fixed size for all blog post nodes
+            return this.CONFIG.node.blogPostRadius;
         }
         return node.type === 'external_link' ? this.CONFIG.node.externalRadius : this.CONFIG.node.baseRadius;
     }
@@ -546,8 +541,8 @@ class HomepageKnowledgeGraph {
         if (node.type === 'blog_post') {
             // Clean up blog post filename to readable title:
             // Remove year prefix, replace underscores with spaces, remove .html extension
+            // Preserve original casing of the filename
             label = label.replace(/^\d{1,4}[_\-\s]*/, '').replace(/_/g, ' ').replace(/\.html?$/i, '').trim();
-            if (label.length) label = label.charAt(0).toUpperCase() + label.slice(1);
         } else if (node.type === 'external_link' && node.domain) {
             label = node.domain;
         }
