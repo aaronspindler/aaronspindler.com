@@ -11,7 +11,7 @@ from pages.models import PageVisit
 from pages.decorators import track_page_visit
 from blog.utils import get_blog_from_template_name, get_all_blog_posts
 from blog.knowledge_graph import build_knowledge_graph, get_post_graph
-from blog.models import BlogComment, CommentVote
+from blog.models import BlogComment, CommentVote, KnowledgeGraphScreenshot
 from blog.forms import CommentForm, ReplyForm
 
 import os
@@ -142,43 +142,24 @@ def _get_post_graph_from_data(data):
 
 @require_http_methods(["GET"])
 def knowledge_graph_screenshot(request):
-    """Serve the cached knowledge graph screenshot if it exists, otherwise generate it dynamically on first request."""
-    # Create a cache key based on the current deployment (use settings or git hash)
-    cache_key = 'knowledge_graph_screenshot_generated'
+    """Serve the knowledge graph screenshot from database if it exists, otherwise generate it dynamically."""
+    force_regenerate = request.GET.get('force_regenerate', 'false').lower() == 'true'
     
-    # Check if a cached screenshot exists
-    cached_screenshot_paths = [
-        Path(settings.STATIC_ROOT) / 'images' / 'knowledge_graph_cached.png',  # Production path
-        Path(settings.BASE_DIR) / 'staticfiles' / 'images' / 'knowledge_graph_cached.png',  # Alternative path
-        Path(settings.BASE_DIR) / 'static' / 'images' / 'knowledge_graph_cached.png',  # Development path
-    ]
+    # Try to get existing screenshot from database
+    screenshot_obj = KnowledgeGraphScreenshot.get_latest(force_regenerate=force_regenerate)
     
-    cached_screenshot = None
-    for path in cached_screenshot_paths:
-        if path.exists():
-            cached_screenshot = path
-            logger.info(f"Found cached knowledge graph screenshot at: {path}")
-            break
-    
-    # If cached screenshot exists, serve it
-    if cached_screenshot:
+    if screenshot_obj and screenshot_obj.image:
+        # Serve the screenshot from the database
         try:
-            with open(cached_screenshot, 'rb') as f:
-                screenshot_data = f.read()
-            
-            response = HttpResponse(screenshot_data, content_type='image/png')
+            response = HttpResponse(screenshot_obj.image.read(), content_type='image/png')
             response['Content-Disposition'] = 'inline; filename="knowledge_graph.png"'
-            # Cache for a long time since it's a static file that updates only on deploy
             response['Cache-Control'] = 'public, max-age=86400'  # Cache for 24 hours
             return response
         except Exception as e:
-            logger.error(f"Error reading cached screenshot: {str(e)}")
-            # Fall through to generation
-    
-    # Check if we should generate the screenshot
-    force_regenerate = request.GET.get('force_regenerate', 'false').lower() == 'true'
+            logger.error(f"Error reading screenshot from database: {str(e)}")
     
     # Check if screenshot generation is already in progress or has been attempted
+    cache_key = 'knowledge_graph_screenshot_generation'
     generation_status = cache.get(cache_key)
     
     if not force_regenerate and generation_status == 'failed':
@@ -193,10 +174,7 @@ def knowledge_graph_screenshot(request):
             'error': 'Knowledge graph screenshot is being generated. Please try again in a few moments.'
         }, status=503)
     
-    # If no cached screenshot exists and we haven't tried generating it yet, or force_regenerate is true,
-    # generate it now at runtime
-    logger.info("Generating knowledge graph screenshot at runtime...")
-    
+
     # Mark generation as in progress
     cache.set(cache_key, 'in_progress', timeout=300)  # 5 minute timeout
     
@@ -295,24 +273,35 @@ def knowledge_graph_screenshot(request):
                             scale='device'
                         )
                 
-                # Save the screenshot to cache location for future use
+                # Save the screenshot to the database
                 try:
-                    # Ensure the directory exists
-                    cache_dir = Path(settings.STATIC_ROOT) / 'images'
-                    cache_dir.mkdir(parents=True, exist_ok=True)
+                    from django.core.files.base import ContentFile
+                    import hashlib
+                    import json
                     
-                    cache_file = cache_dir / 'knowledge_graph_cached.png'
-                    with open(cache_file, 'wb') as f:
-                        f.write(screenshot)
+                    # Generate hash of current graph data
+                    graph_data = build_knowledge_graph()
+                    graph_hash = hashlib.sha256(
+                        json.dumps(graph_data, sort_keys=True).encode()
+                    ).hexdigest()
                     
-                    logger.info(f"Screenshot cached at: {cache_file}")
+                    # Create new screenshot object
+                    screenshot_obj = KnowledgeGraphScreenshot()
+                    screenshot_obj.graph_data_hash = graph_hash
+                    screenshot_obj.image.save(
+                        f"knowledge_graph_{graph_hash[:8]}.png",
+                        ContentFile(screenshot),
+                        save=True
+                    )
+                    
+                    logger.info(f"Screenshot saved to database with hash: {graph_hash[:8]}")
                     
                     # Mark generation as successful
                     cache.set(cache_key, 'success', timeout=86400)  # Cache for 24 hours
                     
                 except Exception as save_error:
-                    logger.error(f"Could not save screenshot to cache: {save_error}")
-                    # Still return the screenshot even if caching failed
+                    logger.error(f"Could not save screenshot to database: {save_error}")
+                    # Still return the screenshot even if saving failed
                 
                 # Return the screenshot as PNG
                 response = HttpResponse(screenshot, content_type='image/png')

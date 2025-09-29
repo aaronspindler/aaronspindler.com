@@ -74,16 +74,8 @@ class HomepageKnowledgeGraph {
             .scale(initScale));
         
         this.tooltipGroup = this.svg.append("g").attr("class", "svg-tooltip");
-        this.addControls();
     }
-    
-    addControls() {
-        this.svg.append("text")
-            .attr("x", 10).attr("y", this.height - 10)
-            .attr("class", "controls-info")
-            .text("F: fit • R: reset • Scroll: zoom • Drag: pan");
-    }
-    
+
     bindEvents() {
         let resizeTimeout;
         window.addEventListener('resize', () => {
@@ -653,7 +645,8 @@ class HomepageKnowledgeGraph {
         this.height = this.container.node().clientHeight;
         
         this.svg.attr("viewBox", [0, 0, this.width, this.height]);
-        this.svg.select(".controls-info").attr("y", this.height - 10);
+        // Control info text removed
+        // this.svg.select(".controls-info").attr("y", this.height - 10);
         
         if (this.simulation) {
             this.simulation.force("center", d3.forceCenter(this.width/2, this.height/2))

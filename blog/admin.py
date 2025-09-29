@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.utils import timezone
 from django.db.models import Count
-from .models import BlogComment
+from .models import BlogComment, KnowledgeGraphScreenshot
 
 
 @admin.register(BlogComment)
@@ -177,4 +177,124 @@ class BlogCommentAdmin(admin.ModelAdmin):
     
     def has_delete_permission(self, request, obj=None):
         """Only superusers can permanently delete comments."""
+        return request.user.is_superuser
+
+
+@admin.register(KnowledgeGraphScreenshot)
+class KnowledgeGraphScreenshotAdmin(admin.ModelAdmin):
+    """Admin interface for managing knowledge graph screenshots."""
+    
+    list_display = [
+        'id',
+        'get_thumbnail',
+        'created_at',
+        'updated_at',
+        'get_hash_display',
+        'image_size'
+    ]
+    
+    list_filter = [
+        'created_at',
+        'updated_at'
+    ]
+    
+    readonly_fields = [
+        'get_preview',
+        'graph_data_hash',
+        'created_at',
+        'updated_at',
+        'get_image_url'
+    ]
+    
+    fieldsets = (
+        ('Screenshot', {
+            'fields': ('get_preview', 'image', 'get_image_url')
+        }),
+        ('Metadata', {
+            'fields': ('graph_data_hash', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        })
+    )
+    
+    date_hierarchy = 'created_at'
+    ordering = ['-created_at']
+    
+    actions = ['regenerate_screenshot']
+    
+    def get_thumbnail(self, obj):
+        """Display a small thumbnail of the screenshot in the list view."""
+        if obj.image:
+            return format_html(
+                '<img src="{}" width="100" height="60" style="border-radius: 4px; object-fit: cover;" />',
+                obj.image.url
+            )
+        return '-'
+    get_thumbnail.short_description = 'Thumbnail'
+    
+    def get_preview(self, obj):
+        """Display a larger preview of the screenshot in the detail view."""
+        if obj.image:
+            return format_html(
+                '<img src="{}" style="max-width: 800px; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />',
+                obj.image.url
+            )
+        return 'No screenshot available'
+    get_preview.short_description = 'Preview'
+    
+    def get_hash_display(self, obj):
+        """Display the first 8 characters of the hash for easier identification."""
+        if obj.graph_data_hash:
+            return format_html(
+                '<code style="background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace;">{}</code>',
+                obj.graph_data_hash[:8]
+            )
+        return '-'
+    get_hash_display.short_description = 'Graph Hash'
+    get_hash_display.admin_order_field = 'graph_data_hash'
+    
+    def get_image_url(self, obj):
+        """Display the URL of the image for easy copying."""
+        if obj.image:
+            return format_html(
+                '<input type="text" value="{}" readonly style="width: 400px;" onclick="this.select();" />',
+                obj.image.url
+            )
+        return '-'
+    get_image_url.short_description = 'Image URL'
+    
+    def image_size(self, obj):
+        """Display the file size of the screenshot."""
+        if obj.image:
+            try:
+                size_bytes = obj.image.size
+                if size_bytes < 1024:
+                    return f"{size_bytes} B"
+                elif size_bytes < 1024 * 1024:
+                    return f"{size_bytes / 1024:.1f} KB"
+                else:
+                    return f"{size_bytes / (1024 * 1024):.1f} MB"
+            except:
+                return '-'
+        return '-'
+    image_size.short_description = 'File Size'
+    
+    def regenerate_screenshot(self, request, queryset):
+        """Action to trigger regeneration of the knowledge graph screenshot."""
+        from django.core.management import call_command
+        from django.contrib import messages
+        
+        try:
+            # Call the management command to regenerate
+            call_command('generate_knowledge_graph_screenshot')
+            messages.success(request, 'Knowledge graph screenshot has been regenerated successfully.')
+        except Exception as e:
+            messages.error(request, f'Error regenerating screenshot: {str(e)}')
+    regenerate_screenshot.short_description = 'Regenerate knowledge graph screenshot'
+    
+    def has_add_permission(self, request):
+        """Prevent manually adding screenshots - they should be generated via management command."""
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        """Only superusers can delete screenshots."""
         return request.user.is_superuser

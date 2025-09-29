@@ -1,120 +1,47 @@
 from django.core.management.base import BaseCommand
-from django.conf import settings
+from django.core.files.base import ContentFile
 from playwright.sync_api import sync_playwright
-from pathlib import Path
-import os
-import shutil
+from blog.models import KnowledgeGraphScreenshot
+from blog.knowledge_graph import build_knowledge_graph
+import hashlib
+import json
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    help = 'Generate a static screenshot of the knowledge graph for caching'
-
-    def add_arguments(self, parser):
-        parser.add_argument(
-            '--width',
-            type=int,
-            default=2400,  # Doubled from 1200 for higher resolution
-            help='Width of the screenshot',
-        )
-        parser.add_argument(
-            '--height',
-            type=int,
-            default=1600,  # Doubled from 800 for higher resolution
-            help='Height of the screenshot',
-        )
-        parser.add_argument(
-            '--device-scale-factor',
-            type=float,
-            default=2.0,  # Retina display quality
-            help='Device scale factor for higher DPI (2.0 = retina)',
-        )
-        parser.add_argument(
-            '--wait-time',
-            type=int,
-            default=10000,  # Increased from 5000 for better rendering
-            help='Milliseconds to wait for graph rendering',
-        )
-        parser.add_argument(
-            '--quality',
-            type=int,
-            default=100,  # Maximum quality for PNG
-            help='Screenshot quality (1-100, only affects JPEG)',
-        )
-        parser.add_argument(
-            '--full-page',
-            action='store_true',
-            default=False,
-            help='Take full page screenshot instead of just the graph container',
-        )
-        parser.add_argument(
-            '--output-dir',
-            type=str,
-            default=None,
-            help='Output directory for the screenshot (defaults to staticfiles/images)',
-        )
-        parser.add_argument(
-            '--transparent',
-            action='store_true',
-            default=False,
-            help='Generate screenshot with transparent background',
-        )
+    help = 'Generate a screenshot of the knowledge graph and save to database'
 
     def handle(self, *args, **options):
         self.stdout.write('Starting knowledge graph screenshot generation...')
         
         try:
-            # Determine output directory
-            if options['output_dir']:
-                output_dir = Path(options['output_dir'])
-            else:
-                # Use staticfiles directory which is populated during collectstatic
-                output_dir = Path(settings.STATIC_ROOT) / 'images'
+            # Generate the screenshot with hardcoded defaults
+            screenshot_data = self._generate_screenshot()
             
-            # Create directory if it doesn't exist
-            output_dir.mkdir(parents=True, exist_ok=True)
+            # Generate hash of current graph data
+            self.stdout.write('Building knowledge graph data...')
+            graph_data = build_knowledge_graph()
+            graph_hash = hashlib.sha256(
+                json.dumps(graph_data, sort_keys=True).encode()
+            ).hexdigest()
             
-            # Path for the screenshot
-            screenshot_path = output_dir / 'knowledge_graph_cached.png'
-            
-            # Generate the screenshot
-            self._generate_screenshot(
-                screenshot_path,
-                width=options['width'],
-                height=options['height'],
-                device_scale_factor=options['device_scale_factor'],
-                wait_time=options['wait_time'],
-                quality=options['quality'],
-                full_page=options['full_page'],
-                transparent=options['transparent']
+            # Save to database
+            self.stdout.write('Saving screenshot to database...')
+            screenshot_obj = KnowledgeGraphScreenshot()
+            screenshot_obj.graph_data_hash = graph_hash
+            screenshot_obj.image.save(
+                f"knowledge_graph_{graph_hash[:8]}.png",
+                ContentFile(screenshot_data),
+                save=True
             )
             
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Successfully generated knowledge graph screenshot at: {screenshot_path}'
+                    f'Successfully generated and saved knowledge graph screenshot with hash: {graph_hash[:8]}'
                 )
             )
-            
-            # Also copy to static directory for development if different
-            static_dir = Path(settings.BASE_DIR) / 'static' / 'images'
-            static_screenshot_path = static_dir / 'knowledge_graph_cached.png'
-            
-            if static_screenshot_path != screenshot_path and static_dir.exists():
-                try:
-                    shutil.copy2(screenshot_path, static_screenshot_path)
-                    self.stdout.write(
-                        self.style.SUCCESS(
-                            f'Also copied screenshot to static directory: {static_screenshot_path}'
-                        )
-                    )
-                except Exception as e:
-                    self.stdout.write(
-                        self.style.WARNING(
-                            f'Could not copy to static directory: {e}'
-                        )
-                    )
             
         except Exception as e:
             self.stdout.write(
@@ -122,8 +49,15 @@ class Command(BaseCommand):
             )
             raise
     
-    def _generate_screenshot(self, output_path, width=2400, height=1600, device_scale_factor=2.0, wait_time=10000, quality=100, full_page=False, transparent=False):
-        """Generate the screenshot using Playwright with high quality settings."""
+    def _generate_screenshot(self):
+        """Generate the screenshot using Playwright with high quality settings and return the screenshot data."""
+        # Hardcoded defaults
+        width = 2400
+        height = 1600
+        device_scale_factor = 2.0
+        wait_time = 10000
+        full_page = False
+        transparent = True  # Always use transparent background
         with sync_playwright() as p:
             # Launch headless browser with Docker-compatible settings
             browser = p.chromium.launch(
@@ -271,11 +205,9 @@ class Command(BaseCommand):
                             omit_background=transparent  # Transparent background if requested
                         )
                     
-                    # Save the screenshot
-                    with open(output_path, 'wb') as f:
-                        f.write(screenshot)
-                    
-                    self.stdout.write(self.style.SUCCESS(f'Screenshot saved to {output_path}'))
+                    # Return the screenshot data
+                    self.stdout.write(self.style.SUCCESS('Screenshot generated successfully'))
+                    return screenshot
                     
                 except Exception as e:
                     self.stdout.write(self.style.ERROR(f'Error during page interaction: {e}'))
@@ -287,9 +219,8 @@ class Command(BaseCommand):
                         scale='device',
                         omit_background=transparent  # Transparent background if requested
                     )
-                    with open(output_path, 'wb') as f:
-                        f.write(screenshot)
-                    self.stdout.write(f'Emergency screenshot saved to {output_path}')
+                    self.stdout.write('Emergency screenshot generated')
+                    return screenshot
                     
             finally:
                 browser.close()

@@ -3,6 +3,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.validators import MaxLengthValidator
 from django.db.models import Sum
+from django.core.files.base import ContentFile
 
 
 class BlogComment(models.Model):
@@ -294,3 +295,46 @@ class CommentVote(models.Model):
         """Automatically update comment's cached vote counts after saving."""
         super().save(*args, **kwargs)
         self.comment.update_vote_counts()
+
+
+class KnowledgeGraphScreenshot(models.Model):
+    """Model for storing knowledge graph screenshots to avoid runtime generation."""
+    
+    # Screenshot data
+    image = models.ImageField(upload_to='knowledge_graph_screenshots/')
+
+    # Metadata
+    graph_data_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Hash of the graph data used to generate this screenshot"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['graph_data_hash']),
+        ]
+    
+    def __str__(self):
+        return f"Knowledge Graph Screenshot - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+    
+    @classmethod
+    def get_latest(cls, force_regenerate=False):
+        """
+        Get the latest screenshot or return None if not found or force_regenerate is True.
+        Generation should be handled by the view or management command.
+        """
+        if not force_regenerate:
+            try:
+                return cls.objects.latest('created_at')
+            except cls.DoesNotExist:
+                pass
+        
+        return None
+
+
