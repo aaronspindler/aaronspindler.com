@@ -677,10 +677,62 @@ cache.delete_pattern('knowledge_graph:*')
 ### Performance Monitoring
 
 Monitor key metrics:
-- Response times via RequestLoggingMiddleware
 - Database queries with django-debug-toolbar (development)
 - Celery tasks with Flower dashboard
 - Static file serving with WhiteNoise logs
+
+### Request Fingerprinting
+
+The application automatically tracks request fingerprints via `RequestFingerprintMiddleware`:
+
+**Features:**
+- Tracks IP address, user agent, browser, OS, device
+- Generates unique fingerprints (with and without IP)
+- Detects suspicious requests (bots, scanners, etc.)
+- Associates with authenticated users
+- Stores all relevant headers
+- Skips static files and media to reduce database load
+
+**Configuration:**
+
+The middleware is enabled by default in `config/settings.py`. It automatically:
+- Creates a `RequestFingerprint` record for each request
+- Attaches the fingerprint to `request.fingerprint` for use in views
+- Logs warnings for suspicious requests
+
+**Querying fingerprints:**
+
+```python
+from utils.models import RequestFingerprint
+from django.utils import timezone
+from datetime import timedelta
+
+# Get suspicious requests in last 24 hours
+suspicious = RequestFingerprint.objects.filter(
+    is_suspicious=True,
+    created_at__gte=timezone.now() - timedelta(hours=24)
+)
+
+# Get all requests from a specific IP
+ip_requests = RequestFingerprint.objects.filter(ip_address='192.168.1.1')
+
+# Get user's request history
+user_requests = RequestFingerprint.objects.filter(user=request.user)
+```
+
+**Accessing in views:**
+
+```python
+def my_view(request):
+    # The middleware attaches the fingerprint to each request
+    if hasattr(request, 'fingerprint'):
+        fingerprint = request.fingerprint
+        print(f"IP: {fingerprint.ip_address}")
+        print(f"Browser: {fingerprint.browser}")
+        if fingerprint.is_suspicious:
+            # Handle suspicious request
+            pass
+```
 
 ---
 
