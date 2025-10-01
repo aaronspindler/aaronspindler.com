@@ -45,7 +45,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
-    "pages.middleware.RequestLoggingMiddleware",  # Add request logging
+    # "utils.middleware.RequestFingerprintMiddleware",  # Track request fingerprints
 ]
 
 MESSAGE_STORAGE = "django.contrib.messages.storage.fallback.FallbackStorage"
