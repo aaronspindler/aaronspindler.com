@@ -2,7 +2,7 @@ from django.contrib import admin
 import time
 
 from django.contrib import admin
-from .models import Email, NotificationConfig, TextMessage, NotificationEmail, NotificationPhoneNumber, HTTPStatusCode
+from .models import Email, NotificationConfig, TextMessage, NotificationEmail, NotificationPhoneNumber, HTTPStatusCode, RequestFingerprint
 
 @admin.register(NotificationConfig)
 class NotificationConfigAdmin(admin.ModelAdmin):
@@ -41,3 +41,61 @@ class NotificationPhoneNumberAdmin(admin.ModelAdmin):
 class HTTPStatusCodeAdmin(admin.ModelAdmin):
     list_display = ('code','description')
     search_fields = ('code', 'description')
+
+
+@admin.register(RequestFingerprint)
+class RequestFingerprintAdmin(admin.ModelAdmin):
+    """Admin interface for RequestFingerprint model."""
+    list_display = (
+        'created_at',
+        'ip_address',
+        'method',
+        'path',
+        'browser',
+        'os',
+        'is_suspicious',
+        'user',
+    )
+    list_filter = (
+        'is_suspicious',
+        'method',
+        'is_secure',
+        'is_ajax',
+        'created_at',
+    )
+    search_fields = (
+        'ip_address',
+        'path',
+        'user_agent',
+        'fingerprint',
+        'fingerprint_no_ip',
+    )
+    readonly_fields = (
+        'created_at',
+        'fingerprint',
+        'fingerprint_no_ip',
+        'ip_address',
+        'method',
+        'path',
+        'is_secure',
+        'is_ajax',
+        'user_agent',
+        'browser',
+        'browser_version',
+        'os',
+        'device',
+        'headers',
+        'is_suspicious',
+        'suspicious_reason',
+        'user',
+    )
+    date_hierarchy = 'created_at'
+    ordering = ('-created_at',)
+    
+    def has_add_permission(self, request):
+        """Disable manual creation - fingerprints should be created from requests."""
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        """Make fingerprints read-only."""
+        return False
