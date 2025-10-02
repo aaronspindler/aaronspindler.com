@@ -161,59 +161,7 @@ class BlogCommentFactory:
         )
 
 
-class PageVisitFactory:
-    """Factory for creating test page visits."""
-    
-    @staticmethod
-    def create_visit(
-        ip_address='192.168.1.1',
-        page_name='/test-page/',
-        geo_data=None,
-        created_at=None,
-        **kwargs
-    ):
-        """Create a page visit with default test data."""
-        from pages.models import PageVisit
-        
-        if created_at is None:
-            created_at = timezone.now()
-            
-        return PageVisit.objects.create(
-            ip_address=ip_address,
-            page_name=page_name,
-            geo_data=geo_data,
-            created_at=created_at,
-            **kwargs
-        )
-    
-    @staticmethod
-    def create_visit_with_geo(
-        country='United States',
-        city='New York',
-        lat=40.7128,
-        lon=-74.0060,
-        **kwargs
-    ):
-        """Create a page visit with geolocation data."""
-        geo_data = {
-            'country': country,
-            'city': city,
-            'lat': lat,
-            'lon': lon
-        }
-        return PageVisitFactory.create_visit(geo_data=geo_data, **kwargs)
-    
-    @staticmethod
-    def create_bulk_visits(count=10, ip_base='192.168.1', page_base='/page'):
-        """Create multiple page visits for testing."""
-        visits = []
-        for i in range(count):
-            visit = PageVisitFactory.create_visit(
-                ip_address=f'{ip_base}.{i}',
-                page_name=f'{page_base}{i}/'
-            )
-            visits.append(visit)
-        return visits
+# PageVisitFactory removed - request tracking now handled by RequestFingerprint in utils app
 
 
 class PhotoFactory:

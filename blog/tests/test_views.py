@@ -20,11 +20,11 @@ class BlogViewsTest(TestCase, TestDataMixin):
         self.setUp_blog_data()
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.PageVisit')
-    def test_render_blog_template_success(self, mock_page_visit, mock_get_blog):
+    @patch('blog.views.RequestFingerprint')
+    def test_render_blog_template_success(self, mock_request_fingerprint, mock_get_blog):
         """Test successful blog post rendering."""
         mock_get_blog.return_value = self.mock_blog_data
-        mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 42
+        mock_request_fingerprint.objects.filter.return_value.count.return_value = 42
 
         response = self.client.get('/b/0001_test_post/')
         
@@ -45,8 +45,8 @@ class BlogViewsTest(TestCase, TestDataMixin):
         mock_get_blog.assert_called_with('0001_test_post', category='tech')
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.PageVisit')
-    def test_render_blog_with_comments(self, mock_page_visit, mock_get_blog):
+    @patch('blog.views.RequestFingerprint')
+    def test_render_blog_with_comments(self, mock_request_fingerprint, mock_get_blog):
         """Test blog rendering includes approved comments."""
         mock_get_blog.return_value = {
             'entry_number': '0001',
@@ -56,7 +56,7 @@ class BlogViewsTest(TestCase, TestDataMixin):
             'category': 'tech',
             'github_link': 'https://github.com/test'
         }
-        mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
+        mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
 
         # Create comments with different statuses
         BlogCommentFactory.create_approved_comment(
@@ -75,8 +75,8 @@ class BlogViewsTest(TestCase, TestDataMixin):
         self.assertEqual(comments[0].content, 'Approved comment')
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.PageVisit')
-    def test_staff_sees_pending_count(self, mock_page_visit, mock_get_blog):
+    @patch('blog.views.RequestFingerprint')
+    def test_staff_sees_pending_count(self, mock_request_fingerprint, mock_get_blog):
         """Test that staff users see pending comment count."""
         mock_get_blog.return_value = {
             'entry_number': '0001',
@@ -86,7 +86,7 @@ class BlogViewsTest(TestCase, TestDataMixin):
             'category': None,
             'github_link': 'https://github.com/test'
         }
-        mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
+        mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
 
         # Create pending comments for the specific blog post
         BlogCommentFactory.create_pending_comment(
@@ -119,11 +119,11 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
         self.setUp_blog_data()
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.PageVisit')
-    def test_submit_comment_authenticated(self, mock_page_visit, mock_get_blog):
+    @patch('blog.views.RequestFingerprint')
+    def test_submit_comment_authenticated(self, mock_request_fingerprint, mock_get_blog):
         """Test authenticated user submitting a comment."""
         mock_get_blog.return_value = self.mock_blog_data
-        mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
+        mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
 
         self.client.login(username=self.user.username, password='testpass123')
         
@@ -145,13 +145,13 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
         self.assertIn('submitted for review', str(messages[0]))
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.PageVisit')
+    @patch('blog.views.RequestFingerprint')
     @patch('blog.models.BlogComment.get_approved_comments')
     @patch('django.urls.reverse')
-    def test_submit_comment_anonymous(self, mock_reverse, mock_get_approved, mock_page_visit, mock_get_blog):
+    def test_submit_comment_anonymous(self, mock_reverse, mock_get_approved, mock_request_fingerprint, mock_get_blog):
         """Test anonymous user submitting a comment."""
         mock_get_blog.return_value = self.mock_blog_data
-        mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
+        mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
         mock_get_approved.return_value.count.return_value = 0
         mock_reverse.return_value = '/b/0001_test_post/'
         
@@ -205,9 +205,9 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
         self.assertEqual(BlogComment.objects.filter(content='Spam comment').count(), 0)
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.PageVisit')
+    @patch('blog.views.RequestFingerprint')
     @patch('blog.models.BlogComment.get_approved_comments')
-    def test_submit_invalid_comment(self, mock_get_approved, mock_page_visit, mock_get_blog):
+    def test_submit_invalid_comment(self, mock_get_approved, mock_request_fingerprint, mock_get_blog):
         """Test submitting invalid comment re-renders form with errors."""
         blog_data = {
             'entry_number': '0001',
@@ -217,7 +217,7 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
             'category': None
         }
         mock_get_blog.return_value = blog_data
-        mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
+        mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
         mock_get_approved.return_value.count.return_value = 0
 
         form_data = MockDataFactory.get_common_form_data()['comment_form']
