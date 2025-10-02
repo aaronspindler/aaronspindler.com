@@ -1,11 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, Http404, JsonResponse
 from .models import PhotoAlbum, Photo
-from pages.decorators import track_page_visit
 import os
 
 
-@track_page_visit 
 def album_detail(request, slug):
     if request.user.is_authenticated and request.user.is_staff:
         album = get_object_or_404(PhotoAlbum, slug=slug)
