@@ -5,7 +5,6 @@ from django.db import connection
 from django.db.models import Count
 
 from pages.utils import get_books
-from pages.decorators import track_page_visit
 from blog.utils import get_all_blog_posts, get_blog_from_template_name
 from photos.models import PhotoAlbum
 
@@ -58,7 +57,6 @@ def robotstxt(request):
     return HttpResponse(content, content_type="text/plain")
 
 
-@track_page_visit
 def resume(request):
     """Serve resume PDF file if enabled in settings, otherwise show unavailable page."""
     if not getattr(settings, 'RESUME_ENABLED', False):
@@ -82,7 +80,6 @@ def resume(request):
         logger.error(f"Error serving resume file: {e}")
         raise Http404("Error serving resume")
 
-@track_page_visit
 def home(request):
     """
     Display home page with blog posts, projects, books, and photo albums.

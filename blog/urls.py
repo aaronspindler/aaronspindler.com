@@ -1,5 +1,4 @@
 from django.urls import path
-from pages.decorators import track_page_visit
 from .views import (
     render_blog_template, 
     knowledge_graph_api, 
@@ -25,6 +24,6 @@ urlpatterns = [
     path("api/knowledge-graph/screenshot/", knowledge_graph_screenshot, name="knowledge_graph_screenshot"),
     
     # Blog post routes (with optional category) - must come after more specific routes
-    path("b/<str:category>/<str:template_name>/", track_page_visit(render_blog_template), name="render_blog_template_with_category"),
-    path("b/<str:template_name>/", track_page_visit(render_blog_template), name="render_blog_template"),
+    path("b/<str:category>/<str:template_name>/", render_blog_template, name="render_blog_template_with_category"),
+    path("b/<str:template_name>/", render_blog_template, name="render_blog_template"),
 ]
