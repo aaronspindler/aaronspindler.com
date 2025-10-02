@@ -314,7 +314,6 @@ jobs:
         run: |
           mkdir -p ./test_output
           docker compose -f docker-compose.test.yml run --rm \
-            -m 2g \
             -v $(pwd)/test_output:/code/test_output test_runner sh -c "
             pip install coverage --no-cache-dir &&
             export PYTHONDONTWRITEBYTECODE=1 &&
