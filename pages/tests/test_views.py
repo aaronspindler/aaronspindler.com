@@ -3,7 +3,6 @@ from django.urls import reverse
 from django.core.cache import cache
 from django.conf import settings
 from unittest.mock import patch, MagicMock, mock_open
-from pages.models import PageVisit
 from photos.models import PhotoAlbum, Photo
 from tests.factories import PhotoFactory
 import os

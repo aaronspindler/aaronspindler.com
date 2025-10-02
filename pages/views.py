@@ -4,7 +4,6 @@ from django.core.cache import cache
 from django.db import connection
 from django.db.models import Count
 
-from pages.models import PageVisit
 from pages.utils import get_books
 from pages.decorators import track_page_visit
 from blog.utils import get_all_blog_posts, get_blog_from_template_name

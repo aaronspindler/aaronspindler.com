@@ -266,14 +266,14 @@ class EdgeCaseTests(TestCase):
             self.assertEqual(len(result.get('parse_errors', [])), 0)
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.PageVisit')
+    @patch('blog.views.RequestFingerprint')
     @patch('blog.models.BlogComment.get_approved_comments')
     @patch('django.urls.reverse')
-    def test_concurrent_comment_submission(self, mock_reverse, mock_get_approved, mock_page_visit, mock_get_blog):
+    def test_concurrent_comment_submission(self, mock_reverse, mock_get_approved, mock_request_fingerprint, mock_get_blog):
         """Test handling of concurrent comment submissions."""
         # This would ideally test race conditions, but is simplified here
         mock_get_blog.return_value = MockDataFactory.get_mock_blog_data(template_name='test')
-        mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
+        mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
         mock_get_approved.return_value.count.return_value = 0
         mock_reverse.return_value = '/b/test/'
         

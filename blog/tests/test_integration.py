@@ -21,11 +21,11 @@ class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
         cache.clear()
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.PageVisit')
-    def test_complete_comment_workflow(self, mock_page_visit, mock_get_blog):
+    @patch('blog.views.RequestFingerprint')
+    def test_complete_comment_workflow(self, mock_request_fingerprint, mock_get_blog):
         """Test complete workflow from submission to approval to voting."""
         mock_get_blog.return_value = self.mock_blog_data
-        mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
+        mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
 
         # Step 1: User submits comment
         self.client.login(username=self.user.username, password='testpass123')
@@ -69,8 +69,8 @@ class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
         self.assertEqual(reply.parent_id, comment_id)
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.PageVisit')
-    def test_nested_comment_thread(self, mock_page_visit, mock_get_blog):
+    @patch('blog.views.RequestFingerprint')
+    def test_nested_comment_thread(self, mock_request_fingerprint, mock_get_blog):
         """Test creating and displaying nested comment threads."""
         mock_get_blog.return_value = {
             'entry_number': '0001',
@@ -79,7 +79,7 @@ class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
             'blog_content': '<p>Test content</p>',
             'category': None
         }
-        mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
+        mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
 
         # Create parent comment
         parent = BlogCommentFactory.create_approved_comment(
@@ -187,8 +187,8 @@ class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
         self.assertEqual(rejected, 2)
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.PageVisit')
-    def test_comment_deletion_cascade(self, mock_page_visit, mock_get_blog):
+    @patch('blog.views.RequestFingerprint')
+    def test_comment_deletion_cascade(self, mock_request_fingerprint, mock_get_blog):
         """Test that deleting parent comment cascades to replies and votes."""
         mock_get_blog.return_value = {
             'entry_number': '0001',
@@ -197,7 +197,7 @@ class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
             'blog_content': '<p>Test</p>',
             'category': None
         }
-        mock_page_visit.objects.filter.return_value.values_list.return_value.count.return_value = 0
+        mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
 
         # Create comment structure
         parent = BlogCommentFactory.create_approved_comment(
