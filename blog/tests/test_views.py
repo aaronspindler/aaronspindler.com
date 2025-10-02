@@ -20,7 +20,7 @@ class BlogViewsTest(TestCase, TestDataMixin):
         self.setUp_blog_data()
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.RequestFingerprint')
+    @patch('utils.models.RequestFingerprint')
     def test_render_blog_template_success(self, mock_request_fingerprint, mock_get_blog):
         """Test successful blog post rendering."""
         mock_get_blog.return_value = self.mock_blog_data
@@ -45,7 +45,7 @@ class BlogViewsTest(TestCase, TestDataMixin):
         mock_get_blog.assert_called_with('0001_test_post', category='tech')
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.RequestFingerprint')
+    @patch('utils.models.RequestFingerprint')
     def test_render_blog_with_comments(self, mock_request_fingerprint, mock_get_blog):
         """Test blog rendering includes approved comments."""
         mock_get_blog.return_value = {
@@ -75,7 +75,7 @@ class BlogViewsTest(TestCase, TestDataMixin):
         self.assertEqual(comments[0].content, 'Approved comment')
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.RequestFingerprint')
+    @patch('utils.models.RequestFingerprint')
     def test_staff_sees_pending_count(self, mock_request_fingerprint, mock_get_blog):
         """Test that staff users see pending comment count."""
         mock_get_blog.return_value = {
@@ -119,7 +119,7 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
         self.setUp_blog_data()
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.RequestFingerprint')
+    @patch('utils.models.RequestFingerprint')
     def test_submit_comment_authenticated(self, mock_request_fingerprint, mock_get_blog):
         """Test authenticated user submitting a comment."""
         mock_get_blog.return_value = self.mock_blog_data
@@ -145,7 +145,7 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
         self.assertIn('submitted for review', str(messages[0]))
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.RequestFingerprint')
+    @patch('utils.models.RequestFingerprint')
     @patch('blog.models.BlogComment.get_approved_comments')
     @patch('django.urls.reverse')
     def test_submit_comment_anonymous(self, mock_reverse, mock_get_approved, mock_request_fingerprint, mock_get_blog):
@@ -205,7 +205,7 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
         self.assertEqual(BlogComment.objects.filter(content='Spam comment').count(), 0)
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.RequestFingerprint')
+    @patch('utils.models.RequestFingerprint')
     @patch('blog.models.BlogComment.get_approved_comments')
     def test_submit_invalid_comment(self, mock_get_approved, mock_request_fingerprint, mock_get_blog):
         """Test submitting invalid comment re-renders form with errors."""

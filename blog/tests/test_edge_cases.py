@@ -266,7 +266,7 @@ class EdgeCaseTests(TestCase):
             self.assertEqual(len(result.get('parse_errors', [])), 0)
 
     @patch('blog.views.get_blog_from_template_name')
-    @patch('blog.views.RequestFingerprint')
+    @patch('utils.models.RequestFingerprint')
     @patch('blog.models.BlogComment.get_approved_comments')
     @patch('django.urls.reverse')
     def test_concurrent_comment_submission(self, mock_reverse, mock_get_approved, mock_request_fingerprint, mock_get_blog):
