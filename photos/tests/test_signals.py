@@ -10,9 +10,10 @@ Tests cover:
 
 from django.test import TestCase
 from django.db.models.signals import m2m_changed, post_save, post_delete
-from unittest.mock import Mock, patch, call
+from unittest.mock import Mock, patch, call, MagicMock
 from io import BytesIO
 from PIL import Image
+import gc
 
 from photos.models import Photo, PhotoAlbum
 from photos import signals
@@ -32,13 +33,21 @@ class AlbumPhotosChangeSignalTestCase(TestCase):
 
         self.photo1 = self._create_test_photo("Photo 1")
         self.photo2 = self._create_test_photo("Photo 2")
+    
+    def tearDown(self):
+        """Clean up resources after each test."""
+        # Clean up photos and albums
+        Photo.objects.all().delete()
+        PhotoAlbum.objects.all().delete()
+        # Force garbage collection to free memory
+        gc.collect()
 
     def _create_test_photo(self, title):
         """Helper to create a test photo with unique image."""
         # Create unique image to avoid duplicate detection
-        img = Image.new('RGB', (100, 100), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
+        img = Image.new('RGB', (10, 10), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
         img_io = BytesIO()
-        img.save(img_io, format='JPEG')
+        img.save(img_io, format='JPEG', quality=50)
         img_io.seek(0)
 
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -146,12 +155,18 @@ class AlbumSaveSignalTestCase(TestCase):
         """Set up test data."""
         self.photo = self._create_test_photo("Test Photo")
     
+    def tearDown(self):
+        """Clean up resources after each test."""
+        Photo.objects.all().delete()
+        PhotoAlbum.objects.all().delete()
+        gc.collect()
+    
     def _create_test_photo(self, title):
         """Helper to create a test photo with unique image."""
         # Create unique image to avoid duplicate detection
-        img = Image.new('RGB', (100, 100), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
+        img = Image.new('RGB', (10, 10), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
         img_io = BytesIO()
-        img.save(img_io, format='JPEG')
+        img.save(img_io, format='JPEG', quality=50)
         img_io.seek(0)
 
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -345,12 +360,18 @@ class PhotoUpdateSignalTestCase(TestCase):
         self.album1.photos.add(self.photo)
         self.album2.photos.add(self.photo)
     
+    def tearDown(self):
+        """Clean up resources after each test."""
+        Photo.objects.all().delete()
+        PhotoAlbum.objects.all().delete()
+        gc.collect()
+    
     def _create_test_photo(self, title):
         """Helper to create a test photo with unique image."""
         # Create unique image to avoid duplicate detection
-        img = Image.new('RGB', (100, 100), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
+        img = Image.new('RGB', (10, 10), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
         img_io = BytesIO()
-        img.save(img_io, format='JPEG')
+        img.save(img_io, format='JPEG', quality=50)
         img_io.seek(0)
 
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -449,12 +470,18 @@ class PhotoDeleteSignalTestCase(TestCase):
         self.album1.photos.add(self.photo)
         self.album2.photos.add(self.photo)
     
+    def tearDown(self):
+        """Clean up resources after each test."""
+        Photo.objects.all().delete()
+        PhotoAlbum.objects.all().delete()
+        gc.collect()
+    
     def _create_test_photo(self, title):
         """Helper to create a test photo with unique image."""
         # Create unique image to avoid duplicate detection
-        img = Image.new('RGB', (100, 100), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
+        img = Image.new('RGB', (10, 10), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
         img_io = BytesIO()
-        img.save(img_io, format='JPEG')
+        img.save(img_io, format='JPEG', quality=50)
         img_io.seek(0)
 
         from django.core.files.uploadedfile import SimpleUploadedFile

@@ -19,6 +19,7 @@ from io import BytesIO
 from PIL import Image
 import tempfile
 import os
+import gc
 
 from photos.models import Photo, PhotoAlbum
 
@@ -31,12 +32,18 @@ class PhotoModelTestCase(TestCase):
         # Create a test image
         self.test_image = self._create_test_image()
         self.test_image_2 = self._create_test_image(color=(0, 255, 0))
+    
+    def tearDown(self):
+        """Clean up resources after each test."""
+        Photo.objects.all().delete()
+        PhotoAlbum.objects.all().delete()
+        gc.collect()
         
-    def _create_test_image(self, size=(100, 100), color=(255, 0, 0), format='JPEG'):
+    def _create_test_image(self, size=(10, 10), color=(255, 0, 0), format='JPEG'):
         """Helper to create a test image."""
         img = Image.new('RGB', size, color)
         img_io = BytesIO()
-        img.save(img_io, format=format)
+        img.save(img_io, format=format, quality=50)
         img_io.seek(0)
         return SimpleUploadedFile(
             name='test.jpg',
@@ -69,9 +76,9 @@ class PhotoModelTestCase(TestCase):
             'perceptual_hash': 'perceptualhash456'
         }
         mock_metadata.return_value = {
-            'width': 1920,
-            'height': 1080,
-            'file_size': 1024000,
+            'width': 10,
+            'height': 10,
+            'file_size': 1024,
             'format': 'JPEG',
             'mode': 'RGB'
         }
@@ -109,9 +116,9 @@ class PhotoModelTestCase(TestCase):
         # Verify metadata was set
         self.assertEqual(photo.file_hash, 'testhash123')
         self.assertEqual(photo.perceptual_hash, 'perceptualhash456')
-        self.assertEqual(photo.width, 1920)
-        self.assertEqual(photo.height, 1080)
-        self.assertEqual(photo.file_size, 1024000)
+        self.assertEqual(photo.width, 10)
+        self.assertEqual(photo.height, 10)
+        self.assertEqual(photo.file_size, 1024)
         self.assertEqual(photo.camera_make, 'Canon')
         self.assertEqual(photo.camera_model, 'EOS R5')
         self.assertEqual(photo.focal_point_x, 0.5)
@@ -304,11 +311,11 @@ class PhotoAlbumModelTestCase(TestCase):
         """Set up test data."""
         self.test_image = self._create_test_image()
     
-    def _create_test_image(self, size=(100, 100), color=(255, 0, 0), format='JPEG'):
+    def _create_test_image(self, size=(10, 10), color=(255, 0, 0), format='JPEG'):
         """Helper to create a test image."""
         img = Image.new('RGB', size, color)
         img_io = BytesIO()
-        img.save(img_io, format=format)
+        img.save(img_io, format=format, quality=50)
         img_io.seek(0)
         return SimpleUploadedFile(
             name='test.jpg',

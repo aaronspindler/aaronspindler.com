@@ -20,6 +20,7 @@ from PIL import Image
 import tempfile
 import numpy as np
 import imagehash
+import gc
 
 from photos.image_utils import (
     ImageMetadataExtractor,
@@ -57,36 +58,40 @@ class TestUtilityFunctions(TestCase):
 class ImageMetadataExtractorTestCase(TestCase):
     """Test cases for ImageMetadataExtractor."""
     
-    def _create_test_image(self, size=(200, 100), format='JPEG', mode='RGB'):
+    def tearDown(self):
+        """Clean up resources after each test."""
+        gc.collect()
+    
+    def _create_test_image(self, size=(10, 10), format='JPEG', mode='RGB'):
         """Helper to create a test image."""
         img = Image.new(mode, size, color='blue')
         img_io = BytesIO()
-        img.save(img_io, format=format)
+        img.save(img_io, format=format, quality=50)
         img_io.seek(0)
         return img_io
     
     def test_extract_basic_metadata(self):
         """Test extraction of basic image metadata."""
-        test_image = self._create_test_image(size=(1920, 1080))
-        test_image.size = 1024000  # Set file size attribute
+        test_image = self._create_test_image(size=(20, 10))
+        test_image.size = 1024  # Set file size attribute
         
         metadata = ImageMetadataExtractor.extract_basic_metadata(test_image)
         
-        self.assertEqual(metadata['width'], 1920)
-        self.assertEqual(metadata['height'], 1080)
-        self.assertEqual(metadata['file_size'], 1024000)
+        self.assertEqual(metadata['width'], 20)
+        self.assertEqual(metadata['height'], 10)
+        self.assertEqual(metadata['file_size'], 1024)
         self.assertEqual(metadata['format'], 'JPEG')
         self.assertEqual(metadata['mode'], 'RGB')
     
     def test_extract_metadata_png(self):
         """Test metadata extraction for PNG images."""
-        test_image = self._create_test_image(size=(800, 600), format='PNG')
-        test_image.size = 512000
+        test_image = self._create_test_image(size=(15, 10), format='PNG')
+        test_image.size = 512
         
         metadata = ImageMetadataExtractor.extract_basic_metadata(test_image)
         
-        self.assertEqual(metadata['width'], 800)
-        self.assertEqual(metadata['height'], 600)
+        self.assertEqual(metadata['width'], 15)
+        self.assertEqual(metadata['height'], 10)
         self.assertEqual(metadata['format'], 'PNG')
     
     def test_extract_metadata_no_file_size(self):
@@ -103,6 +108,10 @@ class ImageMetadataExtractorTestCase(TestCase):
 
 class ExifExtractorTestCase(TestCase):
     """Test cases for ExifExtractor."""
+    
+    def tearDown(self):
+        """Clean up resources after each test."""
+        gc.collect()
     
     def test_make_exif_serializable(self):
         """Test converting EXIF data to JSON-serializable format."""

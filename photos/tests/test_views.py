@@ -16,6 +16,7 @@ from django.core.files.base import ContentFile
 from unittest.mock import Mock, patch, MagicMock, PropertyMock
 from io import BytesIO
 from PIL import Image
+import gc
 
 from photos.models import Photo, PhotoAlbum
 from tests.factories import UserFactory, PhotoFactory
@@ -67,9 +68,9 @@ class AlbumDetailViewTestCase(TestCase):
     def _create_test_photo(self, title):
         """Helper to create a test photo with unique image."""
         # Create unique image to avoid duplicate detection
-        img = Image.new('RGB', (100, 100), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
+        img = Image.new('RGB', (10, 10), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
         img_io = BytesIO()
-        img.save(img_io, format='JPEG')
+        img.save(img_io, format='JPEG', quality=50)
         img_io.seek(0)
 
         from django.core.files.uploadedfile import SimpleUploadedFile
@@ -82,6 +83,12 @@ class AlbumDetailViewTestCase(TestCase):
         photo = Photo(title=title, image=test_image)
         photo.save(skip_duplicate_check=True)
         return photo
+    
+    def tearDown(self):
+        """Clean up resources after each test."""
+        Photo.objects.all().delete()
+        PhotoAlbum.objects.all().delete()
+        gc.collect()
     
     def test_public_album_anonymous_access(self):
         """Test anonymous users can access public albums."""
@@ -508,9 +515,9 @@ class AlbumDownloadStatusViewTestCase(TestCase):
     def _create_test_photo(self, title):
         """Helper to create a test photo with unique image."""
         # Create unique image to avoid duplicate detection
-        img = Image.new('RGB', (100, 100), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
+        img = Image.new('RGB', (10, 10), color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256))
         img_io = BytesIO()
-        img.save(img_io, format='JPEG')
+        img.save(img_io, format='JPEG', quality=50)
         img_io.seek(0)
 
         from django.core.files.uploadedfile import SimpleUploadedFile
