@@ -1,5 +1,12 @@
 ---
-description: If you are an agent working in a git worktree
+description: Guidelines for creating and updating pull requests
 alwaysApply: true
 ---
-After completing all the changes, create or update a PR with the changes.
+
+# Pull Request Guidelines
+
+**IMPORTANT**: Always ask the user for permission before creating commits or pushing to source control, even when using MCP or Graphite tools.
+
+After receiving permission and completing all changes:
+1. Create a PR for the branch if one doesn't exist
+2. If a PR already exists for the branch, update it with the changes
