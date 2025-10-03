@@ -8,7 +8,6 @@ on:
     types: [ opened, synchronize, reopened, ready_for_review ]
   workflow_dispatch:
 
-# Cancel in-progress runs for PRs but not for main branch
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -16,22 +15,97 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository }}
-  SECRET_KEY: "FAKE_SECRET_KEY"
   PYTHONUNBUFFERED: 1
 
 jobs:
-  # First, run tests to ensure code quality
-  test:
-    uses: ./.github/workflows/test-and-check.yml
-    permissions:
-      contents: read
-    with:
-      python-version: '3.12.2'
-      upload-coverage: true
+  # Security check - fast and always runs
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+      
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c  # v6.0.0
+        with:
+          python-version: '3.12.2'
+          cache: 'pip'
+      
+      - name: Security scan
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety
+          safety scan --json || true
 
-  # Build Docker images after tests pass (only for main branch)
+  # Run tests in Docker
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
+      
+      - name: Build test image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
+        with:
+          context: .
+          file: Dockerfile
+          target: web
+          push: false
+          load: true
+          tags: test-runner:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Start services
+        run: |
+          docker compose -f docker-compose.test.yml up -d postgres redis localstack
+          echo "Waiting for services..."
+          sleep 10
+      
+      - name: Setup S3 in LocalStack
+        run: |
+          docker compose -f docker-compose.test.yml run --rm test_runner sh -c "
+            pip install awscli --no-cache-dir &&
+            aws --endpoint-url=http://localstack:4566 s3 mb s3://test-bucket || true &&
+            aws --endpoint-url=http://localstack:4566 s3api put-bucket-acl --bucket test-bucket --acl public-read || true
+          "
+      
+      - name: Run Django checks
+        run: |
+          docker compose -f docker-compose.test.yml run --rm test_runner \
+            python manage.py check --deploy --settings=config.settings_test
+          docker compose -f docker-compose.test.yml run --rm test_runner \
+            python manage.py makemigrations --check --dry-run --settings=config.settings_test
+      
+      - name: Run tests with coverage
+        run: |
+          mkdir -p ./test_output
+          docker compose -f docker-compose.test.yml run --rm \
+            -v $(pwd)/test_output:/code/test_output test_runner sh -c "
+            pip install coverage --no-cache-dir &&
+            coverage run --source='.' manage.py test --settings=config.settings_test --no-input --verbosity=2 --parallel &&
+            coverage report &&
+            coverage xml -o /code/test_output/coverage.xml
+          "
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.5.1
+        with:
+          files: ./test_output/coverage.xml
+          fail_ci_if_error: false
+      
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
+
+  # Build and push Docker images (only on main)
   build-and-push:
-    needs: test
+    needs: [security, test]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -42,13 +116,13 @@ jobs:
       matrix:
         include:
           - service: web
-            dockerfile: Dockerfile
+            target: web
           - service: celery
-            dockerfile: celery.Dockerfile
+            target: celery
           - service: celerybeat
-            dockerfile: celerybeat.Dockerfile
+            target: celerybeat
           - service: flower
-            dockerfile: flower.Dockerfile
+            target: flower
     
     steps:
       - name: Checkout code
@@ -56,9 +130,6 @@ jobs:
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
-        with:
-          driver-opts: |
-            network=host
       
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
@@ -84,18 +155,18 @@ jobs:
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: Dockerfile
+          target: ${{ matrix.target }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
-          # Build args removed - BUILDKIT_INLINE_CACHE is deprecated
           provenance: false
           sbom: false
   
-  # Deploy to CapRover after successful build
+  # Deploy to CapRover
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
@@ -113,68 +184,45 @@ jobs:
       - name: Check for Flower changes
         id: flower-changes
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -E '(flower\.Dockerfile|requirements\.txt|config/celery\.py|captain-definition-flower)'; then
+          if git diff --name-only HEAD^ HEAD | grep -E '(Dockerfile|requirements\.txt|config/celery\.py|captain-definition-flower)'; then
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "🌸 Flower-related files changed, will deploy Flower"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "⏭️ No Flower-related changes, skipping Flower deployment"
           fi
-      - name: Deploy Web to CapRover
+      
+      - name: Deploy Web
         continue-on-error: true
         run: |
-          echo "🚀 Deploying Web service to CapRover..."
           docker run caprover/cli-caprover:latest caprover deploy \
             --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
             --appToken "${{ secrets.CAPROVER_WEB_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_WEB_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-web:latest"
       
-      - name: Deploy Celery to CapRover
+      - name: Deploy Celery
         continue-on-error: true
         run: |
-          echo "🔧 Deploying Celery worker to CapRover..."
           docker run caprover/cli-caprover:latest caprover deploy \
             --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
             --appToken "${{ secrets.CAPROVER_CELERY_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_CELERY_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celery:latest"
       
-      - name: Deploy Celery Beat to CapRover
+      - name: Deploy Celery Beat
         continue-on-error: true
         run: |
-          echo "⏰ Deploying Celery Beat to CapRover..."
           docker run caprover/cli-caprover:latest caprover deploy \
             --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
             --appToken "${{ secrets.CAPROVER_CELERYBEAT_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_CELERYBEAT_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celerybeat:latest"
       
-      - name: Deploy Flower to CapRover
+      - name: Deploy Flower
         if: steps.flower-changes.outputs.changed == 'true'
         continue-on-error: true
         run: |
-          echo "🌸 Deploying Flower monitoring to CapRover..."
           docker run caprover/cli-caprover:latest caprover deploy \
             --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
             --appToken "${{ secrets.CAPROVER_FLOWER_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_FLOWER_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-flower:latest"
-      
-      - name: Deployment Summary
-        if: always()
-        run: |
-          echo "============================="
-          echo "✅ Deployment Complete!"
-          echo "============================="
-          echo "Services deployed:"
-          echo "• Web: ${{ secrets.CAPROVER_WEB_APP_NAME }}"
-          echo "• Celery: ${{ secrets.CAPROVER_CELERY_APP_NAME }}"
-          echo "• Celery Beat: ${{ secrets.CAPROVER_CELERYBEAT_APP_NAME }}"
-          if [[ "${{ steps.flower-changes.outputs.changed }}" == "true" ]]; then
-            echo "• Flower: ${{ secrets.CAPROVER_FLOWER_APP_NAME }}"
-          else
-            echo "• Flower: (skipped - no changes)"
-          fi
-          echo ""
-          echo "Check CapRover dashboard for deployment status"
