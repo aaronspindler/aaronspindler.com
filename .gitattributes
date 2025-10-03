@@ -1,0 +1,4 @@
+# Mark the projects directory as vendored code
+# This excludes it from Dependabot scanning and GitHub language statistics
+projects/** linguist-vendored
+
