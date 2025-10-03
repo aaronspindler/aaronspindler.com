@@ -230,6 +230,7 @@ services:
       - USE_LOCALSTACK=true
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
+    mem_limit: 4g
     depends_on:
       postgres:
         condition: service_healthy
