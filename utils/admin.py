@@ -91,6 +91,7 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
     )
     date_hierarchy = 'created_at'
     ordering = ('-created_at',)
+    actions = ['delete_local_records']
     
     def has_add_permission(self, request):
         """Disable manual creation - fingerprints should be created from requests."""
@@ -99,3 +100,16 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         """Make fingerprints read-only."""
         return False
+    
+    @admin.action(description='Delete local (localhost/127.0.0.1) records')
+    def delete_local_records(self, request, queryset):
+        """Delete all RequestFingerprint records from localhost or 127.0.0.1."""
+        local_ips = ['127.0.0.1', '::1']
+        deleted_count, _ = RequestFingerprint.objects.filter(
+            ip_address__in=local_ips
+        ).delete()
+        
+        self.message_user(
+            request,
+            f'Successfully deleted {deleted_count} local record(s).',
+        )
