@@ -65,6 +65,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: web
     command: >
       sh -c "
         echo 'Waiting for services to be healthy...' &&
@@ -119,7 +120,8 @@ services:
   celery_worker:
     build:
       context: .
-      dockerfile: celery.Dockerfile
+      dockerfile: Dockerfile
+      target: celery
     command: celery -A config worker -l info --concurrency=2
     volumes:
       - .:/code
@@ -150,7 +152,8 @@ services:
   celery_beat:
     build:
       context: .
-      dockerfile: celerybeat.Dockerfile
+      dockerfile: Dockerfile
+      target: celerybeat
     command: celery -A config beat -l info
     volumes:
       - .:/code
@@ -172,7 +175,8 @@ services:
   flower:
     build:
       context: .
-      dockerfile: flower.Dockerfile
+      dockerfile: Dockerfile
+      target: flower
     command: celery -A config flower --port=5555
     ports:
       - "5556:5555"  # Use different port to avoid conflicts
@@ -193,6 +197,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: web
     command: >
       sh -c "
         echo 'Waiting for services to be ready...' &&
