@@ -1,5 +1,5 @@
 ---
 description: If you are an agent working in a git worktree
-alwaysApply: false
+alwaysApply: true
 ---
 After completing all the changes, create or update a PR with the changes.
