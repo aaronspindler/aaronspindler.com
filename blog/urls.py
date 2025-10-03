@@ -7,10 +7,16 @@ from .views import (
     reply_to_comment,
     moderate_comment,
     delete_comment,
-    vote_comment
+    vote_comment,
+    search_view,
+    tags_browse
 )
 
 urlpatterns = [
+    # Search and tags
+    path("search/", search_view, name="search"),
+    path("tags/", tags_browse, name="tags_browse"),
+    
     # Comment management routes (must come before blog post routes to avoid conflicts)
     path("b/<str:category>/<str:template_name>/comment/", submit_comment, name="submit_comment_with_category"),
     path("b/<str:template_name>/comment/", submit_comment, name="submit_comment"),
