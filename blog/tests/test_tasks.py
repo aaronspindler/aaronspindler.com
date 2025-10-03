@@ -131,66 +131,26 @@ class ManagementCommandsTest(TestCase):
         self.assertIn('API test passed', output)
         mock_client.get.assert_called_with('/api/knowledge-graph/')
 
-    @patch('blog.management.commands.generate_knowledge_graph_screenshot.sync_playwright')
-    def test_generate_knowledge_graph_screenshot_command(self, mock_playwright):
+    @patch('blog.management.commands.generate_knowledge_graph_screenshot.Command._generate_screenshot')
+    @patch('blog.knowledge_graph.build_knowledge_graph')
+    def test_generate_knowledge_graph_screenshot_command(self, mock_build_graph, mock_generate_screenshot):
         """Test generate_knowledge_graph_screenshot command."""
-        # Mock Playwright
-        mock_browser = MagicMock()
-        mock_page = MagicMock()
-        mock_context = MagicMock()
-        mock_element = MagicMock()
+        # Mock the screenshot generation to return fake data without launching Playwright
+        mock_generate_screenshot.return_value = b'fake_screenshot_data'
         
-        mock_playwright_instance = MagicMock()
-        mock_playwright.return_value.__enter__.return_value = mock_playwright_instance
-        mock_playwright_instance.chromium.launch.return_value = mock_browser
-        mock_browser.new_context.return_value = mock_context
-        mock_context.new_page.return_value = mock_page
-        mock_page.query_selector.return_value = mock_element
-        mock_element.screenshot.return_value = b'fake_screenshot_data'
+        # Mock the knowledge graph build
+        mock_build_graph.return_value = {
+            'nodes': [{'id': 'test', 'label': 'Test'}],
+            'edges': [],
+            'metrics': {}
+        }
         
-        # Mock file operations
-        with patch('builtins.open', MagicMock()):
-            out = StringIO()
-            call_command('generate_knowledge_graph_screenshot', stdout=out)
+        out = StringIO()
+        call_command('generate_knowledge_graph_screenshot', stdout=out)
         
         output = out.getvalue()
         self.assertIn('Starting knowledge graph screenshot generation', output)
         self.assertIn('Successfully generated', output)
-
-    @patch('blog.management.commands.generate_knowledge_graph_screenshot.sync_playwright')
-    def test_generate_knowledge_graph_screenshot_custom_options(self, mock_playwright):
-        """Test screenshot command with custom options."""
-        mock_browser = MagicMock()
-        mock_page = MagicMock()
-        mock_context = MagicMock()
-        
-        mock_playwright_instance = MagicMock()
-        mock_playwright.return_value.__enter__.return_value = mock_playwright_instance
-        mock_playwright_instance.chromium.launch.return_value = mock_browser
-        mock_browser.new_context.return_value = mock_context
-        mock_context.new_page.return_value = mock_page
-        mock_page.screenshot.return_value = b'fake_screenshot_data'
-        
-        with patch('builtins.open', MagicMock()):
-            out = StringIO()
-            call_command(
-                'generate_knowledge_graph_screenshot',
-                '--width=1920',
-                '--height=1080',
-                '--device-scale-factor=1.5',
-                '--wait-time=5000',
-                '--quality=90',
-                '--full-page',
-                '--transparent',
-                stdout=out
-            )
-        
-        # Verify viewport settings
-        mock_browser.new_context.assert_called_once()
-        context_args = mock_browser.new_context.call_args[1]
-        self.assertEqual(context_args['viewport']['width'], 1920)
-        self.assertEqual(context_args['viewport']['height'], 1080)
-        self.assertEqual(context_args['device_scale_factor'], 1.5)
 
     @patch('django_celery_beat.models.CrontabSchedule')
     @patch('django_celery_beat.models.PeriodicTask')

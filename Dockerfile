@@ -1,6 +1,6 @@
 # Multi-stage build for smaller final image
 # Stage 1: Build dependencies
-FROM python:3.13.7-slim-bookworm as builder
+FROM python:3.13.7-slim-bookworm AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -19,7 +19,7 @@ RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Playwright installation (separate for caching)
-FROM python:3.13.7-slim-bookworm as playwright-installer
+FROM python:3.13.7-slim-bookworm AS playwright-installer
 
 # Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv

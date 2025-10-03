@@ -26,19 +26,38 @@ def responsive_image(photo, css_class='', alt_text='', loading='lazy'):
     # Build the srcset attribute
     srcset_parts = []
     
-    if photo.image_display:
-        srcset_parts.append(f'{photo.image_display.url} 1200w')
+    if photo.image_display and photo.image_display.name:
+        try:
+            srcset_parts.append(f'{photo.image_display.url} 1200w')
+        except (ValueError, AttributeError):
+            pass
     
-    if photo.image_optimized:
-        srcset_parts.append(f'{photo.image_optimized.url} {photo.width}w' if photo.width else photo.image_optimized.url)
+    if photo.image_optimized and photo.image_optimized.name:
+        try:
+            srcset_parts.append(f'{photo.image_optimized.url} {photo.width}w' if photo.width else photo.image_optimized.url)
+        except (ValueError, AttributeError):
+            pass
     
-    if photo.image:
-        srcset_parts.append(f'{photo.image.url} {photo.width}w' if photo.width else photo.image.url)
+    if photo.image and photo.image.name:
+        try:
+            srcset_parts.append(f'{photo.image.url} {photo.width}w' if photo.width else photo.image.url)
+        except (ValueError, AttributeError):
+            pass
     
     srcset = ', '.join(srcset_parts)
     
     # Default src (use display version as default, fallback to optimized then original)
-    default_src = photo.image_display.url if photo.image_display else (photo.image_optimized.url if photo.image_optimized else photo.image.url)
+    default_src = None
+    for field in [photo.image_display, photo.image_optimized, photo.image]:
+        if field and field.name:
+            try:
+                default_src = field.url
+                break
+            except (ValueError, AttributeError):
+                continue
+    
+    if not default_src:
+        return ''  # No valid image found
     
     # Build the img tag
     img_tag = f'''
@@ -78,20 +97,36 @@ def picture_element(photo, css_class='', alt_text='', loading='lazy'):
     picture_html = '<picture>'
     
     # Add source elements for different viewport widths
-    if photo.image_optimized:
-        picture_html += f'''
+    if photo.image_optimized and photo.image_optimized.name:
+        try:
+            picture_html += f'''
         <source media="(min-width: 1200px)"
                 srcset="{photo.image_optimized.url}">
         '''
+        except (ValueError, AttributeError):
+            pass
     
-    if photo.image_display:
-        picture_html += f'''
+    if photo.image_display and photo.image_display.name:
+        try:
+            picture_html += f'''
         <source media="(min-width: 768px)"
                 srcset="{photo.image_display.url}">
         '''
+        except (ValueError, AttributeError):
+            pass
     
     # Fallback img element (use display for smallest screens, fallback to optimized or original)
-    fallback_src = photo.image_display.url if photo.image_display else (photo.image_optimized.url if photo.image_optimized else photo.image.url)
+    fallback_src = None
+    for field in [photo.image_display, photo.image_optimized, photo.image]:
+        if field and field.name:
+            try:
+                fallback_src = field.url
+                break
+            except (ValueError, AttributeError):
+                continue
+    
+    if not fallback_src:
+        return ''  # No valid image found
     
     picture_html += f'''
     <img src="{fallback_src}"
@@ -118,3 +153,20 @@ def photo_url(photo, size='medium'):
         return ''
     
     return photo.get_image_url(size) or ''
+
+
+@register.filter
+def safe_image_url(image_field):
+    """
+    Safely get URL from an ImageField, returning empty string if no file.
+    
+    Usage:
+        {% load photo_tags %}
+        {{ photo.image_display|safe_image_url }}
+    """
+    try:
+        if image_field and image_field.name:
+            return image_field.url
+    except (ValueError, AttributeError):
+        pass
+    return ''

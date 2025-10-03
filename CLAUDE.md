@@ -46,6 +46,8 @@ python manage.py test --parallel
 safety check
 ```
 
+**IMPORTANT**: Do not write new tests for code in this repository unless explicitly requested.
+
 ### CSS and JavaScript Build
 ```bash
 # Build and optimize CSS
@@ -138,6 +140,7 @@ python manage.py setup_periodic_tasks
    - View count tracking per post
    - Category-based organization
    - Template normalization for consistency
+   - **Important**: When modifying blog post templates in `templates/blog/*/*.html`, utilize existing stylesheets and maintain consistency with other posts
 
 ### Deployment Configuration
 - **Docker**: Multi-stage build with Playwright for screenshot generation
@@ -152,7 +155,7 @@ Required environment variables (use django-environ):
 - `DATABASE_URL`: PostgreSQL connection string
 - `SECRET_KEY`: Django secret key
 - `DEBUG`: Debug mode flag
-- AWS credentials (required):
+- AWS credentials (required for production with S3 storage; optional for local development):
   - `AWS_ACCESS_KEY_ID`
   - `AWS_SECRET_ACCESS_KEY`
   - `AWS_STORAGE_BUCKET_NAME`

@@ -7,8 +7,6 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 
-from pages.models import PageVisit
-from pages.decorators import track_page_visit
 from blog.utils import get_blog_from_template_name, get_all_blog_posts
 from blog.knowledge_graph import build_knowledge_graph, get_post_graph
 from blog.models import BlogComment, CommentVote, KnowledgeGraphScreenshot
@@ -25,7 +23,6 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-@track_page_visit
 def render_blog_template(request, template_name, category=None):
     """
     Render a blog post with comments, voting, and view tracking.
@@ -39,12 +36,14 @@ def render_blog_template(request, template_name, category=None):
     try:
         blog_data = get_blog_from_template_name(template_name, category=category)
         
-        # Build page name for view tracking
+        # Build page path for view tracking using RequestFingerprint
         if category:
-            page_name = f'/b/{category}/{template_name}/'
+            page_path = f'/b/{category}/{template_name}/'
         else:
-            page_name = f'/b/{template_name}/'
-        views = PageVisit.objects.filter(page_name=page_name).values_list('pk', flat=True).count()
+            page_path = f'/b/{template_name}/'
+        
+        from utils.models import RequestFingerprint
+        views = RequestFingerprint.objects.filter(path=page_path).count()
         blog_data['views'] = views
         
         # Fetch approved comments with optimized queries
@@ -223,10 +222,12 @@ def submit_comment(request, template_name, category=None):
     try:
         blog_data = get_blog_from_template_name(template_name, category=category)
         if category:
-            page_name = f'/b/{category}/{template_name}/'
+            page_path = f'/b/{category}/{template_name}/'
         else:
-            page_name = f'/b/{template_name}/'
-        views = PageVisit.objects.filter(page_name=page_name).values_list('pk', flat=True).count()
+            page_path = f'/b/{template_name}/'
+        
+        from utils.models import RequestFingerprint
+        views = RequestFingerprint.objects.filter(path=page_path).count()
         blog_data['views'] = views
         
         comments = BlogComment.get_approved_comments(template_name, category)

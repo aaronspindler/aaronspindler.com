@@ -331,11 +331,19 @@ class SmartCrop:
         cell_width = width // grid_size
         cell_height = height // grid_size
         
+        # If image is too small for grid analysis, return center
+        if cell_width < 2 or cell_height < 2:
+            return (0.5, 0.5)
+        
         max_entropy = 0
         best_x, best_y = width // 2, height // 2
         
-        for y in range(0, height - cell_height, cell_height // 2):
-            for x in range(0, width - cell_width, cell_width // 2):
+        # Ensure step size is at least 1
+        step_x = max(1, cell_width // 2)
+        step_y = max(1, cell_height // 2)
+        
+        for y in range(0, height - cell_height, step_y):
+            for x in range(0, width - cell_width, step_x):
                 box = (x, y, x + cell_width, y + cell_height)
                 region = img.crop(box)
                 entropy = SmartCrop._calculate_entropy(region)
