@@ -639,8 +639,8 @@ class GraphBuilder:
                 for post in all_posts:
                     if normalize_template_name(post['template_name']) == normalized_input:
                         return post['template_name'].replace('_', ' ')
-            except Exception:
-                pass
+            except Exception as e:
+                logger.exception(f"Error during blog post title fallback lookup for '{template_name}': {e}")
             return template_name.replace('_', ' ')
     
     def _calculate_graph_metrics(self, nodes: Dict, edges: List[Dict], external_domains: Dict) -> Dict:
