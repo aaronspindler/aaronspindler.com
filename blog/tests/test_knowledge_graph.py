@@ -326,14 +326,33 @@ class GraphBuilderTest(TestCase):
         
         self.assertEqual(title, 'My Awesome Post')
 
+    @patch('blog.knowledge_graph.get_all_blog_posts')
     @patch('blog.knowledge_graph.get_blog_from_template_name')
-    def test_get_post_title_fallback(self, mock_get_blog):
-        """Test title fallback when blog data unavailable."""
+    def test_get_post_title_fallback(self, mock_get_blog, mock_get_all_posts):
+        """Test title fallback when blog data unavailable but preserves casing from blog posts list."""
         mock_get_blog.side_effect = Exception('Not found')
+        mock_get_all_posts.return_value = [
+            {'template_name': 'My_Awesome_Post', 'category': 'tech'}
+        ]
         
+        # When provided lowercase, should find and use original casing
         title = self.builder._get_post_title('my_awesome_post')
+        self.assertEqual(title, 'My Awesome Post')  # Preserves original casing
         
-        self.assertEqual(title, 'my awesome post')  # Underscores replaced
+        # When provided with exact casing, should also work
+        title = self.builder._get_post_title('My_Awesome_Post')
+        self.assertEqual(title, 'My Awesome Post')
+    
+    @patch('blog.knowledge_graph.get_all_blog_posts')
+    @patch('blog.knowledge_graph.get_blog_from_template_name')
+    def test_get_post_title_fallback_no_match(self, mock_get_blog, mock_get_all_posts):
+        """Test title fallback when no matching post found in list."""
+        mock_get_blog.side_effect = Exception('Not found')
+        mock_get_all_posts.return_value = []
+        
+        # When no match found, uses the provided name (may be lowercase)
+        title = self.builder._get_post_title('my_awesome_post')
+        self.assertEqual(title, 'my awesome post')  # Falls back to provided name
 
 
 class IntegrationTest(TestCase):
