@@ -1,11 +1,22 @@
 ---
-description: apply this rule to chats that look to create tests
+description: apply this rule to chats that look to create or run tests
 alwaysApply: false
 ---
-Do not try to write tests for code in this repository.
 
-When running tests locally, do not use the --parallel flag. Run tests with:
-- `python manage.py test` (without --parallel)
-- `coverage run --source='.' manage.py test --no-input` (without --parallel)
+# Testing Guidelines
 
-The --parallel flag should only be used in CI/CD environments, not for local development.
+## Running Tests
+
+Run tests using:
+```bash
+make test
+```
+
+This command runs the Django test suite without parallel execution (suitable for local development).
+
+## Important Notes
+
+- **Do NOT write new tests** unless explicitly requested by the user
+- When modifying existing code, always check for corresponding tests and update them to reflect changes
+- Tests should be run locally without the `--parallel` flag
+- The `--parallel` flag is only used in CI/CD environments
