@@ -1,0 +1,64 @@
+---
+description: Guidelines for maintaining context documents (CLAUDE.md and README.md)
+alwaysApply: true
+---
+
+# AI Context and Documentation
+
+## Context Documents
+
+When working with this codebase, always reference these primary context documents for guidance:
+
+- **CLAUDE.md** - Developer-focused reference with:
+  - Common development commands
+  - Architecture overview and app structure
+  - Key technical features and implementation details
+  - Deployment configuration
+  - Testing approach
+
+- **README.md** - Project overview with:
+  - Quick start guide
+  - High-level feature descriptions
+  - Tech stack overview
+  - User-facing documentation
+
+## Updating Context Documents
+
+**CRITICAL**: Whenever you make changes to the codebase that affect documented behavior, you MUST update the relevant context documents to keep them in sync with the implementation.
+
+### When to Update CLAUDE.md
+
+Update CLAUDE.md when changes affect:
+- New or modified management commands
+- Changes to the Django app architecture or structure
+- New key technical features or system components
+- Updates to environment variables or configuration
+- Changes to the testing approach or development workflow
+- New or modified deployment requirements
+- Changes to performance optimizations or caching strategies
+
+### When to Update README.md
+
+Update README.md when changes affect:
+- New user-facing features
+- Changes to the tech stack or major dependencies
+- Updates to the quick start or setup process
+- Changes to Docker deployment instructions
+- New capabilities in blog posts, photo management, or knowledge graph
+- Updates to the testing or development workflow that users need to know
+
+### Update Process
+
+1. Make your code changes first
+2. Review both CLAUDE.md and README.md to identify outdated sections
+3. Update the relevant sections to reflect the new implementation
+4. Ensure consistency between both documents (don't contradict information)
+5. Keep updates clear, concise, and accurate
+
+### What NOT to Update
+
+Do not update these documents for:
+- Minor bug fixes that don't change behavior
+- Refactoring that doesn't affect the public API or usage
+- Internal implementation details that don't affect developers using the codebase
+- Temporary or experimental changes

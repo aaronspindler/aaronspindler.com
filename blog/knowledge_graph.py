@@ -593,17 +593,24 @@ class GraphBuilder:
         }
     
     def _get_post_title(self, template_name: str) -> str:
-        """Get a readable title for a blog post from its template name."""
+        """
+        Get a readable title for a blog post from its template name.
+        
+        This method ensures that the original casing from the filename is preserved
+        even when normalized (lowercase) template names are used as node IDs.
+        """
         try:
             # Try to get the blog data with category information
             all_posts = get_all_blog_posts()
             category = None
             normalized_input = normalize_template_name(template_name)
+            original_cased_name = None
             
             for post in all_posts:
                 # Compare normalized versions for matching
                 if normalize_template_name(post['template_name']) == normalized_input:
                     category = post['category']
+                    original_cased_name = post['template_name']  # Store the original casing
                     # Use the original template name from the post for lookup
                     blog_data = get_blog_from_template_name(post['template_name'], load_content=False, category=category)
                     # If blog_title is found, use it; otherwise use the original cased template name
@@ -612,15 +619,29 @@ class GraphBuilder:
                     else:
                         return post['template_name'].replace('_', ' ')
             
+            # If not found in posts but we have the original cased name, use it
+            if original_cased_name:
+                return original_cased_name.replace('_', ' ')
+            
             # If not found in posts, try with the provided name
             blog_data = get_blog_from_template_name(template_name, load_content=False, category=None)
             if 'blog_title' in blog_data and blog_data['blog_title']:
                 return blog_data['blog_title']
             else:
-                return template_name.replace('_', ' ')  # Preserve original case from filename
+                # Last resort: use the provided name (may be lowercase if normalized)
+                return template_name.replace('_', ' ')
                 
         except Exception:
-            return template_name.replace('_', ' ')  # Preserve original case from filename
+            # In error cases, try to look up original casing
+            try:
+                all_posts = get_all_blog_posts()
+                normalized_input = normalize_template_name(template_name)
+                for post in all_posts:
+                    if normalize_template_name(post['template_name']) == normalized_input:
+                        return post['template_name'].replace('_', ' ')
+            except Exception as e:
+                logger.exception(f"Error during blog post title fallback lookup for '{template_name}': {e}")
+            return template_name.replace('_', ' ')
     
     def _calculate_graph_metrics(self, nodes: Dict, edges: List[Dict], external_domains: Dict) -> Dict:
         """Calculate various graph metrics."""
