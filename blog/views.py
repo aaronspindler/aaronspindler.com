@@ -9,9 +9,9 @@ from django.db.models import Count, Q
 
 from blog.utils import get_blog_from_template_name, get_all_blog_posts
 from blog.knowledge_graph import build_knowledge_graph, get_post_graph
-from blog.models import BlogComment, CommentVote, KnowledgeGraphScreenshot, BlogPostTag, Tag
+from blog.models import BlogComment, CommentVote, KnowledgeGraphScreenshot
 from blog.forms import CommentForm, ReplyForm
-from blog.search import search_blog_posts, search_projects, search_books, get_all_tags_with_counts, get_related_posts
+from blog.search import search_blog_posts, search_projects, search_books
 
 import os
 from django.conf import settings
@@ -61,12 +61,6 @@ def render_blog_template(request, template_name, category=None):
         blog_data['comments'] = comments
         blog_data['comment_count'] = comments.count()
         blog_data['comment_form'] = CommentForm(user=request.user)
-        
-        # Add tags for this post
-        blog_data['tags'] = BlogPostTag.get_tags_for_post(template_name, category)
-        
-        # Add related posts based on tags and category
-        blog_data['related_posts'] = get_related_posts(template_name, category, limit=5)
         
         # Show pending comment count to staff for moderation
         if request.user.is_staff:
@@ -449,10 +443,9 @@ def vote_comment(request, comment_id):
 def search_view(request):
     """
     Unified search view for blog posts, projects, and books.
-    Supports full-text search and tag-based filtering.
+    Supports full-text search.
     """
     query = request.GET.get('q', '').strip()
-    tag_slugs = request.GET.getlist('tag')
     category = request.GET.get('category', '').strip() or None
     content_type = request.GET.get('type', 'all')  # all, blog, projects, books
     
@@ -466,15 +459,13 @@ def search_view(request):
     if content_type in ['all', 'blog']:
         results['blog_posts'] = search_blog_posts(
             query=query if query else None,
-            tags=tag_slugs if tag_slugs else None,
             category=category
         )
     
     # Search projects
     if content_type in ['all', 'projects']:
         results['projects'] = search_projects(
-            query=query if query else None,
-            tags=None  # Projects use tech stack, not formal tags yet
+            query=query if query else None
         )
     
     # Search books
@@ -483,18 +474,8 @@ def search_view(request):
             query=query if query else None
         )
     
-    # Get all tags for filtering UI
-    all_tags = get_all_tags_with_counts()
-    
-    # Get selected tags for display
-    selected_tags = []
-    if tag_slugs:
-        selected_tags = Tag.objects.filter(slug__in=tag_slugs)
-    
     context = {
         'query': query,
-        'selected_tags': selected_tags,
-        'all_tags': all_tags,
         'category': category,
         'content_type': content_type,
         'results': results,
@@ -502,19 +483,3 @@ def search_view(request):
     }
     
     return render(request, 'blog/search_results.html', context)
-
-
-@require_GET
-def tags_browse(request):
-    """
-    Browse all tags with post counts.
-    Allows filtering blog posts by clicking on tags.
-    """
-    all_tags = get_all_tags_with_counts()
-    
-    context = {
-        'all_tags': all_tags,
-        'total_tags': all_tags.count()
-    }
-    
-    return render(request, 'blog/tags_browse.html', context)
