@@ -1,11 +1,11 @@
 amqp==5.3.1
-asgiref==3.9.2
+asgiref==3.10.0
 beautifulsoup4==4.14.2
 billiard==4.2.2
-boto3==1.40.44
-botocore==1.40.44
+boto3==1.40.45
+botocore==1.40.45
 celery==5.5.3
-certifi==2025.8.3
+certifi==2025.10.5
 charset-normalizer==3.4.3
 click==8.2.1
 click-didyoumean==0.3.1
@@ -13,7 +13,7 @@ click-plugins==1.1.1.2
 click-repl==0.3.0
 cron_descriptor==2.0.6
 Django==5.2.5
-django-allauth==65.11.2
+django-allauth==65.12.0
 django-celery-beat==2.8.1
 django-environ==0.12.0
 django-redis==6.0.0
