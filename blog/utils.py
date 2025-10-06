@@ -5,38 +5,26 @@ from django.template.loader import render_to_string
 
 def get_blog_from_template_name(template_name, load_content=True, category=None):
     """
-    Get blog data from template name, searching across categories if needed.
+    Get blog data from template name.
     
     Args:
         template_name: Name of the blog template (without .html extension)
         load_content: Whether to render the template content (False for metadata only)
-        category: Optional category hint to avoid searching
+        category: Category of the blog post (required)
         
     Returns:
         Dict with blog metadata including title, content, category, and GitHub link
     """
+    if not category:
+        raise ValueError("Category is required for blog posts")
+    
     entry_number = template_name.split("_")[0]
-    blog_title = template_name.replace("_", " ")  # Preserve original case
+    blog_title = template_name.replace("_", " ")  # Preserve original case from filename
     
-    # Determine template path based on category or search for it
-    if category:
-        template_path = f"blog/{category}/{template_name}.html"
-    else:
-        template_path = find_blog_template(template_name)
-        if template_path:
-            parts = template_path.split('/')
-            if len(parts) > 2:  # Extract category from path like blog/category/file.html
-                category = parts[1]
-        else:
-            template_path = f"blog/{template_name}.html"
-    
+    template_path = f"blog/{category}/{template_name}.html"
     blog_content = render_to_string(template_path) if load_content else ""
     
-    # Build GitHub history link based on file location
-    if category:
-        github_path = f"templates/blog/{category}/{template_name}.html"
-    else:
-        github_path = f"templates/blog/{template_name}.html"
+    github_path = f"templates/blog/{category}/{template_name}.html"
     
     return {
         "entry_number": entry_number,
@@ -47,52 +35,11 @@ def get_blog_from_template_name(template_name, load_content=True, category=None)
         "github_link": f"https://github.com/aaronspindler/aaronspindler.com/commits/main/{github_path}",
     }
 
-def find_blog_template(template_name):
-    """
-    Find a blog template by name, searching through all categories.
-
-    Searches first in the root blog directory, then in category subdirectories.
-
-    Args:
-        template_name: Name of the template file (without .html extension)
-
-    Returns:
-        Relative template path for Django's template loader, or None if not found
-    """
-    # Sanitize template_name to prevent directory traversal
-    import re
-    # Allow only alphanumeric, dash, underscore characters
-    if not re.match(r'^[a-zA-Z0-9_-]+$', template_name):
-        return None
-
-    # Further protection: use basename to strip any directory components
-    template_name = os.path.basename(template_name)
-
-    blog_templates_path = os.path.join(settings.BASE_DIR, 'templates', 'blog')
-
-    # Check root blog directory first
-    root_path = os.path.join(blog_templates_path, f'{template_name}.html')
-    # Ensure the resolved path is within the expected directory
-    if os.path.exists(root_path) and os.path.commonpath([root_path, blog_templates_path]) == blog_templates_path:
-        return f"blog/{template_name}.html"
-
-    # Search in category subdirectories
-    for category in os.listdir(blog_templates_path):
-        category_path = os.path.join(blog_templates_path, category)
-        if os.path.isdir(category_path):
-            file_path = os.path.join(category_path, f'{template_name}.html')
-            # Ensure the resolved path is within the expected directory
-            if os.path.exists(file_path) and os.path.commonpath([file_path, blog_templates_path]) == blog_templates_path:
-                return f"blog/{category}/{template_name}.html"
-
-    return None
-
 def get_all_blog_posts():
     """
     Scan the blog templates directory to find all blog posts.
     
-    Walks through the blog directory structure and collects all HTML templates,
-    organizing them by category (subdirectory).
+    All blog posts must be in category subdirectories.
     
     Returns:
         List of dicts with template_name, category, and full_path for each blog post
@@ -103,15 +50,15 @@ def get_all_blog_posts():
     for root, dirs, files in os.walk(blog_templates_path):
         rel_path = os.path.relpath(root, blog_templates_path)
         
-        # Determine category based on directory structure
+        # Skip root level - all posts must be in categories
         if rel_path == '.':
-            category = None  # Root level posts have no category
-        else:
-            category = rel_path.split(os.sep)[0]  # First directory is the category
+            continue
+            
+        category = rel_path.split(os.sep)[0]  # First directory is the category
         
         for file in files:
             if file.endswith('.html'):
-                template_name = file[:-5]  # Remove .html extension
+                template_name = file[:-5]  # Remove .html extension, preserves original casing
                 blog_posts.append({
                     'template_name': template_name,
                     'category': category,

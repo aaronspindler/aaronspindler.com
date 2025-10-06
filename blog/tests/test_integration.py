@@ -108,7 +108,7 @@ class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
         )
 
         # Test blog view includes nested structure
-        response = self.client.get('/b/0001_test_post/')
+        response = self.client.get('/b/tech/0001_test_post/')
         self.assertEqual(response.status_code, 200)
         
         comments = response.context['comments']

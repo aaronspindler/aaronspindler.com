@@ -26,7 +26,7 @@ class BlogViewsTest(TestCase, TestDataMixin):
         mock_get_blog.return_value = self.mock_blog_data
         mock_request_fingerprint.objects.filter.return_value.count.return_value = 42
 
-        response = self.client.get('/b/0001_test_post/')
+        response = self.client.get('/b/tech/0001_test_post/')
         
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Test content')
@@ -83,7 +83,7 @@ class BlogViewsTest(TestCase, TestDataMixin):
             'template_name': '0001_test_post',
             'blog_title': '0001 test post',
             'blog_content': '<p>Test content</p>',
-            'category': None,
+            'category': 'tech',
             'github_link': 'https://github.com/test'
         }
         mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
@@ -91,22 +91,22 @@ class BlogViewsTest(TestCase, TestDataMixin):
         # Create pending comments for the specific blog post
         BlogCommentFactory.create_pending_comment(
             blog_template_name='0001_test_post',
-            blog_category=None,
+            blog_category='tech',
             content='Pending 1'
         )
         BlogCommentFactory.create_pending_comment(
             blog_template_name='0001_test_post',
-            blog_category=None,
+            blog_category='tech',
             content='Pending 2'
         )
 
         # Test as regular user - shouldn't see pending count
-        response = self.client.get('/b/0001_test_post/')
+        response = self.client.get('/b/tech/0001_test_post/')
         self.assertNotIn('pending_comments_count', response.context)
 
         # Test as staff user - should see pending count
         self.client.login(username=self.staff_user.username, password='testpass123')
-        response = self.client.get('/b/0001_test_post/')
+        response = self.client.get('/b/tech/0001_test_post/')
         self.assertEqual(response.context['pending_comments_count'], 2)
 
 

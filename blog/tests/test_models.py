@@ -124,12 +124,6 @@ class BlogCommentModelTest(TestCase, TestDataMixin):
             content='Test comment'
         )
         self.assertEqual(comment_with_category.get_blog_url(), '/b/tech/0001_test_post/')
-        
-        comment_without_category = BlogComment.objects.create(
-            blog_template_name='0001_test_post',
-            content='Test comment'
-        )
-        self.assertEqual(comment_without_category.get_blog_url(), '/b/0001_test_post/')
 
     def test_get_approved_comments(self):
         """Test retrieving approved comments for a blog post."""

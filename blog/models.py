@@ -23,8 +23,6 @@ class BlogComment(models.Model):
     )
     blog_category = models.CharField(
         max_length=50,
-        blank=True,
-        null=True,
         help_text="Category of the blog post (e.g., 'tech', 'personal')"
     )
     

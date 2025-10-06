@@ -63,14 +63,12 @@
             {% for post in results.blog_posts %}
             <article class="search-result-item">
                 <h4>
-                    <a href="{% if post.category %}/b/{{ post.category }}/{{ post.template_name }}/{% else %}/b/{{ post.template_name }}/{% endif %}">
+                    <a href="/b/{{ post.category }}/{{ post.template_name }}/">
                         {{ post.blog_title }}
                     </a>
                 </h4>
                 <div class="search-result-meta">
-                    {% if post.category %}
                     <span class="result-category">{{ post.category|title }}</span>
-                    {% endif %}
                     <span class="result-entry">Entry #{{ post.entry_number }}</span>
                 </div>
             </article>

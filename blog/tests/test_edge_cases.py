@@ -275,7 +275,7 @@ class EdgeCaseTests(TestCase):
         mock_get_blog.return_value = MockDataFactory.get_mock_blog_data(template_name='test')
         mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
         mock_get_approved.return_value.count.return_value = 0
-        mock_reverse.return_value = '/b/test/'
+        mock_reverse.return_value = '/b/tech/test/'
         
         content = 'Concurrent test comment'
         
@@ -304,14 +304,14 @@ class EdgeCaseTests(TestCase):
             author_name='',
             author_email='',
             blog_template_name='test',
-            blog_category=None,
+            blog_category='tech',
             parent=None
         )
         
         # Should handle all null/empty fields gracefully
         self.assertEqual(comment.get_author_display(), 'Anonymous')
         self.assertEqual(comment.get_author_email(), '')
-        self.assertEqual(comment.get_blog_url(), '/b/test/')
+        self.assertEqual(comment.get_blog_url(), '/b/tech/test/')
 
     def test_invalid_vote_type(self):
         """Test handling of invalid vote types."""
