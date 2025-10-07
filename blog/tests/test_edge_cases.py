@@ -225,13 +225,18 @@ class EdgeCaseTests(TestCase):
             self.assertEqual(form.cleaned_data['author_email'], expected)
 
     @patch('blog.views.get_blog_from_template_name')
-    def test_nonexistent_blog_post(self, mock_get_blog):
+    @patch('blog.models.BlogComment.get_approved_comments')
+    @patch('utils.models.RequestFingerprint')
+    def test_nonexistent_blog_post(self, mock_request_fingerprint, mock_get_approved, mock_get_blog):
         """Test handling of comments on non-existent blog posts."""
         mock_get_blog.side_effect = Exception('Template not found')
+        mock_get_approved.return_value.count.return_value = 0
+        mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
         
         form_data = MockDataFactory.get_common_form_data()['comment_form']
+        form_data['content'] = ''  # Invalid form to trigger error re-render path
         
-        # Should return 404 when blog template doesn't exist
+        # Should return 404 when blog template doesn't exist and form has errors
         response = self.client.post('/b/tech/nonexistent/comment/', form_data)
         self.assertEqual(response.status_code, 404)
 
