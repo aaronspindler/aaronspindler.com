@@ -1,0 +1,96 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block bodyclass %}{{ block.super }} dashboard{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h2 style="text-transform: uppercase; font-weight: 800; margin-bottom: calc(var(--line-height) * 2);">Admin Dashboard</h2>
+
+    {% if user.is_active and user.is_staff %}
+    <div class="dashboard">
+        {% for app in app_list %}
+        <div class="module">
+            <h2>
+                <a href="{{ app.app_url }}" class="section">{{ app.name }}</a>
+            </h2>
+            <table>
+                <tbody>
+                {% for model in app.models %}
+                <tr class="model-{{ model.object_name|lower }}">
+                    {% if model.admin_url %}
+                    <th scope="row">
+                        <a href="{{ model.admin_url }}">{{ model.name }}</a>
+                    </th>
+                    {% else %}
+                    <th scope="row">{{ model.name }}</th>
+                    {% endif %}
+
+                    <td>
+                        {% if model.add_url %}
+                        <a href="{{ model.add_url }}" class="addlink">{% translate 'Add' %}</a>
+                        {% else %}
+                        &nbsp;
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if model.admin_url %}
+                        {% if model.view_only %}
+                        <a href="{{ model.admin_url }}" class="viewlink">{% translate 'View' %}</a>
+                        {% else %}
+                        <a href="{{ model.admin_url }}" class="changelink">{% translate 'Change' %}</a>
+                        {% endif %}
+                        {% else %}
+                        &nbsp;
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="margin-top: calc(var(--line-height) * 2);">
+        {% translate "You don't have permission to view or edit anything." %}
+    </p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block sidebar %}
+<div id="content-related">
+    <div class="module" id="recent-actions-module">
+        <h2>{% translate 'Recent actions' %}</h2>
+        <h3>{% translate 'My actions' %}</h3>
+        {% load log %}
+        {% get_admin_log 10 as admin_log for_user user %}
+        {% if not admin_log %}
+        <p style="padding: calc(var(--line-height) / 2) 1ch;">{% translate 'None available' %}</p>
+        {% else %}
+        <ul>
+        {% for entry in admin_log %}
+        <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %}changelink{% endif %}{% if entry.is_deletion %}deletelink{% endif %}">
+            {% if entry.is_deletion or not entry.get_admin_url %}
+                {{ entry.object_repr }}
+            {% else %}
+                <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+            {% endif %}
+            <br>
+            {% if entry.content_type %}
+                <span style="color: var(--secondary);">{{ entry.content_type.name|capfirst }}</span>
+            {% else %}
+                <span style="color: var(--secondary);">{% translate 'Unknown content' %}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,19 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | Admin{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">AARON SPINDLER</a></h1>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'css/admin.css' %}">
+<link rel="preload" href="{% static 'fonts/jetbrains-mono-regular.woff2' %}" as="font" type="font/woff2" crossorigin="anonymous">
+<link rel="preload" href="{% static 'fonts/jetbrains-mono-medium.woff2' %}" as="font" type="font/woff2" crossorigin="anonymous">
+<link rel="preload" href="{% static 'fonts/jetbrains-mono-bold.woff2' %}" as="font" type="font/woff2" crossorigin="anonymous">
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
