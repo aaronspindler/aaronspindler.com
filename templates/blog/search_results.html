@@ -7,273 +7,52 @@
 
 {% block content %}
 <main class="content search-page" role="main">
-    <div class="back-button">
-        <a href="{% url 'home' %}">Back to Home</a>
-    </div>
+    <h1>Search</h1>
+    <p>{{ total_results }} result{{ total_results|pluralize }}</p>
     
-    <h1>Search{% if query %}: {{ query }}{% endif %}</h1>
-    
-    <!-- Search Form -->
-    <form method="get" action="{% url 'search' %}" class="search-form">
-        <div class="search-input-group">
-            <input 
-                type="text" 
-                name="q" 
-                value="{{ query }}" 
-                placeholder="Search blog posts, projects, and books..." 
-                class="search-input"
-                autofocus
-            >
-            <button type="submit" class="search-button">Search</button>
-        </div>
-        
-        <!-- Filter Options -->
-        <div class="search-filters">
-            <label class="filter-label">Content Type:</label>
-            <select name="type" class="filter-select">
-                <option value="all" {% if content_type == 'all' %}selected{% endif %}>All</option>
-                <option value="blog" {% if content_type == 'blog' %}selected{% endif %}>Blog Posts</option>
-                <option value="projects" {% if content_type == 'projects' %}selected{% endif %}>Projects</option>
-                <option value="books" {% if content_type == 'books' %}selected{% endif %}>Books</option>
-            </select>
-            
-            {% if content_type == 'blog' or content_type == 'all' %}
-            <label class="filter-label">Category:</label>
-            <select name="category" class="filter-select">
-                <option value="">All Categories</option>
-                <option value="tech" {% if category == 'tech' %}selected{% endif %}>Tech</option>
-                <option value="personal" {% if category == 'personal' %}selected{% endif %}>Personal</option>
-                <option value="projects" {% if category == 'projects' %}selected{% endif %}>Projects</option>
-                <option value="reviews" {% if category == 'reviews' %}selected{% endif %}>Reviews</option>
-            </select>
-            {% endif %}
-        </div>
-    </form>
-    
-    <!-- Results Summary -->
-    <div class="results-summary">
-        <h2>Found {{ total_results }} result{{ total_results|pluralize }}</h2>
-    </div>
-    
-    <!-- Blog Post Results -->
     {% if results.blog_posts %}
-    <section class="search-results-section">
-        <h3>Blog Posts ({{ results.blog_posts|length }})</h3>
-        <div class="search-results">
-            {% for post in results.blog_posts %}
-            <article class="search-result-item">
-                <h4>
-                    <a href="/b/{{ post.category }}/{{ post.template_name }}/">
-                        {{ post.blog_title }}
-                    </a>
-                </h4>
-                <div class="search-result-meta">
-                    <span class="result-category">{{ post.category|title }}</span>
-                    <span class="result-entry">Entry #{{ post.entry_number }}</span>
-                </div>
-            </article>
-            {% endfor %}
-        </div>
-    </section>
+    <h2>Blog Posts</h2>
+    <ul class="search-results">
+        {% for post in results.blog_posts %}
+        <li>
+            <a href="/b/{{ post.category }}/{{ post.template_name }}/">{{ post.blog_title }}</a>
+            <span class="category-bubble category-{{ post.category }}" title="{{ post.category|title }} category">{{ post.category|title }}</span>
+        </li>
+        {% endfor %}
+    </ul>
     {% endif %}
     
-    <!-- Project Results -->
     {% if results.projects %}
-    <section class="search-results-section">
-        <h3>Projects ({{ results.projects|length }})</h3>
-        <div class="search-results">
-            {% for project in results.projects %}
-            <article class="search-result-item">
-                <h4>
-                    {% if project.link %}
-                    <a href="{{ project.link }}" target="_blank" rel="noopener">
-                        {{ project.name }}
-                        <span class="external-link">↗</span>
-                    </a>
-                    {% else %}
-                    {{ project.name }}
-                    {% endif %}
-                </h4>
-                <p class="search-result-description">{{ project.description }}</p>
-                {% if project.tech %}
-                <div class="search-result-meta">
-                    <strong>Technologies:</strong>
-                    {% for tech in project.tech %}
-                    <span class="tech-tag">{{ tech }}</span>{% if not forloop.last %}, {% endif %}
-                    {% endfor %}
-                </div>
-                {% endif %}
-            </article>
-            {% endfor %}
-        </div>
-    </section>
+    <h2>Projects</h2>
+    <ul class="search-results">
+        {% for project in results.projects %}
+        <li>
+            {% if project.link %}
+            <a href="{{ project.link }}" target="_blank" rel="noopener">{{ project.name }} ↗</a>
+            {% else %}
+            {{ project.name }}
+            {% endif %}
+            {% if project.description %}
+            <p>{{ project.description }}</p>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
     {% endif %}
     
-    <!-- Book Results -->
     {% if results.books %}
-    <section class="search-results-section">
-        <h3>Books ({{ results.books|length }})</h3>
-        <div class="search-results books-results">
-            {% for book in results.books %}
-            <article class="search-result-item book-result">
-                <div class="book-cover-small">
-                    {% if book.cover_image %}
-                    <img src="{% static book.cover_image %}" alt="{{ book.name }}" loading="lazy">
-                    {% endif %}
-                </div>
-                <div class="book-details">
-                    <h4>{{ book.name }}</h4>
-                    {% if book.author %}
-                    <p class="book-author">by {{ book.author }}</p>
-                    {% endif %}
-                    {% if book.favourite_quote %}
-                    <blockquote class="book-quote-small">"{{ book.favourite_quote|truncatewords:20 }}"</blockquote>
-                    {% endif %}
-                </div>
-            </article>
-            {% endfor %}
-        </div>
-    </section>
+    <h2>Books</h2>
+    <ul class="search-results">
+        {% for book in results.books %}
+        <li>
+            {{ book.name }}{% if book.author %} by {{ book.author }}{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
     {% endif %}
     
-    <!-- No Results -->
     {% if total_results == 0 %}
-    <div class="no-results">
-        <p>No results found{% if query %} for "{{ query }}"{% endif %}.</p>
-        <p>Try:</p>
-        <ul>
-            <li>Using different keywords</li>
-            <li>Checking for typos</li>
-            <li>Broadening your search</li>
-        </ul>
-    </div>
+    <p>No results found{% if query %} for "{{ query }}"{% endif %}.</p>
     {% endif %}
 </main>
-
-<style>
-.search-form {
-    margin: 2rem 0;
-    padding: 1.5rem;
-    background: var(--background-secondary, #f5f5f5);
-    border-radius: 8px;
-}
-
-.search-input-group {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-}
-
-.search-input {
-    flex: 1;
-    padding: 0.75rem;
-    font-size: 1rem;
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
-}
-
-.search-button {
-    padding: 0.75rem 1.5rem;
-    background: var(--accent-color, #0066cc);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 600;
-}
-
-.search-button:hover {
-    background: var(--accent-color-dark, #0052a3);
-}
-
-.search-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.filter-label {
-    font-weight: 600;
-}
-
-.filter-select {
-    padding: 0.5rem;
-    border: 1px solid var(--border-color, #ddd);
-    border-radius: 4px;
-}
-
-.results-summary {
-    margin: 2rem 0;
-}
-
-.search-results-section {
-    margin: 2rem 0;
-}
-
-.search-results-section h3 {
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid var(--border-color, #ddd);
-}
-
-.search-result-item {
-    margin-bottom: 1.5rem;
-    padding: 1rem;
-    border-left: 3px solid var(--accent-color, #0066cc);
-    background: var(--background-secondary, #f9f9f9);
-}
-
-.search-result-item h4 {
-    margin: 0 0 0.5rem 0;
-}
-
-.search-result-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary, #666);
-}
-
-.result-category, .result-entry {
-    padding: 0.25rem 0.5rem;
-    background: var(--background, white);
-    border-radius: 3px;
-}
-
-.external-link {
-    font-size: 0.875rem;
-}
-
-.tech-tag {
-    background: var(--background, white);
-    padding: 0.25rem 0.5rem;
-    border-radius: 3px;
-    font-size: 0.875rem;
-}
-
-.book-result {
-    display: flex;
-    gap: 1rem;
-}
-
-.book-cover-small {
-    flex-shrink: 0;
-    width: 80px;
-}
-
-.book-cover-small img {
-    width: 100%;
-    height: auto;
-    border-radius: 4px;
-}
-
-.no-results {
-    text-align: center;
-    padding: 3rem 1rem;
-}
-</style>
 {% endblock %}
-
