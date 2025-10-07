@@ -13,7 +13,7 @@ from django.core.cache import cache
 from django.template.loader import render_to_string
 from django.template import Template, Context
 
-from blog.utils import get_blog_from_template_name, get_all_blog_posts, find_blog_template
+from blog.utils import get_blog_from_template_name, get_all_blog_posts
 
 logger = logging.getLogger(__name__)
 
@@ -112,29 +112,21 @@ class LinkParser:
         """
         Retrieve the raw HTML content from a blog template file.
         
-        Attempts multiple strategies to find the template:
-        1. Use find_blog_template() helper to search categories
-        2. Try direct rendering if template is in standard location
-        3. Fall back to reading raw file content if rendering fails
+        Finds the template using get_all_blog_posts() which provides category information.
         """
-        try:
-            template_path = find_blog_template(template_name)
-            if template_path:
-                return render_to_string(template_path)
-            else:
-                # Try direct path as fallback
-                return render_to_string(f"blog/{template_name}.html")
-        except Exception as e:
-            logger.warning(f"Could not render template {template_name}, trying raw file: {str(e)}")
-            
-            # Last resort: read the raw file directly
-            all_posts = get_all_blog_posts()
-            for post in all_posts:
-                if post['template_name'] == template_name:
+        all_posts = get_all_blog_posts()
+        for post in all_posts:
+            if post['template_name'] == template_name:
+                try:
+                    template_path = f"blog/{post['category']}/{template_name}.html"
+                    return render_to_string(template_path)
+                except Exception as e:
+                    logger.warning(f"Could not render template {template_name}, reading raw file: {str(e)}")
+                    # Read the raw file directly
                     with open(post['full_path'], 'r', encoding='utf-8') as f:
                         return f.read()
-            
-            raise FileNotFoundError(f"Blog template not found: {template_name}")
+        
+        raise FileNotFoundError(f"Blog template not found: {template_name}")
     
     def _parse_html_content(self, html_content: str, source_post: str, source_post_normalized: str = None) -> Dict:
         """
@@ -596,52 +588,27 @@ class GraphBuilder:
         """
         Get a readable title for a blog post from its template name.
         
-        This method ensures that the original casing from the filename is preserved
-        even when normalized (lowercase) template names are used as node IDs.
+        Preserves the original casing from the filename.
         """
-        try:
-            # Try to get the blog data with category information
-            all_posts = get_all_blog_posts()
-            category = None
-            normalized_input = normalize_template_name(template_name)
-            original_cased_name = None
-            
-            for post in all_posts:
-                # Compare normalized versions for matching
-                if normalize_template_name(post['template_name']) == normalized_input:
-                    category = post['category']
-                    original_cased_name = post['template_name']  # Store the original casing
-                    # Use the original template name from the post for lookup
-                    blog_data = get_blog_from_template_name(post['template_name'], load_content=False, category=category)
-                    # If blog_title is found, use it; otherwise use the original cased template name
-                    if 'blog_title' in blog_data and blog_data['blog_title']:
-                        return blog_data['blog_title']
-                    else:
-                        return post['template_name'].replace('_', ' ')
-            
-            # If not found in posts but we have the original cased name, use it
-            if original_cased_name:
-                return original_cased_name.replace('_', ' ')
-            
-            # If not found in posts, try with the provided name
-            blog_data = get_blog_from_template_name(template_name, load_content=False, category=None)
-            if 'blog_title' in blog_data and blog_data['blog_title']:
-                return blog_data['blog_title']
-            else:
-                # Last resort: use the provided name (may be lowercase if normalized)
-                return template_name.replace('_', ' ')
-                
-        except Exception:
-            # In error cases, try to look up original casing
-            try:
-                all_posts = get_all_blog_posts()
-                normalized_input = normalize_template_name(template_name)
-                for post in all_posts:
-                    if normalize_template_name(post['template_name']) == normalized_input:
-                        return post['template_name'].replace('_', ' ')
-            except Exception as e:
-                logger.exception(f"Error during blog post title fallback lookup for '{template_name}': {e}")
-            return template_name.replace('_', ' ')
+        all_posts = get_all_blog_posts()
+        normalized_input = normalize_template_name(template_name)
+        
+        # Find exact match by comparing normalized versions
+        for post in all_posts:
+            if normalize_template_name(post['template_name']) == normalized_input:
+                try:
+                    blog_data = get_blog_from_template_name(
+                        post['template_name'], 
+                        load_content=False, 
+                        category=post['category']
+                    )
+                    return blog_data['blog_title']
+                except Exception:
+                    # If template can't be loaded, fall back to filename-based title
+                    return post['template_name'].replace('_', ' ')
+        
+        # Fallback: convert underscores to spaces (preserves whatever casing was provided)
+        return template_name.replace('_', ' ')
     
     def _calculate_graph_metrics(self, nodes: Dict, edges: List[Dict], external_domains: Dict) -> Dict:
         """Calculate various graph metrics."""

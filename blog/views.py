@@ -11,6 +11,7 @@ from blog.utils import get_blog_from_template_name, get_all_blog_posts
 from blog.knowledge_graph import build_knowledge_graph, get_post_graph
 from blog.models import BlogComment, CommentVote, KnowledgeGraphScreenshot
 from blog.forms import CommentForm, ReplyForm
+from blog.search import search_blog_posts, search_projects, search_books
 
 import os
 from django.conf import settings
@@ -23,7 +24,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def render_blog_template(request, template_name, category=None):
+def render_blog_template(request, category, template_name):
     """
     Render a blog post with comments, voting, and view tracking.
     
@@ -37,10 +38,7 @@ def render_blog_template(request, template_name, category=None):
         blog_data = get_blog_from_template_name(template_name, category=category)
         
         # Build page path for view tracking using RequestFingerprint
-        if category:
-            page_path = f'/b/{category}/{template_name}/'
-        else:
-            page_path = f'/b/{template_name}/'
+        page_path = f'/b/{category}/{template_name}/'
         
         from utils.models import RequestFingerprint
         views = RequestFingerprint.objects.filter(path=page_path).count()
@@ -176,7 +174,7 @@ def knowledge_graph_screenshot(request):
     }, status=404)
 
 
-def submit_comment(request, template_name, category=None):
+def submit_comment(request, category, template_name):
     """
     Process comment submission with spam protection and moderation.
     
@@ -184,10 +182,7 @@ def submit_comment(request, template_name, category=None):
     and routes comments through the moderation pipeline.
     """
     if request.method != 'POST':
-        if category:
-            return redirect('render_blog_template_with_category', category=category, template_name=template_name)
-        else:
-            return redirect('render_blog_template', template_name=template_name)
+        return redirect('render_blog_template', category=category, template_name=template_name)
     
     form = CommentForm(request.POST, user=request.user)
     
@@ -210,21 +205,14 @@ def submit_comment(request, template_name, category=None):
             messages.info(request, 'Your comment has been submitted for review and will appear after approval.')
         
         # Redirect to comments section
-        # Use Django's reverse function for safe URL construction
         from django.urls import reverse
-        if category:
-            url = reverse('render_blog_template_with_category', kwargs={'category': category, 'template_name': template_name})
-        else:
-            url = reverse('render_blog_template', kwargs={'template_name': template_name})
+        url = reverse('render_blog_template', kwargs={'category': category, 'template_name': template_name})
         return redirect(url + '#comments')
     
     # Re-render page with form errors if validation failed
     try:
         blog_data = get_blog_from_template_name(template_name, category=category)
-        if category:
-            page_path = f'/b/{category}/{template_name}/'
-        else:
-            page_path = f'/b/{template_name}/'
+        page_path = f'/b/{category}/{template_name}/'
         
         from utils.models import RequestFingerprint
         views = RequestFingerprint.objects.filter(path=page_path).count()
@@ -253,26 +241,20 @@ def reply_to_comment(request, comment_id):
     
     if request.method != 'POST':
         from django.urls import reverse
-        if parent_comment.blog_category:
-            url = reverse('render_blog_template_with_category', kwargs={
-                'category': parent_comment.blog_category,
-                'template_name': parent_comment.blog_template_name
-            })
-        else:
-            url = reverse('render_blog_template', kwargs={'template_name': parent_comment.blog_template_name})
+        url = reverse('render_blog_template', kwargs={
+            'category': parent_comment.blog_category,
+            'template_name': parent_comment.blog_template_name
+        })
         return redirect(url + f'#comment-{comment_id}')
     
     # Honeypot check for bot protection
     if request.POST.get('website', ''):
         messages.error(request, 'Bot detection triggered.')
         from django.urls import reverse
-        if parent_comment.blog_category:
-            url = reverse('render_blog_template_with_category', kwargs={
-                'category': parent_comment.blog_category,
-                'template_name': parent_comment.blog_template_name
-            })
-        else:
-            url = reverse('render_blog_template', kwargs={'template_name': parent_comment.blog_template_name})
+        url = reverse('render_blog_template', kwargs={
+            'category': parent_comment.blog_category,
+            'template_name': parent_comment.blog_template_name
+        })
         return redirect(url + f'#comment-{comment_id}')
     
     form = ReplyForm(request.POST, user=request.user)
@@ -298,13 +280,10 @@ def reply_to_comment(request, comment_id):
     
     # Return to parent comment location
     from django.urls import reverse
-    if parent_comment.blog_category:
-        url = reverse('render_blog_template_with_category', kwargs={
-            'category': parent_comment.blog_category,
-            'template_name': parent_comment.blog_template_name
-        })
-    else:
-        url = reverse('render_blog_template', kwargs={'template_name': parent_comment.blog_template_name})
+    url = reverse('render_blog_template', kwargs={
+        'category': parent_comment.blog_category,
+        'template_name': parent_comment.blog_template_name
+    })
     return redirect(url + f'#comment-{comment_id}')
 
 
@@ -339,9 +318,7 @@ def moderate_comment(request, comment_id):
         })
     
     # Otherwise redirect back
-    if comment.blog_category:
-        return redirect(f'/b/{comment.blog_category}/{comment.blog_template_name}/#comments')
-    return redirect(f'/b/{comment.blog_template_name}/#comments')
+    return redirect(f'/b/{comment.blog_category}/{comment.blog_template_name}/#comments')
 
 
 def delete_comment(request, comment_id):
@@ -356,9 +333,7 @@ def delete_comment(request, comment_id):
     
     if not can_delete:
         messages.error(request, 'You do not have permission to delete this comment.')
-        if comment.blog_category:
-            return redirect(f'/b/{comment.blog_category}/{comment.blog_template_name}/#comments')
-        return redirect(f'/b/{comment.blog_template_name}/#comments')
+        return redirect(f'/b/{comment.blog_category}/{comment.blog_template_name}/#comments')
     
     # Store blog info before deletion
     template_name = comment.blog_template_name
@@ -369,9 +344,7 @@ def delete_comment(request, comment_id):
     messages.success(request, 'Comment deleted successfully.')
     
     # Redirect back to blog post
-    if category:
-        return redirect(f'/b/{category}/{template_name}/#comments')
-    return redirect(f'/b/{template_name}/#comments')
+    return redirect(f'/b/{category}/{template_name}/#comments')
 
 
 @require_http_methods(["POST"])
@@ -436,3 +409,49 @@ def vote_comment(request, comment_id):
         'score': comment.score,
         'user_vote': user_vote
     })
+
+
+@require_GET
+def search_view(request):
+    """
+    Unified search view for blog posts, projects, and books.
+    Supports full-text search.
+    """
+    query = request.GET.get('q', '').strip()
+    category = request.GET.get('category', '').strip() or None
+    content_type = request.GET.get('type', 'all')  # all, blog, projects, books
+    
+    results = {
+        'blog_posts': [],
+        'projects': [],
+        'books': []
+    }
+    
+    # Search blog posts
+    if content_type in ['all', 'blog']:
+        results['blog_posts'] = search_blog_posts(
+            query=query if query else None,
+            category=category
+        )
+    
+    # Search projects
+    if content_type in ['all', 'projects']:
+        results['projects'] = search_projects(
+            query=query if query else None
+        )
+    
+    # Search books
+    if content_type in ['all', 'books']:
+        results['books'] = search_books(
+            query=query if query else None
+        )
+    
+    context = {
+        'query': query,
+        'category': category,
+        'content_type': content_type,
+        'results': results,
+        'total_results': len(results['blog_posts']) + len(results['projects']) + len(results['books'])
+    }
+    
+    return render(request, 'blog/search_results.html', context)

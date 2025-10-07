@@ -77,7 +77,7 @@ class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
             'template_name': '0001_test_post',
             'blog_title': '0001 test post',
             'blog_content': '<p>Test content</p>',
-            'category': None
+            'category': 'tech'
         }
         mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
 
@@ -108,7 +108,7 @@ class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
         )
 
         # Test blog view includes nested structure
-        response = self.client.get('/b/0001_test_post/')
+        response = self.client.get('/b/tech/0001_test_post/')
         self.assertEqual(response.status_code, 200)
         
         comments = response.context['comments']
@@ -152,7 +152,7 @@ class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
             'content': spam_content,
             'author_name': 'Spammer'
         })
-        response = self.client.post('/b/test_post/comment/', form_data)
+        response = self.client.post('/b/tech/test_post/comment/', form_data)
 
         # Form should reject due to too many URLs
         comments = BlogComment.objects.filter(content=spam_content)
@@ -195,7 +195,7 @@ class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
             'template_name': '0001_test_post',
             'blog_title': '0001 test post',
             'blog_content': '<p>Test</p>',
-            'category': None
+            'category': 'tech'
         }
         mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
 

@@ -50,13 +50,8 @@
                 {% for post in blog_posts %}
                     <tr>
                         <td class="blog-post-cell">
-                            {% if post.category %}
-                                <a href="{% url 'render_blog_template_with_category' post.category post.template_name %}">{{ post.blog_title }}</a>
-                                <span class="category-bubble category-{{ post.category }}" title="{{ post.category|title }} category">{{ post.category|title }}</span>
-                            {% else %}
-                                <a href="{% url 'render_blog_template' post.template_name %}">{{ post.blog_title }}</a>
-                                <span class="category-bubble category-uncategorized" title="Uncategorized">Uncategorized</span>
-                            {% endif %}
+                            <a href="{% url 'render_blog_template' post.category post.template_name %}">{{ post.blog_title }}</a>
+                            <span class="category-bubble category-{{ post.category }}" title="{{ post.category|title }} category">{{ post.category|title }}</span>
                         </td>
                     </tr>
                 {% endfor %}

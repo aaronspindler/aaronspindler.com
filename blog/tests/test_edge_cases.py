@@ -225,16 +225,20 @@ class EdgeCaseTests(TestCase):
             self.assertEqual(form.cleaned_data['author_email'], expected)
 
     @patch('blog.views.get_blog_from_template_name')
-    def test_nonexistent_blog_post(self, mock_get_blog):
+    @patch('blog.models.BlogComment.get_approved_comments')
+    @patch('utils.models.RequestFingerprint')
+    def test_nonexistent_blog_post(self, mock_request_fingerprint, mock_get_approved, mock_get_blog):
         """Test handling of comments on non-existent blog posts."""
         mock_get_blog.side_effect = Exception('Template not found')
+        mock_get_approved.return_value.count.return_value = 0
+        mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
         
         form_data = MockDataFactory.get_common_form_data()['comment_form']
+        form_data['content'] = ''  # Invalid form to trigger error re-render path
         
-        # Should return 302 redirect when form is valid but template doesn't exist
-        # The submit_comment view redirects after successful form submission
-        response = self.client.post('/b/nonexistent/comment/', form_data)
-        self.assertEqual(response.status_code, 302)
+        # Should return 404 when blog template doesn't exist and form has errors
+        response = self.client.post('/b/tech/nonexistent/comment/', form_data)
+        self.assertEqual(response.status_code, 404)
 
     def test_knowledge_graph_with_malformed_html(self):
         """Test knowledge graph parser handles malformed HTML."""
@@ -275,18 +279,18 @@ class EdgeCaseTests(TestCase):
         mock_get_blog.return_value = MockDataFactory.get_mock_blog_data(template_name='test')
         mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
         mock_get_approved.return_value.count.return_value = 0
-        mock_reverse.return_value = '/b/test/'
+        mock_reverse.return_value = '/b/tech/test/'
         
         content = 'Concurrent test comment'
         
         # Simulate two "simultaneous" submissions
         form_data1 = MockDataFactory.get_common_form_data()['comment_form']
         form_data1['content'] = content + ' 1'
-        response1 = self.client.post('/b/test/comment/', form_data1)
+        response1 = self.client.post('/b/tech/test/comment/', form_data1)
         
         form_data2 = MockDataFactory.get_common_form_data()['comment_form']
         form_data2['content'] = content + ' 2'
-        response2 = self.client.post('/b/test/comment/', form_data2)
+        response2 = self.client.post('/b/tech/test/comment/', form_data2)
         
         # Both should succeed
         self.assertEqual(response1.status_code, 302)
@@ -304,14 +308,14 @@ class EdgeCaseTests(TestCase):
             author_name='',
             author_email='',
             blog_template_name='test',
-            blog_category=None,
+            blog_category='tech',
             parent=None
         )
         
         # Should handle all null/empty fields gracefully
         self.assertEqual(comment.get_author_display(), 'Anonymous')
         self.assertEqual(comment.get_author_email(), '')
-        self.assertEqual(comment.get_blog_url(), '/b/test/')
+        self.assertEqual(comment.get_blog_url(), '/b/tech/test/')
 
     def test_invalid_vote_type(self):
         """Test handling of invalid vote types."""

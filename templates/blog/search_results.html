@@ -1,0 +1,58 @@
+{% extends '_base.html' %}
+{% load static %}
+
+{% block title %}Search Results{% if query %} - {{ query }}{% endif %}{% endblock %}
+
+{% block meta_description %}Search results for blog posts, projects, and books on aaronspindler.com{% if query %} - {{ query }}{% endif %}{% endblock %}
+
+{% block content %}
+<main class="content search-page" role="main">
+    <h1>Search</h1>
+    <p>{{ total_results }} result{{ total_results|pluralize }}</p>
+    
+    {% if results.blog_posts %}
+    <h2>Blog Posts</h2>
+    <ul class="search-results">
+        {% for post in results.blog_posts %}
+        <li>
+            <a href="/b/{{ post.category }}/{{ post.template_name }}/">{{ post.blog_title }}</a>
+            <span class="category-bubble category-{{ post.category }}" title="{{ post.category|title }} category">{{ post.category|title }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    
+    {% if results.projects %}
+    <h2>Projects</h2>
+    <ul class="search-results">
+        {% for project in results.projects %}
+        <li>
+            {% if project.link %}
+            <a href="{{ project.link }}" target="_blank" rel="noopener">{{ project.name }} ↗</a>
+            {% else %}
+            {{ project.name }}
+            {% endif %}
+            {% if project.description %}
+            <p>{{ project.description }}</p>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    
+    {% if results.books %}
+    <h2>Books</h2>
+    <ul class="search-results">
+        {% for book in results.books %}
+        <li>
+            {{ book.name }}{% if book.author %} by {{ book.author }}{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    
+    {% if total_results == 0 %}
+    <p>No results found{% if query %} for "{{ query }}"{% endif %}.</p>
+    {% endif %}
+</main>
+{% endblock %}
