@@ -64,13 +64,7 @@ def search_projects(query=None):
     Returns:
         List of project dicts
     """
-    from pages.views import home
-    import inspect
-    
     # Get projects from the home view (hardcoded list)
-    source = inspect.getsource(home)
-    
-    # Extract projects from view code (this is a workaround for hardcoded projects)
     # In a real implementation, projects should be in a database
     projects = [
         {

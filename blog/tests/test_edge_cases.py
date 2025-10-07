@@ -231,10 +231,9 @@ class EdgeCaseTests(TestCase):
         
         form_data = MockDataFactory.get_common_form_data()['comment_form']
         
-        # Should return 302 redirect when form is valid but template doesn't exist
-        # The submit_comment view redirects after successful form submission
-        response = self.client.post('/b/nonexistent/comment/', form_data)
-        self.assertEqual(response.status_code, 302)
+        # Should return 404 when blog template doesn't exist
+        response = self.client.post('/b/tech/nonexistent/comment/', form_data)
+        self.assertEqual(response.status_code, 404)
 
     def test_knowledge_graph_with_malformed_html(self):
         """Test knowledge graph parser handles malformed HTML."""
@@ -282,11 +281,11 @@ class EdgeCaseTests(TestCase):
         # Simulate two "simultaneous" submissions
         form_data1 = MockDataFactory.get_common_form_data()['comment_form']
         form_data1['content'] = content + ' 1'
-        response1 = self.client.post('/b/test/comment/', form_data1)
+        response1 = self.client.post('/b/tech/test/comment/', form_data1)
         
         form_data2 = MockDataFactory.get_common_form_data()['comment_form']
         form_data2['content'] = content + ' 2'
-        response2 = self.client.post('/b/test/comment/', form_data2)
+        response2 = self.client.post('/b/tech/test/comment/', form_data2)
         
         # Both should succeed
         self.assertEqual(response1.status_code, 302)

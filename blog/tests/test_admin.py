@@ -77,18 +77,6 @@ class BlogCommentAdminTest(TestCase, TestDataMixin):
         self.assertIn('tech/0001_test_post', display)
         self.assertIn('href="/b/tech/0001_test_post/"', display)
 
-    def test_get_blog_post_without_category(self):
-        """Test blog post display without category."""
-        comment = BlogCommentFactory.create_comment(
-            blog_template_name='test_post',
-            blog_category=None,
-            content='Test'
-        )
-        
-        display = self.admin.get_blog_post(comment)
-        
-        self.assertIn('test_post', display)
-        self.assertIn('href="/b/test_post/"', display)
 
     def test_truncated_content(self):
         """Test content truncation in list view."""

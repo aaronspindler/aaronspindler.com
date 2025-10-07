@@ -317,14 +317,18 @@ class GraphBuilderTest(TestCase):
         self.assertEqual(node['domain'], domain)
         self.assertIn('/some/long/path/to/page', node['label'])  # Truncated path
 
+    @patch('blog.knowledge_graph.get_all_blog_posts')
     @patch('blog.knowledge_graph.get_blog_from_template_name')
-    def test_get_post_title(self, mock_get_blog):
+    def test_get_post_title(self, mock_get_blog, mock_get_all_posts):
         """Test getting post title."""
-        mock_get_blog.return_value = {'blog_title': 'My Awesome Post'}
+        mock_get_all_posts.return_value = [
+            {'template_name': 'my_awesome_post', 'category': 'tech'}
+        ]
+        mock_get_blog.return_value = {'blog_title': 'my awesome post'}
         
         title = self.builder._get_post_title('my_awesome_post')
         
-        self.assertEqual(title, 'My Awesome Post')
+        self.assertEqual(title, 'my awesome post')
 
     @patch('blog.knowledge_graph.get_all_blog_posts')
     @patch('blog.knowledge_graph.get_blog_from_template_name')
@@ -335,9 +339,9 @@ class GraphBuilderTest(TestCase):
             {'template_name': 'My_Awesome_Post', 'category': 'tech'}
         ]
         
-        # When provided lowercase, should find and use original casing
+        # When provided lowercase, normalized comparison finds match and uses original casing from filename
         title = self.builder._get_post_title('my_awesome_post')
-        self.assertEqual(title, 'My Awesome Post')  # Preserves original casing
+        self.assertEqual(title, 'My Awesome Post')  # Preserves original casing from filename
         
         # When provided with exact casing, should also work
         title = self.builder._get_post_title('My_Awesome_Post')

@@ -596,12 +596,16 @@ class GraphBuilder:
         # Find exact match by comparing normalized versions
         for post in all_posts:
             if normalize_template_name(post['template_name']) == normalized_input:
-                blog_data = get_blog_from_template_name(
-                    post['template_name'], 
-                    load_content=False, 
-                    category=post['category']
-                )
-                return blog_data['blog_title']
+                try:
+                    blog_data = get_blog_from_template_name(
+                        post['template_name'], 
+                        load_content=False, 
+                        category=post['category']
+                    )
+                    return blog_data['blog_title']
+                except Exception:
+                    # If template can't be loaded, fall back to filename-based title
+                    return post['template_name'].replace('_', ' ')
         
         # Fallback: convert underscores to spaces (preserves whatever casing was provided)
         return template_name.replace('_', ' ')

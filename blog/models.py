@@ -4,7 +4,6 @@ from django.utils import timezone
 from django.core.validators import MaxLengthValidator
 from django.db.models import Sum
 from django.core.files.base import ContentFile
-from django.utils.text import slugify
 
 
 class BlogComment(models.Model):

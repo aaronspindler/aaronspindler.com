@@ -153,7 +153,7 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
         mock_get_blog.return_value = self.mock_blog_data
         mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
         mock_get_approved.return_value.count.return_value = 0
-        mock_reverse.return_value = '/b/0001_test_post/'
+        mock_reverse.return_value = '/b/tech/0001_test_post/'
         
         form_data = MockDataFactory.get_common_form_data()['comment_form']
         form_data.update({
@@ -161,7 +161,7 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
             'author_name': 'John Doe',
             'author_email': 'john@example.com'
         })
-        response = self.client.post('/b/0001_test_post/comment/', form_data)
+        response = self.client.post('/b/tech/0001_test_post/comment/', form_data)
 
         # Debug: check what happened if not redirect
         if response.status_code != 302:
@@ -199,7 +199,7 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
             'content': 'Spam comment',
             'website': 'http://spam.com'  # Bot filled honeypot
         })
-        response = self.client.post('/b/0001_test_post/comment/', form_data)
+        response = self.client.post('/b/tech/0001_test_post/comment/', form_data)
 
         # Should get form error, not create comment
         self.assertEqual(BlogComment.objects.filter(content='Spam comment').count(), 0)
@@ -214,7 +214,7 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
             'template_name': '0001_test_post',
             'blog_title': '0001 test post',
             'blog_content': '<p>Test</p>',
-            'category': None
+            'category': 'tech'
         }
         mock_get_blog.return_value = blog_data
         mock_request_fingerprint.objects.filter.return_value.count.return_value = 0
@@ -226,7 +226,7 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
             'author_name': 'Test User',
             'author_email': 'test@example.com'
         })
-        response = self.client.post('/b/0001_test_post/comment/', form_data)
+        response = self.client.post('/b/tech/0001_test_post/comment/', form_data)
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('comment_form', response.context)
