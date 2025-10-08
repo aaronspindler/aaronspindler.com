@@ -3,7 +3,7 @@ import subprocess
 import tempfile
 import logging
 from django.core.management.base import BaseCommand, CommandError
-from lighthouse_monitor.models import LighthouseAudit
+from utils.models import LighthouseAudit
 
 logger = logging.getLogger(__name__)
 

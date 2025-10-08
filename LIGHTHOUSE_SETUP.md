@@ -67,7 +67,7 @@ python manage.py setup_periodic_tasks
 
 This creates a Celery Beat periodic task that:
 - Runs nightly at 2 AM UTC
-- Executes `lighthouse_monitor.tasks.run_lighthouse_audit`
+- Executes `utils.tasks.run_lighthouse_audit`
 - Audits https://aaronspindler.com
 - Stores results in the database
 
@@ -79,7 +79,7 @@ Make sure Celery Beat is running in production:
 celery -A config beat -l info
 ```
 
-The task is configured in `lighthouse_monitor/tasks.py` and uses the `run_lighthouse_audit` management command under the hood.
+The task is configured in `utils/tasks.py` and uses the `run_lighthouse_audit` management command under the hood.
 
 ## API Endpoints
 

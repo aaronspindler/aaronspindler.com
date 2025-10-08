@@ -1,6 +1,6 @@
 from django.test import TestCase
 from django.urls import reverse
-from lighthouse_monitor.models import LighthouseAudit
+from utils.models import LighthouseAudit
 
 
 class BadgeEndpointTests(TestCase):
@@ -8,7 +8,7 @@ class BadgeEndpointTests(TestCase):
 
     def test_badge_endpoint_no_data(self):
         """Test badge endpoint returns 404 when no audits exist."""
-        response = self.client.get(reverse('lighthouse_monitor:badge_endpoint'))
+        response = self.client.get(reverse('lighthouse_badge'))
         self.assertEqual(response.status_code, 404)
         data = response.json()
         self.assertEqual(data['message'], 'no data')
@@ -23,7 +23,7 @@ class BadgeEndpointTests(TestCase):
             best_practices_score=85,
             seo_score=100,
         )
-        response = self.client.get(reverse('lighthouse_monitor:badge_endpoint'))
+        response = self.client.get(reverse('lighthouse_badge'))
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['schemaVersion'], 1)
@@ -40,7 +40,7 @@ class BadgeEndpointTests(TestCase):
             best_practices_score=80,
             seo_score=80,
         )
-        response = self.client.get(reverse('lighthouse_monitor:badge_endpoint'))
+        response = self.client.get(reverse('lighthouse_badge'))
         data = response.json()
         self.assertEqual(data['color'], 'yellow')
 
@@ -53,7 +53,7 @@ class BadgeEndpointTests(TestCase):
             best_practices_score=60,
             seo_score=60,
         )
-        response = self.client.get(reverse('lighthouse_monitor:badge_endpoint'))
+        response = self.client.get(reverse('lighthouse_badge'))
         data = response.json()
         self.assertEqual(data['color'], 'red')
 
@@ -63,13 +63,13 @@ class HistoryPageTests(TestCase):
 
     def test_history_page_loads(self):
         """Test that the history page loads successfully."""
-        response = self.client.get(reverse('lighthouse_monitor:history'))
+        response = self.client.get(reverse('lighthouse_history'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Lighthouse Performance History')
 
     def test_history_page_no_audits(self):
         """Test history page displays appropriate message when no audits exist."""
-        response = self.client.get(reverse('lighthouse_monitor:history'))
+        response = self.client.get(reverse('lighthouse_history'))
         self.assertContains(response, 'No Lighthouse audits have been run yet')
 
     def test_history_page_with_audits(self):
@@ -81,7 +81,7 @@ class HistoryPageTests(TestCase):
             best_practices_score=85,
             seo_score=100,
         )
-        response = self.client.get(reverse('lighthouse_monitor:history'))
+        response = self.client.get(reverse('lighthouse_history'))
         self.assertContains(response, 'Latest Audit')
         self.assertContains(response, '95')
         self.assertContains(response, '90')

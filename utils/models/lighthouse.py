@@ -46,3 +46,4 @@ class LighthouseAudit(models.Model):
             return 'warning'
         else:
             return 'danger'
+

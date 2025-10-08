@@ -1,4 +1,4 @@
-from .models import LighthouseAudit
+from utils.models import LighthouseAudit
 
 
 def lighthouse_badge(request):

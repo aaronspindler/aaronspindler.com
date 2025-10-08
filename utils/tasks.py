@@ -2,6 +2,7 @@ from celery import shared_task
 from django.apps import apps
 from django.conf import settings
 from django.core.mail import send_mail
+from django.core.management import call_command
 from django.template.loader import render_to_string
 from django.utils import timezone
 import boto3
@@ -68,3 +69,24 @@ def send_text_message(text_message_pk):
     text_message.message = message
     text_message.sent = timezone.now()
     text_message.save()
+
+
+# Lighthouse monitoring tasks
+import logging as lighthouse_logger
+
+lighthouse_log = lighthouse_logger.getLogger(__name__)
+
+
+@shared_task
+def run_lighthouse_audit():
+    """
+    Celery task to run a Lighthouse audit of the production site.
+    Scheduled to run daily via Celery Beat.
+    """
+    try:
+        lighthouse_log.info("Starting scheduled Lighthouse audit...")
+        call_command('run_lighthouse_audit', '--url', 'https://aaronspindler.com')
+        lighthouse_log.info("Lighthouse audit completed successfully")
+    except Exception as e:
+        lighthouse_log.error(f"Lighthouse audit failed: {e}")
+        raise

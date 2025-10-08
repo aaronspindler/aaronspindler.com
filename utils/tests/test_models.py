@@ -1,5 +1,5 @@
 from django.test import TestCase
-from lighthouse_monitor.models import LighthouseAudit
+from utils.models import LighthouseAudit
 
 
 class LighthouseAuditModelTests(TestCase):

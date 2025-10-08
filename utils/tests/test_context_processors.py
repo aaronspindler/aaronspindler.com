@@ -1,6 +1,6 @@
 from django.test import TestCase, RequestFactory
-from lighthouse_monitor.models import LighthouseAudit
-from lighthouse_monitor.context_processors import lighthouse_badge
+from utils.models import LighthouseAudit
+from utils.context_processors import lighthouse_badge
 
 
 class LighthouseBadgeContextProcessorTests(TestCase):
