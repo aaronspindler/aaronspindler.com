@@ -28,81 +28,89 @@ class Command(BaseCommand):
         self.stdout.write(f'Running Lighthouse audit for {url}...')
 
         try:
-            # Create a temporary directory for Lighthouse output
-            with tempfile.TemporaryDirectory() as tmpdir:
-                # Run Lighthouse using @lhci/cli
-                result = subprocess.run(
-                    [
-                        'npx',
-                        '@lhci/cli',
-                        'collect',
-                        f'--url={url}',
-                        '--numberOfRuns=1',
-                        f'--settings.output-dir={tmpdir}',
-                    ],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    timeout=300  # 5 minute timeout
-                )
+            import os
+            import glob
+            import shutil
+            
+            # @lhci/cli saves to .lighthouseci directory by default
+            output_dir = '.lighthouseci'
+            
+            # Clean up any existing reports
+            if os.path.exists(output_dir):
+                shutil.rmtree(output_dir)
+            
+            # Run Lighthouse using @lhci/cli
+            result = subprocess.run(
+                [
+                    'npx',
+                    '@lhci/cli',
+                    'collect',
+                    f'--url={url}',
+                    '--numberOfRuns=1',
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=300  # 5 minute timeout
+            )
 
-                if result.returncode != 0:
-                    logger.error(f'Lighthouse audit failed: {result.stderr}')
-                    raise CommandError(f'Lighthouse audit failed: {result.stderr}')
+            if result.returncode != 0:
+                logger.error(f'Lighthouse audit failed: {result.stderr}')
+                raise CommandError(f'Lighthouse audit failed: {result.stderr}')
 
-                # Find and parse the Lighthouse report JSON
-                import os
-                import glob
-                
-                # Find the manifest.json file which contains the report path
-                json_files = glob.glob(os.path.join(tmpdir, '*.report.json'))
-                
-                if not json_files:
-                    raise CommandError('No Lighthouse report found in output directory')
-                
-                # Read the first JSON report
-                with open(json_files[0], 'r') as f:
-                    report = json.load(f)
+            # Find and parse the Lighthouse report JSON
+            # @lhci/cli creates files with pattern: lhr-<timestamp>.json
+            json_files = glob.glob(os.path.join(output_dir, 'lhr-*.json'))
+            
+            if not json_files:
+                raise CommandError('No Lighthouse report found in output directory')
+            
+            # Read the first JSON report
+            with open(json_files[0], 'r') as f:
+                report = json.load(f)
+            
+            # Clean up the output directory
+            shutil.rmtree(output_dir)
 
-                # Extract category scores
-                categories = report.get('categories', {})
-                
-                performance_score = int(categories.get('performance', {}).get('score', 0) * 100)
-                accessibility_score = int(categories.get('accessibility', {}).get('score', 0) * 100)
-                best_practices_score = int(categories.get('best-practices', {}).get('score', 0) * 100)
-                seo_score = int(categories.get('seo', {}).get('score', 0) * 100)
-                pwa_score = int(categories.get('pwa', {}).get('score', 0) * 100)
+            # Extract category scores
+            categories = report.get('categories', {})
+            
+            performance_score = int(categories.get('performance', {}).get('score', 0) * 100)
+            accessibility_score = int(categories.get('accessibility', {}).get('score', 0) * 100)
+            best_practices_score = int(categories.get('best-practices', {}).get('score', 0) * 100)
+            seo_score = int(categories.get('seo', {}).get('score', 0) * 100)
+            pwa_score = int(categories.get('pwa', {}).get('score', 0) * 100)
 
-                # Create metadata with additional useful information
-                metadata = {
-                    'fetch_time': report.get('fetchTime'),
-                    'user_agent': report.get('userAgent'),
-                    'requested_url': report.get('requestedUrl'),
-                    'final_url': report.get('finalUrl'),
-                    'lighthouse_version': report.get('lighthouseVersion'),
-                }
+            # Create metadata with additional useful information
+            metadata = {
+                'fetch_time': report.get('fetchTime'),
+                'user_agent': report.get('userAgent'),
+                'requested_url': report.get('requestedUrl'),
+                'final_url': report.get('finalUrl'),
+                'lighthouse_version': report.get('lighthouseVersion'),
+            }
 
-                # Store the audit result
-                audit = LighthouseAudit.objects.create(
-                    url=url,
-                    performance_score=performance_score,
-                    accessibility_score=accessibility_score,
-                    best_practices_score=best_practices_score,
-                    seo_score=seo_score,
-                    pwa_score=pwa_score,
-                    metadata=metadata,
-                )
+            # Store the audit result
+            audit = LighthouseAudit.objects.create(
+                url=url,
+                performance_score=performance_score,
+                accessibility_score=accessibility_score,
+                best_practices_score=best_practices_score,
+                seo_score=seo_score,
+                pwa_score=pwa_score,
+                metadata=metadata,
+            )
 
-                self.stdout.write(self.style.SUCCESS(
-                    f'✓ Lighthouse audit completed successfully!\n'
-                    f'  Performance: {performance_score}\n'
-                    f'  Accessibility: {accessibility_score}\n'
-                    f'  Best Practices: {best_practices_score}\n'
-                    f'  SEO: {seo_score}\n'
-                    f'  PWA: {pwa_score}\n'
-                    f'  Average: {audit.average_score}\n'
-                    f'  Audit ID: {audit.id}'
-                ))
+            self.stdout.write(self.style.SUCCESS(
+                f'✓ Lighthouse audit completed successfully!\n'
+                f'  Performance: {performance_score}\n'
+                f'  Accessibility: {accessibility_score}\n'
+                f'  Best Practices: {best_practices_score}\n'
+                f'  SEO: {seo_score}\n'
+                f'  PWA: {pwa_score}\n'
+                f'  Average: {audit.average_score}\n'
+                f'  Audit ID: {audit.id}'
+            ))
 
         except subprocess.TimeoutExpired:
             logger.error('Lighthouse audit timed out after 5 minutes')
