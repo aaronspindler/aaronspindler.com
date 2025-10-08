@@ -24,7 +24,7 @@ def get_blog_from_template_name(template_name, load_content=True, category=None)
     template_path = f"blog/{category}/{template_name}.html"
     blog_content = render_to_string(template_path) if load_content else ""
     
-    github_path = f"templates/blog/{category}/{template_name}.html"
+    github_path = f"blog/templates/blog/{category}/{template_name}.html"
     
     return {
         "entry_number": entry_number,
@@ -45,7 +45,7 @@ def get_all_blog_posts():
         List of dicts with template_name, category, and full_path for each blog post
     """
     blog_posts = []
-    blog_templates_path = os.path.join(settings.BASE_DIR, 'templates', 'blog')
+    blog_templates_path = os.path.join(settings.BASE_DIR, 'blog', 'templates', 'blog')
     
     for root, dirs, files in os.walk(blog_templates_path):
         rel_path = os.path.relpath(root, blog_templates_path)

@@ -37,7 +37,7 @@ class BlogPostSitemap(Sitemap):
         
         if blog_posts is None:
             blog_posts = []
-            template_dir = os.path.join(settings.BASE_DIR, 'templates', 'blog')
+            template_dir = os.path.join(settings.BASE_DIR, 'blog', 'templates', 'blog')
             
             # Define categories and their paths
             categories = {
@@ -72,7 +72,7 @@ class BlogPostSitemap(Sitemap):
     def lastmod(self, item):
         """Get last modification time of the template file"""
         template_path = os.path.join(
-            settings.BASE_DIR, 'templates', 'blog', 
+            settings.BASE_DIR, 'blog', 'templates', 'blog', 
             item['category'], item['filename']
         )
         if os.path.exists(template_path):
@@ -105,7 +105,7 @@ class DraftsSitemap(Sitemap):
     def items(self):
         """Get all draft pages from template structure"""
         draft_posts = []
-        template_dir = os.path.join(settings.BASE_DIR, 'templates', 'drafts')
+        template_dir = os.path.join(settings.BASE_DIR, 'blog', 'templates', 'drafts')
         
         if os.path.exists(template_dir):
             for root, dirs, files in os.walk(template_dir):
@@ -137,12 +137,12 @@ class DraftsSitemap(Sitemap):
         """Get last modification time of the template file"""
         if item['category']:
             template_path = os.path.join(
-                settings.BASE_DIR, 'templates', 'drafts', 
+                settings.BASE_DIR, 'blog', 'templates', 'drafts', 
                 item['category'], item['filename']
             )
         else:
             template_path = os.path.join(
-                settings.BASE_DIR, 'templates', 'drafts', 
+                settings.BASE_DIR, 'blog', 'templates', 'drafts', 
                 item['filename']
             )
         
