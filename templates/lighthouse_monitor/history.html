@@ -5,10 +5,6 @@
 
 {% block meta_description %}Historical Lighthouse performance audit data showing Performance, Accessibility, Best Practices, SEO, and PWA scores over time.{% endblock %}
 
-{% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-{% endblock %}
-
 {% block content %}
 <main class="content" role="main">
     <h1>Lighthouse Performance History</h1>
@@ -78,6 +74,7 @@
         </table>
     </section>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
         const ctx = document.getElementById('lighthouseChart');
         const chartData = {{ chart_data|safe }};
