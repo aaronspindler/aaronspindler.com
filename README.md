@@ -27,7 +27,7 @@ This isn't your average personal website. It's a playground for web experiments 
 - **= Interactive Knowledge Graph** - Watch your blog posts connect in real-time with a D3.js-powered visualization that maps relationships between posts
 - **= Smart Photo Management** - Upload once, get 5 optimized sizes automatically, complete with EXIF data extraction
 - **= Template-Based Blog System** - No database clutter - blog posts live as HTML templates with rich metadata
-- **= Automated Performance Monitoring** - Nightly Lighthouse audits tracking all 5 metrics with historical trends and badge display
+- **= Automated Performance Monitoring** - Nightly Lighthouse audits tracking 4 key metrics with historical trends and badge display
 - **= Privacy-First Analytics** - Custom page visit tracking that respects user privacy
 - **< Server-Side Screenshots** - Playwright-powered screenshot generation for social media previews
 - ** Performance Optimized** - Static file compression, multi-stage Docker builds, and intelligent caching
@@ -162,7 +162,7 @@ safety check
 
 ## = Performance Features
 
-- **Lighthouse Monitoring**: Automated nightly audits tracking Performance, Accessibility, Best Practices, SEO, and PWA scores with 30-day history visualization
+- **Lighthouse Monitoring**: Automated nightly audits tracking Performance, Accessibility, Best Practices, and SEO scores with 30-day history visualization
 - **Static File Optimization**: Custom management command for gzipping assets
 - **Intelligent Caching**: Knowledge graph caching with smart invalidation
 - **Image Lazy Loading**: Automatic srcset generation for responsive images

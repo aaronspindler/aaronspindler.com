@@ -13,7 +13,6 @@ class LighthouseAuditModelTests(TestCase):
             accessibility_score=90,
             best_practices_score=85,
             seo_score=100,
-            pwa_score=80,
         )
         self.assertEqual(audit.url, 'https://example.com')
         self.assertEqual(audit.performance_score, 95)
@@ -26,9 +25,8 @@ class LighthouseAuditModelTests(TestCase):
             accessibility_score=90,
             best_practices_score=80,
             seo_score=70,
-            pwa_score=60,
         )
-        expected_average = (100 + 90 + 80 + 70 + 60) / 5
+        expected_average = (100 + 90 + 80 + 70) / 4
         self.assertEqual(audit.average_score, round(expected_average))
 
     def test_color_class_success(self):
@@ -39,7 +37,6 @@ class LighthouseAuditModelTests(TestCase):
             accessibility_score=95,
             best_practices_score=95,
             seo_score=95,
-            pwa_score=95,
         )
         self.assertEqual(audit.color_class, 'success')
 
@@ -51,7 +48,6 @@ class LighthouseAuditModelTests(TestCase):
             accessibility_score=80,
             best_practices_score=80,
             seo_score=80,
-            pwa_score=80,
         )
         self.assertEqual(audit.color_class, 'warning')
 
@@ -63,7 +59,6 @@ class LighthouseAuditModelTests(TestCase):
             accessibility_score=60,
             best_practices_score=60,
             seo_score=60,
-            pwa_score=60,
         )
         self.assertEqual(audit.color_class, 'danger')
 
@@ -75,7 +70,6 @@ class LighthouseAuditModelTests(TestCase):
             accessibility_score=90,
             best_practices_score=85,
             seo_score=100,
-            pwa_score=80,
         )
         self.assertIn('https://example.com', str(audit))
         self.assertIn('Audit for', str(audit))

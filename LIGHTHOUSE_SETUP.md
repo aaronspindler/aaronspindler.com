@@ -4,18 +4,17 @@ This document provides instructions for setting up and using the Lighthouse perf
 
 ## Overview
 
-The Lighthouse monitoring system automatically tracks all 5 Lighthouse metrics:
+The Lighthouse monitoring system automatically tracks 4 key Lighthouse metrics:
 - **Performance** - Page load speed and optimization
 - **Accessibility** - Web accessibility standards compliance
 - **Best Practices** - Web development best practices
 - **SEO** - Search engine optimization
-- **PWA** - Progressive Web App capabilities
 
 ## Features Implemented
 
 ✅ **Automated Lighthouse Audits** - Run via management command or Celery task
 ✅ **Historical Data Storage** - All audit results stored in database
-✅ **Badge Display** - Shield.io-style badge in footer showing latest scores
+✅ **Badge Display** - Shield.io-style badge in footer showing latest scores (4 metrics)
 ✅ **History Visualization** - Chart.js-powered trend visualization
 ✅ **Celery Beat Integration** - Nightly automated audits at 2 AM UTC
 ✅ **REST API Endpoint** - Badge data in shields.io format
@@ -93,10 +92,12 @@ The task is configured in `lighthouse_monitor/tasks.py` and uses the `run_lighth
 {
   "schemaVersion": 1,
   "label": "lighthouse",
-  "message": "95/90/95/100/80",
+  "message": "95/90/95/100",
   "color": "brightgreen"
 }
 ```
+
+Message format: `Performance/Accessibility/Best Practices/SEO`
 
 Used by shields.io to generate the badge:
 ```
@@ -109,14 +110,14 @@ https://img.shields.io/endpoint?url=https://aaronspindler.com/api/lighthouse/bad
 
 Displays:
 - Latest audit scores in card format
-- 30-day trend chart with all 5 metrics
+- 30-day trend chart with all 4 metrics
 - Detailed table of all audits in the last 30 days
 
 ## Badge Display
 
 The badge is displayed in the footer of every page (`templates/_footer.html`) and:
 - Links to the history page
-- Shows all 5 scores in format: Performance/Accessibility/Best Practices/SEO/PWA
+- Shows all 4 scores in format: Performance/Accessibility/Best Practices/SEO
 - Color-coded: Green (avg ≥90), Yellow (avg ≥70), Red (avg <70)
 - Cached for 1 hour for performance
 
@@ -128,7 +129,6 @@ The `LighthouseAudit` model stores:
 - `accessibility_score` - Accessibility score (0-100)
 - `best_practices_score` - Best Practices score (0-100)
 - `seo_score` - SEO score (0-100)
-- `pwa_score` - PWA score (0-100)
 - `audit_date` - Timestamp of audit (auto-set)
 - `metadata` - Additional Lighthouse data (JSON)
 

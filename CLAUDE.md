@@ -127,7 +127,7 @@ python manage.py setup_periodic_tasks
   - Private/public album support
 
 - **lighthouse_monitor/**: Performance monitoring system
-  - Automated Lighthouse audits tracking all 5 metrics (Performance, Accessibility, Best Practices, SEO, PWA)
+  - Automated Lighthouse audits tracking 4 key metrics (Performance, Accessibility, Best Practices, SEO)
   - Historical performance data storage with 30-day visualization
   - Badge endpoint for shields.io integration
   - Celery Beat task for nightly audits at 2 AM UTC

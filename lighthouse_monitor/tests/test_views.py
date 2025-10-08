@@ -22,14 +22,13 @@ class BadgeEndpointTests(TestCase):
             accessibility_score=90,
             best_practices_score=85,
             seo_score=100,
-            pwa_score=80,
         )
         response = self.client.get(reverse('lighthouse_monitor:badge_endpoint'))
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['schemaVersion'], 1)
         self.assertEqual(data['label'], 'lighthouse')
-        self.assertEqual(data['message'], '95/90/85/100/80')
+        self.assertEqual(data['message'], '95/90/85/100')
         self.assertEqual(data['color'], 'brightgreen')
 
     def test_badge_color_yellow_for_medium_scores(self):
@@ -40,7 +39,6 @@ class BadgeEndpointTests(TestCase):
             accessibility_score=80,
             best_practices_score=80,
             seo_score=80,
-            pwa_score=80,
         )
         response = self.client.get(reverse('lighthouse_monitor:badge_endpoint'))
         data = response.json()
@@ -54,7 +52,6 @@ class BadgeEndpointTests(TestCase):
             accessibility_score=60,
             best_practices_score=60,
             seo_score=60,
-            pwa_score=60,
         )
         response = self.client.get(reverse('lighthouse_monitor:badge_endpoint'))
         data = response.json()
@@ -83,7 +80,6 @@ class HistoryPageTests(TestCase):
             accessibility_score=90,
             best_practices_score=85,
             seo_score=100,
-            pwa_score=80,
         )
         response = self.client.get(reverse('lighthouse_monitor:history'))
         self.assertContains(response, 'Latest Audit')

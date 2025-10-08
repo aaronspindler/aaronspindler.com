@@ -12,7 +12,6 @@ class LighthouseAuditAdmin(admin.ModelAdmin):
         'accessibility_score',
         'best_practices_score',
         'seo_score',
-        'pwa_score',
         'average_score',
     ]
     list_filter = ['audit_date', 'url']
@@ -23,7 +22,6 @@ class LighthouseAuditAdmin(admin.ModelAdmin):
         'accessibility_score',
         'best_practices_score',
         'seo_score',
-        'pwa_score',
         'audit_date',
         'metadata',
     ]

@@ -16,8 +16,8 @@ def badge_endpoint(request):
     try:
         latest_audit = LighthouseAudit.objects.latest('audit_date')
         
-        # Format scores as "P/A/BP/SEO/PWA"
-        message = f"{latest_audit.performance_score}/{latest_audit.accessibility_score}/{latest_audit.best_practices_score}/{latest_audit.seo_score}/{latest_audit.pwa_score}"
+        # Format scores as "P/A/BP/SEO"
+        message = f"{latest_audit.performance_score}/{latest_audit.accessibility_score}/{latest_audit.best_practices_score}/{latest_audit.seo_score}"
         
         # Determine badge color based on average score
         avg_score = latest_audit.average_score
@@ -61,7 +61,6 @@ def history_page(request):
         'accessibility': [audit.accessibility_score for audit in audits],
         'best_practices': [audit.best_practices_score for audit in audits],
         'seo': [audit.seo_score for audit in audits],
-        'pwa': [audit.pwa_score for audit in audits],
     }
     
     context = {

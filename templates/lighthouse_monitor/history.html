@@ -29,10 +29,6 @@
                 <div class="score-value">{{ latest_audit.seo_score }}</div>
                 <div class="score-label">SEO</div>
             </div>
-            <div class="score-card">
-                <div class="score-value">{{ latest_audit.pwa_score }}</div>
-                <div class="score-label">PWA</div>
-            </div>
         </div>
     </section>
 
@@ -54,7 +50,6 @@
                     <th>Accessibility</th>
                     <th>Best Practices</th>
                     <th>SEO</th>
-                    <th>PWA</th>
                     <th>Average</th>
                 </tr>
             </thead>
@@ -66,7 +61,6 @@
                     <td>{{ audit.accessibility_score }}</td>
                     <td>{{ audit.best_practices_score }}</td>
                     <td>{{ audit.seo_score }}</td>
-                    <td>{{ audit.pwa_score }}</td>
                     <td><strong>{{ audit.average_score }}</strong></td>
                 </tr>
                 {% endfor %}
@@ -110,13 +104,6 @@
                         data: chartData.seo,
                         borderColor: 'rgb(255, 206, 86)',
                         backgroundColor: 'rgba(255, 206, 86, 0.1)',
-                        tension: 0.1
-                    },
-                    {
-                        label: 'PWA',
-                        data: chartData.pwa,
-                        borderColor: 'rgb(153, 102, 255)',
-                        backgroundColor: 'rgba(153, 102, 255, 0.1)',
                         tension: 0.1
                     }
                 ]

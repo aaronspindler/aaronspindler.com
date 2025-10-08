@@ -4,14 +4,13 @@ from django.db import models
 class LighthouseAudit(models.Model):
     """
     Stores Lighthouse audit results for performance monitoring.
-    Tracks all 5 Lighthouse categories: Performance, Accessibility, Best Practices, SEO, and PWA.
+    Tracks 4 key Lighthouse categories: Performance, Accessibility, Best Practices, and SEO.
     """
     url = models.CharField(max_length=500, help_text="URL that was audited")
     performance_score = models.IntegerField(help_text="Performance score (0-100)")
     accessibility_score = models.IntegerField(help_text="Accessibility score (0-100)")
     best_practices_score = models.IntegerField(help_text="Best Practices score (0-100)")
     seo_score = models.IntegerField(help_text="SEO score (0-100)")
-    pwa_score = models.IntegerField(help_text="PWA score (0-100)")
     audit_date = models.DateTimeField(auto_now_add=True, help_text="When the audit was run")
     metadata = models.JSONField(default=dict, blank=True, help_text="Additional Lighthouse data")
 
@@ -34,9 +33,8 @@ class LighthouseAudit(models.Model):
             self.performance_score +
             self.accessibility_score +
             self.best_practices_score +
-            self.seo_score +
-            self.pwa_score
-        ) / 5)
+            self.seo_score
+        ) / 4)
 
     @property
     def color_class(self):

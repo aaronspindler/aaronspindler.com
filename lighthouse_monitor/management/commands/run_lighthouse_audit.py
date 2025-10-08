@@ -79,7 +79,6 @@ class Command(BaseCommand):
             accessibility_score = int(categories.get('accessibility', {}).get('score', 0) * 100)
             best_practices_score = int(categories.get('best-practices', {}).get('score', 0) * 100)
             seo_score = int(categories.get('seo', {}).get('score', 0) * 100)
-            pwa_score = int(categories.get('pwa', {}).get('score', 0) * 100)
 
             # Create metadata with additional useful information
             metadata = {
@@ -97,7 +96,6 @@ class Command(BaseCommand):
                 accessibility_score=accessibility_score,
                 best_practices_score=best_practices_score,
                 seo_score=seo_score,
-                pwa_score=pwa_score,
                 metadata=metadata,
             )
 
@@ -107,7 +105,6 @@ class Command(BaseCommand):
                 f'  Accessibility: {accessibility_score}\n'
                 f'  Best Practices: {best_practices_score}\n'
                 f'  SEO: {seo_score}\n'
-                f'  PWA: {pwa_score}\n'
                 f'  Average: {audit.average_score}\n'
                 f'  Audit ID: {audit.id}'
             ))
