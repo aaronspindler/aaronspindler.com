@@ -167,11 +167,14 @@ class ManagementCommandsTest(TestCase):
         mock_task2.name = 'Rebuild knowledge graph cache'
         mock_task3 = MagicMock()
         mock_task3.name = 'Generate knowledge graph screenshot'
+        mock_task4 = MagicMock()
+        mock_task4.name = 'Run daily Lighthouse audit'
         
         mock_periodic_task.objects.update_or_create.side_effect = [
             (mock_task1, True),
             (mock_task2, True),
-            (mock_task3, True)
+            (mock_task3, True),
+            (mock_task4, True)
         ]
         
         out = StringIO()
@@ -182,11 +185,12 @@ class ManagementCommandsTest(TestCase):
         self.assertIn('Rebuild and cache sitemap daily', output)
         self.assertIn('Rebuild knowledge graph cache', output)
         self.assertIn('Generate knowledge graph screenshot', output)
+        self.assertIn('Run daily Lighthouse audit', output)
         
         # Verify tasks were created
         self.assertTrue(mock_periodic_task.objects.update_or_create.called)
-        # Should create 3 tasks (sitemap, knowledge graph, screenshot)
-        self.assertEqual(mock_periodic_task.objects.update_or_create.call_count, 3)
+        # Should create 4 tasks (sitemap, knowledge graph, screenshot, lighthouse)
+        self.assertEqual(mock_periodic_task.objects.update_or_create.call_count, 4)
 
 
 class TaskIntegrationTest(TestCase):

@@ -13,11 +13,11 @@ The Lighthouse monitoring system automatically tracks all 5 Lighthouse metrics:
 
 ## Features Implemented
 
-✅ **Automated Lighthouse Audits** - Run via management command
+✅ **Automated Lighthouse Audits** - Run via management command or Celery task
 ✅ **Historical Data Storage** - All audit results stored in database
 ✅ **Badge Display** - Shield.io-style badge in footer showing latest scores
 ✅ **History Visualization** - Chart.js-powered trend visualization
-✅ **GitHub Actions Integration** - Nightly automated audits
+✅ **Celery Beat Integration** - Nightly automated audits at 2 AM UTC
 ✅ **REST API Endpoint** - Badge data in shields.io format
 
 ## Quick Start
@@ -40,34 +40,47 @@ python manage.py run_lighthouse_audit
 python manage.py run_lighthouse_audit --url https://example.com
 ```
 
-### 3. View Results
+### 3. Set Up Automated Daily Audits
+
+```bash
+python manage.py setup_periodic_tasks
+```
+
+This configures a Celery Beat task to run audits daily at 2 AM UTC.
+
+### 4. View Results
 
 - **History Page**: Visit `/lighthouse/history/` to see the 30-day trend
-- **Badge**: The badge in the footer updates automatically
+- **Badge**: The badge in the footer updates automatically (appears after first audit)
 - **Admin Panel**: View all audits in Django admin under "Lighthouse Monitor"
 
-## GitHub Actions Setup
+## Automated Audits with Celery Beat
 
-The nightly audit workflow is configured in `.github/workflows/lighthouse-audit.yml` but requires the following secrets to be set in your repository:
+Lighthouse audits are run automatically every day at 2 AM UTC using Celery Beat.
 
-### Required GitHub Secrets
+### Setup Periodic Task
 
-1. `SECRET_KEY` - Django secret key
-2. `DATABASE_URL` - Production database connection string (e.g., `postgres://user:pass@host:5432/dbname`)
-3. `REDIS_URL` - Redis connection URL (e.g., `redis://host:6379/1`)
+Run the setup command to configure the scheduled task:
 
-### Setting Up Secrets
+```bash
+python manage.py setup_periodic_tasks
+```
 
-1. Go to your GitHub repository
-2. Navigate to Settings → Secrets and variables → Actions
-3. Add the required secrets
+This creates a Celery Beat periodic task that:
+- Runs nightly at 2 AM UTC
+- Executes `lighthouse_monitor.tasks.run_lighthouse_audit`
+- Audits https://aaronspindler.com
+- Stores results in the database
 
-The workflow will:
-- Run nightly at 2 AM UTC
-- Connect to your production database
-- Run a Lighthouse audit of https://aaronspindler.com
-- Store the results in the database
-- Can also be triggered manually via "Actions" tab
+### Requirements
+
+Make sure Celery Beat is running in production:
+
+```bash
+celery -A config beat -l info
+```
+
+The task is configured in `lighthouse_monitor/tasks.py` and uses the `run_lighthouse_audit` management command under the hood.
 
 ## API Endpoints
 
@@ -150,11 +163,12 @@ No audits have been run yet. Run the management command:
 python manage.py run_lighthouse_audit
 ```
 
-### GitHub Actions Failing
+### Celery Task Not Running
 
-1. Check that all required secrets are set
-2. Verify the production database is accessible from GitHub Actions
-3. Check the Actions logs for specific error messages
+1. Verify Celery Beat is running: `celery -A config beat -l info`
+2. Check that the periodic task is enabled in Django admin
+3. Check Celery logs for any errors
+4. Ensure the task is registered: `python manage.py setup_periodic_tasks`
 
 ## Future Enhancements
 

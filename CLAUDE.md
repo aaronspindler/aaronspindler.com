@@ -85,6 +85,9 @@ python manage.py run_lighthouse_audit
 
 # Run audit for a specific URL
 python manage.py run_lighthouse_audit --url https://example.com
+
+# Setup daily automated audits (Celery Beat)
+python manage.py setup_periodic_tasks
 ```
 
 ### Cache Management
@@ -127,7 +130,7 @@ python manage.py setup_periodic_tasks
   - Automated Lighthouse audits tracking all 5 metrics (Performance, Accessibility, Best Practices, SEO, PWA)
   - Historical performance data storage with 30-day visualization
   - Badge endpoint for shields.io integration
-  - Nightly audits via GitHub Actions
+  - Celery Beat task for nightly audits at 2 AM UTC
 
 - **accounts/**: User authentication via django-allauth
   - Custom user model

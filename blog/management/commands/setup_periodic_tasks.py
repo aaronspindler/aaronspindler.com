@@ -109,6 +109,40 @@ class Command(BaseCommand):
                 )
             )
         
+        # Setup daily Lighthouse audit at 2 AM
+        schedule_daily_2am, created = CrontabSchedule.objects.get_or_create(
+            minute='0',
+            hour='2',
+            day_of_week='*',
+            day_of_month='*',
+            month_of_year='*',
+        )
+        
+        # Create or update the Lighthouse audit task
+        lighthouse_task, created = PeriodicTask.objects.update_or_create(
+            name='Run daily Lighthouse audit',
+            defaults={
+                'task': 'lighthouse_monitor.tasks.run_lighthouse_audit',
+                'crontab': schedule_daily_2am,
+                'kwargs': json.dumps({}),
+                'enabled': True,
+                'description': 'Runs a Lighthouse performance audit of the production site every day at 2 AM'
+            }
+        )
+        
+        if created:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Successfully created periodic task: {lighthouse_task.name}'
+                )
+            )
+        else:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Successfully updated periodic task: {lighthouse_task.name}'
+                )
+            )
+        
         self.stdout.write(
             self.style.SUCCESS(
                 '\nAll periodic tasks have been configured successfully!'
