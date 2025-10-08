@@ -455,3 +455,49 @@ def search_view(request):
     }
     
     return render(request, 'blog/search_results.html', context)
+
+
+@require_GET
+def search_autocomplete(request):
+    """
+    API endpoint for search autocomplete suggestions.
+    Returns top results from blog posts, projects, and books.
+    """
+    query = request.GET.get('q', '').strip()
+    
+    if not query or len(query) < 2:
+        return JsonResponse({'suggestions': []})
+    
+    suggestions = []
+    
+    # Get blog post suggestions (limit to 5)
+    blog_posts = search_blog_posts(query=query)[:5]
+    for post in blog_posts:
+        suggestions.append({
+            'title': post['blog_title'],
+            'type': 'Blog Post',
+            'url': f"/b/{post['category']}/{post['template_name']}/",
+            'category': post['category']
+        })
+    
+    # Get project suggestions (limit to 3)
+    projects = search_projects(query=query)[:3]
+    for project in projects:
+        suggestions.append({
+            'title': project['name'],
+            'type': 'Project',
+            'url': project.get('link', '#'),
+            'external': bool(project.get('link'))
+        })
+    
+    # Get book suggestions (limit to 2)
+    books = search_books(query=query)[:2]
+    for book in books:
+        author_text = f" by {book['author']}" if book.get('author') else ""
+        suggestions.append({
+            'title': f"{book['name']}{author_text}",
+            'type': 'Book',
+            'url': '/#books'
+        })
+    
+    return JsonResponse({'suggestions': suggestions[:10]})

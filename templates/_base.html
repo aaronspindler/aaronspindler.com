@@ -36,6 +36,7 @@
   <link rel="preload" href="{% static css_file %}" as="style" fetchpriority="high">
   <link rel="stylesheet" href="{% static css_file %}" media="print" onload="this.media='all'; this.onload=null;">
   <noscript><link rel="stylesheet" href="{% static css_file %}"></noscript>
+  <link rel="stylesheet" href="{% static 'css/autocomplete.css' %}">
   {% endblock %}
 </head>
 
@@ -52,6 +53,7 @@
   {% block javascript %}
   <script src="{% static 'js/theme-toggle.js' %}" defer></script>
   <script src="{% static 'js/base-optimized.min.js' %}" defer></script>
+  <script src="{% static 'js/search-autocomplete.min.js' %}" defer></script>
   {% endblock javascript %}
   
   <!-- Load D3.js only when needed -->
