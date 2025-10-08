@@ -78,6 +78,15 @@ python manage.py generate_knowledge_graph_screenshot --width 2400 --height 1600 
 python manage.py generate_album_zips
 ```
 
+### Lighthouse Performance Monitoring
+```bash
+# Run Lighthouse audit and store results
+python manage.py run_lighthouse_audit
+
+# Run audit for a specific URL
+python manage.py run_lighthouse_audit --url https://example.com
+```
+
 ### Cache Management
 ```bash
 # Clear all caches
@@ -113,6 +122,12 @@ python manage.py setup_periodic_tasks
   - EXIF metadata extraction
   - Album management with zip generation
   - Private/public album support
+
+- **lighthouse_monitor/**: Performance monitoring system
+  - Automated Lighthouse audits tracking all 5 metrics (Performance, Accessibility, Best Practices, SEO, PWA)
+  - Historical performance data storage with 30-day visualization
+  - Badge endpoint for shields.io integration
+  - Nightly audits via GitHub Actions
 
 - **accounts/**: User authentication via django-allauth
   - Custom user model

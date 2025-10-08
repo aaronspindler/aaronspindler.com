@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "pages",
     "blog",
     "photos",
+    "lighthouse_monitor",
     "utils",
 ]
 
