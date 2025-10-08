@@ -75,7 +75,7 @@ class Command(BaseCommand):
     def _optimize_individual_files(self):
         """Optimize individual CSS files"""
         static_dir = os.path.join(settings.BASE_DIR, 'static', 'css')
-        css_files = ['base.css', 'theme-toggle.css', 'books.css', 'knowledge_graph.css', 'photos.css', 'blog.css', 'autocomplete.css']
+        css_files = ['category-colors.css', 'base.css', 'theme-toggle.css', 'books.css', 'knowledge_graph.css', 'photos.css', 'blog.css', 'autocomplete.css']
         
         if self.options.get('parallel'):
             self._parallel_optimize_files(static_dir, css_files)
@@ -89,7 +89,7 @@ class Command(BaseCommand):
         base_dir = settings.BASE_DIR
         static_dir = os.path.join(base_dir, 'static', 'css')
         
-        css_files = ['base.css', 'theme-toggle.css', 'books.css', 'knowledge_graph.css', 'photos.css', 'blog.css', 'autocomplete.css']
+        css_files = ['category-colors.css', 'base.css', 'theme-toggle.css', 'books.css', 'knowledge_graph.css', 'photos.css', 'blog.css', 'autocomplete.css']
         
         # Step 1: Combine CSS files
         combined_path = self._combine_css_files(static_dir, css_files)
