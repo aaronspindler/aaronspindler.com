@@ -867,14 +867,11 @@ critical.generate({
     def _cleanup_backup_files(self):
         """Clean up backup files created during optimization"""
         static_dir = os.path.join(settings.BASE_DIR, 'static', 'css')
-        css_files = ['base.css', 'theme-toggle.css', 'books.css', 'knowledge_graph.css', 'photos.css', 'blog.css', 'search-autocomplete.css']
         
         removed_count = 0
-        for css_file in css_files:
-            backup_path = os.path.join(static_dir, css_file + '.backup')
-            if os.path.exists(backup_path):
-                os.remove(backup_path)
-                removed_count += 1
+        for backup_path in Path(static_dir).glob('*.css.backup'):
+            backup_path.unlink()
+            removed_count += 1
         
         if removed_count > 0:
             self.stdout.write(f'🧹 Removed {removed_count} backup files')
