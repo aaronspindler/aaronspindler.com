@@ -83,6 +83,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "pages.context_processors.resume_context",  # Custom context processor for resume settings
+                "lighthouse_monitor.context_processors.lighthouse_badge",  # Lighthouse badge visibility
             ],
         },
     },
