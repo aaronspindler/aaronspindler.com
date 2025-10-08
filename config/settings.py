@@ -82,6 +82,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "pages.context_processors.resume_context",  # Custom context processor for resume settings
+                "utils.context_processors.lighthouse_badge",  # Lighthouse badge visibility
             ],
         },
     },
@@ -124,7 +125,7 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 DEFAULT_FROM_EMAIL = "root@localhost"
 
-INTERNAL_IPS = ["127.0.0.1"]
+INTERNAL_IPS = ["127.0.0.1", "localhost"]
 
 AUTH_USER_MODEL = "accounts.CustomUser"
 

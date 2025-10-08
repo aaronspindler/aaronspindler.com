@@ -2,7 +2,7 @@
 Django management command to configure periodic Celery Beat tasks.
 
 Sets up automated tasks for sitemap generation, knowledge graph rebuilding,
-and knowledge graph screenshots.
+knowledge graph screenshots, and Lighthouse performance audits.
 """
 from django.core.management.base import BaseCommand
 from django_celery_beat.models import PeriodicTask, CrontabSchedule
@@ -13,6 +13,39 @@ class Command(BaseCommand):
     help = 'Setup periodic tasks for Celery Beat'
 
     def handle(self, *args, **options):
+        # Daily Lighthouse audit at 2 AM
+        schedule_daily_2am, created = CrontabSchedule.objects.get_or_create(
+            minute='0',
+            hour='2',
+            day_of_week='*',
+            day_of_month='*',
+            month_of_year='*',
+        )
+        
+        lighthouse_task, created = PeriodicTask.objects.update_or_create(
+            name='Run daily Lighthouse audit',
+            defaults={
+                'task': 'lighthouse_monitor.tasks.run_lighthouse_audit',
+                'crontab': schedule_daily_2am,
+                'kwargs': json.dumps({}),
+                'enabled': True,
+                'description': 'Runs a Lighthouse performance audit of the production site every day at 2 AM'
+            }
+        )
+        
+        if created:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Successfully created periodic task: {lighthouse_task.name}'
+                )
+            )
+        else:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Successfully updated periodic task: {lighthouse_task.name}'
+                )
+            )
+        
         # Daily sitemap rebuild at 3 AM
         schedule_daily_3am, created = CrontabSchedule.objects.get_or_create(
             minute='0',
@@ -43,39 +76,6 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.SUCCESS(
                     f'Successfully updated periodic task: {task.name}'
-                )
-            )
-        
-        # Knowledge graph rebuild every 6 hours
-        schedule_every_6_hours, created = CrontabSchedule.objects.get_or_create(
-            minute='0',
-            hour='*/6',
-            day_of_week='*',
-            day_of_month='*',
-            month_of_year='*',
-        )
-        
-        kg_task, created = PeriodicTask.objects.update_or_create(
-            name='Rebuild knowledge graph cache',
-            defaults={
-                'task': 'blog.tasks.rebuild_knowledge_graph',
-                'crontab': schedule_every_6_hours,
-                'kwargs': json.dumps({}),
-                'enabled': True,
-                'description': 'Rebuilds the knowledge graph cache every 6 hours'
-            }
-        )
-        
-        if created:
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'Successfully created periodic task: {kg_task.name}'
-                )
-            )
-        else:
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'Successfully updated periodic task: {kg_task.name}'
                 )
             )
         
@@ -112,8 +112,42 @@ class Command(BaseCommand):
                 )
             )
         
+        # Knowledge graph rebuild every 6 hours
+        schedule_every_6_hours, created = CrontabSchedule.objects.get_or_create(
+            minute='0',
+            hour='*/6',
+            day_of_week='*',
+            day_of_month='*',
+            month_of_year='*',
+        )
+        
+        kg_task, created = PeriodicTask.objects.update_or_create(
+            name='Rebuild knowledge graph cache',
+            defaults={
+                'task': 'blog.tasks.rebuild_knowledge_graph',
+                'crontab': schedule_every_6_hours,
+                'kwargs': json.dumps({}),
+                'enabled': True,
+                'description': 'Rebuilds the knowledge graph cache every 6 hours'
+            }
+        )
+        
+        if created:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Successfully created periodic task: {kg_task.name}'
+                )
+            )
+        else:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f'Successfully updated periodic task: {kg_task.name}'
+                )
+            )
+        
         self.stdout.write(
             self.style.SUCCESS(
                 '\nAll periodic tasks have been configured successfully!'
             )
         )
+

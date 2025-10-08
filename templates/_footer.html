@@ -3,4 +3,11 @@
     <p>
       &copy; {% now "Y" %} Spindlers. All rights reserved. | <a href="https://github.com/aaronspindler/aaronspindler.com" rel="noopener noreferrer" target="_blank" aria-label="View source code on GitHub">Open source</a>
     </p>
+    {% if show_lighthouse_badge %}
+    <p>
+      <a href="{% url 'lighthouse_history' %}" aria-label="View Lighthouse performance history">
+        <img src="https://img.shields.io/endpoint?url=https://aaronspindler.com/api/lighthouse/badge/" alt="Lighthouse scores: Performance/Accessibility/Best Practices/SEO" loading="lazy">
+      </a>
+    </p>
+    {% endif %}
 </footer>

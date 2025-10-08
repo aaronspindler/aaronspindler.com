@@ -2,7 +2,10 @@ from django.contrib import admin
 import time
 
 from django.contrib import admin
-from .models import Email, NotificationConfig, TextMessage, NotificationEmail, NotificationPhoneNumber, HTTPStatusCode, RequestFingerprint
+from .models import (
+    Email, NotificationConfig, TextMessage, NotificationEmail, 
+    NotificationPhoneNumber, HTTPStatusCode, RequestFingerprint, LighthouseAudit
+)
 
 @admin.register(NotificationConfig)
 class NotificationConfigAdmin(admin.ModelAdmin):
@@ -113,3 +116,39 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
             request,
             f'Successfully deleted {deleted_count} local record(s).',
         )
+
+
+@admin.register(LighthouseAudit)
+class LighthouseAuditAdmin(admin.ModelAdmin):
+    """Admin interface for viewing Lighthouse audit history."""
+    list_display = [
+        'url',
+        'audit_date',
+        'performance_score',
+        'accessibility_score',
+        'best_practices_score',
+        'seo_score',
+        'average_score',
+    ]
+    list_filter = ['audit_date', 'url']
+    search_fields = ['url']
+    readonly_fields = [
+        'url',
+        'performance_score',
+        'accessibility_score',
+        'best_practices_score',
+        'seo_score',
+        'audit_date',
+        'metadata',
+    ]
+    date_hierarchy = 'audit_date'
+    ordering = ['-audit_date']
+
+    def average_score(self, obj):
+        """Display the average score."""
+        return obj.average_score
+    average_score.short_description = 'Average'
+
+    def has_add_permission(self, request):
+        """Disable manual adding of audits (should be created via management command)."""
+        return False

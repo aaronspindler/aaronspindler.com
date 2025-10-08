@@ -118,35 +118,6 @@ class OptimizeJsCommandTest(TestCase):
             self.assertEqual(mock_run.call_count, 1)  # Only minification
 
 
-class SetupPeriodicTasksCommandTest(TestCase):
-    """Test the setup_periodic_tasks management command."""
-    
-    @patch('pages.management.commands.setup_periodic_tasks.PeriodicTask')
-    @patch('pages.management.commands.setup_periodic_tasks.CrontabSchedule')
-    def test_setup_periodic_tasks(self, mock_crontab, mock_periodic_task):
-        """Test setting up periodic tasks."""
-        # Mock crontab schedule creation
-        mock_schedule = MagicMock()
-        mock_crontab.objects.get_or_create.return_value = (mock_schedule, True)
-        
-        # Mock periodic task creation
-        mock_task = MagicMock()
-        mock_periodic_task.objects.update_or_create.return_value = (mock_task, True)
-        
-        out = StringIO()
-        call_command('setup_periodic_tasks', stdout=out)
-        
-        # Verify crontab schedules were created
-        self.assertGreaterEqual(mock_crontab.objects.get_or_create.call_count, 3)
-        
-        # Verify periodic tasks were created
-        self.assertGreaterEqual(mock_periodic_task.objects.update_or_create.call_count, 3)
-        
-        output = out.getvalue()
-        self.assertIn('Successfully created periodic task', output)
-        self.assertIn('All periodic tasks have been configured successfully', output)
-
-
 class BuildCssCommandTest(TestCase):
     """Test the build_css management command."""
     

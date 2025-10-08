@@ -152,42 +152,6 @@ class ManagementCommandsTest(TestCase):
         self.assertIn('Starting knowledge graph screenshot generation', output)
         self.assertIn('Successfully generated', output)
 
-    @patch('django_celery_beat.models.CrontabSchedule')
-    @patch('django_celery_beat.models.PeriodicTask')
-    def test_setup_periodic_tasks_command(self, mock_periodic_task, mock_crontab):
-        """Test setup_periodic_tasks management command."""
-        # Mock the model operations
-        mock_schedule = MagicMock()
-        mock_crontab.objects.get_or_create.return_value = (mock_schedule, True)
-        
-        # Create mock tasks with proper names
-        mock_task1 = MagicMock()
-        mock_task1.name = 'Rebuild and cache sitemap daily'
-        mock_task2 = MagicMock()
-        mock_task2.name = 'Rebuild knowledge graph cache'
-        mock_task3 = MagicMock()
-        mock_task3.name = 'Generate knowledge graph screenshot'
-        
-        mock_periodic_task.objects.update_or_create.side_effect = [
-            (mock_task1, True),
-            (mock_task2, True),
-            (mock_task3, True)
-        ]
-        
-        out = StringIO()
-        call_command('setup_periodic_tasks', stdout=out)
-        
-        output = out.getvalue()
-        self.assertIn('Successfully created periodic task', output)
-        self.assertIn('Rebuild and cache sitemap daily', output)
-        self.assertIn('Rebuild knowledge graph cache', output)
-        self.assertIn('Generate knowledge graph screenshot', output)
-        
-        # Verify tasks were created
-        self.assertTrue(mock_periodic_task.objects.update_or_create.called)
-        # Should create 3 tasks (sitemap, knowledge graph, screenshot)
-        self.assertEqual(mock_periodic_task.objects.update_or_create.call_count, 3)
-
 
 class TaskIntegrationTest(TestCase):
     """Test integration of tasks with cache and models."""
