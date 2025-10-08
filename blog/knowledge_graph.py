@@ -85,8 +85,15 @@ class LinkParser:
             
             # Store file modification time for cache staleness checking
             try:
-                template_path = Path(settings.BASE_DIR) / 'templates' / 'blog' / f'{template_name}.html'
-                if template_path.exists():
+                # Find the template path using get_all_blog_posts
+                all_posts = get_all_blog_posts()
+                template_path = None
+                for post in all_posts:
+                    if post['template_name'] == template_name:
+                        template_path = Path(post['full_path'])
+                        break
+                
+                if template_path and template_path.exists():
                     cache_meta = {
                         'file_mtime': template_path.stat().st_mtime,
                         'cached_at': time.time()
@@ -275,9 +282,15 @@ class LinkParser:
             True if cache is stale or missing, False if cache is fresh
         """
         try:
-            template_path = Path(settings.BASE_DIR) / 'templates' / 'blog' / f'{template_name}.html'
+            # Find the template path using get_all_blog_posts
+            all_posts = get_all_blog_posts()
+            template_path = None
+            for post in all_posts:
+                if post['template_name'] == template_name:
+                    template_path = Path(post['full_path'])
+                    break
             
-            if not template_path.exists():
+            if not template_path or not template_path.exists():
                 return True
             
             file_mtime = template_path.stat().st_mtime
