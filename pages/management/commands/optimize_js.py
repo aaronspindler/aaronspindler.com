@@ -69,7 +69,8 @@ class Command(BaseCommand):
         self.stdout.write('\nOptimized JavaScript file sizes:')
         js_files = [
             'base-optimized.min.js',
-            'knowledge_graph.min.js'
+            'knowledge_graph.min.js',
+            'search-autocomplete.min.js'
         ]
         
         for filename in js_files:
