@@ -126,7 +126,7 @@ EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 DEFAULT_FROM_EMAIL = "root@localhost"
 
-INTERNAL_IPS = ["127.0.0.1"]
+INTERNAL_IPS = ["127.0.0.1", "localhost"]
 
 AUTH_USER_MODEL = "accounts.CustomUser"
 
