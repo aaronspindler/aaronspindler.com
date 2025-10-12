@@ -182,6 +182,7 @@ Required environment variables (use django-environ):
   - `AWS_STORAGE_BUCKET_NAME`
   - `AWS_S3_REGION_NAME` (optional, defaults to us-east-1)
 - `REDIS_URL`: Redis connection URL (for caching)
+- `USE_DEV_CACHE_PREFIX`: Prefix cache keys with 'dev_' for local development (optional, defaults to False)
 - `CELERY_BROKER_URL`: Celery broker URL (defaults to REDIS_URL)
 - `RESUME_ENABLED`: Enable resume download feature
 - `RESUME_FILENAME`: Resume file name

@@ -256,6 +256,7 @@ LOGGING = {
 
 # Redis URL format: redis://username:password@host:port/db_number
 REDIS_URL = env('REDIS_URL', default='redis://127.0.0.1:6379/1')
+USE_DEV_CACHE_PREFIX = env('USE_DEV_CACHE_PREFIX', default=False)
 
 CACHES = {
     'default': {
@@ -272,7 +273,7 @@ CACHES = {
             'COMPRESSOR': 'django_redis.compressors.zlib.ZlibCompressor',
             'IGNORE_EXCEPTIONS': True,  # Fall back gracefully if Redis is down
         },
-        'KEY_PREFIX': 'aaronspindler',
+        'KEY_PREFIX': 'aaronspindler:dev_' if USE_DEV_CACHE_PREFIX else 'aaronspindler',
         'TIMEOUT': 300,  # Default cache timeout of 5 minutes
     }
 }
