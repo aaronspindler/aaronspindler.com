@@ -1,4 +1,4 @@
-from PIL import Image, ImageFilter, ImageStat, ImageOps
+from PIL import Image, ImageFilter
 from PIL.ExifTags import TAGS, GPSTAGS
 from io import BytesIO
 from django.core.files.base import ContentFile

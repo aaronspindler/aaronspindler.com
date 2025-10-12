@@ -3,7 +3,7 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db import models
 from django.db.models import Count, Q, Avg, Sum
-from django.db.models.functions import TruncHour, TruncDay, TruncWeek, TruncMonth
+from django.db.models.functions import TruncHour, TruncDay, TruncMonth
 from django.urls import reverse
 
 from utils.common_list_choices import INTERVAL_CHOICES

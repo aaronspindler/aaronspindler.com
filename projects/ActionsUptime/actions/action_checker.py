@@ -1,7 +1,6 @@
 import json
 from django.conf import settings
 import requests
-from pprint import pprint as pp
 
 
 class ActionChecker:

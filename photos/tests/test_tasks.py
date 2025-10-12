@@ -10,13 +10,10 @@ Tests cover:
 
 from django.test import TestCase
 from django.core.files.base import ContentFile
-from unittest.mock import Mock, patch, MagicMock, mock_open, call
+from unittest.mock import Mock, patch, MagicMock, mock_open
 import unittest
 from io import BytesIO
 from PIL import Image
-import tempfile
-import os
-import zipfile
 
 from photos.tasks import generate_album_zip, regenerate_all_album_zips
 from photos.models import Photo, PhotoAlbum

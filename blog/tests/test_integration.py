@@ -1,10 +1,8 @@
 from django.test import TestCase, Client, TransactionTestCase
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.db import transaction
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from blog.models import BlogComment, CommentVote
-from blog.forms import CommentForm
 from tests.factories import UserFactory, BlogCommentFactory, MockDataFactory, TestDataMixin
 import json
 

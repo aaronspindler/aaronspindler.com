@@ -110,8 +110,6 @@ class PhotoAdmin(admin.ModelAdmin):
     
     def add_to_album(self, request, queryset):
         """Batch action to add selected photos to an album."""
-        from django.contrib.admin.helpers import ActionForm
-        from django import forms
         
         albums = PhotoAlbum.objects.all()
         if not albums:

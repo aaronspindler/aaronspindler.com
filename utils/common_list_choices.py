@@ -1,4 +1,3 @@
-from django.db.models import Q
 
 INTERVAL_CHOICES = [
         ('5M', '5 Minutes'),

@@ -1,7 +1,6 @@
 from django.test import TestCase
-from django.conf import settings
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import os
 import tempfile
 import shutil

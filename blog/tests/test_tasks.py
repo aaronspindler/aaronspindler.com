@@ -3,9 +3,7 @@ from django.core.management import call_command
 from django.core.cache import cache
 from unittest.mock import patch, MagicMock
 from blog.tasks import rebuild_knowledge_graph, generate_knowledge_graph_screenshot
-from tests.factories import MockDataFactory
 from io import StringIO
-import logging
 
 
 class BlogTasksTest(TestCase):

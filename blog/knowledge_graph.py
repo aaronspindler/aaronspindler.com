@@ -1,17 +1,14 @@
-import os
 import re
 import time
 import logging
 import hashlib
-from typing import Dict, List, Optional, Union
-from urllib.parse import urljoin, urlparse
+from typing import Dict, List
+from urllib.parse import urlparse
 from pathlib import Path
 
 from bs4 import BeautifulSoup, Comment
-from django.conf import settings
 from django.core.cache import cache
 from django.template.loader import render_to_string
-from django.template import Template, Context
 
 from blog.utils import get_blog_from_template_name, get_all_blog_posts
 

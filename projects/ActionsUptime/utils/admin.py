@@ -1,5 +1,4 @@
 from django.contrib import admin
-import time
 
 from django.contrib import admin
 from .models import Email, LambdaRegion, Notification, NotificationConfig, TextMessage, NotificationEmail, NotificationPhoneNumber, HTTPStatusCode

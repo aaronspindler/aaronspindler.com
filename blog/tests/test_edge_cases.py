@@ -2,10 +2,10 @@ from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from blog.models import BlogComment, CommentVote
 from blog.forms import CommentForm
-from blog.knowledge_graph import normalize_template_name, LinkParser, GraphBuilder
+from blog.knowledge_graph import normalize_template_name, LinkParser
 from tests.factories import UserFactory, BlogCommentFactory, MockDataFactory
 import json
 

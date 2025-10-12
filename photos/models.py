@@ -1,5 +1,4 @@
 from django.db import models
-from django.core.files.base import ContentFile
 from django.core.exceptions import ValidationError
 from django.utils.text import slugify
 from config.storage_backends import PrivateMediaStorage

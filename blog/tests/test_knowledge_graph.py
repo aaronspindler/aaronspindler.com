@@ -1,6 +1,6 @@
 from django.test import TestCase
 from django.core.cache import cache
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch
 from blog.knowledge_graph import (
     normalize_template_name,
     LinkParser,
@@ -9,8 +9,6 @@ from blog.knowledge_graph import (
     build_knowledge_graph,
     get_post_graph
 )
-from tests.factories import MockDataFactory
-from pathlib import Path
 
 
 class NormalizeTemplateNameTest(TestCase):

@@ -1,7 +1,6 @@
 from django.test import TestCase
 from django.core.management import call_command
-from django.core.cache import cache
-from unittest.mock import patch, MagicMock, mock_open, call
+from unittest.mock import patch, MagicMock
 from io import StringIO
 import os
 import tempfile

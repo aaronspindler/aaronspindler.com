@@ -9,7 +9,6 @@ Usage:
 
 from django.core.management.base import BaseCommand
 from django.core.cache import cache
-from django.conf import settings
 import logging
 
 logger = logging.getLogger(__name__)

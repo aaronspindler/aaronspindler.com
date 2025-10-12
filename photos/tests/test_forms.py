@@ -11,7 +11,7 @@ Tests cover:
 from django.test import TestCase
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 from io import BytesIO
 from PIL import Image
 
@@ -20,7 +20,7 @@ from photos.forms import (
     MultipleFileInput,
     MultipleFileField
 )
-from photos.models import Photo, PhotoAlbum
+from photos.models import Photo
 from tests.factories import PhotoFactory
 
 

@@ -1,5 +1,5 @@
 from django.test import TestCase
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 from pages.tasks import rebuild_and_cache_sitemap
 
 

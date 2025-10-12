@@ -1,6 +1,5 @@
 import json
 import subprocess
-import tempfile
 import logging
 from django.core.management.base import BaseCommand, CommandError
 from utils.models import LighthouseAudit
