@@ -9,8 +9,8 @@ Tests cover:
 """
 
 from django.test import TestCase
-from django.db.models.signals import m2m_changed, post_save, post_delete
-from unittest.mock import Mock, patch, call, MagicMock
+from django.db.models.signals import m2m_changed, post_save
+from unittest.mock import Mock, patch
 from io import BytesIO
 from PIL import Image
 import gc

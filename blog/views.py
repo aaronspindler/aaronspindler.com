@@ -4,22 +4,15 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_GET
 from django.contrib import messages
-from django.core.paginator import Paginator
-from django.db.models import Count, Q
 
-from blog.utils import get_blog_from_template_name, get_all_blog_posts
+from blog.utils import get_blog_from_template_name
 from blog.knowledge_graph import build_knowledge_graph, get_post_graph
 from blog.models import BlogComment, CommentVote, KnowledgeGraphScreenshot
 from blog.forms import CommentForm, ReplyForm
 from blog.search import search_blog_posts, search_projects, search_books
 
-import os
-from django.conf import settings
 import logging
 import json
-import asyncio
-from io import BytesIO
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

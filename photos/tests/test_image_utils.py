@@ -10,16 +10,13 @@ Tests cover:
 """
 
 from django.test import TestCase
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.files.base import ContentFile
-from unittest.mock import Mock, patch, MagicMock, mock_open
+from unittest.mock import Mock, patch
 from decimal import Decimal
 from datetime import datetime
 from io import BytesIO
 from PIL import Image
-import tempfile
 import numpy as np
-import imagehash
 import gc
 
 from photos.image_utils import (

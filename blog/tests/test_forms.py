@@ -1,9 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from blog.forms import CommentForm, ReplyForm, CommentModerationForm
-from blog.models import BlogComment
-from tests.factories import UserFactory, BlogCommentFactory, MockDataFactory, TestDataMixin
+from tests.factories import BlogCommentFactory, MockDataFactory, TestDataMixin
 
 User = get_user_model()
 

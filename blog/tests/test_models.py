@@ -1,10 +1,8 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 from django.core.exceptions import ValidationError
 from blog.models import BlogComment, CommentVote
-from unittest.mock import patch
-from tests.factories import UserFactory, BlogCommentFactory, TestDataMixin
+from tests.factories import BlogCommentFactory, TestDataMixin
 
 User = get_user_model()
 

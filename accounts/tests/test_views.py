@@ -1,7 +1,5 @@
 from django.test import TestCase, RequestFactory
-from django.contrib.messages import get_messages
 from django.contrib.messages.storage.fallback import FallbackStorage
-from django.urls import reverse
 from accounts.views import signup_disabled
 from tests.factories import MockDataFactory
 

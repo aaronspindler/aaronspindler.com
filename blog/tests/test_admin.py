@@ -1,12 +1,11 @@
 from django.test import TestCase, Client
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
-from django.contrib.messages import get_messages
 from django.urls import reverse
-from unittest.mock import MagicMock, patch
-from blog.models import BlogComment, CommentVote
+from unittest.mock import MagicMock
+from blog.models import BlogComment
 from blog.admin import BlogCommentAdmin
-from tests.factories import UserFactory, BlogCommentFactory, TestDataMixin
+from tests.factories import BlogCommentFactory, TestDataMixin
 
 User = get_user_model()
 

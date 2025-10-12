@@ -1,11 +1,10 @@
 from django.test import TestCase
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch
 from blog.utils import (
     get_blog_from_template_name,
     get_all_blog_posts
 )
 from tests.factories import MockDataFactory
-import os
 
 
 class BlogUtilsTest(TestCase):

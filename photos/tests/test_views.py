@@ -11,8 +11,6 @@ Tests cover:
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
-from django.http import Http404
-from django.core.files.base import ContentFile
 from unittest.mock import Mock, patch, MagicMock, PropertyMock
 from io import BytesIO
 from PIL import Image

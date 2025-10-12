@@ -1,6 +1,5 @@
 from allauth.account.adapter import DefaultAccountAdapter
 from django.conf import settings
-from django.http import HttpResponseRedirect
 from django.urls import reverse
 
 

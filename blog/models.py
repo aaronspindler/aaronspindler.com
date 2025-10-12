@@ -2,8 +2,6 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from django.core.validators import MaxLengthValidator
-from django.db.models import Sum
-from django.core.files.base import ContentFile
 
 
 class BlogComment(models.Model):

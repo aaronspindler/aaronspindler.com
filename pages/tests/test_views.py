@@ -1,12 +1,7 @@
 from django.test import TestCase, Client
-from django.urls import reverse
 from django.core.cache import cache
-from django.conf import settings
-from unittest.mock import patch, MagicMock, mock_open
-from photos.models import PhotoAlbum, Photo
+from unittest.mock import patch, mock_open
 from tests.factories import PhotoFactory
-import os
-import tempfile
 
 
 class HealthCheckViewTest(TestCase):

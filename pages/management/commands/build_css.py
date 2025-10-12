@@ -2,7 +2,6 @@ from django.core.management.base import BaseCommand
 import os
 import subprocess
 from django.conf import settings
-import json
 import hashlib
 from pathlib import Path
 import concurrent.futures

@@ -1,11 +1,9 @@
 from celery import shared_task
 from django.core.files.base import ContentFile
-from django.conf import settings
 import os
 import zipfile
 import tempfile
 import logging
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

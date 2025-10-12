@@ -3,7 +3,7 @@ from django.db import models
 from django.dispatch import receiver
 from allauth.account.signals import user_signed_up
 
-from djstripe.models import Customer, Subscription, APIKey
+from djstripe.models import Customer, Subscription
 from djstripe.enums import SubscriptionStatus
 from utils.models import NotificationEmail
 from django.core.cache import cache

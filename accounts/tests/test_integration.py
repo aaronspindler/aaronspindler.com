@@ -1,9 +1,8 @@
-from django.test import TestCase, TransactionTestCase
+from django.test import TransactionTestCase
 from django.contrib.auth import get_user_model, authenticate
 from django.test import override_settings
 from django.urls import reverse
 from django.db import IntegrityError
-from accounts.models import CustomUser
 from accounts.adapters import NoSignupAccountAdapter
 from tests.factories import UserFactory
 

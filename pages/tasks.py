@@ -1,5 +1,4 @@
 from celery import shared_task
-from django.core.cache import cache
 from django.test import Client
 import logging
 
@@ -13,7 +12,6 @@ def rebuild_and_cache_sitemap():
     This ensures the sitemap is always cached and fresh.
     """
     try:
-        from django.contrib.sites.models import Site
         from config.sitemaps import sitemaps
         
         client = Client()

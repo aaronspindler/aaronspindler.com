@@ -6,13 +6,10 @@ consistent, realistic fake data that can be reused across all test files.
 """
 
 from django.contrib.auth import get_user_model
-from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.utils import timezone
 from PIL import Image
 from io import BytesIO
-from datetime import datetime, timedelta
-from decimal import Decimal
+from datetime import datetime
 import uuid
 
 User = get_user_model()

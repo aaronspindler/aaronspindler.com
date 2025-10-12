@@ -8,17 +8,14 @@ Tests cover:
 - Model field validations
 """
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.core.files.base import ContentFile
 from django.core.exceptions import ValidationError
-from unittest.mock import Mock, patch, MagicMock, PropertyMock
+from unittest.mock import Mock, patch
 from decimal import Decimal
 from datetime import datetime
 from io import BytesIO
 from PIL import Image
-import tempfile
-import os
 import gc
 
 from photos.models import Photo, PhotoAlbum
