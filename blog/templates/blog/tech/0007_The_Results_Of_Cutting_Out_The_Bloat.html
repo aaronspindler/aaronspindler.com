@@ -1,0 +1,130 @@
+<h1>The Results of Cutting Out The Bloat</h1>
+
+<p>A while back, I wrote about <a href="/b/0002_cut_out_the_bloat/">cutting out the bloat</a> in web development. The idea was simple: stop using massive frameworks for everything and get back to basics. Now that this blog has been running for a while, I wanted to share the actual results of that philosophy. Spoiler alert: they're pretty damn good.</p>
+
+<h2>The Numbers Don't Lie</h2>
+
+<p>Let's start with the hard data. This site consistently scores in the high 90s on Lighthouse audits across all four metrics:</p>
+
+<ul>
+    <li><strong>Performance:</strong> 95-100</li>
+    <li><strong>Accessibility:</strong> 95-100</li>
+    <li><strong>Best Practices:</strong> 95-100</li>
+    <li><strong>SEO:</strong> 95-100</li>
+</ul>
+
+<p>For context, the average website scores around 50-70 on performance. Many popular blogging platforms struggle to break 80. Meanwhile, this "simple" Django site with minimal JavaScript and no frontend framework regularly hits perfect or near-perfect scores.</p>
+
+<p>But scores are just numbers. What do they actually mean in the real world?</p>
+
+<h2>What Users Actually Experience</h2>
+
+<p>The performance metrics translate to real benefits:</p>
+
+<ul>
+    <li><strong>First Contentful Paint:</strong> Under 0.5 seconds - Users see content almost instantly</li>
+    <li><strong>Time to Interactive:</strong> Under 1 second - The page is fully usable immediately</li>
+    <li><strong>Total Page Size:</strong> Under 200KB for most pages - Uses less data than a single high-res image on most modern sites</li>
+    <li><strong>Zero JavaScript frameworks:</strong> No React, no Vue, no Next.js bloat to download and parse</li>
+</ul>
+
+<p>Compare this to the typical blog built with modern frameworks: 2-3MB of JavaScript, 3-5 second load times, and a spinning loader while the framework bootstraps. Is that really necessary to display text and images?</p>
+
+<h2>The Developer Experience</h2>
+
+<p>Here's where it gets really interesting. Building without the bloat isn't just good for users - it's fantastic for developers too.</p>
+
+<h3>Build Times</h3>
+
+<p>There is no build step for most of the site. I write HTML, save the file, refresh the page. That's it. No waiting for webpack to compile, no hot module replacement failures, no build cache invalidation issues.</p>
+
+<p>When I do need to optimize CSS or JavaScript, it's a simple one-command process that takes seconds, not minutes.</p>
+
+<h3>Deployment</h3>
+
+<p>The entire deployment process is straightforward: push to git, the server pulls, restarts the service. No complex CI/CD pipelines, no build artifacts to manage, no deployment strategies to worry about. It just works.</p>
+
+<h3>Debugging</h3>
+
+<p>When something breaks (and it will), debugging is trivial. There's no transpiled code to trace through, no framework magic to understand, no build tool configuration to troubleshoot. The error messages point directly to the problem.</p>
+
+<h2>Maintenance and Technical Debt</h2>
+
+<p>This is the part that most developers don't talk about enough. Every dependency you add is technical debt. Every framework version is a ticking time bomb of breaking changes.</p>
+
+<p>With this minimal approach:</p>
+
+<ul>
+    <li><strong>Fewer dependencies:</strong> Less to update, less to break</li>
+    <li><strong>Standard technologies:</strong> HTML, CSS, Python, and PostgreSQL aren't going anywhere</li>
+    <li><strong>No framework churn:</strong> I'm not rewriting everything every 2 years because the ecosystem moved on</li>
+    <li><strong>Easier onboarding:</strong> Any developer who knows basic web technologies can contribute</li>
+</ul>
+
+<p>I spend my time writing content and adding features, not fighting with tooling and dependencies.</p>
+
+<h2>What I Actually Sacrificed</h2>
+
+<p>Let's be honest - there are trade-offs. Here's what I gave up by avoiding the modern framework ecosystem:</p>
+
+<ul>
+    <li><strong>Complex client-side interactions:</strong> No infinite scroll, no live updates, no complex state management</li>
+    <li><strong>Component reusability:</strong> I write more basic HTML instead of composing React components</li>
+    <li><strong>Hot module replacement:</strong> I refresh the browser manually (takes 0.2 seconds, somehow I survive)</li>
+    <li><strong>TypeScript:</strong> I don't have compile-time type checking on the frontend</li>
+</ul>
+
+<p>But here's the thing: <strong>I don't actually need any of that for a blog</strong>. Users don't care if I'm using the latest framework. They care if the site loads fast, looks good, and the content is easy to read.</p>
+
+<h2>The Psychological Benefits</h2>
+
+<p>There's something incredibly liberating about working with simple tools. I don't have decision fatigue about which state management library to use. I don't worry about bundle size optimization strategies. I don't spend hours configuring build tools.</p>
+
+<p>I just build things.</p>
+
+<p>This mental bandwidth goes into writing better content, designing better features, and actually shipping things instead of endlessly configuring tooling.</p>
+
+<h2>When You DO Need the Frameworks</h2>
+
+<p>Let me be clear: frameworks aren't evil. They solve real problems for real applications. If you're building:</p>
+
+<ul>
+    <li>A complex single-page application with lots of client-side state</li>
+    <li>Real-time collaborative tools</li>
+    <li>Data-heavy dashboards with complex visualizations</li>
+    <li>Anything that genuinely needs sophisticated client-side logic</li>
+</ul>
+
+<p>Then yes, use React or Vue or whatever. The frameworks exist for good reasons.</p>
+
+<p>But if you're building a blog, a documentation site, a portfolio, or any primarily content-focused site? You probably don't need them. And you'll be better off without them.</p>
+
+<h2>Lessons Learned</h2>
+
+<p>After months of running this simple stack, here are my key takeaways:</p>
+
+<ul>
+    <li><strong>Start simple, add complexity only when needed:</strong> You can always add frameworks later if requirements change</li>
+    <li><strong>Performance is a feature:</strong> Users notice fast sites, even if they don't consciously realize why</li>
+    <li><strong>Maintenance costs are real:</strong> Every dependency is a commitment to future maintenance work</li>
+    <li><strong>Simplicity scales:</strong> As this blog grows, the simple architecture continues to work well</li>
+    <li><strong>Developer happiness matters:</strong> Working with simple tools is more enjoyable</li>
+</ul>
+
+<h2>The Bigger Picture</h2>
+
+<p>This isn't just about my blog. It's about a broader shift happening in web development. More developers are realizing that the complexity treadmill isn't sustainable. Projects like HTMX, Alpine.js, and the return of server-side rendering show that the industry is reconsidering the "JavaScript all the things" approach.</p>
+
+<p>We built websites before React existed. We can still build great websites without needing a framework for everything.</p>
+
+<h2>Conclusion</h2>
+
+<p>Cutting out the bloat wasn't just a philosophical stance - it delivered real, measurable benefits. The site is faster, easier to maintain, simpler to deploy, and more enjoyable to work on.</p>
+
+<p>Could I have achieved similar results with a modern framework? Maybe. But it would have required more effort, more expertise, more tooling, and more ongoing maintenance. The simple approach just works, and it keeps working without constant attention.</p>
+
+<p>As I mentioned in <a href="/b/0004_this_blog_aint_perfect/">this blog framework ain't perfect</a>, there are still rough edges and things I want to improve. But the foundation is solid, and that's because it's built on boring, proven technology that just works.</p>
+
+<p>So if you're starting a new project, ask yourself: do you really need that framework? Or are you reaching for complexity out of habit? Sometimes the best solution is the simplest one.</p>
+
+<p>And if you don't believe me, just look at the Lighthouse scores. The numbers speak for themselves.</p>
