@@ -4,7 +4,6 @@ import logging
 
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
-
 from playwright.sync_api import sync_playwright
 
 from blog.knowledge_graph import build_knowledge_graph

@@ -11,7 +11,6 @@ from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-
 from PIL import Image
 
 User = get_user_model()

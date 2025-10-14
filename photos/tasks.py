@@ -3,9 +3,8 @@ import os
 import tempfile
 import zipfile
 
-from django.core.files.base import ContentFile
-
 from celery import shared_task
+from django.core.files.base import ContentFile
 
 logger = logging.getLogger(__name__)
 

@@ -14,7 +14,6 @@ from unittest.mock import Mock, patch
 
 from django.db.models.signals import m2m_changed, post_save
 from django.test import TestCase
-
 from PIL import Image
 
 from photos import signals

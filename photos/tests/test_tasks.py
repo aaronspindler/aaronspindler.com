@@ -14,7 +14,6 @@ from unittest.mock import MagicMock, Mock, mock_open, patch
 
 from django.core.files.base import ContentFile
 from django.test import TestCase
-
 from PIL import Image
 
 from photos.models import Photo, PhotoAlbum
@@ -76,7 +75,6 @@ class GenerateAlbumZipTaskTestCase(TestCase):
             patch.object(self.photo2.image, "read", return_value=b"image2_data"),
             patch.object(self.photo2.image, "close"),
         ):
-
             result = generate_album_zip(self.album.pk)
 
         # Verify success
@@ -345,7 +343,9 @@ class RegenerateAllAlbumZipsTaskTestCase(TestCase):
         self.album2 = PhotoAlbum.objects.create(title="Album 2", slug="album-2", allow_downloads=True)
 
         self.album3 = PhotoAlbum.objects.create(
-            title="Album 3", slug="album-3", allow_downloads=False  # Downloads disabled
+            title="Album 3",
+            slug="album-3",
+            allow_downloads=False,  # Downloads disabled
         )
 
     @patch("photos.tasks.generate_album_zip.delay")

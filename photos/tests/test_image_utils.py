@@ -15,10 +15,9 @@ from decimal import Decimal
 from io import BytesIO
 from unittest.mock import Mock, patch
 
+import numpy as np
 from django.core.files.base import ContentFile
 from django.test import TestCase
-
-import numpy as np
 from PIL import Image
 
 from photos.image_utils import (

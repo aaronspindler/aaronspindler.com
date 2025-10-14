@@ -6,10 +6,9 @@ from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
 
-from django.core.files.base import ContentFile
-
 import imagehash
 import numpy as np
+from django.core.files.base import ContentFile
 from PIL import Image, ImageFilter
 from PIL.ExifTags import GPSTAGS, TAGS
 

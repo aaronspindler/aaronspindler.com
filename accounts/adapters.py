@@ -1,7 +1,6 @@
+from allauth.account.adapter import DefaultAccountAdapter
 from django.conf import settings
 from django.urls import reverse
-
-from allauth.account.adapter import DefaultAccountAdapter
 
 
 class NoSignupAccountAdapter(DefaultAccountAdapter):

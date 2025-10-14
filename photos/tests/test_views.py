@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, Mock, PropertyMock, patch
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
-
 from PIL import Image
 
 from photos.models import Photo, PhotoAlbum

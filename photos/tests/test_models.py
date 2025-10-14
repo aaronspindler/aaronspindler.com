@@ -17,7 +17,6 @@ from unittest.mock import Mock, patch
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
-
 from PIL import Image
 
 from photos.models import Photo, PhotoAlbum

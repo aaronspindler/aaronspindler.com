@@ -1,8 +1,7 @@
 import logging
 
-from django.test import Client
-
 from celery import shared_task
+from django.test import Client
 
 logger = logging.getLogger(__name__)
 

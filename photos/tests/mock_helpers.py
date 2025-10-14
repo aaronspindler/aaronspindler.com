@@ -95,7 +95,6 @@ class PhotoTestMixin:
             patch("photos.models.ExifExtractor.extract_exif") as mock_exif,
             patch("photos.models.ImageMetadataExtractor.extract_basic_metadata") as mock_metadata,
         ):
-
             mock_process.return_value = mock_image_optimizer_process()
             mock_hashes.return_value = mock_duplicate_detector_hashes(title)
             mock_exif.return_value = mock_exif_extractor_data()

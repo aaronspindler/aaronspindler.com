@@ -4,10 +4,9 @@ import time
 from pathlib import Path
 from typing import Dict, List
 
+from bs4 import BeautifulSoup, Comment
 from django.core.cache import cache
 from django.template.loader import render_to_string
-
-from bs4 import BeautifulSoup, Comment
 
 from blog.utils import get_all_blog_posts, get_blog_from_template_name
 

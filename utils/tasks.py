@@ -1,12 +1,11 @@
+import boto3
+from celery import shared_task
 from django.apps import apps
 from django.conf import settings
 from django.core.mail import send_mail
 from django.core.management import call_command
 from django.template.loader import render_to_string
 from django.utils import timezone
-
-import boto3
-from celery import shared_task
 
 
 def get_notification_config():
