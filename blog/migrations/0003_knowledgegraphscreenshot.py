@@ -6,22 +6,43 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('blog', '0002_add_comment_voting'),
+        ("blog", "0002_add_comment_voting"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='KnowledgeGraphScreenshot',
+            name="KnowledgeGraphScreenshot",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('image', models.ImageField(upload_to='knowledge_graph_screenshots/')),
-                ('graph_data_hash', models.CharField(blank=True, help_text='Hash of the graph data used to generate this screenshot', max_length=64)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("image", models.ImageField(upload_to="knowledge_graph_screenshots/")),
+                (
+                    "graph_data_hash",
+                    models.CharField(
+                        blank=True,
+                        help_text="Hash of the graph data used to generate this screenshot",
+                        max_length=64,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
             options={
-                'ordering': ['-created_at'],
-                'indexes': [models.Index(fields=['-created_at'], name='blog_knowle_created_fa043e_idx'), models.Index(fields=['graph_data_hash'], name='blog_knowle_graph_d_cb81b6_idx')],
+                "ordering": ["-created_at"],
+                "indexes": [
+                    models.Index(fields=["-created_at"], name="blog_knowle_created_fa043e_idx"),
+                    models.Index(
+                        fields=["graph_data_hash"],
+                        name="blog_knowle_graph_d_cb81b6_idx",
+                    ),
+                ],
             },
         ),
     ]

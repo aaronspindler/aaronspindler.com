@@ -1,0 +1,91 @@
+[tool.ruff]
+# Exclude patterns
+exclude = [
+    ".git",
+    "__pycache__",
+    "venv",
+    ".venv",
+    "migrations",
+    "staticfiles",
+    "node_modules",
+    "projects/ActionsUptime",  # Third-party project
+]
+
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+# Enable commonly used rules
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "N",   # pep8-naming
+]
+
+# Ignore specific rules
+ignore = [
+    "E501",  # Line too long (handled by black)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Allow star imports and unused variables in test files - they're used for test discovery
+"**/tests/*.py" = ["F403", "F405", "F841"]
+"**/test_*.py" = ["F403", "F405", "F841"]
+
+# Allow unused imports in __init__.py files
+"**/__init__.py" = ["F401"]
+
+# Allow module-level imports not at top in specific files
+"utils/views.py" = ["E402"]
+"utils/tasks.py" = ["E402"]
+"config/settings.py" = ["E402"]
+
+# Allow User variable naming convention in tests (Django pattern)
+"accounts/tests/*.py" = ["N806"]
+"utils/tests/*.py" = ["N806"]
+
+# Allow custom setUp method names in test factories
+"tests/factories.py" = ["N802"]
+
+# Allow bare except in admin display methods and image utils (EXIF parsing)
+"blog/admin.py" = ["E722"]
+"**/admin.py" = ["E722"]
+"photos/image_utils.py" = ["E722"]
+
+# Allow method redefinition in sitemaps (Django sitemaps pattern)
+"**/sitemaps.py" = ["F811"]
+
+# Allow unused subprocess results in build commands
+"pages/management/commands/build_css.py" = ["F841"]
+"pages/management/commands/optimize_js.py" = ["F841"]
+
+# Allow undefined names in test patches (mocked decorators)
+"photos/tests/test_tasks.py" = ["F821", "F841"]
+
+# Allow unused variables in forms (validation side effects)
+"photos/forms.py" = ["F841"]
+
+[tool.black]
+line-length = 120
+target-version = ['py313']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    migrations
+  | venv
+  | \.venv
+  | staticfiles
+  | node_modules
+  | projects/ActionsUptime
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip_glob = ["*/migrations/*", "venv/*", ".venv/*", "staticfiles/*", "node_modules/*", "projects/ActionsUptime/*"]
+known_django = ["django"]
+known_first_party = ["accounts", "blog", "pages", "photos", "utils", "config"]
+sections = ["FUTURE", "STDLIB", "DJANGO", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]

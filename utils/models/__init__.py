@@ -7,37 +7,25 @@ Models are organized into logical groups:
 - lighthouse: Performance monitoring models
 """
 
+# Import lighthouse models
+from .lighthouse import LighthouseAudit
+
 # Import all notification models
-from .notification import (
-    NotificationConfig,
-    NotificationEmail,
-    NotificationPhoneNumber,
-    Email,
-    TextMessage,
-)
+from .notification import Email, NotificationConfig, NotificationEmail, NotificationPhoneNumber, TextMessage
 
 # Import all security models
-from .security import (
-    HTTPStatusCode,
-    RequestFingerprint,
-)
-
-# Import lighthouse models
-from .lighthouse import (
-    LighthouseAudit,
-)
+from .security import HTTPStatusCode, RequestFingerprint
 
 __all__ = [
     # Notification models
-    'NotificationConfig',
-    'NotificationEmail',
-    'NotificationPhoneNumber',
-    'Email',
-    'TextMessage',
+    "NotificationConfig",
+    "NotificationEmail",
+    "NotificationPhoneNumber",
+    "Email",
+    "TextMessage",
     # Security models
-    'HTTPStatusCode',
-    'RequestFingerprint',
+    "HTTPStatusCode",
+    "RequestFingerprint",
     # Lighthouse models
-    'LighthouseAudit',
+    "LighthouseAudit",
 ]
-

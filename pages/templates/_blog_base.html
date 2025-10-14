@@ -6,7 +6,7 @@
 <head>
   {% include '_meta.html' %}
   <title>Aaronspindler.com - {{ blog_title }}</title>
-  
+
   <!-- Theme detection script - prevents FOUC -->
   <script>
     (function(){
@@ -15,7 +15,7 @@
       document.documentElement.className = 'theme-' + theme;
     })();
   </script>
-  
+
   {% block css %}
   {% versioned_css as css_file %}
   <link rel="stylesheet" href="{% static css_file %}">
@@ -46,7 +46,7 @@
     </tr>
   </table>
   {{ blog_content|safe }}
-  
+
   <!-- Tags Section -->
   {% if tags %}
   <div class="blog-tags-section">
@@ -60,7 +60,7 @@
     </div>
   </div>
   {% endif %}
-  
+
   <!-- Related Posts Section -->
   {% if related_posts %}
   <div class="related-posts-section">
@@ -85,20 +85,20 @@
     </div>
   </div>
   {% endif %}
-  
+
   <!-- Comments Section -->
   <div id="comments" class="comments-section">
     <h2>Comments ({{ comment_count }})</h2>
-    
+
     {% if pending_comments_count and user.is_staff %}
     <div class="alert alert-info">
       <strong>Staff Notice:</strong> There are {{ pending_comments_count }} pending comments for this post.
       <a href="/admin/blog/blogcomment/?blog_template_name={{ template_name }}&status__exact=pending" target="_blank">Review in Admin</a>
     </div>
     {% endif %}
-    
+
     {% include '_messages.html' %}
-    
+
     <!-- Comment Form -->
     <div class="comment-form-container">
       <h3>Leave a Comment</h3>
@@ -107,24 +107,24 @@
       {% else %}
         <p class="comment-author-info">You can comment anonymously or <a href="{% url 'account_login' %}?next={{ request.path }}">login</a> to use your account.</p>
       {% endif %}
-      
+
       <form method="post" action="{% url 'submit_comment' category=category template_name=template_name %}" class="comment-form">
         {% csrf_token %}
         {{ comment_form.website }}  <!-- Honeypot field -->
-        
+
         {% if not user.is_authenticated %}
         <div class="form-group">
           {{ comment_form.author_name.label_tag }}
           {{ comment_form.author_name }}
         </div>
-        
+
         <div class="form-group">
           {{ comment_form.author_email.label_tag }}
           {{ comment_form.author_email }}
           <small class="form-text">{{ comment_form.author_email.help_text }}</small>
         </div>
         {% endif %}
-        
+
         <div class="form-group">
           {{ comment_form.content.label_tag }}
           {{ comment_form.content }}
@@ -135,11 +135,11 @@
           </div>
           {% endif %}
         </div>
-        
+
         <button type="submit" class="btn-comment-submit">Post Comment</button>
       </form>
     </div>
-    
+
     <!-- Display Comments -->
     <div class="comments-list">
       {% for comment in comments %}
@@ -151,7 +151,7 @@
       {% endfor %}
     </div>
   </div>
-  
+
   <script>
   function toggleReplyForm(commentId) {
     var form = document.getElementById('reply-form-' + commentId);
@@ -164,7 +164,7 @@
       form.style.display = 'none';
     }
   }
-  
+
   function voteComment(commentId, voteType) {
     // Check if user is authenticated (basic check)
     {% if not user.is_authenticated %}
@@ -172,10 +172,10 @@
     window.location.href = '{% url "account_login" %}?next=' + encodeURIComponent(window.location.pathname + '#comment-' + commentId);
     return;
     {% endif %}
-    
+
     // Get CSRF token
     var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    
+
     // Send vote request
     fetch('/comment/' + commentId + '/vote/', {
       method: 'POST',
@@ -192,16 +192,16 @@
         // Update UI
         var votesContainer = document.querySelector('.comment-votes[data-comment-id="' + commentId + '"]');
         var scoreElement = document.querySelector('.vote-score[data-comment-id="' + commentId + '"]');
-        
+
         if (votesContainer) {
           // Update button states
           var upvoteBtn = votesContainer.querySelector('.vote-btn.upvote');
           var downvoteBtn = votesContainer.querySelector('.vote-btn.downvote');
-          
+
           // Remove active classes
           if (upvoteBtn) upvoteBtn.classList.remove('active');
           if (downvoteBtn) downvoteBtn.classList.remove('active');
-          
+
           // Add active class to current vote
           if (data.user_vote === 'upvote' && upvoteBtn) {
             upvoteBtn.classList.add('active');
@@ -209,12 +209,12 @@
             downvoteBtn.classList.add('active');
           }
         }
-        
+
         // Update score in header
         if (scoreElement) {
           var scoreText = data.score > 0 ? '+' + data.score : data.score.toString();
           scoreElement.innerHTML = scoreText;
-          
+
           // Update color classes
           scoreElement.classList.remove('positive', 'negative');
           if (data.score > 0) {
@@ -222,7 +222,7 @@
           } else if (data.score < 0) {
             scoreElement.classList.add('negative');
           }
-          
+
           // Add a subtle animation to the score
           scoreElement.style.transition = 'transform 0.2s ease';
           scoreElement.style.transform = 'scale(1.1)';
@@ -239,12 +239,12 @@
       alert('Failed to vote. Please try again.');
     });
   }
-  
+
   // Character counter for main comment form
   document.addEventListener('DOMContentLoaded', function() {
     var mainTextarea = document.querySelector('.comment-form .comment-textarea');
     var mainCounter = document.getElementById('char-count-main');
-    
+
     if (mainTextarea && mainCounter) {
       mainTextarea.addEventListener('input', function() {
         var length = this.value.length;
@@ -258,7 +258,7 @@
         }
       });
     }
-    
+
     // Auto-expand textareas as user types
     document.querySelectorAll('.comment-textarea, .reply-textarea').forEach(function(textarea) {
       textarea.addEventListener('input', function() {
@@ -268,20 +268,20 @@
     });
   });
   </script>
-  
+
   {% include '_footer.html' %}
 
   {% block javascript %}
   <script src="{% static 'js/theme-toggle.js' %}" defer></script>
   <script src="{% static 'js/base.js' %}" defer></script>
-  
+
   <!-- Prism.js for syntax highlighting with plugins -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
-  
+
   <script>
   // Add line numbers class to all code blocks
   document.addEventListener('DOMContentLoaded', function() {
@@ -290,14 +290,14 @@
         block.parentElement.classList.add('line-numbers');
       }
     });
-    
+
     // Re-run Prism highlighting after adding classes
     if (window.Prism) {
       Prism.highlightAll();
     }
   });
   </script>
-  
+
   <style>
   /* Blog Tags Styling */
   .blog-tags-section {
@@ -306,18 +306,18 @@
     background: var(--background-secondary, #f5f5f5);
     border-radius: 8px;
   }
-  
+
   .blog-tags-section h3 {
     margin: 0 0 1rem 0;
     font-size: 1.25rem;
   }
-  
+
   .blog-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
   }
-  
+
   .blog-tag {
     display: inline-block;
     padding: 0.5rem 1rem;
@@ -327,12 +327,12 @@
     font-weight: 600;
     transition: transform 0.2s, opacity 0.2s;
   }
-  
+
   .blog-tag:hover {
     transform: translateY(-2px);
     opacity: 0.9;
   }
-  
+
   /* Related Posts Styling */
   .related-posts-section {
     margin: 2rem 0;
@@ -340,36 +340,36 @@
     border: 2px solid var(--border-color, #ddd);
     border-radius: 8px;
   }
-  
+
   .related-posts-section h3 {
     margin: 0 0 1rem 0;
     font-size: 1.25rem;
   }
-  
+
   .related-posts {
     display: flex;
     flex-direction: column;
     gap: 1rem;
   }
-  
+
   .related-post {
     padding: 1rem;
     background: var(--background-secondary, #f9f9f9);
     border-left: 3px solid var(--accent-color, #0066cc);
     border-radius: 4px;
   }
-  
+
   .related-post h4 {
     margin: 0 0 0.5rem 0;
     font-size: 1rem;
   }
-  
+
   .related-post-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.25rem;
   }
-  
+
   .related-post-tag {
     display: inline-block;
     padding: 0.25rem 0.5rem;
@@ -378,18 +378,18 @@
     font-size: 0.75rem;
     font-weight: 600;
   }
-  
+
   /* Code Block Enhancements */
   pre[class*="language-"] {
     border-radius: 8px;
     margin: 1.5rem 0;
   }
-  
+
   .code-toolbar {
     position: relative;
     margin: 1.5rem 0;
   }
-  
+
   .code-toolbar > .toolbar {
     position: absolute;
     top: 0.5rem;
@@ -397,11 +397,11 @@
     opacity: 0;
     transition: opacity 0.3s;
   }
-  
+
   .code-toolbar:hover > .toolbar {
     opacity: 1;
   }
-  
+
   .code-toolbar > .toolbar button {
     background: var(--accent-color, #0066cc);
     color: white;
@@ -411,7 +411,7 @@
     cursor: pointer;
     font-size: 0.875rem;
   }
-  
+
   .code-toolbar > .toolbar button:hover {
     background: var(--accent-color-dark, #0052a3);
   }

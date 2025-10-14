@@ -8,36 +8,80 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('utils', '0001_initial'),
+        ("utils", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='RequestFingerprint',
+            name="RequestFingerprint",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True, db_index=True)),
-                ('fingerprint', models.CharField(db_index=True, help_text='SHA256 fingerprint including IP', max_length=64)),
-                ('fingerprint_no_ip', models.CharField(db_index=True, help_text='SHA256 fingerprint excluding IP', max_length=64)),
-                ('ip_address', models.GenericIPAddressField(db_index=True)),
-                ('method', models.CharField(db_index=True, max_length=10)),
-                ('path', models.CharField(max_length=2048)),
-                ('is_secure', models.BooleanField(default=False)),
-                ('is_ajax', models.BooleanField(default=False)),
-                ('user_agent', models.TextField(blank=True)),
-                ('browser', models.CharField(blank=True, max_length=100)),
-                ('browser_version', models.CharField(blank=True, max_length=50)),
-                ('os', models.CharField(blank=True, max_length=100)),
-                ('device', models.CharField(blank=True, max_length=100)),
-                ('headers', models.JSONField(blank=True, default=dict)),
-                ('is_suspicious', models.BooleanField(db_index=True, default=False)),
-                ('suspicious_reason', models.TextField(blank=True)),
-                ('user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='request_fingerprints', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True, db_index=True)),
+                (
+                    "fingerprint",
+                    models.CharField(
+                        db_index=True,
+                        help_text="SHA256 fingerprint including IP",
+                        max_length=64,
+                    ),
+                ),
+                (
+                    "fingerprint_no_ip",
+                    models.CharField(
+                        db_index=True,
+                        help_text="SHA256 fingerprint excluding IP",
+                        max_length=64,
+                    ),
+                ),
+                ("ip_address", models.GenericIPAddressField(db_index=True)),
+                ("method", models.CharField(db_index=True, max_length=10)),
+                ("path", models.CharField(max_length=2048)),
+                ("is_secure", models.BooleanField(default=False)),
+                ("is_ajax", models.BooleanField(default=False)),
+                ("user_agent", models.TextField(blank=True)),
+                ("browser", models.CharField(blank=True, max_length=100)),
+                ("browser_version", models.CharField(blank=True, max_length=50)),
+                ("os", models.CharField(blank=True, max_length=100)),
+                ("device", models.CharField(blank=True, max_length=100)),
+                ("headers", models.JSONField(blank=True, default=dict)),
+                ("is_suspicious", models.BooleanField(db_index=True, default=False)),
+                ("suspicious_reason", models.TextField(blank=True)),
+                (
+                    "user",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="request_fingerprints",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
-                'indexes': [models.Index(fields=['-created_at', 'fingerprint'], name='utils_reque_created_0d6629_idx'), models.Index(fields=['ip_address', '-created_at'], name='utils_reque_ip_addr_b174aa_idx'), models.Index(fields=['is_suspicious', '-created_at'], name='utils_reque_is_susp_db83b2_idx')],
+                "ordering": ["-created_at"],
+                "indexes": [
+                    models.Index(
+                        fields=["-created_at", "fingerprint"],
+                        name="utils_reque_created_0d6629_idx",
+                    ),
+                    models.Index(
+                        fields=["ip_address", "-created_at"],
+                        name="utils_reque_ip_addr_b174aa_idx",
+                    ),
+                    models.Index(
+                        fields=["is_suspicious", "-created_at"],
+                        name="utils_reque_is_susp_db83b2_idx",
+                    ),
+                ],
             },
         ),
     ]

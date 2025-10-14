@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('photos', '0003_add_duplicate_detection_fields'),
+        ("photos", "0003_add_duplicate_detection_fields"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='photoalbum',
-            name='slug',
+            model_name="photoalbum",
+            name="slug",
             field=models.SlugField(blank=True, max_length=255, unique=True),
         ),
     ]

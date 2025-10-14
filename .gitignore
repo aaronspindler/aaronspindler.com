@@ -32,3 +32,6 @@ static/js/*.min.js.br
 
 # Lighthouse temporary files
 .lighthouseci/
+
+# Pre-commit cache
+.pre-commit-config.yaml.backup

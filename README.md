@@ -65,6 +65,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # Development tools (linting, type checking, pre-commit)
 
 # Install Playwright browsers
 playwright install chromium
@@ -77,6 +78,9 @@ python manage.py migrate
 
 # Create a superuser
 python manage.py createsuperuser
+
+# Set up Git hooks (auto-linting on commit/push)
+./scripts/setup-git-hooks.sh
 
 # Collect and optimize static files
 python manage.py collectstatic_optimize
@@ -283,3 +287,25 @@ python manage.py generate_knowledge_graph_screenshot --width 2400 --height 1600 
 python manage.py build_css --dev  # Development mode CSS build
 python manage.py runserver  # Start development server
 ```
+
+**Pre-commit hooks (Code Quality):**
+```bash
+# Run all hooks manually
+pre-commit run --all-files
+
+# Run specific hook
+pre-commit run ruff --all-files
+pre-commit run black --all-files
+
+# Update hooks to latest versions
+pre-commit autoupdate
+
+# Skip hooks if needed (not recommended)
+git commit --no-verify
+git push --no-verify
+```
+
+The pre-commit hooks match CI/CD exactly:
+- **On commit:** Ruff (auto-fix), Black (format), isort (sort imports), file checks
+- **On push:** MyPy (type checking), Django system checks
+- All auto-fix formatting issues where possible

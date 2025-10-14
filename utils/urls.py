@@ -1,8 +1,15 @@
 from django.urls import path
 
 from utils.views import (
-    add_phone, add_email, delete_phone, delete_email, verify_phone, verify_email, unsubscribe,
-    lighthouse_badge_endpoint, lighthouse_history_page
+    add_email,
+    add_phone,
+    delete_email,
+    delete_phone,
+    lighthouse_badge_endpoint,
+    lighthouse_history_page,
+    unsubscribe,
+    verify_email,
+    verify_phone,
 )
 
 urlpatterns = [
@@ -15,6 +22,6 @@ urlpatterns = [
     path("verify/email/<int:email_id>/<str:code>", verify_email, name="verify_email"),
     path("verify/email/<int:email_id>", verify_email, name="verify_email"),
     # Lighthouse monitoring
-    path('api/lighthouse/badge/', lighthouse_badge_endpoint, name='lighthouse_badge'),
-    path('lighthouse/history/', lighthouse_history_page, name='lighthouse_history'),
+    path("api/lighthouse/badge/", lighthouse_badge_endpoint, name="lighthouse_badge"),
+    path("lighthouse/history/", lighthouse_history_page, name="lighthouse_history"),
 ]

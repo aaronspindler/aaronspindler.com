@@ -6,19 +6,18 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('pages', '0007_add_exif_metadata_fields'),
+        ("pages", "0007_add_exif_metadata_fields"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='photoalbum',
-            name='photos',
+            model_name="photoalbum",
+            name="photos",
         ),
         migrations.DeleteModel(
-            name='Photo',
+            name="Photo",
         ),
         migrations.DeleteModel(
-            name='PhotoAlbum',
+            name="PhotoAlbum",
         ),
     ]
-

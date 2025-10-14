@@ -8,25 +8,26 @@ Usage:
 
 import os
 import re
-from django.core.management.base import BaseCommand, CommandError
+
 from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
-    help = 'Create a new blog post with the next available blog number'
+    help = "Create a new blog post with the next available blog number"
 
     # Valid blog post categories
-    VALID_CATEGORIES = ['personal', 'projects', 'reviews', 'tech']
+    VALID_CATEGORIES = ["personal", "projects", "reviews", "tech"]
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--title',
+            "--title",
             type=str,
             required=True,
             help='Title of the blog post (e.g., "My Blog Post")',
         )
         parser.add_argument(
-            '--category',
+            "--category",
             type=str,
             required=True,
             choices=self.VALID_CATEGORIES,
@@ -34,8 +35,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        title = options['title']
-        category = options['category']
+        title = options["title"]
+        category = options["category"]
 
         self.stdout.write(f'Creating new blog post: "{title}" in category "{category}"')
 
@@ -49,28 +50,18 @@ class Command(BaseCommand):
             # Create the blog post file
             file_path = self._create_blog_post_file(filename, category, title)
 
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'Successfully created blog post: {file_path}'
-                )
-            )
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'Blog number: {next_number:04d}'
-                )
-            )
+            self.stdout.write(self.style.SUCCESS(f"Successfully created blog post: {file_path}"))
+            self.stdout.write(self.style.SUCCESS(f"Blog number: {next_number:04d}"))
 
         except Exception as e:
-            raise CommandError(f'Error creating blog post: {e}')
+            raise CommandError(f"Error creating blog post: {e}")
 
     def _get_next_blog_number(self):
         """
         Scan all blog post files across all categories to find the highest
         blog number and return the next available number.
         """
-        blog_templates_path = os.path.join(
-            settings.BASE_DIR, 'blog', 'templates', 'blog'
-        )
+        blog_templates_path = os.path.join(settings.BASE_DIR, "blog", "templates", "blog")
 
         max_number = 0
 
@@ -83,9 +74,9 @@ class Command(BaseCommand):
 
             # Look for blog post files
             for filename in os.listdir(category_path):
-                if filename.endswith('.html'):
+                if filename.endswith(".html"):
                     # Extract number from filename (e.g., "0001_Title.html" -> 1)
-                    match = re.match(r'^(\d+)_', filename)
+                    match = re.match(r"^(\d+)_", filename)
                     if match:
                         number = int(match.group(1))
                         max_number = max(max_number, number)
@@ -107,8 +98,8 @@ class Command(BaseCommand):
         # - Replace spaces with underscores
         # - Keep original capitalization
         # - Remove special characters except underscores
-        title_formatted = re.sub(r'[^\w\s-]', '', title)
-        title_formatted = re.sub(r'[\s]+', '_', title_formatted)
+        title_formatted = re.sub(r"[^\w\s-]", "", title)
+        title_formatted = re.sub(r"[\s]+", "_", title_formatted)
 
         return f"{number:04d}_{title_formatted}.html"
 
@@ -125,9 +116,7 @@ class Command(BaseCommand):
             The full path to the created file
         """
         # Determine the full path
-        category_path = os.path.join(
-            settings.BASE_DIR, 'blog', 'templates', 'blog', category
-        )
+        category_path = os.path.join(settings.BASE_DIR, "blog", "templates", "blog", category)
 
         # Ensure category directory exists
         os.makedirs(category_path, exist_ok=True)
@@ -136,13 +125,13 @@ class Command(BaseCommand):
 
         # Check if file already exists
         if os.path.exists(file_path):
-            raise CommandError(f'Blog post file already exists: {file_path}')
+            raise CommandError(f"Blog post file already exists: {file_path}")
 
         # Create the basic blog post template
         template_content = self._get_template_content(title)
 
         # Write the file
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             f.write(template_content)
 
         return file_path

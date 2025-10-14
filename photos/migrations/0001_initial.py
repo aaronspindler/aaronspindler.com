@@ -7,58 +7,182 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Photo',
+            name="Photo",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255)),
-                ('description', models.TextField(blank=True)),
-                ('image', models.ImageField(upload_to='photos/full/', verbose_name='Full Resolution')),
-                ('image_large', models.ImageField(blank=True, null=True, upload_to='photos/large/', verbose_name='Large (1920px)')),
-                ('image_medium', models.ImageField(blank=True, null=True, upload_to='photos/medium/', verbose_name='Medium (800px)')),
-                ('image_small', models.ImageField(blank=True, null=True, upload_to='photos/small/', verbose_name='Small (400px)')),
-                ('image_thumbnail', models.ImageField(blank=True, null=True, upload_to='photos/thumbnail/', verbose_name='Thumbnail (150px)')),
-                ('original_filename', models.CharField(blank=True, max_length=255)),
-                ('file_size', models.PositiveIntegerField(blank=True, help_text='Original file size in bytes', null=True)),
-                ('width', models.PositiveIntegerField(blank=True, help_text='Original image width', null=True)),
-                ('height', models.PositiveIntegerField(blank=True, help_text='Original image height', null=True)),
-                ('exif_data', models.JSONField(blank=True, help_text='Full EXIF data as JSON', null=True)),
-                ('camera_make', models.CharField(blank=True, help_text='Camera manufacturer', max_length=100)),
-                ('camera_model', models.CharField(blank=True, help_text='Camera model', max_length=100)),
-                ('lens_model', models.CharField(blank=True, help_text='Lens model', max_length=100)),
-                ('focal_length', models.CharField(blank=True, help_text='Focal length (e.g., "50mm")', max_length=50)),
-                ('aperture', models.CharField(blank=True, help_text='Aperture (e.g., "f/2.8")', max_length=50)),
-                ('shutter_speed', models.CharField(blank=True, help_text='Shutter speed (e.g., "1/250")', max_length=50)),
-                ('iso', models.PositiveIntegerField(blank=True, help_text='ISO value', null=True)),
-                ('date_taken', models.DateTimeField(blank=True, help_text='Date photo was taken', null=True)),
-                ('gps_latitude', models.DecimalField(blank=True, decimal_places=7, help_text='GPS latitude', max_digits=10, null=True)),
-                ('gps_longitude', models.DecimalField(blank=True, decimal_places=7, help_text='GPS longitude', max_digits=11, null=True)),
-                ('gps_altitude', models.DecimalField(blank=True, decimal_places=2, help_text='GPS altitude in meters', max_digits=10, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=255)),
+                ("description", models.TextField(blank=True)),
+                (
+                    "image",
+                    models.ImageField(upload_to="photos/full/", verbose_name="Full Resolution"),
+                ),
+                (
+                    "image_large",
+                    models.ImageField(
+                        blank=True,
+                        null=True,
+                        upload_to="photos/large/",
+                        verbose_name="Large (1920px)",
+                    ),
+                ),
+                (
+                    "image_medium",
+                    models.ImageField(
+                        blank=True,
+                        null=True,
+                        upload_to="photos/medium/",
+                        verbose_name="Medium (800px)",
+                    ),
+                ),
+                (
+                    "image_small",
+                    models.ImageField(
+                        blank=True,
+                        null=True,
+                        upload_to="photos/small/",
+                        verbose_name="Small (400px)",
+                    ),
+                ),
+                (
+                    "image_thumbnail",
+                    models.ImageField(
+                        blank=True,
+                        null=True,
+                        upload_to="photos/thumbnail/",
+                        verbose_name="Thumbnail (150px)",
+                    ),
+                ),
+                ("original_filename", models.CharField(blank=True, max_length=255)),
+                (
+                    "file_size",
+                    models.PositiveIntegerField(blank=True, help_text="Original file size in bytes", null=True),
+                ),
+                (
+                    "width",
+                    models.PositiveIntegerField(blank=True, help_text="Original image width", null=True),
+                ),
+                (
+                    "height",
+                    models.PositiveIntegerField(blank=True, help_text="Original image height", null=True),
+                ),
+                (
+                    "exif_data",
+                    models.JSONField(blank=True, help_text="Full EXIF data as JSON", null=True),
+                ),
+                (
+                    "camera_make",
+                    models.CharField(blank=True, help_text="Camera manufacturer", max_length=100),
+                ),
+                (
+                    "camera_model",
+                    models.CharField(blank=True, help_text="Camera model", max_length=100),
+                ),
+                (
+                    "lens_model",
+                    models.CharField(blank=True, help_text="Lens model", max_length=100),
+                ),
+                (
+                    "focal_length",
+                    models.CharField(
+                        blank=True,
+                        help_text='Focal length (e.g., "50mm")',
+                        max_length=50,
+                    ),
+                ),
+                (
+                    "aperture",
+                    models.CharField(blank=True, help_text='Aperture (e.g., "f/2.8")', max_length=50),
+                ),
+                (
+                    "shutter_speed",
+                    models.CharField(
+                        blank=True,
+                        help_text='Shutter speed (e.g., "1/250")',
+                        max_length=50,
+                    ),
+                ),
+                (
+                    "iso",
+                    models.PositiveIntegerField(blank=True, help_text="ISO value", null=True),
+                ),
+                (
+                    "date_taken",
+                    models.DateTimeField(blank=True, help_text="Date photo was taken", null=True),
+                ),
+                (
+                    "gps_latitude",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=7,
+                        help_text="GPS latitude",
+                        max_digits=10,
+                        null=True,
+                    ),
+                ),
+                (
+                    "gps_longitude",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=7,
+                        help_text="GPS longitude",
+                        max_digits=11,
+                        null=True,
+                    ),
+                ),
+                (
+                    "gps_altitude",
+                    models.DecimalField(
+                        blank=True,
+                        decimal_places=2,
+                        help_text="GPS altitude in meters",
+                        max_digits=10,
+                        null=True,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
             options={
-                'verbose_name': 'Photo',
-                'verbose_name_plural': 'Photos',
+                "verbose_name": "Photo",
+                "verbose_name_plural": "Photos",
             },
         ),
         migrations.CreateModel(
-            name='PhotoAlbum',
+            name="PhotoAlbum",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=255)),
-                ('description', models.TextField(blank=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('photos', models.ManyToManyField(related_name='albums', to='photos.photo')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=255)),
+                ("description", models.TextField(blank=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "photos",
+                    models.ManyToManyField(related_name="albums", to="photos.photo"),
+                ),
             ],
             options={
-                'verbose_name': 'Photo Album',
-                'verbose_name_plural': 'Photo Albums',
+                "verbose_name": "Photo Album",
+                "verbose_name_plural": "Photo Albums",
             },
         ),
     ]

@@ -20,7 +20,7 @@ module.exports = {
     standard: [
       // Django-specific classes
       'errorlist',
-      'helptext', 
+      'helptext',
       'required',
       'messages',
       'messages-container',

@@ -6,6 +6,7 @@ class LighthouseAudit(models.Model):
     Stores Lighthouse audit results for performance monitoring.
     Tracks 4 key Lighthouse categories: Performance, Accessibility, Best Practices, and SEO.
     """
+
     url = models.CharField(max_length=500, help_text="URL that was audited")
     performance_score = models.IntegerField(help_text="Performance score (0-100)")
     accessibility_score = models.IntegerField(help_text="Accessibility score (0-100)")
@@ -15,10 +16,10 @@ class LighthouseAudit(models.Model):
     metadata = models.JSONField(default=dict, blank=True, help_text="Additional Lighthouse data")
 
     class Meta:
-        ordering = ['-audit_date']
+        ordering = ["-audit_date"]
         indexes = [
-            models.Index(fields=['-audit_date']),
-            models.Index(fields=['url', '-audit_date']),
+            models.Index(fields=["-audit_date"]),
+            models.Index(fields=["url", "-audit_date"]),
         ]
         verbose_name = "Lighthouse Audit"
         verbose_name_plural = "Lighthouse Audits"
@@ -29,21 +30,17 @@ class LighthouseAudit(models.Model):
     @property
     def average_score(self):
         """Calculate the average score across all categories."""
-        return round((
-            self.performance_score +
-            self.accessibility_score +
-            self.best_practices_score +
-            self.seo_score
-        ) / 4)
+        return round(
+            (self.performance_score + self.accessibility_score + self.best_practices_score + self.seo_score) / 4
+        )
 
     @property
     def color_class(self):
         """Return a color class based on the average score."""
         avg = self.average_score
         if avg >= 90:
-            return 'success'
+            return "success"
         elif avg >= 70:
-            return 'warning'
+            return "warning"
         else:
-            return 'danger'
-
+            return "danger"

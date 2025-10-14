@@ -6,53 +6,73 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('pages', '0005_photo_photoalbum'),
+        ("pages", "0005_photo_photoalbum"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='photo',
-            name='file_size',
-            field=models.PositiveIntegerField(blank=True, help_text='Original file size in bytes', null=True),
+            model_name="photo",
+            name="file_size",
+            field=models.PositiveIntegerField(blank=True, help_text="Original file size in bytes", null=True),
         ),
         migrations.AddField(
-            model_name='photo',
-            name='height',
-            field=models.PositiveIntegerField(blank=True, help_text='Original image height', null=True),
+            model_name="photo",
+            name="height",
+            field=models.PositiveIntegerField(blank=True, help_text="Original image height", null=True),
         ),
         migrations.AddField(
-            model_name='photo',
-            name='image_large',
-            field=models.ImageField(blank=True, null=True, upload_to='photos/large/', verbose_name='Large (1920px)'),
+            model_name="photo",
+            name="image_large",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to="photos/large/",
+                verbose_name="Large (1920px)",
+            ),
         ),
         migrations.AddField(
-            model_name='photo',
-            name='image_medium',
-            field=models.ImageField(blank=True, null=True, upload_to='photos/medium/', verbose_name='Medium (800px)'),
+            model_name="photo",
+            name="image_medium",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to="photos/medium/",
+                verbose_name="Medium (800px)",
+            ),
         ),
         migrations.AddField(
-            model_name='photo',
-            name='image_small',
-            field=models.ImageField(blank=True, null=True, upload_to='photos/small/', verbose_name='Small (400px)'),
+            model_name="photo",
+            name="image_small",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to="photos/small/",
+                verbose_name="Small (400px)",
+            ),
         ),
         migrations.AddField(
-            model_name='photo',
-            name='image_thumbnail',
-            field=models.ImageField(blank=True, null=True, upload_to='photos/thumbnail/', verbose_name='Thumbnail (150px)'),
+            model_name="photo",
+            name="image_thumbnail",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to="photos/thumbnail/",
+                verbose_name="Thumbnail (150px)",
+            ),
         ),
         migrations.AddField(
-            model_name='photo',
-            name='original_filename',
+            model_name="photo",
+            name="original_filename",
             field=models.CharField(blank=True, max_length=255),
         ),
         migrations.AddField(
-            model_name='photo',
-            name='width',
-            field=models.PositiveIntegerField(blank=True, help_text='Original image width', null=True),
+            model_name="photo",
+            name="width",
+            field=models.PositiveIntegerField(blank=True, help_text="Original image width", null=True),
         ),
         migrations.AlterField(
-            model_name='photo',
-            name='image',
-            field=models.ImageField(upload_to='photos/full/', verbose_name='Full Resolution'),
+            model_name="photo",
+            name="image",
+            field=models.ImageField(upload_to="photos/full/", verbose_name="Full Resolution"),
         ),
     ]

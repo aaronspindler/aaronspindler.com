@@ -1,8 +1,10 @@
 from django import forms
-from django.forms import ClearableFileInput
 from django.core.exceptions import ValidationError
-from .models import Photo
+from django.forms import ClearableFileInput
+
 from photos.image_utils import DuplicateDetector
+
+from .models import Photo
 
 
 class MultipleFileInput(ClearableFileInput):
@@ -25,30 +27,32 @@ class MultipleFileField(forms.FileField):
 
 class PhotoBulkUploadForm(forms.Form):
     """Form for bulk uploading photos."""
+
     images = MultipleFileField(
-        label='Select images',
-        help_text='You can select multiple images at once',
-        required=True
+        label="Select images",
+        help_text="You can select multiple images at once",
+        required=True,
     )
     album = forms.ModelChoiceField(
         queryset=None,
         required=False,
-        help_text='Optional: Add all uploaded photos to this album'
+        help_text="Optional: Add all uploaded photos to this album",
     )
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from .models import PhotoAlbum
-        self.fields['album'].queryset = PhotoAlbum.objects.all()
-    
+
+        self.fields["album"].queryset = PhotoAlbum.objects.all()
+
     def save(self, skip_duplicates=True):
         """
         Save all uploaded images as Photo objects.
-        
+
         Args:
             skip_duplicates: If True, silently skip duplicate images.
                            If False, raise ValidationError on duplicates.
-        
+
         Returns:
             dict: {
                 'created': List of successfully created Photo objects,
@@ -56,60 +60,52 @@ class PhotoBulkUploadForm(forms.Form):
                 'errors': List of (filename, error) tuples for failed uploads
             }
         """
-        images = self.cleaned_data['images']
-        album = self.cleaned_data.get('album')
-        result = {
-            'created': [],
-            'skipped': [],
-            'errors': []
-        }
-        
+        images = self.cleaned_data["images"]
+        album = self.cleaned_data.get("album")
+        result = {"created": [], "skipped": [], "errors": []}
+
         if not isinstance(images, list):
             images = [images]
-        
+
         for image_file in images:
-            filename = getattr(image_file, 'name', 'unknown')
-            
+            filename = getattr(image_file, "name", "unknown")
+
             try:
                 existing_photos = Photo.objects.all()
-                duplicates = DuplicateDetector.find_duplicates(
-                    image_file,
-                    existing_photos,
-                    exact_match_only=False
-                )
-                
-                if duplicates['exact_duplicates']:
-                    duplicate = duplicates['exact_duplicates'][0]
+                duplicates = DuplicateDetector.find_duplicates(image_file, existing_photos, exact_match_only=False)
+
+                if duplicates["exact_duplicates"]:
+                    duplicate = duplicates["exact_duplicates"][0]
                     if skip_duplicates:
-                        result['skipped'].append((
-                            filename,
-                            f"Exact duplicate of '{duplicate}' (ID: {duplicate.pk})"
-                        ))
+                        result["skipped"].append(
+                            (
+                                filename,
+                                f"Exact duplicate of '{duplicate}' (ID: {duplicate.pk})",
+                            )
+                        )
                         continue
                     else:
-                        raise ValidationError(
-                            f"{filename}: Exact duplicate of '{duplicate}'"
-                        )
-                
-                if duplicates['similar_images']:
-                    similar_count = len(duplicates['similar_images'])
-                
+                        raise ValidationError(f"{filename}: Exact duplicate of '{duplicate}'")
+
+                if duplicates["similar_images"]:
+                    similar_count = len(duplicates["similar_images"])
+
                 photo = Photo(
                     image=image_file,
                     # Store computed hashes to avoid recomputing
-                    file_hash=duplicates.get('file_hash', ''),
-                    perceptual_hash=duplicates.get('perceptual_hash', ''),
+                    file_hash=duplicates.get("file_hash", ""),
+                    perceptual_hash=duplicates.get("perceptual_hash", ""),
                 )
                 # Skip duplicate check in save since we already checked
                 photo.save(skip_duplicate_check=True)
-                result['created'].append(photo)
-                
+                result["created"].append(photo)
+
                 if album:
                     album.photos.add(photo)
-                    
+
             except ValidationError as e:
-                result['errors'].append((filename, str(e)))
+                result["errors"].append((filename, str(e)))
             except Exception as e:
-                result['errors'].append((filename, f"Upload failed: {str(e)}"))
-        
+                result["errors"].append((filename, f"Upload failed: {str(e)}"))
+
         return result
