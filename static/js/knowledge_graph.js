@@ -525,25 +525,55 @@ class HomepageKnowledgeGraph {
     
     showTooltip(event, node) {
         this.tooltipGroup.selectAll("*").remove();
-        
+
         // Clean up blog post filename to readable title:
         // Remove year prefix, replace underscores with spaces, remove .html extension
         // Preserve original casing of the filename
         let label = node.label.replace(/^\d{1,4}[_\-\s]*/, '').replace(/_/g, ' ').replace(/\.html?$/i, '').trim();
-        
-        // Increased padding for better spacing around text
-        const paddingX = 16, paddingY = 8;
-        const width = Math.min(250, Math.max(label.length * 7 + paddingX * 2, 80));
-        const height = 32;
-        const x = Math.max(10, Math.min((node.x || 0) - width/2, this.width - width - 10));
-        const y = Math.max(10, (node.y || 0) - this.getNodeRadius(node) - height - 10);
-        
+
+        // Fixed position in top right corner
+        const margin = 20;
+        const paddingX = 16, paddingY = 12;
+        const maxWidth = 350;  // Maximum width for long titles
+        const lineHeight = 20;
+
+        // Word wrap the label if it's too long
+        const words = label.split(' ');
+        const lines = [];
+        let currentLine = '';
+        const charsPerLine = 35;  // Approximate characters per line
+
+        words.forEach(word => {
+            const testLine = currentLine ? `${currentLine} ${word}` : word;
+            if (testLine.length <= charsPerLine) {
+                currentLine = testLine;
+            } else {
+                if (currentLine) lines.push(currentLine);
+                currentLine = word;
+            }
+        });
+        if (currentLine) lines.push(currentLine);
+
+        const width = Math.min(maxWidth, Math.max(...lines.map(l => l.length * 7.5)) + paddingX * 2);
+        const height = lines.length * lineHeight + paddingY * 2;
+
+        // Position in top right corner
+        const x = this.width - width - margin;
+        const y = margin;
+
+        // Background rectangle
         this.tooltipGroup.append("rect").attr("class", "tooltip-background")
-            .attr("x", x).attr("y", y).attr("width", width).attr("height", height);
-        
-        this.tooltipGroup.append("text")
-            .attr("x", x + width/2).attr("y", y + height/2).text(label);
-        
+            .attr("x", x).attr("y", y).attr("width", width).attr("height", height)
+            .attr("rx", 6).attr("ry", 6);
+
+        // Add text lines
+        lines.forEach((line, i) => {
+            this.tooltipGroup.append("text")
+                .attr("x", x + width/2)
+                .attr("y", y + paddingY + lineHeight * (i + 0.7))
+                .text(line);
+        });
+
         this.tooltipGroup.classed("hidden", false).classed("visible", true);
     }
     
