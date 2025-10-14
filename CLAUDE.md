@@ -63,6 +63,8 @@ npm run build:js
 npm run build:all
 ```
 
+**IMPORTANT**: Whenever CSS or JS files are modified, you MUST run `make static` to rebuild and apply the changes. This command handles all necessary build steps to optimize and deploy static assets.
+
 ### Knowledge Graph Commands
 ```bash
 # Rebuild knowledge graph cache
@@ -147,6 +149,14 @@ python manage.py setup_periodic_tasks
    - Caching system for performance
    - LinkParser class for extracting internal/external links
    - GraphBuilder for constructing graph structures
+   - **Visualization Enhancements** (October 2024):
+     - Adaptive force simulation parameters based on node count
+     - Velocity limiting to prevent jitter (max velocity: 10)
+     - Improved collision detection with 1.0x radius for blog posts
+     - Golden angle distribution for category positioning
+     - Grid layout for large category groups (8+ nodes)
+     - Stabilization phase when alpha < 0.1
+     - Maximum iteration limit (500 ticks) to prevent infinite running
 
 2. **Static File Optimization**
    - Custom `collectstatic_optimize` command with image compression

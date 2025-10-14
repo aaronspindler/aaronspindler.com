@@ -24,7 +24,7 @@ This isn't your average personal website. It's a playground for web experiments 
 
 ### < Key Features
 
-- **= Interactive Knowledge Graph** - Watch your blog posts connect in real-time with a D3.js-powered visualization that maps relationships between posts
+- **= Interactive Knowledge Graph** - Watch your blog posts connect in real-time with a D3.js-powered visualization that maps relationships between posts (now with enhanced stability for large graphs)
 - **= Smart Photo Management** - Upload once, get 5 optimized sizes automatically, complete with EXIF data extraction
 - **= Template-Based Blog System** - No database clutter - blog posts live as HTML templates with rich metadata
 - **= Automated Performance Monitoring** - Nightly Lighthouse audits tracking 4 key metrics with historical trends and badge display
@@ -126,7 +126,7 @@ python manage.py rebuild_knowledge_graph
 
 ## < Knowledge Graph Magic
 
-The knowledge graph automatically visualizes relationships between your blog posts:
+The knowledge graph automatically visualizes relationships between your blog posts with enhanced stability for large networks:
 
 ```bash
 # Generate a high-quality screenshot of your knowledge graph

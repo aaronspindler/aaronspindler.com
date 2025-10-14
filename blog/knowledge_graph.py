@@ -35,11 +35,10 @@ def normalize_template_name(template_name: str) -> str:
 
 class LinkParser:
     """
-    Service for parsing blog posts to extract internal and external links.
+    Service for parsing blog posts to extract internal links.
     
-    This parser identifies links within blog content, categorizes them as
-    internal (to other blog posts) or external, and extracts surrounding
-    context for graph visualization.
+    This parser identifies links within blog content that point to other
+    blog posts and extracts surrounding context for graph visualization.
     """
     
     INTERNAL_BLOG_PATTERN = re.compile(r'/b/(?:[^/]+/)?(\d{4}_[^/]+)/?')
@@ -61,7 +60,7 @@ class LinkParser:
             force_refresh: If True, bypass cache and force re-parsing
             
         Returns:
-            Dict containing internal_links, external_links, and any parse_errors
+            Dict containing internal_links and any parse_errors
         """
         normalized_name = normalize_template_name(template_name)
         cache_key = f'blog:links:{normalized_name}'
@@ -99,7 +98,7 @@ class LinkParser:
             except Exception as e:
                 logger.warning(f"Could not store cache metadata for {template_name}: {e}")
             
-            logger.info(f"Parsed {template_name}: {len(result['internal_links'])} internal, {len(result['external_links'])} external links")
+            logger.info(f"Parsed {template_name}: {len(result['internal_links'])} internal links")
             return result
             
         except Exception as e:
@@ -108,7 +107,6 @@ class LinkParser:
             return {
                 'source_post': normalized_name,
                 'internal_links': [],
-                'external_links': [],
                 'parse_errors': [error_msg]
             }
     
@@ -139,7 +137,7 @@ class LinkParser:
         This method performs the core parsing logic:
         1. Cleans the HTML (removes scripts, styles, comments)
         2. Finds all anchor tags with href attributes
-        3. Categorizes each link as internal (to another blog post) or external
+        3. Identifies internal links to other blog posts
         4. Extracts surrounding text context for each link
         
         Args:
@@ -157,7 +155,6 @@ class LinkParser:
             'source_post': source_post,
             'source_post_normalized': source_post_normalized,
             'internal_links': [],
-            'external_links': [],
             'parse_errors': []
         }
         
@@ -205,14 +202,6 @@ class LinkParser:
                         'context': context,
                         'href': href
                     })
-                elif self._is_external_link(href):
-                    parsed_url = urlparse(href)
-                    result['external_links'].append({
-                        'url': href,
-                        'text': link_text,
-                        'context': context,
-                        'domain': parsed_url.netloc if parsed_url.netloc else 'unknown'
-                    })
                         
         except Exception as e:
             error_msg = f"Error parsing HTML content: {str(e)}"
@@ -220,11 +209,6 @@ class LinkParser:
             logger.error(error_msg)
         
         return result
-    
-    def _is_external_link(self, href: str) -> bool:
-        """Determine if a URL points to an external site."""
-        parsed = urlparse(href)
-        return bool(parsed.scheme and parsed.netloc)
     
     def _extract_link_context(self, link_element) -> str:
         """
@@ -319,8 +303,6 @@ class GraphBuilder:
     
     GRAPH_CACHE_TIMEOUT = CACHE_TIMEOUT
     SUBGRAPH_CACHE_TIMEOUT = CACHE_TIMEOUT
-    EXTERNAL_NODE_ID_LENGTH = 12  # Length of hashed external URL identifiers
-    MAX_PATH_SNIPPET_LENGTH = 30  # Max length for URL path display
     TOP_ITEMS_LIMIT = 5  # Number of top items to show in metrics
     
     def __init__(self, link_parser: LinkParser = None):
@@ -464,7 +446,6 @@ class GraphBuilder:
         """Build the graph data structure from parsed link data."""
         nodes = {}
         edges = []
-        external_domains = {}
         category_metadata = {}  # Store category information for visualization
         
         # Process category information for visualization metadata
@@ -490,17 +471,13 @@ class GraphBuilder:
             
             # Process internal links
             edges.extend(self._process_internal_links(nodes, links_data, source_post))
-            
-            # Process external links
-            edges.extend(self._process_external_links(nodes, links_data, source_post, external_domains))
         
-        metrics = self._calculate_graph_metrics(nodes, edges, external_domains)
+        metrics = self._calculate_graph_metrics(nodes, edges)
         
         return {
             'nodes': list(nodes.values()),
             'edges': edges,
             'metrics': metrics,
-            'external_domains': external_domains,
             'categories': category_metadata,  # Add category metadata for visualization
             'errors': []
         }
@@ -541,59 +518,6 @@ class GraphBuilder:
         
         return edges
     
-    def _process_external_links(self, nodes: Dict, links_data: Dict, source_post: str, external_domains: Dict) -> List[Dict]:
-        """Process external links and return edges."""
-        edges = []
-        
-        for link in links_data['external_links']:
-            domain = link['domain']
-            url = link['url']
-            
-            external_node_id = f"external_{hashlib.md5(url.encode()).hexdigest()[:self.EXTERNAL_NODE_ID_LENGTH]}"
-            
-            if external_node_id not in nodes:
-                nodes[external_node_id] = self._create_external_node(url, domain, external_node_id)
-            
-            edges.append({
-                'source': source_post,
-                'target': external_node_id,
-                'type': 'external',
-                'text': link['text'],
-                'context': link['context']
-            })
-            
-            nodes[source_post]['out_degree'] += 1
-            nodes[external_node_id]['in_degree'] += 1
-            
-            if url not in external_domains:
-                external_domains[url] = 0
-            external_domains[url] += 1
-            
-            nodes[source_post]['total_links'] += 1
-        
-        return edges
-    
-    def _create_external_node(self, url: str, domain: str, node_id: str) -> Dict:
-        """Create an external link node."""
-        parsed_url = urlparse(url)
-        path_snippet = parsed_url.path[:self.MAX_PATH_SNIPPET_LENGTH] if parsed_url.path and parsed_url.path != '/' else ''
-        
-        if path_snippet and len(parsed_url.path) > self.MAX_PATH_SNIPPET_LENGTH:
-            path_snippet += '...'
-        
-        label = f"{domain}{path_snippet}" if path_snippet else domain
-        
-        return {
-            'id': node_id,
-            'label': label,
-            'type': 'external_link',
-            'url': url,
-            'domain': domain,
-            'in_degree': 0,
-            'out_degree': 0,
-            'total_links': 0
-        }
-    
     def _get_post_title(self, template_name: str) -> str:
         """
         Get a readable title for a blog post from its template name.
@@ -620,12 +544,11 @@ class GraphBuilder:
         # Fallback: convert underscores to spaces (preserves whatever casing was provided)
         return template_name.replace('_', ' ')
     
-    def _calculate_graph_metrics(self, nodes: Dict, edges: List[Dict], external_domains: Dict) -> Dict:
+    def _calculate_graph_metrics(self, nodes: Dict, edges: List[Dict]) -> Dict:
         """Calculate various graph metrics."""
         blog_nodes = [n for n in nodes.values() if n['type'] == 'blog_post']
         total_posts = len(blog_nodes)
         total_internal_links = len([edge for edge in edges if edge['type'] == 'internal'])
-        total_external_links = sum(external_domains.values())
         
         # Most connected posts
         most_linked_posts = sorted(
@@ -640,28 +563,12 @@ class GraphBuilder:
             if n['in_degree'] == 0 and n['out_degree'] == 0
         ]
         
-        # Top external domains
-        domain_counts = {}
-        for url, count in external_domains.items():
-            domain = urlparse(url).netloc
-            if domain not in domain_counts:
-                domain_counts[domain] = 0
-            domain_counts[domain] += count
-        
-        top_external_domains = sorted(
-            domain_counts.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:self.TOP_ITEMS_LIMIT]
-        
         return {
             'total_posts': total_posts,
             'total_internal_links': total_internal_links,
-            'total_external_links': total_external_links,
             'average_links_per_post': round(total_internal_links / total_posts, 2) if total_posts > 0 else 0,
             'most_linked_posts': [{'id': p['id'], 'label': p['label'], 'connections': p['in_degree'] + p['out_degree']} for p in most_linked_posts],
-            'orphan_posts': [{'id': p['id'], 'label': p['label']} for p in orphan_posts],
-            'top_external_domains': [{'domain': d, 'count': c} for d, c in top_external_domains]
+            'orphan_posts': [{'id': p['id'], 'label': p['label']} for p in orphan_posts]
         }
 
 
