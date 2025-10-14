@@ -1,0 +1,209 @@
+<h1>The Results of Cutting Out The Bloat</h1>
+
+<p>A while back, I wrote about <a href="/b/0002_cut_out_the_bloat/">cutting out the bloat</a> in web development. The core idea: stop reaching for React/Vue/Next.js for everything and use server-side rendering where it makes sense. Now that this blog has been running for a while, I wanted to share the actual results of that philosophy - including what complexity I kept and what I avoided. Spoiler alert: the results are excellent.</p>
+
+<h2>Setting the Record Straight</h2>
+
+<p>Before diving into metrics, let me be clear about what "cutting the bloat" actually means for this site. I'm not running some minimalist setup with zero tooling. In fact, the infrastructure is fairly sophisticated:</p>
+
+<ul>
+    <li><strong>CI/CD Pipeline:</strong> GitHub Actions with parallel test execution, security scanning, linting, type checking, and multi-service deployment</li>
+    <li><strong>Build Process:</strong> PostCSS, PurgeCSS, JavaScript minification with Terser, image optimization, and Brotli compression</li>
+    <li><strong>Infrastructure:</strong> Four Docker containers (web, Celery worker, Celery Beat scheduler, Flower monitoring), deployed to CapRover</li>
+    <li><strong>Backend Services:</strong> Django, PostgreSQL, Redis, Playwright for server-side screenshots</li>
+    <li><strong>Testing:</strong> Comprehensive test suite with Docker Compose, parallel execution, and coverage reporting</li>
+</ul>
+
+<p>So what did I actually cut out? <strong>The frontend framework bloat.</strong> No React. No Vue. No 3MB JavaScript bundle. No client-side routing. No hydration. Just server-rendered HTML with targeted JavaScript where needed.</p>
+
+<p>This is an important distinction: sophisticated backend infrastructure for optimization and reliability is good. Shipping megabytes of JavaScript to render blog posts is not.</p>
+
+<h2>The Numbers Don't Lie</h2>
+
+<p>With <a href="/lighthouse/history/">automated nightly Lighthouse audits</a> tracking performance over time, this site consistently scores in the high 90s across all four metrics:</p>
+
+<ul>
+    <li><strong>Performance:</strong> 95-100</li>
+    <li><strong>Accessibility:</strong> 95-100</li>
+    <li><strong>Best Practices:</strong> 95-100</li>
+    <li><strong>SEO:</strong> 95-100</li>
+</ul>
+
+<p>For context, the average website scores around 50-70 on performance. Many popular blogging platforms struggle to break 80. This Django site with server-side rendering and smart optimization regularly hits perfect or near-perfect scores.</p>
+
+<p>You can <a href="/lighthouse/history/">view the complete Lighthouse audit history</a> to see these metrics tracked over the past 30 days, including graphs showing consistency and trends.</p>
+
+<p>But scores are just numbers. What do they actually mean in the real world?</p>
+
+<h2>What Users Actually Experience</h2>
+
+<p>The performance metrics translate to real benefits:</p>
+
+<ul>
+    <li><strong>First Contentful Paint:</strong> Under 0.5 seconds - Users see content almost instantly</li>
+    <li><strong>Time to Interactive:</strong> Under 1 second - The page is fully usable immediately</li>
+    <li><strong>Total Page Size:</strong> Under 200KB for most pages - Uses less data than a single high-res image on most modern sites</li>
+    <li><strong>Zero JavaScript frameworks:</strong> No React, no Vue, no Next.js bloat to download and parse</li>
+</ul>
+
+<p>Compare this to the typical blog built with modern frameworks: 2-3MB of JavaScript, 3-5 second load times, and a spinning loader while the framework bootstraps. Is that really necessary to display text and images?</p>
+
+<h2>The Developer Experience: Where Complexity Belongs</h2>
+
+<p>Here's the interesting part: building without frontend framework bloat doesn't mean avoiding all complexity. It means putting complexity where it provides value.</p>
+
+<h3>Build Pipeline: Sophisticated but Fast</h3>
+
+<p>My CSS build process uses PostCSS, PurgeCSS for removing unused styles, automatic minification, and generates both Gzip and Brotli compressed versions. The result? CSS that's heavily optimized with features like automatic prefixing and color optimization.</p>
+
+<p>The difference from a typical Next.js build? This takes seconds, not minutes. There's no webpack configuration hell, no fighting with module resolution, no cache invalidation mysteries. Just run <code>make static</code> and it works.</p>
+
+<h3>CI/CD: Comprehensive and Reliable</h3>
+
+<p>My CI/CD pipeline is actually quite complex:</p>
+
+<ul>
+    <li>Parallel test execution across multiple test groups</li>
+    <li>Security scanning with Safety and pip-audit</li>
+    <li>Code quality checks: Ruff, Black, isort, Pylint, MyPy</li>
+    <li>Docker image builds for four different services</li>
+    <li>Automated deployment to CapRover with health checks</li>
+    <li>Coverage reporting and tracking</li>
+</ul>
+
+<p>This runs on every push. Tests complete in minutes, not the 10-20 minutes I've seen in typical React projects.</p>
+
+<p>The key difference? I'm testing Python code and database interactions, not waiting for TypeScript to compile and Jest to instrument thousands of JavaScript files.</p>
+
+<h3>Deployment: Multiple Services, Simple Orchestration</h3>
+
+<p>The production environment runs four separate Docker containers:</p>
+
+<ul>
+    <li><strong>Web:</strong> Gunicorn serving Django</li>
+    <li><strong>Celery:</strong> Background task processing</li>
+    <li><strong>Celery Beat:</strong> Scheduled tasks (nightly Lighthouse audits, cache rebuilds)</li>
+    <li><strong>Flower:</strong> Real-time Celery monitoring</li>
+</ul>
+
+<p>Plus PostgreSQL, Redis, and S3 for storage. This is not a "simple" architecture. But it's reliable, scalable, and maintainable because each service has a clear purpose and the deployment is automated.</p>
+
+<p>Compare this to managing serverless functions, edge middleware, API routes, and client components in a Next.js app. More moving parts, more vendor lock-in, more debugging hell.</p>
+
+<h3>Debugging: Clear Stack Traces</h3>
+
+<p>When something breaks (and it will), debugging is straightforward. Django gives me clear stack traces pointing directly to the problem. No transpiled code, no framework magic, no "this error occurred during server-side rendering but actually happened on the client after hydration."</p>
+
+<p>The CI/CD logs are equally clear. When a test fails, I see exactly which test and why, not cryptic webpack errors about module resolution.</p>
+
+<h2>What I Actually Sacrificed</h2>
+
+<p>Let's be honest - there are trade-offs. Here's what I gave up by avoiding the modern framework ecosystem:</p>
+
+<ul>
+    <li><strong>Complex client-side interactions:</strong> No infinite scroll, no optimistic updates, no complex state management</li>
+    <li><strong>Component reusability across projects:</strong> I use Django templates, not portable React components</li>
+    <li><strong>Hot module replacement:</strong> I refresh the browser manually (takes 0.2 seconds)</li>
+    <li><strong>Rich ecosystem of UI libraries:</strong> No shadcn/ui or Material UI - I write CSS</li>
+</ul>
+
+<p>But here's the thing: <strong>I don't actually need any of that for a blog</strong>. Users don't care if I'm using the latest framework. They care if the site loads fast, looks good, and the content is easy to read.</p>
+
+<h2>Where I DO Use Build Tools (And Why)</h2>
+
+<p>I'm not anti-tooling. I use build tools where they provide clear value:</p>
+
+<ul>
+    <li><strong>PostCSS:</strong> Automatic vendor prefixing and optimizations</li>
+    <li><strong>PurgeCSS:</strong> Removes unused CSS (37% size reduction)</li>
+    <li><strong>Terser:</strong> JavaScript minification</li>
+    <li><strong>Brotli:</strong> Better compression than Gzip alone</li>
+    <li><strong>Docker:</strong> Consistent environments from development to production</li>
+    <li><strong>Playwright:</strong> Server-side screenshot generation for the knowledge graph</li>
+</ul>
+
+<p>These tools solve real problems and don't add framework complexity. The entire build pipeline is defined in a Makefile and a few management commands. No <code>package.json</code> with 200 dependencies.</p>
+
+<h2>Maintenance and Technical Debt</h2>
+
+<p>This is where the benefits really compound over time. Every dependency you add is technical debt. Every framework version is a ticking time bomb of breaking changes.</p>
+
+<p>With this approach:</p>
+
+<ul>
+    <li><strong>Fewer dependencies to update:</strong> I have 47 Python packages, not 1,000+ npm packages</li>
+    <li><strong>Standard technologies:</strong> HTML, CSS, Python, and PostgreSQL aren't going anywhere</li>
+    <li><strong>No framework churn:</strong> I'm not rewriting everything every 2 years because the ecosystem moved on</li>
+    <li><strong>Easier onboarding:</strong> Any developer who knows Django can contribute</li>
+    <li><strong>Clear upgrade paths:</strong> Django has excellent backwards compatibility and upgrade guides</li>
+</ul>
+
+<p>I spend my time writing content and adding features, not fighting with ESLint configurations and webpack optimization plugins.</p>
+
+<h2>The Psychological Benefits</h2>
+
+<p>There's something incredibly liberating about working without framework bloat. I don't have decision fatigue about which state management library to use. I don't worry about client/server boundary issues. I don't spend hours troubleshooting "works on my machine" build problems.</p>
+
+<p>When I want to add a feature, I:</p>
+
+<ol>
+    <li>Write a Django view</li>
+    <li>Create a template</li>
+    <li>Write some tests</li>
+    <li>Push to GitHub</li>
+    <li>CI/CD handles the rest</li>
+</ol>
+
+<p>No webpack configuration. No "use client" directives. No hydration errors. Just code that runs on the server and sends HTML to the browser.</p>
+
+<p>This mental bandwidth goes into writing better content, designing better features, and actually shipping things.</p>
+
+<h2>When You DO Need the Frameworks</h2>
+
+<p>Let me be absolutely clear: frameworks aren't evil. They solve real problems for real applications. If you're building:</p>
+
+<ul>
+    <li>A complex single-page application with lots of client-side state</li>
+    <li>Real-time collaborative tools (think Figma or Google Docs)</li>
+    <li>Data-heavy dashboards with complex visualizations</li>
+    <li>Anything that genuinely needs sophisticated client-side logic</li>
+</ul>
+
+<p>Then yes, use React or Vue or whatever. The frameworks exist for good reasons.</p>
+
+<p>But if you're building a blog, a documentation site, a portfolio, or any primarily content-focused site? You probably don't need them. And you'll be better off without them.</p>
+
+<h2>Lessons Learned</h2>
+
+<p>After months of running this stack in production, here are my key takeaways:</p>
+
+<ul>
+    <li><strong>Backend complexity for optimization is good:</strong> Build tools, CI/CD, and infrastructure automation provide real value</li>
+    <li><strong>Frontend complexity for rendering content is bad:</strong> Shipping React to display blog posts is wasteful</li>
+    <li><strong>Performance is a feature users notice:</strong> Even if they don't consciously realize why, fast sites feel better</li>
+    <li><strong>Simplicity scales:</strong> As this blog grows, the architecture continues to work well</li>
+    <li><strong>Developer happiness matters:</strong> Working without framework bloat is more enjoyable</li>
+    <li><strong>Boring technology works:</strong> Django, PostgreSQL, and Redis are proven, reliable, and maintainable</li>
+</ul>
+
+<h2>The Bigger Picture</h2>
+
+<p>This isn't just about my blog. It's about a broader shift happening in web development. More developers are realizing that the "everything in JavaScript" approach has costs that often outweigh the benefits.</p>
+
+<p>Projects like HTMX and Alpine.js show that you can have interactivity without framework overhead. The resurgence of server-side rendering (even in Next.js!) proves that rendering on the server was a good idea all along. DHH's <a href="https://world.hey.com/dhh" target="_blank">writings on modern web development</a> are resonating because people are tired of the complexity treadmill.</p>
+
+<p>We built great websites before React existed. We can still build great websites without needing a framework for everything - especially when we have sophisticated build tools, testing, and deployment automation in place.</p>
+
+<h2>Conclusion</h2>
+
+<p>Cutting out frontend framework bloat delivered real, measurable benefits. The site is faster for users, easier to maintain, simpler to debug, and more enjoyable to work on.</p>
+
+<p>But I didn't sacrifice professional engineering practices. I have a robust CI/CD pipeline, comprehensive testing, automated deployments, and sophisticated build optimization. The difference is that this complexity serves users and developers, not frameworks.</p>
+
+<p>Could I have achieved similar results with Next.js or Remix? Maybe. But it would have required more expertise, more tooling, more debugging, and more ongoing maintenance. The server-side rendering approach just works, and it keeps working without constant attention.</p>
+
+<p>As I mentioned in <a href="/b/0004_this_blog_aint_perfect/">this blog framework ain't perfect</a>, there are still rough edges and things I want to improve. But the foundation is solid because it's built on boring, proven technology with smart optimization where it counts.</p>
+
+<p>So if you're starting a new project, ask yourself: do you really need that frontend framework? Or are you reaching for complexity out of habit? Sometimes the best solution is server-side rendering with great infrastructure, not client-side rendering with minimal tooling.</p>
+
+<p>And if you don't believe me, just look at the Lighthouse scores. The numbers speak for themselves.</p>

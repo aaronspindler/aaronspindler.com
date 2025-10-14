@@ -52,8 +52,8 @@ class LinkParserTest(TestCase):
         self.assertEqual(result['internal_links'][1]['target'], '2024_tech_post')
 
     @patch('blog.knowledge_graph.LinkParser._get_template_content')
-    def test_parse_blog_post_external_links(self, mock_get_content):
-        """Test parsing external links."""
+    def test_parse_blog_post_external_links_ignored(self, mock_get_content):
+        """Test that external links are ignored (not parsed)."""
         mock_get_content.return_value = '''
             <p>Visit <a href="https://example.com">Example</a></p>
             <p>Check <a href="http://google.com/search">Google</a></p>
@@ -61,9 +61,8 @@ class LinkParserTest(TestCase):
         
         result = self.parser.parse_blog_post('test_post')
         
-        self.assertEqual(len(result['external_links']), 2)
-        self.assertEqual(result['external_links'][0]['domain'], 'example.com')
-        self.assertEqual(result['external_links'][1]['domain'], 'google.com')
+        # External links are no longer parsed
+        self.assertEqual(len(result['internal_links']), 0)
 
     @patch('blog.knowledge_graph.LinkParser._get_template_content')
     def test_parse_blog_post_skip_anchors(self, mock_get_content):
@@ -76,7 +75,6 @@ class LinkParserTest(TestCase):
         result = self.parser.parse_blog_post('test_post')
         
         self.assertEqual(len(result['internal_links']), 0)
-        self.assertEqual(len(result['external_links']), 0)
 
     @patch('blog.knowledge_graph.LinkParser._get_template_content')
     def test_parse_blog_post_context_extraction(self, mock_get_content):
@@ -130,7 +128,6 @@ class LinkParserTest(TestCase):
         result = self.parser.parse_blog_post('test_post')
         
         self.assertEqual(len(result['internal_links']), 0)
-        self.assertEqual(len(result['external_links']), 0)
         self.assertEqual(len(result['parse_errors']), 1)
         self.assertIn('Template error', result['parse_errors'][0])
 
@@ -148,18 +145,6 @@ class LinkParserTest(TestCase):
         
         self.assertEqual(len(result['internal_links']), 1)
         # Scripts, styles, and comments should not affect parsing
-
-    def test_is_external_link(self):
-        """Test external link detection."""
-        parser = LinkParser()
-        
-        self.assertTrue(parser._is_external_link('https://example.com'))
-        self.assertTrue(parser._is_external_link('http://example.com'))
-        self.assertTrue(parser._is_external_link('https://example.com/path'))
-        
-        self.assertFalse(parser._is_external_link('/relative/path'))
-        self.assertFalse(parser._is_external_link('relative/path'))
-        self.assertFalse(parser._is_external_link('#anchor'))
 
 
 class GraphBuilderTest(TestCase):
@@ -182,21 +167,19 @@ class GraphBuilderTest(TestCase):
             {
                 'source_post': 'post1',
                 'internal_links': [{'target': 'post2', 'text': 'Link', 'context': 'Context', 'href': '/b/post2/'}],
-                'external_links': [],
                 'parse_errors': []
             },
             {
                 'source_post': 'post2',
                 'internal_links': [],
-                'external_links': [{'url': 'https://example.com', 'text': 'External', 'context': 'Context', 'domain': 'example.com'}],
                 'parse_errors': []
             }
         ]
         
         result = self.builder.build_complete_graph()
         
-        self.assertEqual(len(result['nodes']), 3)  # 2 posts + 1 external
-        self.assertEqual(len(result['edges']), 2)  # 1 internal + 1 external
+        self.assertEqual(len(result['nodes']), 2)  # 2 posts (no external nodes)
+        self.assertEqual(len(result['edges']), 1)  # 1 internal link only
         self.assertIn('metrics', result)
         self.assertIn('categories', result)
 
@@ -212,7 +195,6 @@ class GraphBuilderTest(TestCase):
         mock_parse.return_value = {
             'source_post': 'post1',
             'internal_links': [],
-            'external_links': [],
             'parse_errors': []
         }
         
@@ -228,20 +210,15 @@ class GraphBuilderTest(TestCase):
                 'source_post': 'post1',
                 'internal_links': [
                     {'target': 'post2', 'text': 'Link', 'context': 'Context', 'href': '/b/post2/'}
-                ],
-                'external_links': [
-                    {'url': 'https://example.com', 'text': 'External', 'context': 'Context', 'domain': 'example.com'}
                 ]
             },
             {
                 'source_post': 'post2',
-                'internal_links': [],
-                'external_links': []
+                'internal_links': []
             },
             {
                 'source_post': 'orphan_post',
-                'internal_links': [],
-                'external_links': []
+                'internal_links': []
             }
         ]
         
@@ -250,7 +227,7 @@ class GraphBuilderTest(TestCase):
         metrics = result['metrics']
         self.assertEqual(metrics['total_posts'], 3)
         self.assertEqual(metrics['total_internal_links'], 1)
-        self.assertEqual(metrics['total_external_links'], 1)
+        # External links are no longer tracked
         self.assertEqual(len(metrics['orphan_posts']), 1)
         self.assertEqual(metrics['orphan_posts'][0]['id'], 'orphan_post')
 
@@ -300,20 +277,6 @@ class GraphBuilderTest(TestCase):
         
         # With depth=1, should only process immediate connections
         self.assertEqual(mock_parse.call_count, 1)
-
-    def test_create_external_node(self):
-        """Test external node creation."""
-        url = 'https://example.com/some/long/path/to/page'
-        domain = 'example.com'
-        node_id = 'external_123'
-        
-        node = self.builder._create_external_node(url, domain, node_id)
-        
-        self.assertEqual(node['id'], node_id)
-        self.assertEqual(node['type'], 'external_link')
-        self.assertEqual(node['url'], url)
-        self.assertEqual(node['domain'], domain)
-        self.assertIn('/some/long/path/to/page', node['label'])  # Truncated path
 
     @patch('blog.knowledge_graph.get_all_blog_posts')
     @patch('blog.knowledge_graph.get_blog_from_template_name')
@@ -392,7 +355,6 @@ class IntegrationTest(TestCase):
         mock_parse.return_value = {
             'source_post': 'post1',
             'internal_links': [],
-            'external_links': [],
             'parse_errors': []
         }
         
