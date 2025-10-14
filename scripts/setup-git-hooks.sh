@@ -42,20 +42,23 @@ fi
 
 # Install pre-commit hooks
 echo -e "${BLUE}Installing pre-commit hooks...${NC}"
-pre-commit install --hook-type pre-commit
-pre-commit install --hook-type pre-push
+pre-commit install
 
 echo ""
 echo -e "${GREEN}✓ Pre-commit hooks installed${NC}"
 echo ""
-echo -e "${BLUE}Hooks installed:${NC}"
-echo "  • pre-commit: Runs on every commit (ruff, black, isort, file checks)"
-echo "  • pre-push: Runs on push (mypy, django check)"
+echo -e "${BLUE}What runs on commit:${NC}"
+echo "  • Ruff linter (auto-fix)"
+echo "  • Ruff formatter (Black-compatible)"
+echo "  • Ruff import sorting"
+echo "  • File checks (whitespace, end-of-file, YAML)"
 echo ""
 echo -e "${BLUE}Useful commands:${NC}"
 echo "  • Run all hooks manually: ${GREEN}pre-commit run --all-files${NC}"
-echo "  • Run specific hook: ${GREEN}pre-commit run ruff --all-files${NC}"
+echo "  • Run specific hook: ${GREEN}pre-commit run ruff${NC}"
 echo "  • Update hooks: ${GREEN}pre-commit autoupdate${NC}"
-echo "  • Skip hooks: ${GREEN}git commit --no-verify${NC} or ${GREEN}git push --no-verify${NC}"
+echo "  • Skip hooks: ${GREEN}git commit --no-verify${NC}"
 echo ""
 echo -e "${GREEN}✅ Git hooks setup complete!${NC}"
+echo ""
+echo "Note: Heavier checks (MyPy, Django) only run in CI/CD to keep commits fast."

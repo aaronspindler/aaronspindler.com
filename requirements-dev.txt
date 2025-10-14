@@ -7,19 +7,14 @@
 # Pre-commit framework for git hooks
 pre-commit==4.3.0
 
-# Linting and formatting (matches CI/CD)
+# Linting and formatting (Ruff does it all!)
 ruff==0.8.4
-black==24.10.0
-isort==5.13.2
 
-# Type checking
+# Type checking (optional - used in CI/CD but not in local hooks)
 mypy==1.13.0
 django-stubs==5.1.1
 
-# Code quality
-pylint==3.3.2
-
-# Security auditing
+# Security auditing (optional - used in CI/CD)
 safety==3.2.11
 pip-audit==2.7.3
 

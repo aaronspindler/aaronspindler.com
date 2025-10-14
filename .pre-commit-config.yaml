@@ -1,77 +1,33 @@
-# Pre-commit hooks configuration
-# Matches the linting checks in CI/CD (.github/workflows/test-and-check.yml)
+# Pre-commit hooks - simplified configuration
+# Focuses on essential checks that match CI/CD
 #
 # Install: pre-commit install
 # Run manually: pre-commit run --all-files
 # Update hooks: pre-commit autoupdate
 
 repos:
-  # Ruff - Fast Python linter (replaces flake8, isort partially)
+  # Ruff - Fast Python linter with import sorting built-in
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.4
     hooks:
       - id: ruff
-        name: ruff linter
+        name: ruff linter + import sorting
         args: [--fix]  # Auto-fix issues where possible
-        # Matches CI/CD: ruff check . --output-format=github
+      - id: ruff-format  # Ruff's formatter (compatible with Black)
+        name: ruff formatter
 
-  # Black - Code formatter
-  - repo: https://github.com/psf/black
-    rev: 24.10.0
-    hooks:
-      - id: black
-        name: black formatter
-        # Matches CI/CD: black --check --diff .
-
-  # isort - Import sorting
-  - repo: https://github.com/PyCQA/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        name: isort import sorting
-        # Matches CI/CD: isort --check-only --diff .
-
-  # MyPy - Type checking (pre-push only, slower check)
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
-    hooks:
-      - id: mypy
-        name: mypy type checking
-        args: [--ignore-missing-imports, --no-strict-optional]
-        additional_dependencies: [django-stubs]
-        stages: [pre-push]  # Only run on push, not on every commit
-        # Matches CI/CD: mypy . --ignore-missing-imports --no-strict-optional
-
-  # Django - Check for common Django issues
-  - repo: local
-    hooks:
-      - id: django-check
-        name: django system check
-        entry: python manage.py check --deploy
-        language: system
-        pass_filenames: false
-        stages: [pre-push]  # Only run on push
-        # Matches CI/CD Django checks
-
-  # Standard pre-commit hooks
+  # Basic file quality checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
-        name: trim trailing whitespace
       - id: end-of-file-fixer
-        name: fix end of files
       - id: check-yaml
-        name: check yaml files
       - id: check-added-large-files
-        name: check for large files
         args: [--maxkb=1000]
       - id: check-merge-conflict
-        name: check for merge conflicts
-      - id: debug-statements
-        name: check for debug statements
 
-# Configuration for specific hooks
+# Configuration
 default_language_version:
   python: python3
 
@@ -90,5 +46,4 @@ exclude: |
       projects/ActionsUptime/.*
   )$
 
-# Fail fast - stop on first failure
 fail_fast: false

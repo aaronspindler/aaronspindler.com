@@ -294,18 +294,19 @@ python manage.py runserver  # Start development server
 pre-commit run --all-files
 
 # Run specific hook
-pre-commit run ruff --all-files
-pre-commit run black --all-files
+pre-commit run ruff
 
 # Update hooks to latest versions
 pre-commit autoupdate
 
 # Skip hooks if needed (not recommended)
 git commit --no-verify
-git push --no-verify
 ```
 
-The pre-commit hooks match CI/CD exactly:
-- **On commit:** Ruff (auto-fix), Black (format), isort (sort imports), file checks
-- **On push:** MyPy (type checking), Django system checks
-- All auto-fix formatting issues where possible
+Simplified pre-commit setup (all-in-one with Ruff):
+- **Ruff linter:** Python linting with auto-fix
+- **Ruff formatter:** Code formatting (Black-compatible)
+- **Ruff import sorting:** Organize imports automatically
+- **File checks:** Trailing whitespace, end-of-file, YAML validation
+
+Heavier checks (MyPy, Django checks) stay in CI/CD only to keep commits fast.
