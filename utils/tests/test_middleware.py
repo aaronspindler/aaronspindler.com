@@ -40,7 +40,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
         request = self.factory.get("/test/")
         request.META["HTTP_USER_AGENT"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         request.META["HTTP_ACCEPT"] = "text/html"
-        request.META["REMOTE_ADDR"] = "192.168.1.1"
+        request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
         request.user = MagicMock(is_authenticated=False)
 
         # Clear any existing fingerprints
@@ -77,7 +77,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
             request = self.factory.get(path)
             request.META["HTTP_USER_AGENT"] = "Mozilla/5.0"
             request.META["HTTP_ACCEPT"] = "text/html"
-            request.META["REMOTE_ADDR"] = "192.168.1.1"
+            request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
             request.user = MagicMock(is_authenticated=False)
 
             middleware.process_request(request)
@@ -102,7 +102,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
             request = self.factory.get(path)
             request.META["HTTP_USER_AGENT"] = "Mozilla/5.0"
             request.META["HTTP_ACCEPT"] = "text/html"
-            request.META["REMOTE_ADDR"] = "192.168.1.1"
+            request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
             request.user = MagicMock(is_authenticated=False)
 
             middleware.process_request(request)
@@ -118,7 +118,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
         request = self.factory.get("/test/")
         request.META["HTTP_USER_AGENT"] = "curl/7.68.0"
         request.META["HTTP_ACCEPT"] = "*/*"
-        request.META["REMOTE_ADDR"] = "192.168.1.1"
+        request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
         request.user = MagicMock(is_authenticated=False)
 
         RequestFingerprint.objects.all().delete()
@@ -146,7 +146,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
         request = self.factory.get("/test/")
         request.META["HTTP_USER_AGENT"] = "Mozilla/5.0"
         request.META["HTTP_ACCEPT"] = "text/html"
-        request.META["REMOTE_ADDR"] = "192.168.1.1"
+        request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
         request.user = MagicMock(is_authenticated=False)
 
         # Mock create_from_request to raise an exception
@@ -171,7 +171,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
         request = self.factory.get("/test/")
         request.META["HTTP_USER_AGENT"] = "Mozilla/5.0"
         request.META["HTTP_ACCEPT"] = "text/html"
-        request.META["REMOTE_ADDR"] = "10.0.0.1"
+        request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
         request.user = MagicMock(is_authenticated=False)
 
         RequestFingerprint.objects.all().delete()
@@ -180,7 +180,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
 
         # Fingerprint should be attached to request
         self.assertTrue(hasattr(request, "fingerprint"))
-        self.assertEqual(request.fingerprint.ip_address, "10.0.0.1")
+        self.assertEqual(request.fingerprint.ip_address, "203.0.113.1")
         self.assertEqual(request.fingerprint.path, "/test/")
 
     def test_middleware_with_authenticated_user(self):
@@ -196,7 +196,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
         request = self.factory.get("/test/")
         request.META["HTTP_USER_AGENT"] = "Mozilla/5.0"
         request.META["HTTP_ACCEPT"] = "text/html"
-        request.META["REMOTE_ADDR"] = "192.168.1.1"
+        request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
         request.user = user
 
         RequestFingerprint.objects.all().delete()
@@ -218,10 +218,45 @@ class RequestFingerprintMiddlewareTest(TestCase):
             request = self.factory.get(f"/test/{i}/")
             request.META["HTTP_USER_AGENT"] = "Mozilla/5.0"
             request.META["HTTP_ACCEPT"] = "text/html"
-            request.META["REMOTE_ADDR"] = "192.168.1.1"
+            request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
             request.user = MagicMock(is_authenticated=False)
 
             middleware.process_request(request)
 
         # Should create 3 separate fingerprints
         self.assertEqual(RequestFingerprint.objects.count(), 3)
+
+    @patch("utils.middleware.logger")
+    def test_process_request_skips_local_ips(self, mock_logger):
+        """Test that middleware skips local/private IP addresses."""
+        middleware = RequestFingerprintMiddleware(self.get_response)
+
+        local_ips = [
+            "127.0.0.1",  # Localhost IPv4
+            "::1",  # Localhost IPv6
+            "10.0.0.1",  # Private IP (10.0.0.0/8)
+            "192.168.1.1",  # Private IP (192.168.0.0/16)
+            "172.16.0.1",  # Private IP (172.16.0.0/12)
+            "172.31.255.255",  # Private IP (172.16.0.0/12)
+        ]
+
+        for ip in local_ips:
+            RequestFingerprint.objects.all().delete()
+
+            request = self.factory.get("/test/")
+            request.META["HTTP_USER_AGENT"] = "Mozilla/5.0"
+            request.META["HTTP_ACCEPT"] = "text/html"
+            request.META["REMOTE_ADDR"] = ip
+            request.user = MagicMock(is_authenticated=False)
+
+            middleware.process_request(request)
+
+            # Should not create fingerprint for local IPs
+            self.assertEqual(RequestFingerprint.objects.count(), 0, f"Local IP {ip} should be skipped")
+
+            # Should log debug message
+            debug_calls = [call[0][0] for call in mock_logger.debug.call_args_list]
+            self.assertTrue(
+                any(f"Skipping local request from {ip}" in call for call in debug_calls),
+                f"Should log skip message for {ip}",
+            )

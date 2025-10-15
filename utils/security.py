@@ -11,6 +11,37 @@ import requests
 logger = logging.getLogger(__name__)
 
 
+def is_local_ip(ip_address: str) -> bool:
+    """
+    Check if an IP address is local/private.
+
+    Args:
+        ip_address: IP address string
+
+    Returns:
+        True if the IP is local/private, False otherwise
+    """
+    if not ip_address or ip_address == "unknown":
+        return False
+
+    # Check for localhost
+    if ip_address in ["127.0.0.1", "::1", "localhost"]:
+        return True
+
+    # Check for private IP ranges (RFC 1918)
+    if ip_address.startswith(("10.", "192.168.", "172.")):
+        # For 172.x.x.x, need to check if it's in the 172.16.0.0 - 172.31.255.255 range
+        if ip_address.startswith("172."):
+            try:
+                second_octet = int(ip_address.split(".")[1])
+                return 16 <= second_octet <= 31
+            except (ValueError, IndexError):
+                return False
+        return True
+
+    return False
+
+
 def get_client_ip(request) -> str:
     """
     Extract the client's IP address from the request.
@@ -313,7 +344,7 @@ def geolocate_ip(ip_address: str) -> Optional[Dict[str, Any]]:
         For batch requests, use geolocate_ips_batch()
     """
     # Skip local/private IPs
-    if ip_address in ["127.0.0.1", "localhost", "unknown"] or ip_address.startswith(("10.", "192.168.", "172.")):
+    if is_local_ip(ip_address):
         logger.debug(f"Skipping geolocation for local/private IP: {ip_address}")
         return None
 
@@ -358,11 +389,7 @@ def geolocate_ips_batch(ip_addresses: List[str], batch_size: int = 100) -> Dict[
     results = {}
 
     # Filter out local/private IPs
-    filtered_ips = [
-        ip
-        for ip in ip_addresses
-        if ip not in ["127.0.0.1", "localhost", "unknown"] and not ip.startswith(("10.", "192.168.", "172."))
-    ]
+    filtered_ips = [ip for ip in ip_addresses if not is_local_ip(ip)]
 
     if not filtered_ips:
         logger.debug("No valid IPs to geolocate after filtering")

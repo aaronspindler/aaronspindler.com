@@ -37,6 +37,7 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
         try:
             # Import here to avoid circular imports
             from utils.models import RequestFingerprint
+            from utils.security import get_client_ip, is_local_ip
 
             # Skip certain paths to avoid excessive logging
             skip_paths = [
@@ -50,6 +51,12 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
 
             # Check if we should skip this path
             if any(request.path.startswith(path) for path in skip_paths):
+                return None
+
+            # Skip local/development requests
+            client_ip = get_client_ip(request)
+            if is_local_ip(client_ip):
+                logger.debug(f"Skipping local request from {client_ip}: {request.method} {request.path}")
                 return None
 
             # Create fingerprint record
