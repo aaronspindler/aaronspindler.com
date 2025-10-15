@@ -18,7 +18,7 @@ from .notification import Email, NotificationConfig, NotificationEmail, Notifica
 from .search import SearchableContent
 
 # Import all security models
-from .security import HTTPStatusCode, RequestFingerprint
+from .security import HTTPStatusCode, IPAddress, RequestFingerprint
 
 __all__ = [
     # Notification models
@@ -29,6 +29,7 @@ __all__ = [
     "TextMessage",
     # Security models
     "HTTPStatusCode",
+    "IPAddress",
     "RequestFingerprint",
     # Lighthouse models
     "LighthouseAudit",

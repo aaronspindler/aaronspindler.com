@@ -15,9 +15,45 @@ class HTTPStatusCode(models.Model):
         return f"{self.code} - {self.description}"
 
 
+class IPAddress(models.Model):
+    """
+    Stores unique IP addresses with their geolocation data.
+
+    Normalized design: geo_data is stored once per IP address, not per request.
+    This reduces storage and allows efficient batch geolocation updates.
+    """
+
+    ip_address = models.GenericIPAddressField(unique=True, db_index=True)
+    geo_data = models.JSONField(
+        blank=True,
+        null=True,
+        help_text="Geographic location data for IP address (city, country, lat/lon, etc.)",
+    )
+
+    # Timestamps for tracking
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "IP Address"
+        verbose_name_plural = "IP Addresses"
+
+    def __str__(self):
+        if self.geo_data:
+            city = self.geo_data.get("city", "")
+            country = self.geo_data.get("country", "")
+            if city and country:
+                return f"{self.ip_address} ({city}, {country})"
+            return f"{self.ip_address} ({country})" if country else self.ip_address
+        return self.ip_address
+
+
 class RequestFingerprint(models.Model):
     """
     Stores request fingerprint data for security and analytics.
+
+    IP address is normalized to a separate IPAddress model for efficient geolocation storage.
     """
 
     # Timestamps
@@ -27,8 +63,13 @@ class RequestFingerprint(models.Model):
     fingerprint = models.CharField(max_length=64, db_index=True, help_text="SHA256 fingerprint including IP")
     fingerprint_no_ip = models.CharField(max_length=64, db_index=True, help_text="SHA256 fingerprint excluding IP")
 
-    # Request details
-    ip_address = models.GenericIPAddressField(db_index=True)
+    # Request details - IP address as ForeignKey for normalized geo_data
+    ip_address = models.ForeignKey(
+        IPAddress,
+        on_delete=models.CASCADE,
+        related_name="request_fingerprints",
+        help_text="IP address (with shared geolocation data)",
+    )
     method = models.CharField(max_length=10, db_index=True)
     path = models.CharField(max_length=2048)
     is_secure = models.BooleanField(default=False)
@@ -57,13 +98,6 @@ class RequestFingerprint(models.Model):
         related_name="request_fingerprints",
     )
 
-    # Geolocation data (from ip-api.com)
-    geo_data = models.JSONField(
-        blank=True,
-        null=True,
-        help_text="Geographic location data for IP address (city, country, lat/lon, etc.)",
-    )
-
     class Meta:
         ordering = ["-created_at"]
         indexes = [
@@ -73,7 +107,12 @@ class RequestFingerprint(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.ip_address} - {self.method} {self.path} - {self.created_at}"
+        return f"{self.ip_address.ip_address} - {self.method} {self.path} - {self.created_at}"
+
+    @property
+    def geo_data(self):
+        """Access geo_data from related IPAddress for backward compatibility."""
+        return self.ip_address.geo_data if self.ip_address else None
 
     @classmethod
     def create_from_request(cls, request):
@@ -87,7 +126,7 @@ class RequestFingerprint(models.Model):
             RequestFingerprint instance
 
         Note:
-            Geolocation data is not populated during request processing to avoid latency.
+            Geolocation data is stored in the IPAddress model (one per IP).
             Use the 'geolocate_fingerprints' management command to batch geolocate
             IP addresses after the records are created.
         """
@@ -105,10 +144,16 @@ class RequestFingerprint(models.Model):
         # Get user if authenticated
         user = request.user if request.user.is_authenticated else None
 
+        # Get or create IPAddress record (normalized storage for geo_data)
+        ip_address_obj, created = IPAddress.objects.get_or_create(
+            ip_address=fp_data["ip_address"],
+            defaults={"geo_data": None},  # geo_data populated later via management command
+        )
+
         return cls.objects.create(
             fingerprint=fp_data["fingerprint"],
             fingerprint_no_ip=fp_data["fingerprint_no_ip"],
-            ip_address=fp_data["ip_address"],
+            ip_address=ip_address_obj,
             method=fp_data["method"],
             path=fp_data["path"],
             is_secure=fp_data["is_secure"],

@@ -515,18 +515,25 @@ Sets up automated tasks:
 
 **geolocate_fingerprints** - Geolocate IP addresses for request fingerprints
 ```bash
-python manage.py geolocate_fingerprints  # Process all records without geo data
+python manage.py geolocate_fingerprints  # Shows stats, waits for Enter
 python manage.py geolocate_fingerprints --limit 100  # Limit to 100 records
 python manage.py geolocate_fingerprints --force  # Re-geolocate all records
 python manage.py geolocate_fingerprints --batch-size 50  # Custom batch size
+python manage.py geolocate_fingerprints --yes  # Skip confirmation (automated runs)
 ```
 
 Features:
 - Batch processes IP addresses using ip-api.com (free tier)
+- Shows statistics before processing (total records vs unique IPs)
+- Waits for Enter key confirmation before proceeding (skip with --yes)
 - Automatically filters local/private IPs (127.0.0.1, 10.x.x.x, etc.)
 - Stores city, country, coordinates, timezone, ISP, and organization
 - Respects API rate limits (15 requests/minute for batches, 100 IPs per batch)
 - Updates all records sharing the same IP address
+
+**Interactive Mode:** By default, the command displays statistics and waits for you to press Enter. This lets you review the scope before making API calls.
+
+**Automated Mode:** Use `--yes` flag to skip confirmation for cron jobs or Celery tasks.
 
 **Note**: Geolocation is NOT performed during request processing to avoid adding latency to responses. Run this command periodically (e.g., via cron or Celery Beat) to batch process new requests.
 

@@ -159,6 +159,9 @@ python manage.py geolocate_fingerprints --force
 # Custom batch size (default: 100 IPs per batch)
 python manage.py geolocate_fingerprints --batch-size 50
 
+# Skip confirmation prompt (for automated runs via cron/Celery)
+python manage.py geolocate_fingerprints --yes
+
 # Remove local/private IP request fingerprints
 python manage.py remove_local_fingerprints
 
@@ -174,6 +177,8 @@ python manage.py remove_local_fingerprints --limit 100
 - Batch endpoint: 15 requests/minute (100 IPs per batch)
 - IP addresses are automatically filtered to exclude local/private IPs
 - Geolocation data includes: city, country, coordinates, timezone, ISP, etc.
+- Shows statistics before processing (total records vs unique IPs)
+- Waits for Enter key confirmation before proceeding (skip with --yes)
 - Run periodically (e.g., via cron or Celery Beat) to batch process new records
 - Geolocation is NOT performed during request processing to avoid latency
 
