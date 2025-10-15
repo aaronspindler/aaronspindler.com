@@ -27,7 +27,7 @@ class Command(BaseCommand):
         lighthouse_task, created = PeriodicTask.objects.update_or_create(
             name="Run daily Lighthouse audit",
             defaults={
-                "task": "lighthouse_monitor.tasks.run_lighthouse_audit",
+                "task": "utils.tasks.run_lighthouse_audit",
                 "crontab": schedule_daily_2am,
                 "kwargs": json.dumps({}),
                 "enabled": True,
