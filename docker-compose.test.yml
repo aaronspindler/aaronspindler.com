@@ -1,30 +1,4 @@
 services:
-  # LocalStack for AWS service mocking (S3, etc.)
-  localstack:
-    image: localstack/localstack:latest
-    ports:
-      - "4566:4566"  # LocalStack main endpoint
-      - "4510-4559:4510-4559"  # External service port range
-    environment:
-      - SERVICES=s3
-      - DEBUG=${LOCALSTACK_DEBUG:-0}
-      - DOCKER_HOST=unix:///var/run/docker.sock
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-      - AWS_DEFAULT_REGION=us-east-1
-      - PERSISTENCE=0
-    volumes:
-      - "${TMPDIR:-/tmp}/localstack:/var/lib/localstack"
-      - "/var/run/docker.sock:/var/run/docker.sock"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 10s
-    networks:
-      - test_network
-
   # PostgreSQL database for testing
   postgres:
     image: postgres:16-alpine
@@ -70,10 +44,6 @@ services:
         echo 'Waiting for services to be healthy...' &&
         while ! nc -z postgres 5432; do sleep 1; done &&
         while ! nc -z redis 6379; do sleep 1; done &&
-        while ! nc -z localstack 4566; do sleep 1; done &&
-        echo 'Creating S3 buckets in LocalStack...' &&
-        aws --endpoint-url=http://localstack:4566 s3 mb s3://test-bucket || true &&
-        aws --endpoint-url=http://localstack:4566 s3api put-bucket-cors --bucket test-bucket --cors-configuration file:///code/test-cors.json || true &&
         echo 'Running migrations...' &&
         python manage.py migrate --no-input &&
         echo 'Building CSS...' &&
@@ -97,20 +67,12 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-      - AWS_STORAGE_BUCKET_NAME=test-bucket
-      - AWS_S3_REGION_NAME=us-east-1
-      - AWS_S3_ENDPOINT_URL=http://localstack:4566
-      - AWS_S3_USE_SSL=false
-      - AWS_S3_VERIFY=false
-      - USE_LOCALSTACK=true
+      # Use FileSystemStorage by default (faster, no LocalStack needed)
+      - USE_LOCALSTACK=false
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      localstack:
         condition: service_healthy
     networks:
       - test_network
@@ -130,18 +92,10 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-      - AWS_STORAGE_BUCKET_NAME=test-bucket
-      - AWS_S3_REGION_NAME=us-east-1
-      - AWS_S3_ENDPOINT_URL=http://localstack:4566
-      - AWS_S3_USE_SSL=false
-      - AWS_S3_VERIFY=false
-      - USE_LOCALSTACK=true
+      - USE_LOCALSTACK=false
     depends_on:
       - postgres
       - redis
-      - localstack
       - web
     networks:
       - test_network
@@ -196,13 +150,7 @@ services:
     command: >
       sh -c "
         echo 'Waiting for services to be ready...' &&
-        sleep 10 &&
-        echo 'Installing AWS CLI...' &&
-        pip install awscli --no-cache-dir &&
-        echo 'Creating S3 buckets in LocalStack...' &&
-        aws --endpoint-url=http://localstack:4566 s3 mb s3://test-bucket || true &&
-        echo 'Setting bucket ACL...' &&
-        aws --endpoint-url=http://localstack:4566 s3api put-bucket-acl --bucket test-bucket --acl public-read || true &&
+        sleep 5 &&
         echo 'Running migrations...' &&
         python manage.py migrate --settings=config.settings_test --no-input &&
         echo 'Running tests...' &&
@@ -220,14 +168,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - AWS_ACCESS_KEY_ID=test
-      - AWS_SECRET_ACCESS_KEY=test
-      - AWS_STORAGE_BUCKET_NAME=test-bucket
-      - AWS_S3_REGION_NAME=us-east-1
-      - AWS_S3_ENDPOINT_URL=http://localstack:4566
-      - AWS_S3_USE_SSL=false
-      - AWS_S3_VERIFY=false
-      - USE_LOCALSTACK=true
+      # Use FileSystemStorage by default (faster, no LocalStack needed)
+      # Set USE_LOCALSTACK=true to enable S3 testing with LocalStack
+      - USE_LOCALSTACK=false
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     mem_limit: 4g
@@ -235,8 +178,6 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      localstack:
         condition: service_healthy
     networks:
       - test_network

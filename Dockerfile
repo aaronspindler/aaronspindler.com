@@ -1,82 +1,65 @@
-# Multi-stage build for smaller final image
-# Stage 1: Build dependencies
-FROM python:3.14.0-slim-bookworm AS builder
+# syntax=docker/dockerfile:1.4
+# Optimized for CI/CD with fastest possible build times
+#
+# Uses Microsoft's Playwright Python image (includes Python + Playwright + Chromium)
+# BuildKit cache mounts for pip, npm, and apt packages
+#
+# Performance:
+#   - First build: ~2-3 minutes (vs 8 minutes with slim base)
+#   - Rebuild with code changes: ~30-60 seconds
+#   - Rebuild with dependencies: ~1-2 minutes
+#
+# Trade-off: Larger base image (~1.5GB) but optimized for CI/CD speed
+# See DOCKER_BUILD_OPTIMIZATION.md for details
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    python3-dev \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create virtual environment
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-# Stage 2: Playwright installation (separate for caching)
-FROM python:3.14.0-slim-bookworm AS playwright-installer
-
-# Copy virtual environment from builder
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Install Playwright and its dependencies
-RUN playwright install --with-deps chromium
-
-# Stage 3: Final runtime image
-FROM python:3.14.0-slim-bookworm
+FROM mcr.microsoft.com/playwright/python:v1.48.0-noble
 
 # Set Python environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PATH="/opt/venv/bin:$PATH"
+    PYTHONUNBUFFERED=1
 
-# Install runtime dependencies and Node.js for CSS minification
-RUN apt-get update && apt-get install -y --no-install-recommends \
+WORKDIR /code
+
+# Install Node.js and npm (not included in Playwright image)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libpq5 \
     nodejs \
-    npm \
-    && rm -rf /var/lib/apt/lists/*
+    npm
 
-# Copy virtual environment from builder
-COPY --from=builder /opt/venv /opt/venv
+# Copy only requirements file first (changes less frequently)
+COPY requirements.txt .
 
-# Copy Playwright installation from playwright stage
-COPY --from=playwright-installer /root/.cache/ms-playwright /root/.cache/ms-playwright
-COPY --from=playwright-installer /usr/lib /usr/lib
-COPY --from=playwright-installer /usr/bin /usr/bin
+# Install Python dependencies with pip cache mount
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Create and set work directory
-WORKDIR /code
+# Copy package files for NPM (changes less frequently than app code)
+COPY package*.json postcss.config.js purgecss.config.js ./
 
-# Copy entrypoint script first (rarely changes)
+# Install NPM dependencies with cache mount
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit
+
+# Copy entrypoint script (changes rarely)
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# Copy package files for NPM installation
-COPY package*.json postcss.config.js purgecss.config.js ./
-
-# Install NPM dependencies for CSS and JS build pipeline (including dev dependencies needed for build)
-RUN npm ci || npm install
-
-# Copy application code last (changes frequently)
-COPY . /code/
+# Copy static files and build configuration (needed for JS build)
+COPY static/ ./static/
+COPY scripts/ ./scripts/
 
 # Build and optimize JavaScript files
 RUN npm run build:js
 
+# Copy rest of application code (changes most frequently - keep last!)
+COPY . /code/
+
 # Expose port 80
 EXPOSE 80
-
-# Add healthcheck
-# HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-#     CMD curl -fL http://127.0.0.1:80/health/ || exit 1
 
 # Use entrypoint script to handle initialization
 ENTRYPOINT ["/docker-entrypoint.sh"]

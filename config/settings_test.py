@@ -1,8 +1,8 @@
 """
-Test-specific settings for running tests in Docker with LocalStack.
+Test-specific settings for running tests in Docker.
 
 This settings file extends the base settings and overrides configurations
-for testing with mocked AWS services and test databases.
+for testing. Uses FileSystemStorage by default for speed (no S3 mocking needed).
 """
 
 import os
@@ -51,51 +51,20 @@ CELERY_TASK_ALWAYS_EAGER = False  # Set to False to test actual async behavior
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
-# LocalStack S3 configuration
-USE_LOCALSTACK = os.environ.get("USE_LOCALSTACK", "true").lower() == "true"
-
-if USE_LOCALSTACK:
-    # LocalStack endpoint configuration
-    AWS_S3_ENDPOINT_URL = os.environ.get("AWS_S3_ENDPOINT_URL", "http://localstack:4566")
-    AWS_S3_USE_SSL = os.environ.get("AWS_S3_USE_SSL", "false").lower() == "true"
-    AWS_S3_VERIFY = False  # Don't verify SSL certificates for LocalStack
-
-    # Override AWS settings for LocalStack
-    AWS_ACCESS_KEY_ID = "test"
-    AWS_SECRET_ACCESS_KEY = "test"
-    AWS_STORAGE_BUCKET_NAME = "test-bucket"
-    AWS_S3_REGION_NAME = "us-east-1"
-
-    # Update domain to use LocalStack endpoint
-    AWS_S3_CUSTOM_DOMAIN = None  # Don't use custom domain for LocalStack
-
-    # Storage backends with LocalStack support
-    STORAGES = {
-        "default": {
-            "BACKEND": "config.storage_backends_test.TestPublicMediaStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "config.storage_backends_test.TestStaticStorage",
-        },
-    }
-
-    # Update URLs to use LocalStack endpoint
-    MEDIA_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/public/media/"
-    STATIC_URL = f"{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/public/static/"
-else:
-    # Fall back to file system storage for tests without LocalStack
-    STORAGES = {
-        "default": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-        },
-    }
-    MEDIA_ROOT = os.path.join(BASE_DIR, "test_media")  # noqa: F405
-    MEDIA_URL = "/media/"
-    STATIC_ROOT = os.path.join(BASE_DIR, "test_static")  # noqa: F405
-    STATIC_URL = "/static/"
+# Storage configuration for tests
+# Use FileSystemStorage (fast, no external services needed)
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+MEDIA_ROOT = os.path.join(BASE_DIR, "test_media")  # noqa: F405
+MEDIA_URL = "/media/"
+STATIC_ROOT = os.path.join(BASE_DIR, "test_static")  # noqa: F405
+STATIC_URL = "/static/"
 
 # Email backend for testing
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"

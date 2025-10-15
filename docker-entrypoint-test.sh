@@ -20,34 +20,9 @@ wait_for_service() {
 # Wait for required services
 wait_for_service "postgres" "5432" "PostgreSQL"
 wait_for_service "redis" "6379" "Redis"
-wait_for_service "localstack" "4566" "LocalStack"
 
 # Give services a moment to fully initialize
-sleep 2
-
-# Create S3 bucket in LocalStack
-echo "Setting up LocalStack S3 bucket..."
-aws --endpoint-url=http://localstack:4566 s3 mb s3://test-bucket 2>/dev/null || {
-    echo "  Bucket already exists or creation failed (may be okay)"
-}
-
-# Set CORS configuration for the bucket
-echo "Setting CORS configuration for S3 bucket..."
-if [ -f "/code/test-cors.json" ]; then
-    aws --endpoint-url=http://localstack:4566 s3api put-bucket-cors \
-        --bucket test-bucket \
-        --cors-configuration file:///code/test-cors.json 2>/dev/null || {
-        echo "  CORS configuration failed (may be okay)"
-    }
-fi
-
-# Set bucket ACL to public-read
-echo "Setting bucket ACL..."
-aws --endpoint-url=http://localstack:4566 s3api put-bucket-acl \
-    --bucket test-bucket \
-    --acl public-read 2>/dev/null || {
-    echo "  Bucket ACL setting failed (may be okay)"
-}
+sleep 1
 
 # Run database migrations
 echo "Running database migrations..."
@@ -67,9 +42,9 @@ python manage.py build_css --settings=config.settings_test 2>/dev/null || {
     echo "  CSS build skipped (not critical for tests)"
 }
 
-# Collect static files to S3 (LocalStack)
+# Collect static files (uses FileSystemStorage in tests)
 if [ "$COLLECT_STATIC" = "true" ]; then
-    echo "Collecting static files to LocalStack S3..."
+    echo "Collecting static files..."
     python manage.py collectstatic --no-input --settings=config.settings_test || {
         echo "  Static file collection skipped or failed (not critical for tests)"
     }

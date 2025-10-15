@@ -78,7 +78,6 @@ test-up:
 	@echo "Test environment is running!"
 	@echo "  - Web UI: http://localhost:8001"
 	@echo "  - Flower (Celery monitoring): http://localhost:5556"
-	@echo "  - LocalStack (S3): http://localhost:4566"
 
 .PHONY: test-run
 test-run:
@@ -133,10 +132,6 @@ test-logs-service:
 	fi
 	docker-compose -f docker-compose.test.yml logs -f $(SERVICE)
 
-.PHONY: test-localstack-check
-test-localstack-check:
-	@echo "Checking LocalStack S3 buckets..."
-	docker-compose -f docker-compose.test.yml --env-file env.test exec localstack aws --endpoint-url=http://localhost:4566 s3 ls
 
 .PHONY: test-coverage
 test-coverage:
@@ -173,7 +168,6 @@ help:
 	@echo "  make test-clean     - Stop and remove test volumes"
 	@echo "  make test-logs      - Show all test logs"
 	@echo "  make test-logs-service SERVICE=<name> - Show logs for specific service"
-	@echo "  make test-localstack-check  - Check LocalStack S3 buckets"
 	@echo "  make test-coverage  - Run tests with coverage report"
 	@echo ""
 	@echo "Examples:"

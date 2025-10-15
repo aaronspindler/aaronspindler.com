@@ -79,3 +79,35 @@ temp/
 
 .cursor/
 projects/
+
+# Test output and coverage
+test_output/
+coverage-*/
+htmlcov/
+.coverage
+coverage.xml
+
+# Python cache
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Generated CSS files (rebuild in container)
+static/css/combined*.css
+static/css/*.opt.css
+static/css/critical.css
+
+# Generated JS files (rebuild in container)
+static/js/*.min.js
+static/js/*.min.js.gz
+static/js/*.min.js.br
+
+# Pre-commit
+.pre-commit-config.yaml.backup
+
+# Lighthouse
+.lighthouseci/
+
+# Temporary files
+dump.rdb
+nohup.out

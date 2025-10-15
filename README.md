@@ -337,22 +337,28 @@ album = PhotoFactory.create_photo_album(title='My Album')
 
 ### Docker Test Environment
 
-The project includes a complete test environment with Docker Compose:
+The project includes an optimized test environment with Docker Compose:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Docker Test Network                      │
-├───────────────┬──────────────┬──────────────┬──────────────┤
-│  LocalStack   │  PostgreSQL  │    Redis     │  Test Runner │
-│   (S3 Mock)   │  (Database)  │  (Cache/MQ)  │   (Django)   │
-│    :4566      │    :5433     │    :6380     │    :8001     │
-└───────────────┴──────────────┴──────────────┴──────────────┘
+┌────────────────────────────────────────────────────────┐
+│           Docker Test Network (Optimized)              │
+├──────────────┬──────────────┬──────────────────────────┤
+│  PostgreSQL  │    Redis     │      Test Runner         │
+│  (Database)  │  (Cache/MQ)  │  (Django + Playwright)   │
+│    :5433     │    :6380     │        :8001             │
+└──────────────┴──────────────┴──────────────────────────┘
 ```
+
+**Optimizations:**
+- ✅ Uses FileSystemStorage (no S3 mocking = 60-90% faster)
+- ✅ No external AWS services needed
+- ✅ Simple 2-service setup (just postgres + redis)
+- ✅ Faster startup (~10s vs ~40s with LocalStack)
 
 **Running Tests with Docker:**
 
 ```bash
-# Run complete test suite (recommended for CI/CD)
+# Run complete test suite (fast - uses FileSystemStorage)
 make test
 
 # Run tests for specific app
@@ -365,11 +371,13 @@ make test-run-specific TEST=blog.tests.test_models.BlogCommentModelTest
 make test-coverage
 
 # Manage test environment
-make test-up      # Start test services
+make test-up      # Start test services (postgres + redis only)
 make test-down    # Stop test services
 make test-logs    # View logs
 make test-shell   # Open Django shell in test container
 ```
+
+See `TESTING_OPTIMIZATION.md` for detailed performance comparison and optimization strategies.
 
 ## Performance Features
 

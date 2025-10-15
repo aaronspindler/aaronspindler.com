@@ -230,20 +230,10 @@ jobs:
 
       - name: Start test services
         run: |
-          docker compose -f docker-compose.test.yml up -d postgres redis localstack
+          docker compose -f docker-compose.test.yml up -d postgres redis
           # Wait for services to be healthy
           echo "Waiting for services to be healthy..."
           timeout 60s bash -c 'until docker compose -f docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
-
-      - name: Create S3 bucket in LocalStack
-        run: |
-          echo "Creating S3 bucket in LocalStack..."
-          docker compose -f docker-compose.test.yml run --rm test_runner sh -c "
-            pip install awscli --no-cache-dir &&
-            aws --endpoint-url=http://localstack:4566 s3 mb s3://test-bucket || true &&
-            aws --endpoint-url=http://localstack:4566 s3api put-bucket-acl --bucket test-bucket --acl public-read || true &&
-            echo 'S3 bucket created successfully'
-          "
 
       - name: Run tests for ${{ matrix.test-group.name }}
         run: |

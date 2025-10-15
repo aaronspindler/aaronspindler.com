@@ -158,6 +158,15 @@ python manage.py geolocate_fingerprints --force
 
 # Custom batch size (default: 100 IPs per batch)
 python manage.py geolocate_fingerprints --batch-size 50
+
+# Remove local/private IP request fingerprints
+python manage.py remove_local_fingerprints
+
+# Preview which records would be deleted (dry-run mode)
+python manage.py remove_local_fingerprints --dry-run
+
+# Limit number of records to delete
+python manage.py remove_local_fingerprints --limit 100
 ```
 
 **Note**: The `geolocate_fingerprints` command uses ip-api.com free tier:
@@ -167,6 +176,13 @@ python manage.py geolocate_fingerprints --batch-size 50
 - Geolocation data includes: city, country, coordinates, timezone, ISP, etc.
 - Run periodically (e.g., via cron or Celery Beat) to batch process new records
 - Geolocation is NOT performed during request processing to avoid latency
+
+**Note**: The `remove_local_fingerprints` command removes historical local/private IP records:
+- Local IPs: 127.0.0.1, ::1, localhost
+- Private ranges: 10.x.x.x, 192.168.x.x, 172.16-31.x.x
+- Middleware now automatically skips tracking local requests
+- Use `--dry-run` to preview deletions before committing
+- Useful for one-time cleanup after deploying local IP filtering
 
 ## Architecture Overview
 
@@ -199,10 +215,11 @@ python manage.py geolocate_fingerprints --batch-size 50
   - Notification system (email and SMS)
   - Request fingerprinting and security tracking:
     - RequestFingerprint model for tracking all requests
+    - Automatic filtering of local/private IP requests
     - IP-based geolocation with batch processing support
     - User agent parsing (browser, OS, device detection)
     - Suspicious request detection
-    - Management command: `geolocate_fingerprints`
+    - Management commands: `geolocate_fingerprints`, `remove_local_fingerprints`
   - Lighthouse performance monitoring:
     - Automated audits tracking 4 key metrics (Performance, Accessibility, Best Practices, SEO)
     - Historical data storage with 30-day visualization
