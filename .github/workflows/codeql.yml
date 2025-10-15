@@ -134,8 +134,9 @@ jobs:
         else
           echo "✅ Automated fixes were applied"
 
-          # Commit the automated fixes
-          git add -A
+          # Commit the automated fixes (exclude temp files)
+          git add .
+          git reset alerts.json alert_details.txt 2>/dev/null || true
           git commit -m "fix: Apply automated CodeQL fixes
 
           Automatically fixed $alert_count CodeQL alert(s) using the automated
