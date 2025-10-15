@@ -290,6 +290,7 @@ class KnowledgeGraphScreenshotAdmin(admin.ModelAdmin):
                     return f"{size_bytes / 1024:.1f} KB"
                 else:
                     return f"{size_bytes / (1024 * 1024):.1f} MB"
+            # Intentionally catching all exceptions
             except:
                 return "-"
         return "-"

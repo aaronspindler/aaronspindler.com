@@ -262,7 +262,7 @@ class HomeViewTest(TestCase):
         projects = response.context["projects"]
 
         self.assertIsInstance(projects, list)
-        self.assertTrue(len(projects) > 0)
+        self.assertGreater(len(projects), 0)
 
         # Check project structure
         for project in projects:

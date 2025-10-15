@@ -376,7 +376,7 @@ critical.generate({
             with open(script_path, "w") as f:
                 f.write(extract_script)
 
-            result = subprocess.run(
+            _result = subprocess.run(
                 ["node", script_path],
                 capture_output=True,
                 text=True,

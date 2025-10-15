@@ -185,7 +185,6 @@ class Command(BaseCommand):
 
                         # Take screenshot of the container or full page
                         if full_page:
-                            self.stdout.write("Taking full page screenshot...")
                             screenshot = page.screenshot(
                                 full_page=True,
                                 animations="disabled",  # Disable animations for cleaner screenshot
