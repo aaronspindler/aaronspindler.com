@@ -57,6 +57,13 @@ class RequestFingerprint(models.Model):
         related_name="request_fingerprints",
     )
 
+    # Geolocation data (from ip-api.com)
+    geo_data = models.JSONField(
+        blank=True,
+        null=True,
+        help_text="Geographic location data for IP address (city, country, lat/lon, etc.)",
+    )
+
     class Meta:
         ordering = ["-created_at"]
         indexes = [
@@ -78,6 +85,11 @@ class RequestFingerprint(models.Model):
 
         Returns:
             RequestFingerprint instance
+
+        Note:
+            Geolocation data is not populated during request processing to avoid latency.
+            Use the 'geolocate_fingerprints' management command to batch geolocate
+            IP addresses after the records are created.
         """
         from utils.security import get_request_fingerprint_data, is_suspicious_request, parse_user_agent
 
