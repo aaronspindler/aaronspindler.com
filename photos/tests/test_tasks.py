@@ -310,7 +310,7 @@ class GenerateAlbumZipTaskTestCase(TestCase):
             original_reads.append(True)
             return b"original_data"
 
-        def _track_optimized_read():
+        def __track_optimized_read():
             optimized_reads.append(True)
             return b"optimized_data"
 

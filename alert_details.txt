@@ -1,3 +1,95 @@
+- **Unreachable code** (warning)
+  File: blog/management/commands/generate_knowledge_graph_screenshot.py:188
+  Message: This statement is unreachable.
+
+- **Syntax error** (error)
+  File: config/settings.py:167
+  Message: Syntax Error (in Python 3).
+
+- **Unused global variable** (note)
+  File: config/settings_test.py:97
+  Message: The global variable 'STATIC_ROOT' is not used.
+
+- **Unused global variable** (note)
+  File: config/settings_test.py:95
+  Message: The global variable 'MEDIA_ROOT' is not used.
+
+- **Unused global variable** (note)
+  File: config/settings_test.py:70
+  Message: The global variable 'AWS_S3_CUSTOM_DOMAIN' is not used.
+
+- **Unused global variable** (note)
+  File: config/settings_test.py:67
+  Message: The global variable 'AWS_S3_REGION_NAME' is not used.
+
+- **Unused global variable** (note)
+  File: config/settings_test.py:65
+  Message: The global variable 'AWS_SECRET_ACCESS_KEY' is not used.
+
+- **Unused global variable** (note)
+  File: config/settings_test.py:64
+  Message: The global variable 'AWS_ACCESS_KEY_ID' is not used.
+
+- **Unused global variable** (note)
+  File: config/settings_test.py:61
+  Message: The global variable 'AWS_S3_VERIFY' is not used.
+
+- **Unused global variable** (note)
+  File: config/settings_test.py:60
+  Message: The global variable 'AWS_S3_USE_SSL' is not used.
+
+- **Unused local variable** (note)
+  File: blog/tests/test_views.py:203
+  Message: Variable _response is not used.
+
+- **Unused local variable** (note)
+  File: photos/tests/test_tasks.py:313
+  Message: Variable _track_optimized_read is not used.
+
+- **Unused local variable** (note)
+  File: photos/tests/test_image_utils.py:769
+  Message: Variable _existing is not used.
+
+- **Unused local variable** (note)
+  File: photos/tests/test_image_utils.py:737
+  Message: Variable _existing2 is not used.
+
+- **Unused local variable** (note)
+  File: photos/tests/test_image_utils.py:714
+  Message: Variable _existing2 is not used.
+
+- **Unused local variable** (note)
+  File: blog/tests/test_knowledge_graph.py:299
+  Message: Variable _result is not used.
+
+- **Unused local variable** (note)
+  File: blog/tests/test_integration.py:186
+  Message: Variable _response is not used.
+
+- **Unused local variable** (note)
+  File: photos/tests/test_image_utils.py:131
+  Message: Variable _json_str is not used.
+
+- **Unused local variable** (note)
+  File: pages/tests/test_context_processors.py:112
+  Message: Variable _context is not used.
+
+- **Unused local variable** (note)
+  File: photos/management/commands/generate_album_zips.py:32
+  Message: Variable _result is not used.
+
+- **Unused local variable** (note)
+  File: pages/management/commands/build_css.py:379
+  Message: Variable _result is not used.
+
+- **Unused local variable** (note)
+  File: utils/migrations/0005_migrate_searchable_content_data.py:52
+  Message: Variable _db_alias is not used.
+
+- **Unused local variable** (note)
+  File: utils/migrations/0005_migrate_searchable_content_data.py:13
+  Message: Variable _db_alias is not used.
+
 - **Unused local variable** (note)
   File: utils/migrations/0005_migrate_searchable_content_data.py:52
   Message: Variable db_alias is not used.
@@ -19,74 +111,10 @@
   Message: 'except' clause does nothing but pass and there is no explanatory comment.
 
 - **Except block handles 'BaseException'** (note)
-  File: blog/admin.py:293
+  File: blog/admin.py:294
   Message: Except block directly handles BaseException.
 
 - **Except block handles 'BaseException'** (note)
-  File: photos/admin.py:341
+  File: photos/admin.py:342
   Message: Except block directly handles BaseException.
-
-- **Variable defined multiple times** (warning)
-  File: config/settings.py:168
-  Message: This assignment to 'AWS_S3_OBJECT_PARAMETERS' is unnecessary as it is redefined before this value is used.
-
-- **Unused local variable** (note)
-  File: photos/tests/test_tasks.py:313
-  Message: Variable track_optimized_read is not used.
-
-- **Unused local variable** (note)
-  File: photos/tests/test_image_utils.py:769
-  Message: Variable existing is not used.
-
-- **Unused local variable** (note)
-  File: photos/tests/test_image_utils.py:737
-  Message: Variable existing2 is not used.
-
-- **Unused local variable** (note)
-  File: photos/tests/test_image_utils.py:714
-  Message: Variable existing2 is not used.
-
-- **Unused local variable** (note)
-  File: photos/tests/test_image_utils.py:131
-  Message: Variable json_str is not used.
-
-- **Unused local variable** (note)
-  File: pages/tests/test_context_processors.py:112
-  Message: Variable context is not used.
-
-- **Unused local variable** (note)
-  File: photos/management/commands/generate_album_zips.py:32
-  Message: Variable result is not used.
-
-- **Unused local variable** (note)
-  File: pages/management/commands/build_css.py:379
-  Message: Variable result is not used.
-
-- **Imprecise assert** (note)
-  File: pages/tests/test_views.py:265
-  Message: assertTrue(a > b) cannot provide an informative message. Using assertGreater(a, b) instead will give more informative messages.
-
-- **Imprecise assert** (note)
-  File: pages/tests/test_management_commands.py:272
-  Message: assertTrue(a > b) cannot provide an informative message. Using assertGreater(a, b) instead will give more informative messages.
-
-- **Unreachable code** (warning)
-  File: blog/management/commands/generate_knowledge_graph_screenshot.py:188
-  Message: This statement is unreachable.
-
-- **Variable defined multiple times** (warning)
-  File: config/settings.py:129
-  Message: This assignment to 'STATIC_URL' is unnecessary as it is redefined before this value is used.
-
-- **Unused local variable** (note)
-  File: blog/tests/test_views.py:203
-  Message: Variable response is not used.
-
-- **Unused local variable** (note)
-  File: blog/tests/test_knowledge_graph.py:299
-  Message: Variable result is not used.
-
-- **Unused local variable** (note)
-  File: blog/tests/test_integration.py:186
-  Message: Variable response is not used.
 

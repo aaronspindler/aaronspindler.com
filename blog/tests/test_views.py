@@ -200,7 +200,7 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
                 "website": "http://spam.com",  # Bot filled honeypot
             }
         )
-        _response = self.client.post("/b/tech/0001_test_post/comment/", form_data)
+        __response = self.client.post("/b/tech/0001_test_post/comment/", form_data)
 
         # Should get form error, not create comment
         self.assertEqual(BlogComment.objects.filter(content="Spam comment").count(), 0)

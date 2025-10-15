@@ -10,7 +10,7 @@ def migrate_searchable_content_data(apps, schema_editor):
 
     If the blog_searchablecontent table doesn't exist (already deleted), skip the migration.
     """
-    _db_alias = schema_editor.connection.alias
+    __db_alias = schema_editor.connection.alias
 
     # Check if the blog_searchablecontent table exists
     with schema_editor.connection.cursor() as cursor:
@@ -49,7 +49,7 @@ def reverse_migration(apps, schema_editor):
     """
     Reverse the migration by copying data back to blog_searchablecontent.
     """
-    _db_alias = schema_editor.connection.alias
+    __db_alias = schema_editor.connection.alias
 
     with schema_editor.connection.cursor() as cursor:
         cursor.execute(

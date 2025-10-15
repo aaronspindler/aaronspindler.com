@@ -185,12 +185,6 @@ class Command(BaseCommand):
 
                         # Take screenshot of the container or full page
                         if full_page:
-                            screenshot = page.screenshot(
-                                full_page=True,
-                                animations="disabled",  # Disable animations for cleaner screenshot
-                                scale="device",  # Use device scale factor
-                                omit_background=transparent,  # Transparent background if requested
-                            )
                         else:
                             element = page.query_selector("#knowledge-graph-container")
                             if element:

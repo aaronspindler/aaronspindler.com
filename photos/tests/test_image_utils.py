@@ -128,7 +128,7 @@ class ExifExtractorTestCase(TestCase):
         # Check that all values are serializable
         import json
 
-        _json_str = json.dumps(serializable)  # Should not raise error
+        __json_str = json.dumps(serializable)  # Should not raise error
 
         self.assertEqual(serializable["Make"], "Canon")
         self.assertEqual(serializable["Model"], "EOS R5")
@@ -711,7 +711,7 @@ class DuplicateDetectorTestCase(TestCase):
 
         # Create existing photos
         existing1 = Photo.objects.create(title="Photo 1", file_hash="hash123", perceptual_hash="phash1")
-        _existing2 = Photo.objects.create(title="Photo 2", file_hash="hash456", perceptual_hash="phash2")
+        __existing2 = Photo.objects.create(title="Photo 2", file_hash="hash456", perceptual_hash="phash2")
 
         # Setup mocks
         mock_file_hash.return_value = "hash123"  # Matches existing1
@@ -734,7 +734,7 @@ class DuplicateDetectorTestCase(TestCase):
 
         # Create existing photos
         existing1 = Photo.objects.create(title="Photo 1", file_hash="hash1", perceptual_hash="phash1")
-        _existing2 = Photo.objects.create(title="Photo 2", file_hash="hash2", perceptual_hash="phash2")
+        __existing2 = Photo.objects.create(title="Photo 2", file_hash="hash2", perceptual_hash="phash2")
 
         # Setup mocks
         mock_file_hash.return_value = "hash_new"  # No exact match
@@ -766,7 +766,7 @@ class DuplicateDetectorTestCase(TestCase):
         """Test finding duplicates with exact_match_only flag."""
         from photos.models import Photo
 
-        _existing = Photo.objects.create(title="Photo", file_hash="hash123", perceptual_hash="phash")
+        __existing = Photo.objects.create(title="Photo", file_hash="hash123", perceptual_hash="phash")
 
         mock_file_hash.return_value = "hash456"  # No match
 

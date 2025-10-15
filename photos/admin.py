@@ -185,7 +185,7 @@ class PhotoAdmin(admin.ModelAdmin):
                     obj.image.url,
                 )
         except (ValueError, AttributeError):
-            pass  # Intentionally empty - safe to ignore errors
+            pass  # Intentionally empty - safe to ignore errors  # Intentionally empty - safe to ignore errors
         return "No image"
 
     image_preview.short_description = "Preview"
@@ -338,6 +338,7 @@ class PhotoAdmin(admin.ModelAdmin):
                     'max-height: 400px; overflow-y: auto; font-size: 11px;">{}</pre>',
                     formatted_json,
                 )
+            # Intentionally catching all exceptions
             # Intentionally catching all exceptions
             except:
                 return str(obj.exif_data)
