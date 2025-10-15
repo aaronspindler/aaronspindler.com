@@ -41,10 +41,10 @@ jobs:
       with:
         category: "/language:${{ matrix.language }}"
 
-  # Job to create PRs with automated fixes using GitHub Copilot Autofix
+  # Job to create PRs for CodeQL alerts with GitHub Copilot Autofix suggestions
   # Only runs on scheduled scans (not on push) to avoid creating duplicate PRs
   autofix:
-    name: Create Autofix PRs
+    name: Create Alert PRs for Copilot Review
     needs: analyze
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule'
@@ -94,13 +94,7 @@ jobs:
           echo "No open CodeQL alerts found"
         fi
 
-    - name: Apply automated fixes
-      if: steps.get-alerts.outputs.has-alerts == 'true'
-      run: |
-        echo "Applying automated fixes for CodeQL alerts..."
-        python .github/scripts/autofix_codeql.py alerts.json
-
-    - name: Create PR with automated fixes
+    - name: Create PR for CodeQL alerts
       if: steps.get-alerts.outputs.has-alerts == 'true'
       id: create-pr
       env:
@@ -116,74 +110,41 @@ jobs:
 
         alert_count="${{ steps.get-alerts.outputs.alert-count }}"
 
-        # Check if automated fixes were applied
-        if git diff --quiet; then
-          echo "⚠️  No fixes could be applied automatically"
-          echo "Creating PR with alert details for manual review..."
+        # Create marker file with alert details
+        mkdir -p .github/codeql-alerts
+        echo "# CodeQL Security Alerts Detected" > .github/codeql-alerts/README.md
+        echo "" >> .github/codeql-alerts/README.md
+        echo "This PR was automatically created because CodeQL detected **$alert_count** code quality alert(s)." >> .github/codeql-alerts/README.md
+        echo "" >> .github/codeql-alerts/README.md
+        echo "GitHub Copilot Autofix will analyze these alerts and suggest fixes as PR comments." >> .github/codeql-alerts/README.md
+        echo "" >> .github/codeql-alerts/README.md
+        echo "## Detected Issues ($alert_count total)" >> .github/codeql-alerts/README.md
+        echo "" >> .github/codeql-alerts/README.md
+        cat alert_details.txt >> .github/codeql-alerts/README.md
 
-          # Create marker file for manual review
-          mkdir -p .github/codeql-autofix
-          echo "No automated fixes could be applied. Manual review required." > .github/codeql-autofix/README.md
-          echo "" >> .github/codeql-autofix/README.md
-          echo "## Detected Issues ($alert_count total)" >> .github/codeql-autofix/README.md
-          echo "" >> .github/codeql-autofix/README.md
-          cat alert_details.txt >> .github/codeql-autofix/README.md
-
-          git add .github/codeql-autofix/README.md
-          git commit -m "docs: CodeQL alerts detected - manual review required"
-        else
-          echo "✅ Automated fixes were applied"
-
-          # Commit the automated fixes (exclude temp files)
-          git add .
-          git reset alerts.json alert_details.txt 2>/dev/null || true
-          git commit -m "fix: Apply automated CodeQL fixes
-
-          Automatically fixed $alert_count CodeQL alert(s) using the automated
-          fix script (.github/scripts/autofix_codeql.py).
-
-          Changes include:
-          - Unused variables prefixed with underscore (_)
-          - Imprecise asserts replaced with specific methods
-          - Redundant assignments removed
-          - Empty except blocks documented
-          - Unreachable code removed
-          - Unnecessary pass statements removed
-
-          GitHub Copilot Autofix will analyze these changes and may suggest
-          additional improvements."
-        fi
+        git add .github/codeql-alerts/README.md
+        git commit -m "security: CodeQL detected $alert_count alert(s) - awaiting Copilot Autofix suggestions"
 
         git push origin "$branch_name"
 
         # Create PR
-        pr_body="## 🔒 CodeQL Security Alerts - Automated Fixes + Copilot Review
+        pr_body="## 🔒 CodeQL Security Alerts Detected
 
-        This PR was automatically created because CodeQL detected **$alert_count** code quality alert(s).
-
-        ### ✨ Automated Fixes Applied
-
-        Our custom fix script has automatically resolved common issues:
-        - **Unused variables**: Prefixed with underscore (_)
-        - **Imprecise asserts**: Replaced with specific methods (assertIn, assertGreater, etc.)
-        - **Redundant assignments**: Removed
-        - **Empty except blocks**: Added explanatory comments
-        - **Unreachable code**: Removed
-        - **Unnecessary pass statements**: Removed
+        This PR was automatically created because CodeQL detected **$alert_count** code quality alert(s) during a scheduled scan.
 
         ### 🤖 GitHub Copilot Autofix
 
-        Since this PR modifies files with CodeQL alerts, GitHub Copilot Autofix will automatically:
-        1. Analyze the automated fixes
-        2. Review any remaining alerts
-        3. Post additional fix suggestions as PR comments (if applicable)
+        GitHub Copilot Autofix will automatically analyze these alerts and post fix suggestions as comments on this PR within a few minutes. To apply suggested fixes:
+        1. Review the Copilot suggestions posted as PR comments
+        2. Click to apply any fixes you want to use
+        3. Commit the changes to this PR
 
         ### 📋 What to do next
 
-        1. Review the automated fixes in the Files Changed tab
-        2. Check for any Copilot suggestions posted as comments
+        1. Wait for Copilot Autofix suggestions (usually appears within 2-5 minutes)
+        2. Review and apply the suggested fixes
         3. Run tests to ensure nothing broke: \`python manage.py test\`
-        4. Merge this PR once you're satisfied
+        4. Merge this PR once all issues are resolved
 
         ### 🔍 Detected Issues
 
@@ -193,7 +154,7 @@ jobs:
 
         - [View all alerts in Security tab](https://github.com/${{ github.repository }}/security/code-scanning)
         - [CodeQL documentation](https://codeql.github.com/docs/)
-        - [Automated fix script](.github/scripts/autofix_codeql.py)
+        - [GitHub Copilot Autofix documentation](https://docs.github.com/en/code-security/code-scanning/managing-code-scanning-alerts/about-autofix-for-codeql-code-scanning)
 
         ---
         *This PR was automatically created by the CodeQL workflow on $(date -u '+%Y-%m-%d %H:%M:%S UTC')*"
@@ -210,8 +171,8 @@ jobs:
         echo "pr-url=$pr_url" >> $GITHUB_OUTPUT
 
         echo ""
-        echo "✅ Created PR #$pr_number with automated fixes"
+        echo "✅ Created PR #$pr_number for CodeQL alerts"
         echo "📝 URL: $pr_url"
         echo ""
-        echo "GitHub Copilot Autofix will now analyze the changes and post any additional"
-        echo "suggestions as comments on the PR. This usually takes a few minutes."
+        echo "🤖 GitHub Copilot Autofix will analyze the alerts and post fix suggestions"
+        echo "   as comments on the PR. This usually takes 2-5 minutes."
