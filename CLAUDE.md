@@ -252,6 +252,41 @@ Blog posts are HTML templates in `templates/blog/<category>/<filename>.html` wit
 {% block meta_reading_time %}X{% endblock %}
 ```
 
+### Code Block Formatting in Blog Posts
+
+**IMPORTANT**: Blog posts use Prism.js for syntax highlighting. Always format code blocks as follows:
+
+#### Multi-line Code Blocks
+```html
+<pre><code class="language-python">
+def hello_world():
+    print("Hello, World!")
+</code></pre>
+```
+
+#### Supported Languages
+Common language classes (use `language-{name}` format):
+- `language-python` - Python code
+- `language-bash` - Bash/shell commands
+- `language-javascript` or `language-js` - JavaScript
+- `language-html` - HTML markup
+- `language-css` - CSS styles
+- `language-sql` - SQL queries
+- `language-json` - JSON data
+- `language-text` - Plain text output
+
+#### Inline Code
+For inline code within paragraphs, use simple `<code>` tags:
+```html
+<p>Use the <code>manage.py</code> command to run migrations.</p>
+```
+
+#### Technical Notes
+- Prism.js automatically adds syntax highlighting with line numbers
+- Copy-to-clipboard button appears on hover
+- The site's CSS overrides Prism colors to match the theme
+- **DO NOT** add custom borders, backgrounds, or margins to code elements - let Prism handle the layout
+
 ### Testing Approach
 - Django's built-in test framework
 - Parallel test execution supported (CI/CD only, not for local development)
