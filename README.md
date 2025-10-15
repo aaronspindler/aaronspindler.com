@@ -503,6 +503,25 @@ Sets up automated tasks:
 - Daily knowledge graph screenshot at 4 AM UTC
 - Knowledge graph cache rebuild every 6 hours
 
+### Security & Request Tracking
+
+**geolocate_fingerprints** - Geolocate IP addresses for request fingerprints
+```bash
+python manage.py geolocate_fingerprints  # Process all records without geo data
+python manage.py geolocate_fingerprints --limit 100  # Limit to 100 records
+python manage.py geolocate_fingerprints --force  # Re-geolocate all records
+python manage.py geolocate_fingerprints --batch-size 50  # Custom batch size
+```
+
+Features:
+- Batch processes IP addresses using ip-api.com (free tier)
+- Automatically filters local/private IPs (127.0.0.1, 10.x.x.x, etc.)
+- Stores city, country, coordinates, timezone, ISP, and organization
+- Respects API rate limits (15 requests/minute for batches, 100 IPs per batch)
+- Updates all records sharing the same IP address
+
+**Note**: Geolocation is NOT performed during request processing to avoid adding latency to responses. Run this command periodically (e.g., via cron or Celery Beat) to batch process new requests.
+
 ### Common Workflows
 
 **Complete build pipeline for production:**
@@ -848,6 +867,7 @@ The application automatically tracks request fingerprints via `RequestFingerprin
 - Generates unique fingerprints (with and without IP)
 - Detects suspicious requests (bots, scanners)
 - Associates with authenticated users
+- IP geolocation support (batch processed via management command)
 - Skips static files and media
 
 **Querying fingerprints:**
@@ -868,6 +888,12 @@ ip_requests = RequestFingerprint.objects.filter(ip_address='192.168.1.1')
 
 # Get user's request history
 user_requests = RequestFingerprint.objects.filter(user=request.user)
+
+# Get geolocated requests from specific country
+us_requests = RequestFingerprint.objects.filter(geo_data__country='United States')
+
+# Get requests from specific city
+nyc_requests = RequestFingerprint.objects.filter(geo_data__city='New York')
 ```
 
 **Accessing in views:**
@@ -878,9 +904,26 @@ def my_view(request):
         fingerprint = request.fingerprint
         print(f"IP: {fingerprint.ip_address}")
         print(f"Browser: {fingerprint.browser}")
+
+        # Access geolocation data (if available)
+        if fingerprint.geo_data:
+            print(f"Location: {fingerprint.geo_data.get('city')}, {fingerprint.geo_data.get('country')}")
+            print(f"Coordinates: {fingerprint.geo_data.get('lat')}, {fingerprint.geo_data.get('lon')}")
+            print(f"ISP: {fingerprint.geo_data.get('isp')}")
+
         if fingerprint.is_suspicious:
             # Handle suspicious request
             pass
+```
+
+**Geolocation workflow:**
+
+```bash
+# 1. Requests are tracked automatically (geo_data is initially null)
+# 2. Periodically run the geolocation command (e.g., via cron or Celery Beat)
+python manage.py geolocate_fingerprints
+
+# 3. Query geolocated data as shown above
 ```
 
 ### Monitoring

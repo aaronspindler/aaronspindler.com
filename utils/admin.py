@@ -71,6 +71,7 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         "path",
         "browser",
         "os",
+        "location_display",
         "is_suspicious",
         "user",
     )
@@ -87,6 +88,8 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         "user_agent",
         "fingerprint",
         "fingerprint_no_ip",
+        "geo_data__city",
+        "geo_data__country",
     )
     readonly_fields = (
         "created_at",
@@ -106,10 +109,24 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         "is_suspicious",
         "suspicious_reason",
         "user",
+        "geo_data",
+        "location_display",
     )
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
-    actions = ["delete_local_records"]
+    actions = ["delete_local_records", "geolocate_selected"]
+
+    def location_display(self, obj):
+        """Display geolocation information in a readable format."""
+        if not obj.geo_data:
+            return "Not geolocated"
+        city = obj.geo_data.get("city", "")
+        country = obj.geo_data.get("country", "")
+        if city and country:
+            return f"{city}, {country}"
+        return country or "Unknown"
+
+    location_display.short_description = "Location"
 
     def has_add_permission(self, request):
         """Disable manual creation - fingerprints should be created from requests."""
@@ -128,6 +145,29 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         self.message_user(
             request,
             f"Successfully deleted {deleted_count} local record(s).",
+        )
+
+    @admin.action(description="Geolocate selected IP addresses")
+    def geolocate_selected(self, request, queryset):
+        """Geolocate IP addresses for selected fingerprints."""
+        from utils.security import geolocate_ips_batch
+
+        # Get unique IP addresses from selected records
+        ip_addresses = list(queryset.values_list("ip_address", flat=True).distinct())
+
+        # Geolocate in batch
+        results = geolocate_ips_batch(ip_addresses, batch_size=100)
+
+        # Update records with geolocation data
+        success_count = 0
+        for ip_address, geo_data in results.items():
+            if geo_data:
+                updated = RequestFingerprint.objects.filter(ip_address=ip_address).update(geo_data=geo_data)
+                success_count += updated
+
+        self.message_user(
+            request,
+            f"Successfully geolocated {success_count} record(s).",
         )
 
 

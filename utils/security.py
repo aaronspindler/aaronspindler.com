@@ -4,7 +4,9 @@ Request fingerprinting and IP tracking utilities for security and analytics.
 
 import hashlib
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -292,3 +294,123 @@ def is_suspicious_request(request) -> Tuple[bool, Optional[str]]:
     except Exception as e:
         logger.error(f"Error checking for suspicious request: {e}", exc_info=True)
         return (False, None)
+
+
+def geolocate_ip(ip_address: str) -> Optional[Dict[str, Any]]:
+    """
+    Geolocate a single IP address using ip-api.com.
+
+    Args:
+        ip_address: IP address to geolocate
+
+    Returns:
+        Dictionary with geolocation data or None if failed
+        Response includes: country, countryCode, region, regionName, city,
+                          zip, lat, lon, timezone, isp, org, as, query
+
+    Note:
+        Free tier limit: 45 requests per minute
+        For batch requests, use geolocate_ips_batch()
+    """
+    # Skip local/private IPs
+    if ip_address in ["127.0.0.1", "localhost", "unknown"] or ip_address.startswith(("10.", "192.168.", "172.")):
+        logger.debug(f"Skipping geolocation for local/private IP: {ip_address}")
+        return None
+
+    try:
+        response = requests.get(f"http://ip-api.com/json/{ip_address}", timeout=5)
+        response.raise_for_status()
+        data = response.json()
+
+        if data.get("status") == "success":
+            # Remove status and query fields (query is the IP we already have)
+            data.pop("status", None)
+            data.pop("query", None)
+            logger.debug(f"Successfully geolocated IP {ip_address}: {data.get('city')}, {data.get('country')}")
+            return data
+        else:
+            logger.warning(f"Geolocation failed for IP {ip_address}: {data.get('message', 'Unknown error')}")
+            return None
+
+    except requests.RequestException as e:
+        logger.error(f"Error geolocating IP {ip_address}: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error geolocating IP {ip_address}: {e}", exc_info=True)
+        return None
+
+
+def geolocate_ips_batch(ip_addresses: List[str], batch_size: int = 100) -> Dict[str, Optional[Dict[str, Any]]]:
+    """
+    Geolocate multiple IP addresses in batches using ip-api.com batch endpoint.
+
+    Args:
+        ip_addresses: List of IP addresses to geolocate
+        batch_size: Number of IPs per batch (max 100 for free tier)
+
+    Returns:
+        Dictionary mapping IP addresses to their geolocation data
+
+    Note:
+        Free tier limit: 15 requests per minute for batch endpoint
+        Each batch can contain up to 100 IP addresses
+    """
+    results = {}
+
+    # Filter out local/private IPs
+    filtered_ips = [
+        ip
+        for ip in ip_addresses
+        if ip not in ["127.0.0.1", "localhost", "unknown"] and not ip.startswith(("10.", "192.168.", "172."))
+    ]
+
+    if not filtered_ips:
+        logger.debug("No valid IPs to geolocate after filtering")
+        return results
+
+    logger.info(f"Geolocating {len(filtered_ips)} IP addresses in batches of {batch_size}")
+
+    # Process in batches
+    for i in range(0, len(filtered_ips), batch_size):
+        batch = filtered_ips[i : i + batch_size]
+        batch_num = (i // batch_size) + 1
+
+        try:
+            # ip-api.com batch endpoint expects JSON array of IP addresses
+            response = requests.post(
+                "http://ip-api.com/batch",
+                json=batch,
+                headers={"Content-Type": "application/json"},
+                timeout=10,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            # Process batch results
+            for result in data:
+                if result.get("status") == "success":
+                    ip = result.pop("query")
+                    result.pop("status")
+                    results[ip] = result
+                    logger.debug(f"Batch {batch_num}: Geolocated {ip} -> {result.get('city')}, {result.get('country')}")
+                else:
+                    ip = result.get("query", "unknown")
+                    logger.warning(f"Batch {batch_num}: Failed to geolocate {ip}: {result.get('message')}")
+                    results[ip] = None
+
+            logger.info(f"Batch {batch_num}/{(len(filtered_ips) + batch_size - 1) // batch_size} completed")
+
+        except requests.RequestException as e:
+            logger.error(f"Error geolocating batch {batch_num}: {e}")
+            for ip in batch:
+                results[ip] = None
+        except Exception as e:
+            logger.error(f"Unexpected error in batch {batch_num}: {e}", exc_info=True)
+            for ip in batch:
+                results[ip] = None
+
+    logger.info(
+        f"Geolocation complete: {sum(1 for v in results.values() if v is not None)}/{len(filtered_ips)} successful"
+    )
+
+    return results

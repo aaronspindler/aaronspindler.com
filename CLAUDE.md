@@ -145,6 +145,29 @@ python manage.py rebuild_search_index --clear --content-type blog
 - New photos or albums are added
 - Project or book data changes
 
+### Security & Request Tracking
+```bash
+# Geolocate IP addresses for RequestFingerprint records
+python manage.py geolocate_fingerprints
+
+# Limit number of records to process
+python manage.py geolocate_fingerprints --limit 100
+
+# Re-geolocate all records (including those with existing geo data)
+python manage.py geolocate_fingerprints --force
+
+# Custom batch size (default: 100 IPs per batch)
+python manage.py geolocate_fingerprints --batch-size 50
+```
+
+**Note**: The `geolocate_fingerprints` command uses ip-api.com free tier:
+- Single endpoint: 45 requests/minute
+- Batch endpoint: 15 requests/minute (100 IPs per batch)
+- IP addresses are automatically filtered to exclude local/private IPs
+- Geolocation data includes: city, country, coordinates, timezone, ISP, etc.
+- Run periodically (e.g., via cron or Celery Beat) to batch process new records
+- Geolocation is NOT performed during request processing to avoid latency
+
 ## Architecture Overview
 
 ### Django Apps Structure
@@ -174,7 +197,12 @@ python manage.py rebuild_search_index --clear --content-type blog
 
 - **utils/**: Utility features and performance monitoring
   - Notification system (email and SMS)
-  - Request fingerprinting and security tracking
+  - Request fingerprinting and security tracking:
+    - RequestFingerprint model for tracking all requests
+    - IP-based geolocation with batch processing support
+    - User agent parsing (browser, OS, device detection)
+    - Suspicious request detection
+    - Management command: `geolocate_fingerprints`
   - Lighthouse performance monitoring:
     - Automated audits tracking 4 key metrics (Performance, Accessibility, Best Practices, SEO)
     - Historical data storage with 30-day visualization
