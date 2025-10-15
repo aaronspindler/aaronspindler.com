@@ -165,9 +165,18 @@ class CodeQLAutoFixer:
         # Remove the line (since it's redundant)
         line = lines[line_num - 1]
 
-        # Check if the entire line is just an assignment
+        # Check if the line is a simple assignment (not multi-line)
         if "=" in line and not line.strip().startswith("#"):
-            # Just remove the line entirely
+            # Skip if the line has unclosed brackets/braces/parens (multi-line structure)
+            stripped = line.strip()
+            open_brackets = stripped.count("{") + stripped.count("[") + stripped.count("(")
+            close_brackets = stripped.count("}") + stripped.count("]") + stripped.count(")")
+
+            if open_brackets > close_brackets:
+                # This is a multi-line structure, don't remove it
+                return False
+
+            # Safe to remove - it's a simple single-line assignment
             del lines[line_num - 1]
 
             file_path.write_text("".join(lines))

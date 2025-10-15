@@ -164,8 +164,6 @@ AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="fake-secret-access
 AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME", default="test-bucket")
 AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="us-east-1")
 AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
-    "CacheControl": "max-age=86400",  # 1 day cache
-}
 AWS_DEFAULT_ACL = "public-read"
 AWS_S3_VERIFY = True
 AWS_S3_FILE_OVERWRITE = True
