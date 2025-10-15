@@ -35,3 +35,6 @@ static/js/*.min.js.br
 
 # Pre-commit cache
 .pre-commit-config.yaml.backup
+
+temp_fonts/
+media/

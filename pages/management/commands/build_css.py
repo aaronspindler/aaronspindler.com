@@ -86,6 +86,7 @@ class Command(BaseCommand):
             "photos.css",
             "blog.css",
             "autocomplete.css",
+            "fast-font.css",
         ]
 
         if self.options.get("parallel"):
@@ -109,6 +110,7 @@ class Command(BaseCommand):
             "photos.css",
             "blog.css",
             "autocomplete.css",
+            "fast-font.css",
         ]
 
         # Step 1: Combine CSS files
