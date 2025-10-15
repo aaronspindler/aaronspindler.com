@@ -16,12 +16,12 @@
     // Create autocomplete container
     function createAutocompleteContainer() {
         if (autocompleteContainer) return;
-        
+
         autocompleteContainer = document.createElement('div');
         autocompleteContainer.className = 'search-autocomplete';
         autocompleteContainer.setAttribute('role', 'listbox');
         autocompleteContainer.style.display = 'none';
-        
+
         // Insert after the search form
         searchForm.parentNode.insertBefore(autocompleteContainer, searchForm.nextSibling);
     }
@@ -74,7 +74,7 @@
             item.href = suggestion.url;
             item.setAttribute('role', 'option');
             item.setAttribute('data-index', index);
-            
+
             if (suggestion.external) {
                 item.target = '_blank';
                 item.rel = 'noopener noreferrer';
@@ -94,7 +94,7 @@
 
             title.appendChild(type);
             item.appendChild(title);
-            
+
             // Handle click
             item.addEventListener('click', function(e) {
                 // Let the link work naturally
@@ -144,7 +144,7 @@
         if (!items || items.length === 0) return;
 
         let newIndex = selectedIndex + direction;
-        
+
         if (newIndex < 0) {
             newIndex = items.length - 1;
         } else if (newIndex >= items.length) {
@@ -158,7 +158,7 @@
     // Handle input
     searchInput.addEventListener('input', function(e) {
         const query = e.target.value.trim();
-        
+
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             fetchSuggestions(query);
@@ -218,5 +218,3 @@
     searchInput.setAttribute('aria-autocomplete', 'list');
     searchInput.setAttribute('aria-expanded', 'false');
 })();
-
-

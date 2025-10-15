@@ -9,7 +9,7 @@
 <main class="content search-page" role="main">
     <h1>Search</h1>
     <p>{{ total_results }} result{{ total_results|pluralize }}</p>
-    
+
     {% if results.blog_posts %}
     <h2>Blog Posts</h2>
     <ul class="search-results">
@@ -21,7 +21,7 @@
         {% endfor %}
     </ul>
     {% endif %}
-    
+
     {% if results.projects %}
     <h2>Projects</h2>
     <ul class="search-results">
@@ -39,7 +39,7 @@
         {% endfor %}
     </ul>
     {% endif %}
-    
+
     {% if results.books %}
     <h2>Books</h2>
     <ul class="search-results">
@@ -50,7 +50,7 @@
         {% endfor %}
     </ul>
     {% endif %}
-    
+
     {% if total_results == 0 %}
     <p>No results found{% if query %} for "{{ query }}"{% endif %}.</p>
     {% endif %}

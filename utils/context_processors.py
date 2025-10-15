@@ -8,6 +8,5 @@ def lighthouse_badge(request):
     """
     has_audit_data = LighthouseAudit.objects.exists()
     return {
-        'show_lighthouse_badge': has_audit_data,
+        "show_lighthouse_badge": has_audit_data,
     }
-

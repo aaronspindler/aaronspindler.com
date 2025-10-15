@@ -6,19 +6,26 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('blog', '0003_knowledgegraphscreenshot'),
+        ("blog", "0003_knowledgegraphscreenshot"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='blogcomment',
-            name='blog_category',
-            field=models.CharField(default='tech', help_text="Category of the blog post (e.g., 'tech', 'personal')", max_length=50),
+            model_name="blogcomment",
+            name="blog_category",
+            field=models.CharField(
+                default="tech",
+                help_text="Category of the blog post (e.g., 'tech', 'personal')",
+                max_length=50,
+            ),
             preserve_default=False,
         ),
         migrations.AlterField(
-            model_name='blogcomment',
-            name='blog_category',
-            field=models.CharField(help_text="Category of the blog post (e.g., 'tech', 'personal')", max_length=50),
+            model_name="blogcomment",
+            name="blog_category",
+            field=models.CharField(
+                help_text="Category of the blog post (e.g., 'tech', 'personal')",
+                max_length=50,
+            ),
         ),
     ]

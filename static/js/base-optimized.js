@@ -1,14 +1,14 @@
 // Optimized base.js with critical functionality only
 (() => {
     'use strict';
-    
+
     // Service worker cleanup (one-time operation)
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(regs => {
             regs.forEach(reg => reg.unregister());
         });
     }
-    
+
     // Performance optimization utilities
     const perf = {
         // Debounce function for event handlers
@@ -19,7 +19,7 @@
                 timeout = setTimeout(() => func.apply(this, args), wait);
             };
         },
-        
+
         // Throttle function for scroll/resize events
         throttle(func, limit) {
             let inThrottle;
@@ -32,7 +32,7 @@
             };
         }
     };
-    
+
     // Lazy loading with Intersection Observer
     const lazyLoad = () => {
         if ('IntersectionObserver' in window) {
@@ -56,7 +56,7 @@
                 rootMargin: '50px 0px',
                 threshold: 0.01
             });
-            
+
             // Observe all lazy images
             document.querySelectorAll('img[data-src], img[data-srcset]').forEach(img => {
                 imageObserver.observe(img);
@@ -68,14 +68,14 @@
             });
         }
     };
-    
+
     // Smart prefetching with resource hints
     const smartPrefetch = () => {
         if ('requestIdleCallback' in window) {
             const prefetched = new Set();
             const prefetchLink = (href) => {
                 if (prefetched.has(href)) return;
-                
+
                 const link = document.createElement('link');
                 link.rel = 'prefetch';
                 link.href = href;
@@ -83,7 +83,7 @@
                 document.head.appendChild(link);
                 prefetched.add(href);
             };
-            
+
             // Prefetch on hover with idle callback
             document.querySelectorAll('a[href^="/"]').forEach(link => {
                 link.addEventListener('mouseenter', () => {
@@ -97,7 +97,7 @@
             });
         }
     };
-    
+
     // Font loading optimization
     const optimizeFonts = () => {
         if (document.fonts?.ready) {
@@ -106,27 +106,27 @@
             });
         }
     };
-    
+
     // Main initialization
     const init = () => {
         // Run critical optimizations
         lazyLoad();
         smartPrefetch();
         optimizeFonts();
-        
+
         // Add print styles
         const style = document.createElement('style');
         style.textContent = '@media print{.header,.footer,.tree{display:none!important}body{max-width:100%!important}a{text-decoration:none!important;color:#000!important}}';
         document.head.appendChild(style);
     };
-    
+
     // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init, { passive: true });
     } else {
         init();
     }
-    
+
     // Export utilities for use by other scripts
     window.perfUtils = perf;
 })();

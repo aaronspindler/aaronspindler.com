@@ -14,34 +14,34 @@
         padding-bottom: 20px;
         border-bottom: 1px solid #ddd;
     }
-    
+
     .album-title-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 10px;
     }
-    
+
     .album-title {
         margin: 0;
     }
-    
+
     .album-description {
         color: #666;
         margin: 0;
     }
-    
+
     .album-meta {
         color: #999;
         font-size: 0.9em;
         margin-top: 10px;
     }
-    
+
     .download-options {
         position: relative;
         display: inline-block;
     }
-    
+
     .download-album-btn {
         display: inline-flex;
         align-items: center;
@@ -56,19 +56,19 @@
         transition: all 0.2s;
         cursor: pointer;
     }
-    
+
     .download-album-btn:hover {
         background: #f0f0f0;
         border-color: #999;
         color: #333;
         text-decoration: none;
     }
-    
+
     .download-album-btn.loading {
         opacity: 0.6;
         cursor: wait;
     }
-    
+
     .download-dropdown {
         display: none;
         position: absolute;
@@ -82,11 +82,11 @@
         min-width: 200px;
         z-index: 100;
     }
-    
+
     .download-dropdown.show {
         display: block;
     }
-    
+
     .download-option {
         display: block;
         padding: 10px 15px;
@@ -95,33 +95,33 @@
         border-bottom: 1px solid #eee;
         transition: background 0.2s;
     }
-    
+
     .download-option:last-child {
         border-bottom: none;
     }
-    
+
     .download-option:hover {
         background: #f8f8f8;
         text-decoration: none;
     }
-    
+
     .download-option.disabled {
         opacity: 0.5;
         cursor: not-allowed;
         pointer-events: none;
     }
-    
+
     .download-option-title {
         font-weight: 500;
         display: block;
         margin-bottom: 2px;
     }
-    
+
     .download-option-info {
         font-size: 0.85em;
         color: #666;
     }
-    
+
     .download-status {
         padding: 10px 15px;
         background: #f0f7ff;
@@ -130,7 +130,7 @@
         text-align: center;
         border-bottom: 1px solid #ddd;
     }
-    
+
     .download-button {
         position: absolute;
         top: 10px;
@@ -150,23 +150,23 @@
         align-items: center;
         gap: 4px;
     }
-    
+
     .photo-item:hover .download-button {
         opacity: 1;
     }
-    
+
     .download-button:hover {
         background: rgba(255, 255, 255, 1);
         transform: scale(1.05);
     }
-    
+
     .photos-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 20px;
         margin-top: 30px;
     }
-    
+
     .photo-item {
         position: relative;
         aspect-ratio: 4/3;
@@ -181,21 +181,21 @@
         background-size: 200% 100%;
         margin-top: 0 !important;
     }
-    
+
     .photo-item.loading {
         animation: shimmer 1.5s ease-in-out infinite;
     }
-    
+
     @keyframes shimmer {
         0% { background-position: 200% 0; }
         100% { background-position: -200% 0; }
     }
-    
+
     .photo-item:hover {
         transform: translateY(-4px);
         box-shadow: 0 4px 16px rgba(0,0,0,0.15);
     }
-    
+
     .photo-item img,
     .photo-grid-image {
         width: 100%;
@@ -203,12 +203,12 @@
         object-fit: cover;
         transition: transform 0.3s;
     }
-    
+
     .photo-item:hover img,
     .photo-item:hover .photo-grid-image {
         transform: scale(1.03);
     }
-    
+
     .photo-title {
         position: absolute;
         bottom: 0;
@@ -222,22 +222,22 @@
         transition: opacity 0.3s;
         font-weight: 500;
     }
-    
+
     .photo-item:hover .photo-title {
         opacity: 1;
     }
-    
+
     .back-link {
         display: inline-block;
         margin-bottom: 20px;
         color: #666;
         text-decoration: none;
     }
-    
+
     .back-link:hover {
         text-decoration: underline;
     }
-    
+
     /* Lightbox styles */
     .lightbox {
         display: none;
@@ -250,7 +250,7 @@
         z-index: 1000;
         cursor: pointer;
     }
-    
+
     .lightbox-content {
         position: absolute;
         top: 50%;
@@ -259,21 +259,21 @@
         max-width: 90%;
         max-height: 90%;
     }
-    
+
     .lightbox-content img {
         max-width: 100%;
         max-height: 90vh;
         display: block;
         transition: opacity 0.3s ease;
     }
-    
+
     .lightbox-caption {
         color: white;
         text-align: center;
         padding: 10px;
         font-size: 0.9em;
     }
-    
+
     .lightbox-exif {
         position: absolute;
         bottom: 60px;
@@ -286,32 +286,32 @@
         backdrop-filter: blur(10px);
         max-width: 400px;
     }
-    
+
     .exif-row {
         display: flex;
         gap: 15px;
         margin-bottom: 4px;
     }
-    
+
     .exif-row:last-child {
         margin-bottom: 0;
     }
-    
+
     .exif-item {
         display: flex;
         align-items: center;
         gap: 6px;
     }
-    
+
     .exif-label {
         opacity: 0.7;
         font-size: 0.9em;
     }
-    
+
     .exif-value {
         font-weight: 500;
     }
-    
+
     .lightbox-close {
         position: absolute;
         top: 20px;
@@ -321,11 +321,11 @@
         font-weight: bold;
         cursor: pointer;
     }
-    
+
     .lightbox-close:hover {
         color: #ddd;
     }
-    
+
     .lightbox-nav {
         position: absolute;
         top: 50%;
@@ -337,19 +337,19 @@
         padding: 10px;
         user-select: none;
     }
-    
+
     .lightbox-nav:hover {
         background: rgba(255, 255, 255, 0.1);
     }
-    
+
     .lightbox-prev {
         left: 20px;
     }
-    
+
     .lightbox-next {
         right: 20px;
     }
-    
+
     .lightbox-download {
         position: absolute;
         bottom: 20px;
@@ -363,7 +363,7 @@
         font-size: 14px;
         transition: background 0.3s;
     }
-    
+
     .lightbox-download:hover {
         background: rgba(0, 0, 0, 0.9);
     }
@@ -398,30 +398,30 @@
         {% endfor %}
     ];
     const albumSlug = "{{ album.slug }}";
-    
+
     // Preload cache for lightbox images
     const imageCache = new Map();
-    
+
     // Intersection Observer for lazy loading
     let imageObserver;
-    
+
     function initializeLazyLoading() {
         const images = document.querySelectorAll('.photo-grid-image');
-        
+
         if ('IntersectionObserver' in window) {
             imageObserver = new IntersectionObserver((entries, observer) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
                         const img = entry.target;
                         const photoItem = img.closest('.photo-item');
-                        
+
                         // Load the image
                         loadImage(img, photoItem);
-                        
+
                         // Start preloading nearby images
                         const index = parseInt(img.dataset.index);
                         preloadNearbyImages(index);
-                        
+
                         observer.unobserve(img);
                     }
                 });
@@ -429,7 +429,7 @@
                 rootMargin: '50px 0px',
                 threshold: 0.01
             });
-            
+
             images.forEach((img, index) => {
                 img.dataset.index = index;
                 imageObserver.observe(img);
@@ -439,12 +439,12 @@
             images.forEach(img => loadImage(img, img.closest('.photo-item')));
         }
     }
-    
+
     function loadImage(img, photoItem) {
         if (photoItem) {
             photoItem.classList.add('loading');
         }
-        
+
         // Already loaded by responsive_image tag, just handle the load event
         if (img.complete) {
             if (photoItem) {
@@ -458,7 +458,7 @@
             };
         }
     }
-    
+
     function preloadNearbyImages(currentIndex) {
         // Preload next 2 and previous 1 images for lightbox
         const indicesToPreload = [
@@ -466,14 +466,14 @@
             currentIndex + 1,
             currentIndex + 2
         ];
-        
+
         indicesToPreload.forEach(index => {
             if (index >= 0 && index < photos.length && !photos[index].preloaded) {
                 preloadLightboxImage(index);
             }
         });
     }
-    
+
     function preloadLightboxImage(index) {
         const photo = photos[index];
         if (!photo.preloaded && photo.largeUrl) {
@@ -485,10 +485,10 @@
             img.src = photo.largeUrl;
         }
     }
-    
+
     function formatExifData(exif) {
         let html = '<div class="lightbox-exif">';
-        
+
         // Camera row
         if (exif.camera || exif.lens) {
             html += '<div class="exif-row">';
@@ -500,54 +500,54 @@
             }
             html += '</div>';
         }
-        
+
         // Settings row
         const settings = [];
         if (exif.focalLength) settings.push(exif.focalLength);
         if (exif.aperture) settings.push(exif.aperture);
         if (exif.shutterSpeed) settings.push(exif.shutterSpeed);
         if (exif.iso) settings.push(`ISO ${exif.iso}`);
-        
+
         if (settings.length > 0) {
             html += '<div class="exif-row">';
             html += `<div class="exif-item"><span class="exif-value">${settings.join(' · ')}</span></div>`;
             html += '</div>';
         }
-        
+
         // Date row
         if (exif.dateTaken) {
             html += '<div class="exif-row">';
             html += `<div class="exif-item">📅 <span class="exif-value">${exif.dateTaken}</span></div>`;
             html += '</div>';
         }
-        
+
         html += '</div>';
-        
+
         // Only return if we have some data
         if (exif.camera || exif.lens || settings.length > 0 || exif.dateTaken) {
             return html;
         }
         return '';
     }
-    
+
     function openLightbox(index) {
         currentPhotoIndex = index;
         const lightbox = document.getElementById('lightbox');
         const img = document.getElementById('lightbox-img');
         const caption = document.getElementById('lightbox-caption');
         const exifContainer = document.getElementById('lightbox-exif-container');
-        
+
         // Use cached image if available
         const photo = photos[index];
         const cachedImage = imageCache.get(photo.largeUrl);
-        
+
         if (cachedImage) {
             img.src = cachedImage.src;
         } else {
             // Show loading state
             img.style.opacity = '0.5';
             img.src = photo.thumbnailUrl || photo.url; // Show thumbnail immediately
-            
+
             // Load full resolution
             const tempImg = new Image();
             tempImg.onload = () => {
@@ -558,60 +558,60 @@
             };
             tempImg.src = photo.largeUrl;
         }
-        
+
         caption.textContent = photo.title || '';
-        
+
         // Display EXIF data
         if (exifContainer) {
             exifContainer.innerHTML = formatExifData(photo.exif);
         }
-        
+
         // Preload adjacent images
         preloadAdjacentLightboxImages(index);
-        
+
         lightbox.style.display = 'block';
         document.body.style.overflow = 'hidden';
     }
-    
+
     function preloadAdjacentLightboxImages(currentIndex) {
         // Preload previous and next images
         const indices = [currentIndex - 1, currentIndex + 1];
-        
+
         indices.forEach(index => {
             if (index >= 0 && index < photos.length) {
                 preloadLightboxImage(index);
             }
         });
     }
-    
+
     function closeLightbox() {
         const lightbox = document.getElementById('lightbox');
         lightbox.style.display = 'none';
         document.body.style.overflow = 'auto';
     }
-    
+
     function navigatePhoto(direction) {
         currentPhotoIndex += direction;
-        
+
         if (currentPhotoIndex < 0) {
             currentPhotoIndex = photos.length - 1;
         } else if (currentPhotoIndex >= photos.length) {
             currentPhotoIndex = 0;
         }
-        
+
         const img = document.getElementById('lightbox-img');
         const caption = document.getElementById('lightbox-caption');
         const exifContainer = document.getElementById('lightbox-exif-container');
-        
+
         img.src = photos[currentPhotoIndex].largeUrl || photos[currentPhotoIndex].url;
         caption.textContent = photos[currentPhotoIndex].title || '';
-        
+
         // Update EXIF data
         if (exifContainer) {
             exifContainer.innerHTML = formatExifData(photos[currentPhotoIndex].exif);
         }
     }
-    
+
     // Keyboard navigation
     document.addEventListener('keydown', function(e) {
         const lightbox = document.getElementById('lightbox');
@@ -625,12 +625,12 @@
             }
         }
     });
-    
+
     // Download photo function using server endpoint
     function downloadPhoto(photoId) {
         window.location.href = `/photos/album/${albumSlug}/photo/${photoId}/download/`;
     }
-    
+
     // Download current photo in lightbox
     function downloadCurrentPhoto() {
         if (currentPhotoIndex >= 0 && currentPhotoIndex < photos.length) {
@@ -638,12 +638,12 @@
             downloadPhoto(photo.id);
         }
     }
-    
+
     // Toggle download dropdown
     function toggleDownloadDropdown() {
         const dropdown = document.getElementById('downloadDropdown');
         const isShowing = dropdown.classList.contains('show');
-        
+
         if (!isShowing) {
             dropdown.classList.add('show');
             checkDownloadStatus();
@@ -651,27 +651,27 @@
             dropdown.classList.remove('show');
         }
     }
-    
+
     // Check download status
     async function checkDownloadStatus() {
         const statusDiv = document.getElementById('downloadStatus');
         const optimizedBtn = document.getElementById('optimizedDownload');
         const originalBtn = document.getElementById('originalDownload');
-        
+
         statusDiv.style.display = 'block';
         statusDiv.textContent = 'Checking download availability...';
-        
+
         try {
             const response = await fetch(`/photos/album/${albumSlug}/download-status/`);
             const data = await response.json();
-            
+
             if (data.error) {
                 statusDiv.textContent = data.error;
                 optimizedBtn.classList.add('disabled');
                 originalBtn.classList.add('disabled');
                 return;
             }
-            
+
             // Update optimized download button
             if (data.optimized.ready) {
                 optimizedBtn.classList.remove('disabled');
@@ -681,7 +681,7 @@
                 optimizedBtn.classList.add('disabled');
                 document.getElementById('optimizedInfo').textContent = 'Generating... Please wait';
             }
-            
+
             // Update original download button
             if (data.original.ready) {
                 originalBtn.classList.remove('disabled');
@@ -691,7 +691,7 @@
                 originalBtn.classList.add('disabled');
                 document.getElementById('originalInfo').textContent = 'Generating... Please wait';
             }
-            
+
             // Show appropriate status message
             if (!data.optimized.ready || !data.original.ready) {
                 if (data.generation_triggered) {
@@ -704,22 +704,22 @@
             } else {
                 statusDiv.style.display = 'none';
             }
-            
+
         } catch (error) {
             console.error('Error checking download status:', error);
             statusDiv.textContent = '❌ Error checking status';
         }
     }
-    
+
     // Download album with specific quality
     function downloadAlbum(quality) {
         const dropdown = document.getElementById('downloadDropdown');
         dropdown.classList.remove('show');
-        
+
         // Navigate to download URL
         window.location.href = `/photos/album/${albumSlug}/download/${quality}/`;
     }
-    
+
     // Format file size
     function formatFileSize(bytes) {
         if (!bytes) return '';
@@ -727,27 +727,27 @@
         const i = Math.floor(Math.log(bytes) / Math.log(1024));
         return Math.round(bytes / Math.pow(1024, i) * 10) / 10 + ' ' + sizes[i];
     }
-    
+
     // Close dropdown when clicking outside
     document.addEventListener('click', function(event) {
         const dropdown = document.getElementById('downloadDropdown');
         const downloadBtn = document.getElementById('downloadBtn');
-        
+
         if (dropdown && downloadBtn && !downloadBtn.contains(event.target)) {
             dropdown.classList.remove('show');
         }
     });
-    
+
     // Initialize on DOM ready
     document.addEventListener('DOMContentLoaded', function() {
         initializeLazyLoading();
-        
+
         // Preload first few images
         for (let i = 0; i < Math.min(3, photos.length); i++) {
             preloadLightboxImage(i);
         }
     });
-    
+
     // Clean up on page unload
     window.addEventListener('beforeunload', function() {
         if (imageObserver) {
@@ -760,7 +760,7 @@
 {% block content %}
 <main class="content" role="main">
     <a href="/#photos" class="back-link">← Back to homepage</a>
-    
+
     <div class="album-header">
         <div class="album-title-row">
             <h1 class="album-title">{{ album.title }}</h1>
@@ -797,11 +797,11 @@
             <p class="album-description">{{ album.description }}</p>
         {% endif %}
         <div class="album-meta">
-            {{ photos|length }} photo{{ photos|length|pluralize }} · 
+            {{ photos|length }} photo{{ photos|length|pluralize }} ·
             Created {{ album.created_at|date:"F j, Y" }}
         </div>
     </div>
-    
+
     {% if photos %}
         <div class="photos-grid">
             {% for photo in photos %}
@@ -826,7 +826,7 @@
     {% else %}
         <p>No photos in this album yet.</p>
     {% endif %}
-    
+
     <!-- Lightbox -->
     <div id="lightbox" class="lightbox" onclick="closeLightbox()">
         <span class="lightbox-close" onclick="closeLightbox()">&times;</span>

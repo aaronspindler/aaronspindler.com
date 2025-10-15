@@ -50,7 +50,7 @@ if (document.fonts && document.fonts.ready) {
 // Prefetch links on hover
 document.addEventListener('DOMContentLoaded', () => {
   const prefetched = new Set();
-  
+
   document.querySelectorAll('a[href^="/"]').forEach(link => {
     link.addEventListener('mouseenter', () => {
       const href = link.getAttribute('href');

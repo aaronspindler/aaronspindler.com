@@ -6,27 +6,56 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('utils', '0002_requestfingerprint'),
+        ("utils", "0002_requestfingerprint"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='LighthouseAudit',
+            name="LighthouseAudit",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('url', models.CharField(help_text='URL that was audited', max_length=500)),
-                ('performance_score', models.IntegerField(help_text='Performance score (0-100)')),
-                ('accessibility_score', models.IntegerField(help_text='Accessibility score (0-100)')),
-                ('best_practices_score', models.IntegerField(help_text='Best Practices score (0-100)')),
-                ('seo_score', models.IntegerField(help_text='SEO score (0-100)')),
-                ('audit_date', models.DateTimeField(auto_now_add=True, help_text='When the audit was run')),
-                ('metadata', models.JSONField(blank=True, default=dict, help_text='Additional Lighthouse data')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "url",
+                    models.CharField(help_text="URL that was audited", max_length=500),
+                ),
+                (
+                    "performance_score",
+                    models.IntegerField(help_text="Performance score (0-100)"),
+                ),
+                (
+                    "accessibility_score",
+                    models.IntegerField(help_text="Accessibility score (0-100)"),
+                ),
+                (
+                    "best_practices_score",
+                    models.IntegerField(help_text="Best Practices score (0-100)"),
+                ),
+                ("seo_score", models.IntegerField(help_text="SEO score (0-100)")),
+                (
+                    "audit_date",
+                    models.DateTimeField(auto_now_add=True, help_text="When the audit was run"),
+                ),
+                (
+                    "metadata",
+                    models.JSONField(blank=True, default=dict, help_text="Additional Lighthouse data"),
+                ),
             ],
             options={
-                'verbose_name': 'Lighthouse Audit',
-                'verbose_name_plural': 'Lighthouse Audits',
-                'ordering': ['-audit_date'],
-                'indexes': [models.Index(fields=['-audit_date'], name='utils_light_audit_d_c70171_idx'), models.Index(fields=['url', '-audit_date'], name='utils_light_url_ef651c_idx')],
+                "verbose_name": "Lighthouse Audit",
+                "verbose_name_plural": "Lighthouse Audits",
+                "ordering": ["-audit_date"],
+                "indexes": [
+                    models.Index(fields=["-audit_date"], name="utils_light_audit_d_c70171_idx"),
+                    models.Index(fields=["url", "-audit_date"], name="utils_light_url_ef651c_idx"),
+                ],
             },
         ),
     ]

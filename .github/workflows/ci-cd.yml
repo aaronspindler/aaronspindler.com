@@ -49,24 +49,24 @@ jobs:
             dockerfile: celerybeat.Dockerfile
           - service: flower
             dockerfile: flower.Dockerfile
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
         with:
           driver-opts: |
             network=host
-      
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f  # v5.8.0
@@ -79,7 +79,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix={{branch}}-
-      
+
       - name: Build and push Docker image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
         with:
@@ -94,7 +94,7 @@ jobs:
           # Build args removed - BUILDKIT_INLINE_CACHE is deprecated
           provenance: false
           sbom: false
-  
+
   # Deploy to CapRover after successful build
   deploy:
     needs: build-and-push
@@ -103,13 +103,13 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
         with:
           fetch-depth: 2
-      
+
       - name: Check for Flower changes
         id: flower-changes
         run: |
@@ -129,7 +129,7 @@ jobs:
             --appToken "${{ secrets.CAPROVER_WEB_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_WEB_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-web:latest"
-      
+
       - name: Deploy Celery to CapRover
         continue-on-error: true
         run: |
@@ -139,7 +139,7 @@ jobs:
             --appToken "${{ secrets.CAPROVER_CELERY_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_CELERY_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celery:latest"
-      
+
       - name: Deploy Celery Beat to CapRover
         continue-on-error: true
         run: |
@@ -149,7 +149,7 @@ jobs:
             --appToken "${{ secrets.CAPROVER_CELERYBEAT_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_CELERYBEAT_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celerybeat:latest"
-      
+
       - name: Deploy Flower to CapRover
         if: steps.flower-changes.outputs.changed == 'true'
         continue-on-error: true
@@ -160,7 +160,7 @@ jobs:
             --appToken "${{ secrets.CAPROVER_FLOWER_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_FLOWER_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-flower:latest"
-      
+
       - name: Deployment Summary
         if: always()
         run: |

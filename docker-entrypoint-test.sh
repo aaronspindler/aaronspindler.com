@@ -8,7 +8,7 @@ wait_for_service() {
     local host=$1
     local port=$2
     local service_name=$3
-    
+
     echo "Waiting for $service_name to be ready..."
     while ! nc -z "$host" "$port" 2>/dev/null; do
         echo "  $service_name is not ready yet. Retrying in 2 seconds..."

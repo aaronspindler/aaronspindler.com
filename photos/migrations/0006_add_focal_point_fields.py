@@ -6,18 +6,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('photos', '0005_photoalbum_allow_downloads_photoalbum_is_private'),
+        ("photos", "0005_photoalbum_allow_downloads_photoalbum_is_private"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='photo',
-            name='focal_point_x',
-            field=models.FloatField(blank=True, help_text='X coordinate of focal point (0-1)', null=True),
+            model_name="photo",
+            name="focal_point_x",
+            field=models.FloatField(blank=True, help_text="X coordinate of focal point (0-1)", null=True),
         ),
         migrations.AddField(
-            model_name='photo',
-            name='focal_point_y',
-            field=models.FloatField(blank=True, help_text='Y coordinate of focal point (0-1)', null=True),
+            model_name="photo",
+            name="focal_point_y",
+            field=models.FloatField(blank=True, help_text="Y coordinate of focal point (0-1)", null=True),
         ),
     ]

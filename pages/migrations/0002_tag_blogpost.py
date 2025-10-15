@@ -6,29 +6,48 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('pages', '0001_initial'),
+        ("pages", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Tag',
+            name="Tag",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=75)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=75)),
             ],
         ),
         migrations.CreateModel(
-            name='BlogPost',
+            name="BlogPost",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.TextField()),
-                ('slug', models.SlugField(blank=True, max_length=255, null=True, unique=True)),
-                ('short_content', models.TextField(blank=True, null=True)),
-                ('content_html', models.TextField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('edited_at', models.DateTimeField(auto_now=True)),
-                ('published', models.BooleanField(default=False)),
-                ('tags', models.ManyToManyField(blank=True, to='pages.tag')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.TextField()),
+                (
+                    "slug",
+                    models.SlugField(blank=True, max_length=255, null=True, unique=True),
+                ),
+                ("short_content", models.TextField(blank=True, null=True)),
+                ("content_html", models.TextField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("edited_at", models.DateTimeField(auto_now=True)),
+                ("published", models.BooleanField(default=False)),
+                ("tags", models.ManyToManyField(blank=True, to="pages.tag")),
             ],
         ),
     ]

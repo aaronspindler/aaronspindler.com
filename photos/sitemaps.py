@@ -1,32 +1,35 @@
 """
 Sitemaps for the photos app with caching support.
 """
+
 from django.contrib.sitemaps import Sitemap
-from django.urls import reverse
 from django.core.cache import cache
-from photos.models import PhotoAlbum, Photo
+from django.urls import reverse
+
+from photos.models import Photo, PhotoAlbum
 
 
 class PhotoAlbumSitemap(Sitemap):
     """Sitemap for photo albums"""
+
     changefreq = "weekly"
     priority = 0.7
     protocol = "https"
 
     def items(self):
         """Return all public photo albums with caching"""
-        cache_key = 'sitemap_photo_albums_v1'
+        cache_key = "sitemap_photo_albums_v1"
         albums = cache.get(cache_key)
-        
+
         if albums is None:
-            albums = list(PhotoAlbum.objects.filter(is_private=False).order_by('-created_at'))
+            albums = list(PhotoAlbum.objects.filter(is_private=False).order_by("-created_at"))
             cache.set(cache_key, albums, 43200)  # Cache for 12 hours
-        
+
         return albums
 
     def location(self, obj):
         """Get the URL for each album"""
-        return reverse('photos:album_detail', kwargs={'slug': obj.slug})
+        return reverse("photos:album_detail", kwargs={"slug": obj.slug})
 
     def lastmod(self, obj):
         """Return the last modification date"""
@@ -48,6 +51,7 @@ class PhotoAlbumSitemap(Sitemap):
 
 class PhotoSitemap(Sitemap):
     """Sitemap for individual photos (if you have individual photo pages)"""
+
     changefreq = "monthly"
     priority = 0.5
     protocol = "https"
@@ -55,16 +59,20 @@ class PhotoSitemap(Sitemap):
 
     def items(self):
         """Return all photos from public albums with caching"""
-        cache_key = 'sitemap_photos_v1'
+        cache_key = "sitemap_photos_v1"
         photos = cache.get(cache_key)
-        
+
         if photos is None:
-            public_albums = PhotoAlbum.objects.filter(is_private=False).values_list('id', flat=True)
-            photos = list(Photo.objects.filter(
-                albums__in=public_albums
-            ).distinct().select_related().prefetch_related('albums').order_by('-created_at'))
+            public_albums = PhotoAlbum.objects.filter(is_private=False).values_list("id", flat=True)
+            photos = list(
+                Photo.objects.filter(albums__in=public_albums)
+                .distinct()
+                .select_related()
+                .prefetch_related("albums")
+                .order_by("-created_at")
+            )
             cache.set(cache_key, photos, 43200)  # Cache for 12 hours
-        
+
         return photos
 
     def location(self, obj):

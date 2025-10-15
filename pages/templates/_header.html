@@ -22,12 +22,12 @@
       <td colspan="4" style="padding-top: calc(var(--line-height) / 2); padding-bottom: calc(var(--line-height) / 2); position: relative;">
         <form method="get" action="{% url 'search' %}" class="header-search-form" role="search" aria-label="Site search">
           <label for="header-search-input" class="visually-hidden">Search</label>
-          <input 
-            type="search" 
+          <input
+            type="search"
             id="header-search-input"
-            name="q" 
+            name="q"
             value="{{ query|default:'' }}"
-            placeholder="$ search..." 
+            placeholder="$ search..."
             class="header-search-input"
             aria-label="Search blog posts, projects, and books"
           >

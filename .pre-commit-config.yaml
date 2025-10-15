@@ -1,0 +1,49 @@
+# Pre-commit hooks - simplified configuration
+# Focuses on essential checks that match CI/CD
+#
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+# Update hooks: pre-commit autoupdate
+
+repos:
+  # Ruff - Fast Python linter with import sorting built-in
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        name: ruff linter + import sorting
+        args: [--fix]  # Auto-fix issues where possible
+      - id: ruff-format  # Ruff's formatter (compatible with Black)
+        name: ruff formatter
+
+  # Basic file quality checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+
+# Configuration
+default_language_version:
+  python: python3
+
+# Files to exclude from all hooks
+exclude: |
+  (?x)^(
+      migrations/.*|
+      venv/.*|
+      .venv/.*|
+      .*\.egg-info/.*|
+      build/.*|
+      dist/.*|
+      \.git/.*|
+      __pycache__/.*|
+      \.pytest_cache/.*|
+      projects/ActionsUptime/.*
+  )$
+
+fail_fast: false

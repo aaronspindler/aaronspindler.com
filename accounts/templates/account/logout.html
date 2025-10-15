@@ -5,9 +5,9 @@
 {% block content %}
 <main class="content" role="main">
   <h2>Sign Out</h2>
-  
+
   <p style="margin-bottom: calc(var(--line-height) * 2);">Are you sure you want to sign out?</p>
-  
+
   <form method="post" action="{% url 'account_logout' %}" class="auth-form">
     {% csrf_token %}
     {{ form }}

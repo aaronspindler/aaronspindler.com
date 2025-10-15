@@ -8,42 +8,86 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('blog', '0001_initial'),
+        ("blog", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='blogcomment',
-            name='downvotes',
-            field=models.IntegerField(default=0, help_text='Cached count of downvotes'),
+            model_name="blogcomment",
+            name="downvotes",
+            field=models.IntegerField(default=0, help_text="Cached count of downvotes"),
         ),
         migrations.AddField(
-            model_name='blogcomment',
-            name='score',
-            field=models.IntegerField(default=0, help_text='Net score (upvotes - downvotes)'),
+            model_name="blogcomment",
+            name="score",
+            field=models.IntegerField(default=0, help_text="Net score (upvotes - downvotes)"),
         ),
         migrations.AddField(
-            model_name='blogcomment',
-            name='upvotes',
-            field=models.IntegerField(default=0, help_text='Cached count of upvotes'),
+            model_name="blogcomment",
+            name="upvotes",
+            field=models.IntegerField(default=0, help_text="Cached count of upvotes"),
         ),
         migrations.CreateModel(
-            name='CommentVote',
+            name="CommentVote",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('vote_type', models.CharField(choices=[('upvote', 'Upvote'), ('downvote', 'Downvote')], max_length=10)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('ip_address', models.GenericIPAddressField(blank=True, help_text='IP address for anonymous voting tracking', null=True)),
-                ('comment', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='votes', to='blog.blogcomment')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='comment_votes', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "vote_type",
+                    models.CharField(
+                        choices=[("upvote", "Upvote"), ("downvote", "Downvote")],
+                        max_length=10,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "ip_address",
+                    models.GenericIPAddressField(
+                        blank=True,
+                        help_text="IP address for anonymous voting tracking",
+                        null=True,
+                    ),
+                ),
+                (
+                    "comment",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="votes",
+                        to="blog.blogcomment",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="comment_votes",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Comment Vote',
-                'verbose_name_plural': 'Comment Votes',
-                'indexes': [models.Index(fields=['comment', 'user'], name='blog_commen_comment_8a255d_idx'), models.Index(fields=['comment', 'vote_type'], name='blog_commen_comment_c6a6f5_idx')],
-                'unique_together': {('comment', 'user')},
+                "verbose_name": "Comment Vote",
+                "verbose_name_plural": "Comment Votes",
+                "indexes": [
+                    models.Index(
+                        fields=["comment", "user"],
+                        name="blog_commen_comment_8a255d_idx",
+                    ),
+                    models.Index(
+                        fields=["comment", "vote_type"],
+                        name="blog_commen_comment_c6a6f5_idx",
+                    ),
+                ],
+                "unique_together": {("comment", "user")},
             },
         ),
     ]

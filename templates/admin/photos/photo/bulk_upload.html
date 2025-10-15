@@ -83,28 +83,28 @@
             const fileInput = document.querySelector('input[type="file"]');
             const previewContainer = document.createElement('div');
             previewContainer.className = 'file-preview';
-            
+
             if (fileInput) {
                 fileInput.parentNode.appendChild(previewContainer);
-                
+
                 fileInput.addEventListener('change', function(e) {
                     previewContainer.innerHTML = '';
                     const files = Array.from(e.target.files);
-                    
+
                     if (files.length > 0) {
                         const heading = document.createElement('h3');
                         heading.textContent = `Selected ${files.length} image(s):`;
                         previewContainer.appendChild(heading);
-                        
+
                         const grid = document.createElement('div');
                         grid.className = 'file-preview';
-                        
+
                         files.forEach(file => {
                             if (file.type.startsWith('image/')) {
                                 const reader = new FileReader();
                                 const item = document.createElement('div');
                                 item.className = 'file-preview-item';
-                                
+
                                 reader.onload = function(e) {
                                     // Create elements safely to prevent XSS
                                     const img = document.createElement('img');
@@ -122,12 +122,12 @@
                                     item.appendChild(img);
                                     item.appendChild(filenameDiv);
                                 };
-                                
+
                                 reader.readAsDataURL(file);
                                 grid.appendChild(item);
                             }
                         });
-                        
+
                         previewContainer.appendChild(grid);
                     }
                 });
@@ -147,7 +147,7 @@
 
 {% block content %}
     <h1>{% trans 'Bulk Upload Photos' %}</h1>
-    
+
     <div class="upload-info">
         <h3>📸 Upload Instructions</h3>
         <ul>
@@ -161,7 +161,7 @@
 
     <form method="post" enctype="multipart/form-data" class="bulk-upload-form">
         {% csrf_token %}
-        
+
         {% for field in form %}
             <div class="form-row">
                 <label for="{{ field.id_for_label }}">{{ field.label }}</label>

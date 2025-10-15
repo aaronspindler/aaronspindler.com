@@ -189,7 +189,7 @@ prompt = f"Analyze these messages: {messages}"
 <pre><code class="python"># Handling different message types
 def parse_message_element(element):
     message_type = element.get('data-type', 'text')
-    
+
     if message_type == 'attachment':
         return handle_attachment(element)
     elif message_type == 'reaction':
@@ -208,7 +208,7 @@ def parse_message_element(element):
 def split_conversations_v1(messages):
     conversations = []
     current_convo = []
-    
+
     for i, msg in enumerate(messages):
         if i > 0:
             time_gap = msg['timestamp'] - messages[i-1]['timestamp']
@@ -216,7 +216,7 @@ def split_conversations_v1(messages):
                 conversations.append(current_convo)
                 current_convo = []
         current_convo.append(msg)
-    
+
     return conversations</code></pre>
 
 <p>This worked... poorly. It would split ongoing conversations just because someone took a lunch break, or merge completely unrelated topics just because they happened quickly. I needed something more sophisticated.</p>
@@ -234,7 +234,7 @@ class ConversationDetector:
             MomentumSignal(),        # Analyze response patterns
             EmotionalToneSignal()    # Track emoji usage and sentiment
         ]
-    
+
     def should_split(self, messages, index):
         votes = [signal.vote(messages, index) for signal in self.signals]
         return self.weighted_decision(votes)</code></pre>
@@ -249,14 +249,14 @@ def chunk_conversation(messages, max_tokens=8000):
     chunks = []
     current_chunk = []
     current_tokens = 0
-    
+
     # Always include conversation metadata
     metadata = create_conversation_summary(messages)
     metadata_tokens = count_tokens(metadata)
-    
+
     for msg in messages:
         msg_tokens = count_tokens(format_message(msg))
-        
+
         if current_tokens + msg_tokens > max_tokens - metadata_tokens:
             # Save current chunk with overlap for context
             chunks.append({
@@ -268,10 +268,10 @@ def chunk_conversation(messages, max_tokens=8000):
             overlap = get_context_overlap(current_chunk)
             current_chunk = overlap
             current_tokens = count_tokens(overlap)
-        
+
         current_chunk.append(msg)
         current_tokens += msg_tokens
-    
+
     return chunks</code></pre>
 
 <h3>Challenge #4: Performance at Scale</h3>
@@ -279,7 +279,7 @@ def chunk_conversation(messages, max_tokens=8000):
 
 <pre><code class="text">Initial Performance Profile:
 - HTML Parsing: 45% of runtime (Beautiful Soup)
-- Conversation Detection: 30% of runtime (O(n²) similarity checks)  
+- Conversation Detection: 30% of runtime (O(n²) similarity checks)
 - CSV Writing: 15% of runtime (row-by-row pandas operations)
 - Token Counting: 10% of runtime (repeated tokenization)</code></pre>
 
@@ -321,11 +321,11 @@ class DeepSeekTokenizer:
             'deepseek-ai/DeepSeek-R1-Distill-Llama-14B'
         )
         self._cache = {}  # Cache tokenization results
-    
+
     def count_tokens(self, text):
         if text in self._cache:
             return self._cache[text]
-        
+
         tokens = len(self.tokenizer.encode(text))
         self._cache[text] = tokens
         return tokens</code></pre>
@@ -347,7 +347,7 @@ def detect_timezone_shift(messages):
     hourly_distribution = defaultdict(int)
     for msg in messages:
         hourly_distribution[msg['timestamp'].hour] += 1
-    
+
     # Sudden shift in active hours suggests timezone change
     if has_distribution_shift(hourly_distribution):
         return adjust_thresholds_for_timezone()</code></pre>
@@ -372,7 +372,7 @@ class SmartCache:
             'context_summary': self.summarize_context(context)
         }
         return self.generate_stable_key(factors)
-    
+
     def should_invalidate(self, cache_entry):
         return (
             cache_entry['age'] > self.max_age or

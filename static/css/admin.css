@@ -32,63 +32,63 @@ body {
         --background-alt: #111;
         --text-color: #fff;
     }
-    
+
     body {
         background-color: var(--background-color) !important;
         color: var(--text-color) !important;
     }
-    
+
     #header {
         background: var(--background-color) !important;
         color: var(--text-color) !important;
         border-bottom: var(--border-thickness) solid var(--border-color) !important;
     }
-    
+
     .module {
         background: var(--background-color) !important;
         border: var(--border-thickness) solid var(--border-color) !important;
     }
-    
+
     .module h2, .module caption {
         background: var(--background-alt) !important;
         color: var(--text-color) !important;
     }
-    
+
     table thead th {
         background: var(--background-alt) !important;
         color: var(--text-color) !important;
     }
-    
+
     input, select, textarea {
         background: var(--background-color) !important;
         color: var(--text-color) !important;
         border-color: var(--border-color) !important;
     }
-    
+
     .button, input[type="submit"], input[type="button"], .submit-row input {
         background: var(--background-alt) !important;
         color: var(--text-color) !important;
         border-color: var(--border-color) !important;
     }
-    
+
     .button:hover, input[type="submit"]:hover, input[type="button"]:hover {
         background: var(--background-color) !important;
     }
-    
+
     #changelist-filter {
         background: var(--background-color) !important;
         border-left: var(--border-thickness) solid var(--border-color) !important;
     }
-    
+
     #changelist-filter h2 {
         background: var(--background-alt) !important;
     }
-    
+
     #changelist-filter li.selected a {
         color: var(--text-color) !important;
         font-weight: 600;
     }
-    
+
     .paginator a, .paginator span {
         background: var(--background-alt) !important;
         color: var(--text-color) !important;
@@ -577,10 +577,9 @@ table thead th {
     body {
         font-size: 14px;
     }
-    
+
     #header,
     #content {
         padding: var(--line-height) 1ch;
     }
 }
-

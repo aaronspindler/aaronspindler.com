@@ -6,39 +6,49 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('photos', '0006_add_focal_point_fields'),
+        ("photos", "0006_add_focal_point_fields"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='photo',
-            name='image_large',
+            model_name="photo",
+            name="image_large",
         ),
         migrations.RemoveField(
-            model_name='photo',
-            name='image_medium',
+            model_name="photo",
+            name="image_medium",
         ),
         migrations.RemoveField(
-            model_name='photo',
-            name='image_small',
+            model_name="photo",
+            name="image_small",
         ),
         migrations.RemoveField(
-            model_name='photo',
-            name='image_thumbnail',
+            model_name="photo",
+            name="image_thumbnail",
         ),
         migrations.AddField(
-            model_name='photo',
-            name='image_display',
-            field=models.ImageField(blank=True, null=True, upload_to='photos/display/', verbose_name='Display Version (Smart Cropped)'),
+            model_name="photo",
+            name="image_display",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to="photos/display/",
+                verbose_name="Display Version (Smart Cropped)",
+            ),
         ),
         migrations.AddField(
-            model_name='photo',
-            name='image_optimized',
-            field=models.ImageField(blank=True, null=True, upload_to='photos/optimized/', verbose_name='Optimized Full Size'),
+            model_name="photo",
+            name="image_optimized",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to="photos/optimized/",
+                verbose_name="Optimized Full Size",
+            ),
         ),
         migrations.AlterField(
-            model_name='photo',
-            name='image',
-            field=models.ImageField(upload_to='photos/original/', verbose_name='Original Full Resolution'),
+            model_name="photo",
+            name="image",
+            field=models.ImageField(upload_to="photos/original/", verbose_name="Original Full Resolution"),
         ),
     ]

@@ -72,7 +72,7 @@
     <script>
         const ctx = document.getElementById('lighthouseChart');
         const chartData = {{ chart_data|safe }};
-        
+
         new Chart(ctx, {
             type: 'line',
             data: {
@@ -244,22 +244,21 @@
     .lighthouse-scores {
         flex-wrap: wrap;
     }
-    
+
     .score-card {
         flex: 0 0 calc(50% - 0.5rem);
         height: 100px;
         min-height: 100px;
     }
-    
+
     .score-value {
         font-size: 2rem;
         height: 2.5rem;
     }
-    
+
     .lighthouse-table {
         overflow-x: auto;
     }
 }
 </style>
 {% endblock %}
-

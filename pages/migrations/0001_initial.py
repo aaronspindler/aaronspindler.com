@@ -8,21 +8,28 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='PageVisit',
+            name="PageVisit",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('ip_address', models.GenericIPAddressField()),
-                ('page_name', models.CharField(max_length=255)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("ip_address", models.GenericIPAddressField()),
+                ("page_name", models.CharField(max_length=255)),
             ],
             options={
-                'verbose_name': 'Page Visit',
-                'verbose_name_plural': 'Page Visits',
+                "verbose_name": "Page Visit",
+                "verbose_name_plural": "Page Visits",
             },
         ),
     ]

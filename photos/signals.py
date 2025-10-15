@@ -1,8 +1,10 @@
+import logging
+
 from django.db.models.signals import m2m_changed, post_save, pre_delete
 from django.dispatch import receiver
-from photos.models import PhotoAlbum, Photo
+
+from photos.models import Photo, PhotoAlbum
 from photos.tasks import generate_album_zip
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +14,7 @@ def handle_album_photos_change(sender, instance, action, pk_set=None, **kwargs):
     """
     Trigger zip file regeneration when photos are added or removed from an album.
     """
-    if action in ['post_add', 'post_remove', 'post_clear']:
+    if action in ["post_add", "post_remove", "post_clear"]:
         if instance.allow_downloads:
             generate_album_zip.delay(instance.pk)
             logger.info(f"Triggered zip regeneration for album {instance.title} after {action}")
@@ -43,10 +45,7 @@ def handle_album_save(sender, instance, created, **kwargs):
                 instance.zip_file_optimized.delete()
                 instance.zip_file_optimized = None
             # Use update to avoid recursive signal
-            PhotoAlbum.objects.filter(pk=instance.pk).update(
-                zip_file=None, 
-                zip_file_optimized=None
-            )
+            PhotoAlbum.objects.filter(pk=instance.pk).update(zip_file=None, zip_file_optimized=None)
             logger.info(f"Deleted zip files for album {instance.title} - downloads disabled")
 
 
@@ -70,7 +69,7 @@ def handle_photo_delete(sender, instance, **kwargs):
     """
     # Get albums before the photo is deleted from database
     albums = instance.albums.filter(allow_downloads=True)
-    album_ids = list(albums.values_list('pk', flat=True))
+    album_ids = list(albums.values_list("pk", flat=True))
     for album_id in album_ids:
         generate_album_zip.apply_async(args=[album_id], countdown=2)
         logger.info(f"Scheduled zip regeneration for album {album_id} after photo deletion")
