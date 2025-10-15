@@ -183,7 +183,7 @@ class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
 
         # Delete parent
         self.client.login(username=self.user.username, password="testpass123")
-        response = self.client.get(f"/comment/{parent.id}/delete/")
+        _response = self.client.get(f"/comment/{parent.id}/delete/")
 
         # Check cascade deletion
         self.assertFalse(BlogComment.objects.filter(id=parent.id).exists())

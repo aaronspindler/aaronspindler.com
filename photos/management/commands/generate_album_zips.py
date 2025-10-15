@@ -29,7 +29,7 @@ class Command(BaseCommand):
             self.stdout.write("Regenerating zips for all albums with downloads enabled...")
 
             if use_async:
-                result = regenerate_all_album_zips.delay()
+                _result = regenerate_all_album_zips.delay()
                 self.stdout.write(self.style.SUCCESS("Triggered async regeneration of all album zips"))
             else:
                 albums = PhotoAlbum.objects.filter(allow_downloads=True)

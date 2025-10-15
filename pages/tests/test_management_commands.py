@@ -269,7 +269,7 @@ class BuildCssCommandTest(TestCase):
 
             # Check for versioned file
             versioned_files = list(Path(self.css_dir).glob("combined.min.*.css"))
-            self.assertTrue(len(versioned_files) > 0)
+            self.assertGreater(len(versioned_files), 0)
 
     @patch("pages.management.commands.build_css.settings")
     @patch("pages.management.commands.build_css.os.path.getsize")

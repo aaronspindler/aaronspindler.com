@@ -162,7 +162,7 @@ class SearchFunctionsTest(TestCase):
         results = search_blog_posts()
         self.assertEqual(len(results), 2)
         # Check that results are in order (newest first)
-        self.assertTrue(results[0]["template_name"] in ["0002_flask_microframework", "0001_django_tutorial"])
+        self.assertIn(results[0]["template_name"], ["0002_flask_microframework", "0001_django_tutorial"])
 
     def test_search_blog_posts_with_query(self):
         """Test searching blog posts with a specific query."""
