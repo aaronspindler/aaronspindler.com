@@ -259,6 +259,37 @@ Blog posts are HTML templates in `templates/blog/<category>/<filename>.html` wit
 - Coverage reporting with coverage.py
 - CI/CD via GitHub Actions with PostgreSQL service container
 
+### Security and Code Quality
+- **CodeQL Analysis**: Automated security scanning runs on:
+  - Every push to main
+  - All pull requests
+  - Daily scheduled scans at 5:30 AM UTC
+  - Scans both Python and JavaScript code
+  - Uses `security-and-quality` query suite (comprehensive security + code quality checks)
+
+- **GitHub Copilot Autofix**: Automatically suggests fixes for security vulnerabilities
+  - Enabled in `.github/workflows/codeql.yml`
+  - **Automatic PR Creation**: When CodeQL detects alerts during scheduled scans or pushes to main:
+    - Automatically creates a new branch with timestamp (e.g., `codeql-autofix-20250114-123456`)
+    - Opens a PR with detailed information about all detected alerts
+    - GitHub Copilot Autofix then posts fix suggestions as PR comments
+    - PR includes alert severity, file locations, and direct links to Security tab
+  - Posts fix suggestions directly to pull requests
+  - Requires GitHub Advanced Security to be enabled on the repository
+  - Workflow:
+    1. CodeQL detects security vulnerabilities
+    2. Automated PR is created (scheduled runs and main branch pushes only)
+    3. Copilot analyzes each alert and generates fix suggestions
+    4. Review and apply suggested fixes with one click
+    5. Merge PR once all issues are resolved
+
+- **Pre-commit Hooks**: Local code quality enforcement
+  - Ruff linter with auto-fixing
+  - Black formatter
+  - isort for import sorting
+  - MyPy type checking (on push)
+  - Django system checks (on push)
+
 ### Performance Optimizations
 - Graph data caching with 20-minute timeout
 - File modification time tracking for cache invalidation
