@@ -119,3 +119,90 @@ def get_books():
     books.sort(key=lambda x: x["name"], reverse=False)
 
     return books
+
+
+def get_projects():
+    """
+    Get list of projects to display on the home page and in search results.
+
+    Returns:
+        List of dicts with project metadata (name, description, link, tech stack)
+    """
+    projects = []
+
+    projects.append(
+        {
+            "name": "Team Bio",
+            "description": "Team Bio is a platform to foster professional connections between coworkers within a company. This is done with profiles, trivia, coffee chats, and more.",
+            "link": "https://github.com/aaronspindler/Team.Bio",
+            "tech": ["Python", "Django", "PostgreSQL", "HTML", "JavaScript"],
+        }
+    )
+
+    projects.append(
+        {
+            "name": "ActionsUptime",
+            "description": "ActionsUptime is a platform to help you monitor your GitHub Actions and get notifications when they fail.",
+            "link": "https://actionsuptime.com",
+            "tech": ["Django", "PostgreSQL", "Celery", "Redis"],
+        }
+    )
+
+    projects.append(
+        {
+            "name": "Poseidon",
+            "description": "Poseidon is a tool to help explore financial data, generate insights, and make trading decisions.",
+            "link": "https://github.com/aaronspindler/Poseidon",
+            "tech": [
+                "Python",
+                "Django",
+                "PostgreSQL",
+                "C#",
+                "Prophet",
+                "Various ML/AI models",
+            ],
+        }
+    )
+
+    projects.append(
+        {
+            "name": "Spindlers",
+            "description": "Spindlers is a full service technology consulting company, specializing in custom software solutions, web development, and bringing small/medium businesses into the digital age.",
+            "link": "https://spindlers.ca",
+            "tech": [
+                "Software Development",
+                "Web Design",
+                "Graphic Design",
+                "SEO",
+                "Marketing",
+                "Consulting",
+            ],
+        }
+    )
+
+    projects.append(
+        {
+            "name": "iMessageLLM",
+            "description": "iMessageLLM brings the power of large language models directly to your iMessage conversations, understand context, summarize years of message history, and extract key insights.",
+            "link": "https://github.com/aaronspindler/iMessageLLM",
+            "tech": ["Python", "LLMs", "Data Analysis", "iMessage"],
+        }
+    )
+
+    projects.append(
+        {
+            "name": "Lightroom Blur",
+            "description": "Clean up unintentionally blurry and duplicate photos in Lightroom and Apple Photos automatically with AI-powered image classification and blur detection.",
+            "link": "https://github.com/aaronspindler/lightroom",
+            "tech": [
+                "Python",
+                "Image Processing",
+                "Machine Learning",
+                "Blur Detection",
+                "Apple Photos",
+                "Lightroom",
+            ],
+        }
+    )
+
+    return projects

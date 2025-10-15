@@ -7,6 +7,8 @@ from utils.views import (
     delete_phone,
     lighthouse_badge_endpoint,
     lighthouse_history_page,
+    search_autocomplete,
+    search_view,
     unsubscribe,
     verify_email,
     verify_phone,
@@ -24,4 +26,7 @@ urlpatterns = [
     # Lighthouse monitoring
     path("api/lighthouse/badge/", lighthouse_badge_endpoint, name="lighthouse_badge"),
     path("lighthouse/history/", lighthouse_history_page, name="lighthouse_history"),
+    # Search
+    path("search/", search_view, name="search"),
+    path("api/search/autocomplete/", search_autocomplete, name="search_autocomplete"),
 ]

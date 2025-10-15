@@ -1,8 +1,9 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseNotAllowed
+from django.http import HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_GET
 
 from utils.models import NotificationEmail, NotificationPhoneNumber
 from utils.phone_numbers import clean_phone_number
@@ -127,7 +128,6 @@ def unsubscribe(request, unsubscribe_code):
 import json
 from datetime import timedelta
 
-from django.http import JsonResponse
 from django.views.decorators.cache import cache_page
 
 from utils.models import LighthouseAudit
@@ -199,3 +199,88 @@ def lighthouse_history_page(request):
     }
 
     return render(request, "lighthouse_monitor/history.html", context)
+
+
+# Search views
+from utils.search import search_blog_posts, search_books, search_projects
+
+
+@require_GET
+def search_view(request):
+    """
+    Unified search view for blog posts, projects, and books.
+    Supports full-text search.
+    """
+    query = request.GET.get("q", "").strip()
+    category = request.GET.get("category", "").strip() or None
+    content_type = request.GET.get("type", "all")  # all, blog, projects, books
+
+    results = {"blog_posts": [], "projects": [], "books": []}
+
+    # Search blog posts
+    if content_type in ["all", "blog"]:
+        results["blog_posts"] = search_blog_posts(query=query if query else None, category=category)
+
+    # Search projects
+    if content_type in ["all", "projects"]:
+        results["projects"] = search_projects(query=query if query else None)
+
+    # Search books
+    if content_type in ["all", "books"]:
+        results["books"] = search_books(query=query if query else None)
+
+    context = {
+        "query": query,
+        "category": category,
+        "content_type": content_type,
+        "results": results,
+        "total_results": len(results["blog_posts"]) + len(results["projects"]) + len(results["books"]),
+    }
+
+    return render(request, "blog/search_results.html", context)
+
+
+@require_GET
+def search_autocomplete(request):
+    """
+    API endpoint for search autocomplete suggestions.
+    Returns top results from blog posts, projects, and books.
+    """
+    query = request.GET.get("q", "").strip()
+
+    if not query or len(query) < 2:
+        return JsonResponse({"suggestions": []})
+
+    suggestions = []
+
+    # Get blog post suggestions (limit to 5)
+    blog_posts = search_blog_posts(query=query)[:5]
+    for post in blog_posts:
+        suggestions.append(
+            {
+                "title": post["blog_title"],
+                "type": "Blog Post",
+                "url": f"/b/{post['category']}/{post['template_name']}/",
+                "category": post["category"],
+            }
+        )
+
+    # Get project suggestions (limit to 3)
+    projects = search_projects(query=query)[:3]
+    for project in projects:
+        suggestions.append(
+            {
+                "title": project["name"],
+                "type": "Project",
+                "url": project.get("link", "#"),
+                "external": bool(project.get("link")),
+            }
+        )
+
+    # Get book suggestions (limit to 2)
+    books = search_books(query=query)[:2]
+    for book in books:
+        author_text = f" by {book['author']}" if book.get("author") else ""
+        suggestions.append({"title": f"{book['name']}{author_text}", "type": "Book", "url": "/#books"})
+
+    return JsonResponse({"suggestions": suggestions[:10]})

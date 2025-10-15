@@ -9,7 +9,7 @@ from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
 
 from blog.utils import get_all_blog_posts, get_blog_from_template_name
-from pages.utils import get_books
+from pages.utils import get_books, get_projects
 from photos.models import PhotoAlbum
 
 logger = logging.getLogger(__name__)
@@ -129,65 +129,12 @@ def home(request):
     projects = cache.get(projects_cache_key)
 
     if not projects:
-        projects = [
-            {
-                "name": "Team Bio",
-                "description": "Team Bio is a platform to foster professional connections between coworkers within a company. This is done with profiles, trivia, coffee chats, and more.",
-                "link": "https://github.com/aaronspindler/Team.Bio",
-                "tech": ["Python", "Django", "PostgreSQL", "HTML", "JavaScript"],
-            },
-            {
-                "name": "ActionsUptime",
-                "description": "ActionsUptime is a platform to help you monitor your GitHub Actions and get notifications when they fail.",
-                "tech": ["Django", "PostgreSQL", "Celery", "Redis"],
-            },
-            {
-                "name": "Poseidon",
-                "description": "Poseidon is a tool to help explore financial data, generate insights, and make trading decisions.",
-                "link": "https://github.com/aaronspindler/Poseidon",
-                "tech": [
-                    "Python",
-                    "Django",
-                    "PostgreSQL",
-                    "C#",
-                    "Prophet",
-                    "Various ML/AI models",
-                ],
-            },
-            {
-                "name": "Spindlers",
-                "description": "Spindlers is a full service technology consulting company, specializing in custom software solutions, web development, and bringing small/medium businesses into the digital age.",
-                "link": "https://spindlers.ca",
-                "tech": [
-                    "Software Development",
-                    "Web Design",
-                    "Graphic Design",
-                    "SEO",
-                    "Marketing",
-                    "Consulting",
-                ],
-            },
-            {
-                "name": "iMessageLLM",
-                "description": "iMessageLLM brings the power of large language models directly to your iMessage conversations, understand context, summarize years of message history, and extract key insights.",
-                "link": "https://github.com/aaronspindler/iMessageLLM",
-                "tech": ["Python", "LLMs", "Data Analysis", "iMessage"],
-            },
-            {
-                "name": "Lightroom Blur",
-                "description": "Clean up unintentionally blurry and duplicate photos in Lightroom and Apple Photos automatically with AI-powered image classification and blur detection.",
-                "link": "https://github.com/aaronspindler/lightroom",
-                "tech": [
-                    "Python",
-                    "Image Processing",
-                    "Machine Learning",
-                    "Blur Detection",
-                    "Apple Photos",
-                    "Lightroom",
-                ],
-            },
-        ]
-        cache.set(projects_cache_key, projects, 86400)  # Cache for 24 hours
+        try:
+            projects = get_projects()
+            cache.set(projects_cache_key, projects, 86400)  # Cache for 24 hours
+        except Exception:
+            # Handle errors gracefully - provide empty list as fallback
+            projects = []
 
     # Books (24 hour cache)
     books_cache_key = "home_books_v1"

@@ -1,5 +1,7 @@
 import os
 
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVectorField
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.text import slugify
@@ -76,12 +78,18 @@ class Photo(models.Model):
         help_text="GPS altitude in meters",
     )
 
+    # PostgreSQL full-text search vector
+    search_vector = SearchVectorField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = "Photo"
         verbose_name_plural = "Photos"
+        indexes = [
+            GinIndex(fields=["search_vector"], name="photo_search_idx"),
+        ]
 
     def save(self, *args, **kwargs):
         """
@@ -267,6 +275,9 @@ class PhotoAlbum(models.Model):
 
     allow_downloads = models.BooleanField(default=False)
 
+    # PostgreSQL full-text search vector
+    search_vector = SearchVectorField(null=True, blank=True)
+
     zip_file = models.FileField(
         upload_to="albums/zips/original/",
         storage=private_storage,
@@ -285,6 +296,9 @@ class PhotoAlbum(models.Model):
     class Meta:
         verbose_name = "Photo Album"
         verbose_name_plural = "Photo Albums"
+        indexes = [
+            GinIndex(fields=["search_vector"], name="album_search_idx"),
+        ]
 
     def save(self, *args, **kwargs):
         if not self.slug:

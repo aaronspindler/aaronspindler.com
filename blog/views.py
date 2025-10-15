@@ -6,12 +6,11 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template import TemplateDoesNotExist
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET, require_http_methods
+from django.views.decorators.http import require_http_methods
 
 from blog.forms import CommentForm, ReplyForm
 from blog.knowledge_graph import build_knowledge_graph, get_post_graph
 from blog.models import BlogComment, CommentVote, KnowledgeGraphScreenshot
-from blog.search import search_blog_posts, search_books, search_projects
 from blog.utils import get_blog_from_template_name
 
 logger = logging.getLogger(__name__)
@@ -433,84 +432,3 @@ def vote_comment(request, comment_id):
             "user_vote": user_vote,
         }
     )
-
-
-@require_GET
-def search_view(request):
-    """
-    Unified search view for blog posts, projects, and books.
-    Supports full-text search.
-    """
-    query = request.GET.get("q", "").strip()
-    category = request.GET.get("category", "").strip() or None
-    content_type = request.GET.get("type", "all")  # all, blog, projects, books
-
-    results = {"blog_posts": [], "projects": [], "books": []}
-
-    # Search blog posts
-    if content_type in ["all", "blog"]:
-        results["blog_posts"] = search_blog_posts(query=query if query else None, category=category)
-
-    # Search projects
-    if content_type in ["all", "projects"]:
-        results["projects"] = search_projects(query=query if query else None)
-
-    # Search books
-    if content_type in ["all", "books"]:
-        results["books"] = search_books(query=query if query else None)
-
-    context = {
-        "query": query,
-        "category": category,
-        "content_type": content_type,
-        "results": results,
-        "total_results": len(results["blog_posts"]) + len(results["projects"]) + len(results["books"]),
-    }
-
-    return render(request, "blog/search_results.html", context)
-
-
-@require_GET
-def search_autocomplete(request):
-    """
-    API endpoint for search autocomplete suggestions.
-    Returns top results from blog posts, projects, and books.
-    """
-    query = request.GET.get("q", "").strip()
-
-    if not query or len(query) < 2:
-        return JsonResponse({"suggestions": []})
-
-    suggestions = []
-
-    # Get blog post suggestions (limit to 5)
-    blog_posts = search_blog_posts(query=query)[:5]
-    for post in blog_posts:
-        suggestions.append(
-            {
-                "title": post["blog_title"],
-                "type": "Blog Post",
-                "url": f"/b/{post['category']}/{post['template_name']}/",
-                "category": post["category"],
-            }
-        )
-
-    # Get project suggestions (limit to 3)
-    projects = search_projects(query=query)[:3]
-    for project in projects:
-        suggestions.append(
-            {
-                "title": project["name"],
-                "type": "Project",
-                "url": project.get("link", "#"),
-                "external": bool(project.get("link")),
-            }
-        )
-
-    # Get book suggestions (limit to 2)
-    books = search_books(query=query)[:2]
-    for book in books:
-        author_text = f" by {book['author']}" if book.get("author") else ""
-        suggestions.append({"title": f"{book['name']}{author_text}", "type": "Book", "url": "/#books"})
-
-    return JsonResponse({"suggestions": suggestions[:10]})

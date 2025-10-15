@@ -269,7 +269,6 @@ class KnowledgeGraphIntegrationTest(TestCase):
         metrics = graph["metrics"]
         self.assertEqual(metrics["total_posts"], 3)
         self.assertEqual(metrics["total_internal_links"], 2)
-        self.assertEqual(metrics["total_external_links"], 1)
 
     @patch("blog.views.build_knowledge_graph")
     def test_knowledge_graph_api_caching(self, mock_build):

@@ -101,6 +101,33 @@ python manage.py clear_cache
 python manage.py setup_periodic_tasks
 ```
 
+### Search Index Management
+```bash
+# Rebuild full-text search index for all content
+python manage.py rebuild_search_index
+
+# Rebuild only blog posts
+python manage.py rebuild_search_index --content-type blog
+
+# Rebuild only photos
+python manage.py rebuild_search_index --content-type photos
+
+# Rebuild only photo albums
+python manage.py rebuild_search_index --content-type albums
+
+# Clear and rebuild entire index
+python manage.py rebuild_search_index --clear
+
+# Example: Clear and rebuild only blog posts
+python manage.py rebuild_search_index --clear --content-type blog
+```
+
+**Note**: The search index should be rebuilt whenever:
+- New blog posts are added
+- Blog post content is significantly modified
+- New photos or albums are added
+- Project or book data changes
+
 ## Architecture Overview
 
 ### Django Apps Structure
@@ -173,6 +200,24 @@ python manage.py setup_periodic_tasks
    - Template normalization for consistency
    - **Important**: When modifying blog post templates in `templates/blog/*/*.html`, utilize existing stylesheets and maintain consistency with other posts
 
+4. **Full-Text Search System** (`utils/search.py`, `utils/models/search.py`)
+   - PostgreSQL-powered full-text search with trigram similarity for typo tolerance
+   - SearchableContent model (in utils app) stores indexed content from blog posts, projects, and books
+   - Photo and PhotoAlbum models have search_vector fields with GIN indexes
+   - Search features:
+     - Full-text search using SearchVector, SearchQuery, and SearchRank
+     - Trigram similarity (pg_trgm extension) for typo-tolerant matching
+     - Combined scoring: 70% FTS rank + 30% trigram similarity
+     - Relevance thresholds: rank > 0.01 OR similarity > 0.2
+     - Weighted fields: title (A), description (B), content (C)
+   - Frontend autocomplete already implemented:
+     - Vanilla JavaScript in `/static/js/search-autocomplete.js`
+     - Triggers after 2 characters typed
+     - Keyboard navigation (arrow keys, enter, escape)
+     - API endpoint: `/api/search/autocomplete/`
+   - Management command: `rebuild_search_index` (in utils app) to populate/update search index
+   - **Performance**: Sub-100ms response time for autocomplete queries
+
 ### Deployment Configuration
 - **Docker**: Multi-stage build with Playwright for screenshot generation
 - **Database**: PostgreSQL with psycopg3
@@ -220,3 +265,5 @@ Blog posts are HTML templates in `templates/blog/<category>/<filename>.html` wit
 - Multi-resolution image generation (thumbnail, small, medium, large)
 - Static file compression and optimization
 - Database query optimization with select/prefetch related
+- PostgreSQL full-text search with GIN indexes
+- Trigram indexes for typo-tolerant search

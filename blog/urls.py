@@ -7,16 +7,11 @@ from .views import (
     moderate_comment,
     render_blog_template,
     reply_to_comment,
-    search_autocomplete,
-    search_view,
     submit_comment,
     vote_comment,
 )
 
 urlpatterns = [
-    # Search
-    path("search/", search_view, name="search"),
-    path("api/search/autocomplete/", search_autocomplete, name="search_autocomplete"),
     # Comment management routes (must come before blog post routes to avoid conflicts)
     path(
         "b/<str:category>/<str:template_name>/comment/",

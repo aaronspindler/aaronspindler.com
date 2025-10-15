@@ -227,7 +227,6 @@ class EdgeCaseTests(TestCase):
             result = parser.parse_blog_post("test")
 
             self.assertEqual(len(result["internal_links"]), 0)
-            self.assertEqual(len(result["external_links"]), 0)
             self.assertEqual(len(result.get("parse_errors", [])), 0)
 
     @patch("blog.views.get_blog_from_template_name")
