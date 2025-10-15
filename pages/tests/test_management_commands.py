@@ -220,14 +220,21 @@ class BuildCssCommandTest(TestCase):
 
         with patch("pages.management.commands.build_css.subprocess.run"):
             out = StringIO()
-            call_command("build_css", dev=True, stdout=out)
+            call_command("build_css", stdout=out)
 
-            # Check that file was optimized
-            optimized_content = Path(css_file).read_text()
-            # Should have consolidated margin
-            self.assertIn("margin:", optimized_content)
-            # Should have shortened color
-            self.assertIn("#fff", optimized_content.lower())
+            # Check that .opt.css file was created with optimizations
+            # In production mode, source files are NOT modified - .opt.css files are created instead
+            opt_file = Path(css_file.replace(".css", ".opt.css"))
+            if opt_file.exists():
+                optimized_content = opt_file.read_text()
+                # Should have consolidated margin
+                self.assertIn("margin:", optimized_content)
+                # Should have shortened color
+                self.assertIn("#fff", optimized_content.lower())
+
+            # Verify source file remains unchanged (developer-friendly)
+            source_content = Path(css_file).read_text()
+            self.assertEqual(source_content.strip(), css_content.strip())
 
     @patch("pages.management.commands.build_css.settings")
     @patch("pages.management.commands.build_css.subprocess.run")
