@@ -79,6 +79,10 @@ class CodeQLAutoFixer:
 
         var_name = match.group(1)
 
+        # Skip if variable already starts with underscore (already marked as intentionally unused)
+        if var_name.startswith("_"):
+            return False
+
         # Read file
         content = file_path.read_text()
         lines = content.splitlines(keepends=True)
