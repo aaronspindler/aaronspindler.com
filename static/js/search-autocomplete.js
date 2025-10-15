@@ -162,7 +162,7 @@
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             fetchSuggestions(query);
-        }, 300);
+        }, 150);
     });
 
     // Handle keyboard navigation

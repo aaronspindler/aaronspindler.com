@@ -21,6 +21,12 @@ static:
 	fi
 	@echo "Collecting static files..."
 	$(MANAGE) collectstatic_optimize
+	@echo "Running pre-commit hooks..."
+	@if command -v pre-commit >/dev/null 2>&1; then \
+		pre-commit run -a; \
+	else \
+		echo "Warning: pre-commit not found, skipping hooks"; \
+	fi
 	@echo "Static files ready!"
 
 # Just build CSS
@@ -146,7 +152,7 @@ help:
 	@echo "Available commands:"
 	@echo ""
 	@echo "Static File Management:"
-	@echo "  make static         - Build CSS, optimize JS, and collect/optimize static files (default)"
+	@echo "  make static         - Build CSS, optimize JS, collect/optimize static files, and run pre-commit hooks (default)"
 	@echo "  make css            - Build CSS only"
 	@echo "  make js             - Build and optimize JavaScript only"
 	@echo "  make collect        - Collect static files only"

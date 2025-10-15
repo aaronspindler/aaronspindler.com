@@ -3,7 +3,7 @@ Search utilities for blog posts, projects, photos, and other content.
 Uses PostgreSQL full-text search with trigram similarity for typo tolerance.
 """
 
-from django.contrib.postgres.search import SearchQuery, SearchRank, TrigramSimilarity
+from django.contrib.postgres.search import SearchQuery, SearchRank, TrigramWordSimilarity
 from django.db.models import F, Q, Value
 from django.db.models.functions import Greatest
 
@@ -49,10 +49,10 @@ def search_blog_posts(query=None, category=None):
         rank=SearchRank(F("search_vector"), search_query),
     )
 
-    # Calculate trigram similarity for typo tolerance
+    # Calculate trigram word similarity for typo tolerance
     queryset = queryset.annotate(
-        title_similarity=TrigramSimilarity("title", query),
-        description_similarity=TrigramSimilarity("description", query),
+        title_similarity=TrigramWordSimilarity(query, "title"),
+        description_similarity=TrigramWordSimilarity(query, "description"),
     )
 
     # Combine scores: rank (70%) + best trigram similarity (30%)
@@ -77,7 +77,9 @@ def search_blog_posts(query=None, category=None):
                 "blog_content": obj.content[:500] if obj.content else "",  # Truncate for preview
                 "category": obj.category,
                 "entry_number": obj.template_name.split("_")[0] if obj.template_name else "0000",
-                "relevance_score": float(obj.combined_score) if hasattr(obj, "combined_score") else 0.0,
+                "relevance_score": float(obj.combined_score)
+                if hasattr(obj, "combined_score") and obj.combined_score is not None
+                else 0.0,
             }
         )
 
@@ -116,10 +118,10 @@ def search_projects(query=None):
         rank=SearchRank(F("search_vector"), search_query),
     )
 
-    # Calculate trigram similarity
+    # Calculate trigram word similarity
     queryset = queryset.annotate(
-        title_similarity=TrigramSimilarity("title", query),
-        description_similarity=TrigramSimilarity("description", query),
+        title_similarity=TrigramWordSimilarity(query, "title"),
+        description_similarity=TrigramWordSimilarity(query, "description"),
     )
 
     # Combine scores
@@ -180,11 +182,11 @@ def search_books(query=None):
         rank=SearchRank(F("search_vector"), search_query),
     )
 
-    # Calculate trigram similarity
+    # Calculate trigram word similarity
     queryset = queryset.annotate(
-        title_similarity=TrigramSimilarity("title", query),
-        description_similarity=TrigramSimilarity("description", query),
-        content_similarity=TrigramSimilarity("content", query),
+        title_similarity=TrigramWordSimilarity(query, "title"),
+        description_similarity=TrigramWordSimilarity(query, "description"),
+        content_similarity=TrigramWordSimilarity(query, "content"),
     )
 
     # Combine scores
@@ -236,10 +238,10 @@ def search_photos(query=None):
         rank=SearchRank(F("search_vector"), search_query),
     )
 
-    # Calculate trigram similarity
+    # Calculate trigram word similarity
     queryset = queryset.annotate(
-        title_similarity=TrigramSimilarity("title", query),
-        description_similarity=TrigramSimilarity("description", query),
+        title_similarity=TrigramWordSimilarity(query, "title"),
+        description_similarity=TrigramWordSimilarity(query, "description"),
     )
 
     # Combine scores
@@ -278,10 +280,10 @@ def search_photo_albums(query=None):
         rank=SearchRank(F("search_vector"), search_query),
     )
 
-    # Calculate trigram similarity
+    # Calculate trigram word similarity
     queryset = queryset.annotate(
-        title_similarity=TrigramSimilarity("title", query),
-        description_similarity=TrigramSimilarity("description", query),
+        title_similarity=TrigramWordSimilarity(query, "title"),
+        description_similarity=TrigramWordSimilarity(query, "description"),
     )
 
     # Combine scores
