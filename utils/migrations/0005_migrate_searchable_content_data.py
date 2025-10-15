@@ -3,15 +3,13 @@
 from django.db import migrations
 
 
-def migrate_searchable_content_data(apps, schema_editor):
+def migrate_searchable_content_data(_apps, schema_editor):
     """
     Migrate data from blog_searchablecontent to utils_searchablecontent.
     This is needed because we're moving the SearchableContent model from blog to utils.
 
     If the blog_searchablecontent table doesn't exist (already deleted), skip the migration.
     """
-    _db_alias = schema_editor.connection.alias
-
     # Check if the blog_searchablecontent table exists
     with schema_editor.connection.cursor() as cursor:
         cursor.execute(
@@ -45,12 +43,10 @@ def migrate_searchable_content_data(apps, schema_editor):
         )
 
 
-def reverse_migration(apps, schema_editor):
+def reverse_migration(_apps, schema_editor):
     """
     Reverse the migration by copying data back to blog_searchablecontent.
     """
-    _db_alias = schema_editor.connection.alias
-
     with schema_editor.connection.cursor() as cursor:
         cursor.execute(
             """

@@ -267,21 +267,19 @@ Blog posts are HTML templates in `templates/blog/<category>/<filename>.html` wit
   - Scans both Python and JavaScript code
   - Uses `security-and-quality` query suite (comprehensive security + code quality checks)
 
-- **GitHub Copilot Autofix**: Automatically suggests fixes for security vulnerabilities
-  - Enabled in `.github/workflows/codeql.yml`
-  - **Automatic PR Creation**: When CodeQL detects alerts during scheduled scans or pushes to main:
-    - Automatically creates a new branch with timestamp (e.g., `codeql-autofix-20250114-123456`)
-    - Opens a PR with detailed information about all detected alerts
-    - GitHub Copilot Autofix then posts fix suggestions as PR comments
-    - PR includes alert severity, file locations, and direct links to Security tab
-  - Posts fix suggestions directly to pull requests
-  - Requires GitHub Advanced Security to be enabled on the repository
-  - Workflow:
-    1. CodeQL detects security vulnerabilities
-    2. Automated PR is created (scheduled runs and main branch pushes only)
-    3. Copilot analyzes each alert and generates fix suggestions
-    4. Review and apply suggested fixes with one click
-    5. Merge PR once all issues are resolved
+- **GitHub Copilot Autofix**: Provides AI-powered fix suggestions for CodeQL alerts
+  - Available for public repositories (free with GitHub Advanced Security)
+  - **How it works**:
+    - CodeQL runs on pull requests and detects security/quality issues in the PR's code changes
+    - Copilot Autofix automatically analyzes new alerts and suggests fixes as PR comments
+    - Developers can review and apply suggested fixes with one click
+  - **Important**: Copilot Autofix only works for **new alerts detected in PR code changes**, not existing alerts on main branch
+  - **Manual fix generation**: For existing alerts on main branch:
+    1. Go to repository Security tab → Code scanning alerts
+    2. Click on an alert to view details
+    3. Click "Generate fix" button to get AI-powered fix suggestions
+    4. Review and apply the suggested fix manually
+  - Requires GitHub Advanced Security enabled (automatic for public repos)
 
 - **Pre-commit Hooks**: Local code quality enforcement
   - Ruff linter with auto-fixing

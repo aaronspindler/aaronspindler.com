@@ -296,7 +296,7 @@ class GraphBuilderTest(TestCase):
             "external_links": [],
         }
 
-        _result = self.builder.get_post_connections("post1", depth=1)
+        self.builder.get_post_connections("post1", depth=1)
 
         # With depth=1, should only process immediate connections
         self.assertEqual(mock_parse.call_count, 1)

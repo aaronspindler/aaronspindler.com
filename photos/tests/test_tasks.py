@@ -310,10 +310,6 @@ class GenerateAlbumZipTaskTestCase(TestCase):
             original_reads.append(True)
             return b"original_data"
 
-        def _track_optimized_read():
-            optimized_reads.append(True)
-            return b"optimized_data"
-
         with patch("builtins.open", mock_open(read_data=b"zip_content")):
             with patch("os.unlink"):
                 with patch("os.path.exists", return_value=True):

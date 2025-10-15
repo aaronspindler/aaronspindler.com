@@ -65,7 +65,6 @@ class Command(BaseCommand):
         height = 1600
         device_scale_factor = 2.0
         wait_time = 10000
-        full_page = False
         transparent = True  # Always use transparent background
         with sync_playwright() as p:
             # Launch headless browser with Docker-compatible settings
@@ -183,37 +182,29 @@ class Command(BaseCommand):
                         except Exception as e:
                             self.stdout.write(f"Could not trigger fit view: {e}")
 
-                        # Take screenshot of the container or full page
-                        if full_page:
-                            screenshot = page.screenshot(
-                                full_page=True,
-                                animations="disabled",  # Disable animations for cleaner screenshot
+                        # Take screenshot of the container
+                        element = page.query_selector("#knowledge-graph-container")
+                        if element:
+                            self.stdout.write("Taking high-quality screenshot of knowledge graph container...")
+                            # Get element bounds for better positioning
+                            box = element.bounding_box()
+                            if box:
+                                self.stdout.write(f'Container dimensions: {box["width"]}x{box["height"]}')
+
+                            screenshot = element.screenshot(
+                                animations="disabled",  # Disable animations
                                 scale="device",  # Use device scale factor
+                                timeout=30000,  # Longer timeout for large screenshots
                                 omit_background=transparent,  # Transparent background if requested
                             )
                         else:
-                            element = page.query_selector("#knowledge-graph-container")
-                            if element:
-                                self.stdout.write("Taking high-quality screenshot of knowledge graph container...")
-                                # Get element bounds for better positioning
-                                box = element.bounding_box()
-                                if box:
-                                    self.stdout.write(f'Container dimensions: {box["width"]}x{box["height"]}')
-
-                                screenshot = element.screenshot(
-                                    animations="disabled",  # Disable animations
-                                    scale="device",  # Use device scale factor
-                                    timeout=30000,  # Longer timeout for large screenshots
-                                    omit_background=transparent,  # Transparent background if requested
-                                )
-                            else:
-                                self.stdout.write("Container lost, taking full page screenshot...")
-                                screenshot = page.screenshot(
-                                    full_page=True,
-                                    animations="disabled",
-                                    scale="device",
-                                    omit_background=transparent,  # Transparent background if requested
-                                )
+                            self.stdout.write("Container lost, taking full page screenshot...")
+                            screenshot = page.screenshot(
+                                full_page=True,
+                                animations="disabled",
+                                scale="device",
+                                omit_background=transparent,  # Transparent background if requested
+                            )
                     else:
                         # If no knowledge graph found, take a full page screenshot anyway
                         self.stdout.write(

@@ -185,7 +185,9 @@ class PhotoAdmin(admin.ModelAdmin):
                     obj.image.url,
                 )
         except (ValueError, AttributeError):
-            pass  # Intentionally empty - safe to ignore errors
+            # Image field exists but file is missing or URL cannot be generated
+            # This is expected when images are being processed or files are moved
+            return "No image"
         return "No image"
 
     image_preview.short_description = "Preview"
@@ -338,8 +340,8 @@ class PhotoAdmin(admin.ModelAdmin):
                     'max-height: 400px; overflow-y: auto; font-size: 11px;">{}</pre>',
                     formatted_json,
                 )
-            # Intentionally catching all exceptions
-            except:
+            except Exception:
+                # Catch any JSON formatting errors and return raw data
                 return str(obj.exif_data)
         return "No EXIF data available"
 
