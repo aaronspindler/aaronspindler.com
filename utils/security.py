@@ -4,7 +4,7 @@ Request fingerprinting and IP tracking utilities for security and analytics.
 
 import hashlib
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +133,7 @@ def generate_fingerprint(request, include_ip: bool = True) -> str:
         return hashlib.sha256(f"fallback:{time.time()}".encode("utf-8")).hexdigest()
 
 
-def get_request_fingerprint_data(request) -> Dict[str, any]:
+def get_request_fingerprint_data(request) -> Dict[str, Any]:
     """
     Get comprehensive fingerprint data for a request.
 
