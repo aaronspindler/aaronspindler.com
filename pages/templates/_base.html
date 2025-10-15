@@ -16,19 +16,11 @@
   <link rel="preload" href="{% static 'fonts/jetbrains-mono-medium.woff2' %}" as="font" type="font/woff2" crossorigin="anonymous">
   <link rel="preload" href="{% static 'fonts/jetbrains-mono-bold.woff2' %}" as="font" type="font/woff2" crossorigin="anonymous">
 
-  <!-- Theme detection script - prevents FOUC -->
-  <script>
-    (function(){
-      var stored = localStorage.getItem('theme-preference');
-      var theme = stored && ['light','dark'].includes(stored) ? stored : 'auto';
-      document.documentElement.className = 'theme-' + theme;
-    })();
-  </script>
 
   <!-- Critical CSS inline for instant rendering -->
   <style>
     @font-face{font-family:"JetBrains Mono";src:url("{% static 'fonts/jetbrains-mono-regular.woff2' %}") format("woff2");font-weight:500;font-style:normal;font-display:swap}
-    :root{--font-family:"JetBrains Mono",monospace;--line-height:1.20rem;--border-thickness:2px;--text-color:#000;--text-color-alt:#666;--background-color:#fff;--background-color-alt:#eee;--font-weight-normal:500;--font-weight-medium:600;--font-weight-bold:800;font-family:var(--font-family);font-optical-sizing:auto;font-weight:var(--font-weight-normal);font-style:normal;font-variant-numeric:tabular-nums lining-nums;font-size:16px}@media (prefers-color-scheme:dark){:root{--text-color:#fff;--text-color-alt:#aaa;--background-color:#000;--background-color-alt:#111}}*{box-sizing:border-box}html{display:flex;width:100%;margin:0;padding:0;flex-direction:column;align-items:center;background:var(--background-color);color:var(--text-color)}body{position:relative;width:100%;margin:0;padding:var(--line-height) 2ch;max-width:calc(min(120ch,round(down,100%,1ch)));line-height:var(--line-height);overflow-x:hidden}h1,h2{font-weight:var(--font-weight-bold);margin:calc(var(--line-height)*2) 0 var(--line-height);line-height:var(--line-height)}h1{font-size:2rem;line-height:calc(2*var(--line-height));margin-bottom:calc(var(--line-height)*2);text-transform:uppercase}a{text-decoration-thickness:var(--border-thickness)}a:link,a:visited{color:var(--text-color)}
+    :root{--font-family:"JetBrains Mono",monospace;--line-height:1.20rem;--border-thickness:2px;--text-color:#fff;--text-color-alt:#aaa;--background-color:#000;--background-color-alt:#111;--font-weight-normal:500;--font-weight-medium:600;--font-weight-bold:800;font-family:var(--font-family);font-optical-sizing:auto;font-weight:var(--font-weight-normal);font-style:normal;font-variant-numeric:tabular-nums lining-nums;font-size:16px}*{box-sizing:border-box}html{display:flex;width:100%;margin:0;padding:0;flex-direction:column;align-items:center;background:var(--background-color);color:var(--text-color)}body{position:relative;width:100%;margin:0;padding:var(--line-height) 2ch;max-width:calc(min(120ch,round(down,100%,1ch)));line-height:var(--line-height);overflow-x:hidden}h1,h2{font-weight:var(--font-weight-bold);margin:calc(var(--line-height)*2) 0 var(--line-height);line-height:var(--line-height)}h1{font-size:2rem;line-height:calc(2*var(--line-height));margin-bottom:calc(var(--line-height)*2);text-transform:uppercase}a{text-decoration-thickness:var(--border-thickness)}a:link,a:visited{color:var(--text-color)}
   </style>
 
   {% block css %}
@@ -51,7 +43,6 @@
   {% include '_footer.html' %}
 
   {% block javascript %}
-  <script src="{% static 'js/theme-toggle.js' %}" defer></script>
   <script src="{% static 'js/base-optimized.min.js' %}" defer></script>
   <script src="{% static 'js/search-autocomplete.min.js' %}" defer></script>
   {% endblock javascript %}

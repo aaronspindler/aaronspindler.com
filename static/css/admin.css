@@ -10,90 +10,15 @@ body {
 }
 
 :root {
-    --primary: #000;
-    --secondary: #666;
+    --primary: #fff;
+    --secondary: #aaa;
     --accent: #888;
-    --border-color: #000;
+    --border-color: #fff;
     --border-thickness: 2px;
     --line-height: 1.20rem;
-    --background-color: #fff;
-    --background-alt: #eee;
-    --text-color: #000;
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --primary: #fff;
-        --secondary: #aaa;
-        --accent: #888;
-        --border-color: #fff;
-        --background-color: #000;
-        --background-alt: #111;
-        --text-color: #fff;
-    }
-
-    body {
-        background-color: var(--background-color) !important;
-        color: var(--text-color) !important;
-    }
-
-    #header {
-        background: var(--background-color) !important;
-        color: var(--text-color) !important;
-        border-bottom: var(--border-thickness) solid var(--border-color) !important;
-    }
-
-    .module {
-        background: var(--background-color) !important;
-        border: var(--border-thickness) solid var(--border-color) !important;
-    }
-
-    .module h2, .module caption {
-        background: var(--background-alt) !important;
-        color: var(--text-color) !important;
-    }
-
-    table thead th {
-        background: var(--background-alt) !important;
-        color: var(--text-color) !important;
-    }
-
-    input, select, textarea {
-        background: var(--background-color) !important;
-        color: var(--text-color) !important;
-        border-color: var(--border-color) !important;
-    }
-
-    .button, input[type="submit"], input[type="button"], .submit-row input {
-        background: var(--background-alt) !important;
-        color: var(--text-color) !important;
-        border-color: var(--border-color) !important;
-    }
-
-    .button:hover, input[type="submit"]:hover, input[type="button"]:hover {
-        background: var(--background-color) !important;
-    }
-
-    #changelist-filter {
-        background: var(--background-color) !important;
-        border-left: var(--border-thickness) solid var(--border-color) !important;
-    }
-
-    #changelist-filter h2 {
-        background: var(--background-alt) !important;
-    }
-
-    #changelist-filter li.selected a {
-        color: var(--text-color) !important;
-        font-weight: 600;
-    }
-
-    .paginator a, .paginator span {
-        background: var(--background-alt) !important;
-        color: var(--text-color) !important;
-        border-color: var(--border-color) !important;
-    }
+    --background-color: #000;
+    --background-alt: #111;
+    --text-color: #fff;
 }
 
 /* Header styling */
