@@ -31,6 +31,7 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
         try:
             srcset_parts.append(f"{photo.image_display.url} 1200w")
         except (ValueError, AttributeError):
+            # S3 storage may raise errors for missing files - skip this size
             pass
 
     if photo.image_optimized and photo.image_optimized.name:
@@ -39,12 +40,14 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
                 f"{photo.image_optimized.url} {photo.width}w" if photo.width else photo.image_optimized.url
             )
         except (ValueError, AttributeError):
+            # S3 storage may raise errors for missing files - skip this size
             pass
 
     if photo.image and photo.image.name:
         try:
             srcset_parts.append(f"{photo.image.url} {photo.width}w" if photo.width else photo.image.url)
         except (ValueError, AttributeError):
+            # S3 storage may raise errors for missing files - skip this size
             pass
 
     srcset = ", ".join(srcset_parts)
@@ -107,6 +110,7 @@ def picture_element(photo, css_class="", alt_text="", loading="lazy"):
                 srcset="{photo.image_optimized.url}">
         """
         except (ValueError, AttributeError):
+            # S3 storage may raise errors for missing files - skip this source
             pass
 
     if photo.image_display and photo.image_display.name:
@@ -116,6 +120,7 @@ def picture_element(photo, css_class="", alt_text="", loading="lazy"):
                 srcset="{photo.image_display.url}">
         """
         except (ValueError, AttributeError):
+            # S3 storage may raise errors for missing files - skip this source
             pass
 
     # Fallback img element (use display for smallest screens, fallback to optimized or original)
@@ -171,5 +176,6 @@ def safe_image_url(image_field):
         if image_field and image_field.name:
             return image_field.url
     except (ValueError, AttributeError):
+        # S3 storage may raise errors for missing/invalid files
         pass
     return ""

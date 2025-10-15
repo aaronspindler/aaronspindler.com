@@ -338,17 +338,14 @@ class HomepageKnowledgeGraph {
 
         this.node?.attr("cx", d => d.x || 0).attr("cy", d => d.y || 0);
 
-        const allNodes = this.simulation?.nodes() || [];
         this.labels?.each((d, i, nodes) => {
-            const pos = this.calculateLabelPosition(d, allNodes);
+            const pos = this.calculateLabelPosition(d);
             d3.select(nodes[i]).attr("x", pos.x).attr("y", pos.y);
         });
     }
 
-    calculateLabelPosition(d, allNodes) {
-        const radius = this.getNodeRadius(d);
+    calculateLabelPosition(d) {
         const x = d.x || 0, y = d.y || 0;
-
         return {x, y: y + 4};
     }
 

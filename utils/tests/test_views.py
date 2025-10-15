@@ -75,7 +75,7 @@ class HistoryPageTests(TestCase):
 
     def test_history_page_with_audits(self):
         """Test history page displays audit data correctly."""
-        audit = LighthouseAudit.objects.create(
+        LighthouseAudit.objects.create(
             url="https://example.com",
             performance_score=95,
             accessibility_score=90,
