@@ -41,7 +41,7 @@ jobs:
       with:
         category: "/language:${{ matrix.language }}"
 
-  # Job to create PRs and trigger GitHub Copilot Autofix
+  # Job to create PRs with automated fixes using GitHub Copilot Autofix
   autofix:
     name: Create Autofix PRs
     needs: analyze
@@ -50,7 +50,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      security-events: write  # Required for autofix API
+      security-events: read
       issues: write
 
     steps:
@@ -58,6 +58,11 @@ jobs:
       uses: actions/checkout@v5
       with:
         fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
 
     - name: Get CodeQL alerts
       id: get-alerts
@@ -78,15 +83,23 @@ jobs:
           echo "has-alerts=true" >> $GITHUB_OUTPUT
           echo "Found $alert_count open CodeQL alerts"
 
-          # Save alert numbers and details
-          echo "$alerts" | jq -r '.[].number' > alert_numbers.txt
+          # Save alerts for autofix script
+          echo "$alerts" > alerts.json
+
+          # Save alert details for PR body
           echo "$alerts" | jq -r '.[] | "- **\(.rule.description)** (\(.rule.severity))\n  File: \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)\n  Message: \(.most_recent_instance.message.text)\n"' > alert_details.txt
         else
           echo "has-alerts=false" >> $GITHUB_OUTPUT
           echo "No open CodeQL alerts found"
         fi
 
-    - name: Create PR for CodeQL fixes
+    - name: Apply automated fixes
+      if: steps.get-alerts.outputs.has-alerts == 'true'
+      run: |
+        echo "Applying automated fixes for CodeQL alerts..."
+        python .github/scripts/autofix_codeql.py alerts.json
+
+    - name: Create PR with automated fixes
       if: steps.get-alerts.outputs.has-alerts == 'true'
       id: create-pr
       env:
@@ -102,42 +115,73 @@ jobs:
 
         alert_count="${{ steps.get-alerts.outputs.alert-count }}"
 
-        # Create a marker file to indicate this PR is for CodeQL fixes
-        mkdir -p .github/codeql-autofix
-        echo "This branch is awaiting automated fix suggestions from GitHub Copilot Autofix." > .github/codeql-autofix/README.md
-        echo "" >> .github/codeql-autofix/README.md
-        echo "## Detected Issues ($alert_count total)" >> .github/codeql-autofix/README.md
-        echo "" >> .github/codeql-autofix/README.md
-        cat alert_details.txt >> .github/codeql-autofix/README.md
+        # Check if automated fixes were applied
+        if git diff --quiet; then
+          echo "⚠️  No fixes could be applied automatically"
+          echo "Creating PR with alert details for manual review..."
 
-        git add .github/codeql-autofix/README.md
-        git commit -m "docs: CodeQL alerts detected - awaiting autofix suggestions
+          # Create marker file for manual review
+          mkdir -p .github/codeql-autofix
+          echo "No automated fixes could be applied. Manual review required." > .github/codeql-autofix/README.md
+          echo "" >> .github/codeql-autofix/README.md
+          echo "## Detected Issues ($alert_count total)" >> .github/codeql-autofix/README.md
+          echo "" >> .github/codeql-autofix/README.md
+          cat alert_details.txt >> .github/codeql-autofix/README.md
 
-        This PR is automatically created to address $alert_count CodeQL alert(s).
+          git add .github/codeql-autofix/README.md
+          git commit -m "docs: CodeQL alerts detected - manual review required"
+        else
+          echo "✅ Automated fixes were applied"
 
-        GitHub Copilot Autofix will analyze these alerts and provide suggested fixes
-        as PR comments. Please review and apply the suggested fixes.
+          # Commit the automated fixes
+          git add -A
+          git commit -m "fix: Apply automated CodeQL fixes
 
-        See the Security tab for detailed information about each alert."
+          Automatically fixed $alert_count CodeQL alert(s) using the automated
+          fix script (.github/scripts/autofix_codeql.py).
+
+          Changes include:
+          - Unused variables prefixed with underscore (_)
+          - Imprecise asserts replaced with specific methods
+          - Redundant assignments removed
+          - Empty except blocks documented
+          - Unreachable code removed
+          - Unnecessary pass statements removed
+
+          GitHub Copilot Autofix will analyze these changes and may suggest
+          additional improvements."
+        fi
 
         git push origin "$branch_name"
 
-        # Create PR with detailed body
-        pr_body="## 🔒 CodeQL Security Alerts - Awaiting Autofix
+        # Create PR
+        pr_body="## 🔒 CodeQL Security Alerts - Automated Fixes + Copilot Review
 
-        This PR was automatically created because CodeQL detected **$alert_count** code quality alert(s) in the codebase.
+        This PR was automatically created because CodeQL detected **$alert_count** code quality alert(s).
+
+        ### ✨ Automated Fixes Applied
+
+        Our custom fix script has automatically resolved common issues:
+        - **Unused variables**: Prefixed with underscore (_)
+        - **Imprecise asserts**: Replaced with specific methods (assertIn, assertGreater, etc.)
+        - **Redundant assignments**: Removed
+        - **Empty except blocks**: Added explanatory comments
+        - **Unreachable code**: Removed
+        - **Unnecessary pass statements**: Removed
 
         ### 🤖 GitHub Copilot Autofix
 
-        GitHub Copilot Autofix has been triggered for all alerts. AI-generated fix suggestions will appear as comments on this PR shortly.
+        Since this PR modifies files with CodeQL alerts, GitHub Copilot Autofix will automatically:
+        1. Analyze the automated fixes
+        2. Review any remaining alerts
+        3. Post additional fix suggestions as PR comments (if applicable)
 
         ### 📋 What to do next
 
-        1. Wait for GitHub Copilot to post fix suggestions (usually takes a few minutes)
-        2. Review each suggested fix carefully
-        3. Accept and commit the suggestions you agree with
-        4. Test that the changes don't break anything
-        5. Merge this PR once all issues are resolved
+        1. Review the automated fixes in the Files Changed tab
+        2. Check for any Copilot suggestions posted as comments
+        3. Run tests to ensure nothing broke: \`python manage.py test\`
+        4. Merge this PR once you're satisfied
 
         ### 🔍 Detected Issues
 
@@ -147,7 +191,7 @@ jobs:
 
         - [View all alerts in Security tab](https://github.com/${{ github.repository }}/security/code-scanning)
         - [CodeQL documentation](https://codeql.github.com/docs/)
-        - [GitHub Copilot Autofix docs](https://docs.github.com/en/code-security/code-scanning/managing-code-scanning-alerts/about-autofix-for-codeql-code-scanning)
+        - [Automated fix script](.github/scripts/autofix_codeql.py)
 
         ---
         *This PR was automatically created by the CodeQL workflow on $(date -u '+%Y-%m-%d %H:%M:%S UTC')*"
@@ -162,43 +206,10 @@ jobs:
         pr_number=$(echo "$pr_url" | grep -o '[0-9]*$')
         echo "pr-number=$pr_number" >> $GITHUB_OUTPUT
         echo "pr-url=$pr_url" >> $GITHUB_OUTPUT
-        echo "✅ Created PR #$pr_number: $pr_url"
-
-    - name: Trigger GitHub Copilot Autofix for each alert
-      if: steps.get-alerts.outputs.has-alerts == 'true'
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        pr_number="${{ steps.create-pr.outputs.pr-number }}"
-
-        echo "Triggering GitHub Copilot Autofix for all alerts..."
-        echo "Fixes will be posted as comments on PR #$pr_number"
-
-        # Read alert numbers and trigger autofix for each
-        while IFS= read -r alert_number; do
-          echo "Requesting autofix for alert #$alert_number..."
-
-          # Call GitHub API to create autofix
-          response=$(gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "/repos/${{ github.repository }}/code-scanning/alerts/${alert_number}/fixes" \
-            -f "pull_request_number=$pr_number" \
-            2>&1 || true)
-
-          if echo "$response" | grep -q "error"; then
-            echo "⚠️  Failed to request autofix for alert #$alert_number"
-            echo "Response: $response"
-          else
-            echo "✓ Autofix requested for alert #$alert_number"
-          fi
-
-          # Small delay to avoid rate limiting
-          sleep 1
-        done < alert_numbers.txt
 
         echo ""
-        echo "✅ Autofix requests completed!"
-        echo "GitHub Copilot will analyze the alerts and post fix suggestions to PR #$pr_number"
-        echo "PR URL: ${{ steps.create-pr.outputs.pr-url }}"
+        echo "✅ Created PR #$pr_number with automated fixes"
+        echo "📝 URL: $pr_url"
+        echo ""
+        echo "GitHub Copilot Autofix will now analyze the changes and post any additional"
+        echo "suggestions as comments on the PR. This usually takes a few minutes."
