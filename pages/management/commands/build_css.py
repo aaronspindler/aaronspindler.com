@@ -75,7 +75,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("\n✅ CSS optimization complete!\n"))
 
     def _optimize_individual_files(self):
-        """Optimize individual CSS files"""
+        """Optimize individual CSS files to temporary .opt.css versions"""
         static_dir = os.path.join(settings.BASE_DIR, "static", "css")
         css_files = [
             "category-colors.css",
@@ -173,11 +173,18 @@ class Command(BaseCommand):
                 self.stdout.write(f"  ✓ {css_file}: {reduction:.1f}% reduction")
 
     def _optimize_single_file(self, file_path):
-        """Apply advanced optimizations to a single CSS file"""
+        """Apply advanced optimizations to a single CSS file and save as .opt.css"""
         with open(file_path, "r") as f:
             content = f.read()
 
         original_size = len(content)
+
+        # In dev mode, skip optimization and just copy the file
+        if self.options.get("dev"):
+            opt_file_path = file_path.replace(".css", ".opt.css")
+            with open(opt_file_path, "w") as f:
+                f.write(content)
+            return original_size, original_size
 
         # Parse CSS into rules
         rules = self._parse_css(content)
@@ -197,14 +204,9 @@ class Command(BaseCommand):
         # Additional text-level optimizations
         optimized_content = self._text_level_optimizations(optimized_content)
 
-        # Save optimized version (always create backup for safety)
-        backup_path = file_path + ".backup"
-        if not os.path.exists(backup_path):
-            import shutil
-
-            shutil.copy2(file_path, backup_path)
-
-        with open(file_path, "w") as f:
+        # Save optimized version to .opt.css file (temporary, not committed to git)
+        opt_file_path = file_path.replace(".css", ".opt.css")
+        with open(opt_file_path, "w") as f:
             f.write(optimized_content)
 
         new_size = len(optimized_content)
@@ -213,7 +215,7 @@ class Command(BaseCommand):
 
     @timer
     def _combine_css_files(self, static_dir, css_files):
-        """Combine CSS files intelligently"""
+        """Combine CSS files intelligently, using .opt.css versions when available"""
         self.stdout.write("🔗 Combining CSS files...")
 
         combined_path = os.path.join(static_dir, "combined.css")
@@ -227,8 +229,12 @@ class Command(BaseCommand):
             for css_file in css_files:
                 file_path = os.path.join(static_dir, css_file)
 
-                if os.path.exists(file_path):
-                    with open(file_path, "r") as f:
+                # Use optimized version (.opt.css) if it exists, otherwise use original
+                opt_file_path = file_path.replace(".css", ".opt.css")
+                read_path = opt_file_path if os.path.exists(opt_file_path) else file_path
+
+                if os.path.exists(read_path):
+                    with open(read_path, "r") as f:
                         content = f.read()
 
                         # Replace relative font URLs with S3 URLs when in production mode
@@ -519,7 +525,6 @@ critical.generate({
             "combined.processed.css",
             "combined.purged.css",
             "extract_critical.js",
-            "*.opt",  # Optimization temp files
         ]
 
         for pattern in temp_patterns:
@@ -852,15 +857,17 @@ critical.generate({
 
         for css_file in css_files:
             file_path = os.path.join(static_dir, css_file)
-            backup_path = file_path + ".backup"
+            opt_file_path = file_path.replace(".css", ".opt.css")
 
             if os.path.exists(file_path):
-                if os.path.exists(backup_path):
-                    original_size = os.path.getsize(backup_path)
-                else:
-                    original_size = os.path.getsize(file_path)
+                original_size = os.path.getsize(file_path)
 
-                new_size = os.path.getsize(file_path)
+                # Get optimized size if .opt.css exists
+                if os.path.exists(opt_file_path):
+                    new_size = os.path.getsize(opt_file_path)
+                else:
+                    new_size = original_size
+
                 total_original += original_size
                 total_new += new_size
 
@@ -880,16 +887,22 @@ critical.generate({
         self.stdout.write("=" * 60)
 
     def _cleanup_backup_files(self):
-        """Clean up backup files created during optimization"""
+        """Clean up temporary optimization files (.opt.css)"""
         static_dir = os.path.join(settings.BASE_DIR, "static", "css")
 
         removed_count = 0
+        # Clean up .opt.css files
+        for opt_path in Path(static_dir).glob("*.opt.css"):
+            opt_path.unlink()
+            removed_count += 1
+
+        # Also clean up any legacy .backup files
         for backup_path in Path(static_dir).glob("*.css.backup"):
             backup_path.unlink()
             removed_count += 1
 
         if removed_count > 0:
-            self.stdout.write(f"🧹 Removed {removed_count} backup files")
+            self.stdout.write(f"🧹 Removed {removed_count} temporary files")
 
     def _cleanup_old_versions(self):
         """Clean up old versioned CSS files, keeping only the latest"""

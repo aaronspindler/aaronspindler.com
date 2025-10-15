@@ -53,6 +53,9 @@ safety check
 # Build and optimize CSS
 npm run build:css
 
+# Build CSS in development mode (unminified)
+python manage.py build_css --dev
+
 # Build critical CSS
 npm run build:css:critical
 
@@ -64,6 +67,20 @@ npm run build:all
 ```
 
 **IMPORTANT**: Whenever CSS or JS files are modified, you MUST run `make static` to rebuild and apply the changes. This command handles all necessary build steps to optimize and deploy static assets.
+
+**CSS Build Process and Workflow**:
+- **Source files** in `static/css/` (like `base.css`, `blog.css`, etc.) are **developer-friendly and formatted** in git
+  - These files have proper line breaks, indentation, and whitespace for easy editing
+  - Never commit minified/single-line CSS source files to git
+  - Pre-commit hooks automatically format CSS with Prettier and prevent minified sources
+- **Build process** (`python manage.py build_css`):
+  - Phase 1: Optimizes each source file → creates temporary `.opt.css` versions
+    - In dev mode (`--dev`): `.opt.css` files are just copies (no optimization)
+    - In production: `.opt.css` files are fully optimized and minified
+  - Phase 2: Combines all `.opt.css` files → runs PostCSS/PurgeCSS → creates `combined.min.css`
+  - Final file is pushed to S3 via `collectstatic_optimize`
+  - Temporary files (`.opt.css`, `combined.css`, etc.) are auto-cleaned and gitignored
+- **Important**: Source CSS files are **never modified** by the build process - they stay formatted in git
 
 ### Knowledge Graph Commands
 ```bash
@@ -317,11 +334,12 @@ For inline code within paragraphs, use simple `<code>` tags:
   - Requires GitHub Advanced Security enabled (automatic for public repos)
 
 - **Pre-commit Hooks**: Local code quality enforcement
-  - Ruff linter with auto-fixing
-  - Black formatter
-  - isort for import sorting
-  - MyPy type checking (on push)
-  - Django system checks (on push)
+  - Ruff linter with auto-fixing for Python code
+  - Ruff formatter (compatible with Black) for Python code
+  - Prettier formatter for CSS files (source files only)
+  - CSS format checker to prevent minified source files from being committed
+  - File quality checks (trailing whitespace, end-of-file, YAML validation, etc.)
+  - Setup: Run `pre-commit install` after cloning the repository
 
 ### Performance Optimizations
 - Graph data caching with 20-minute timeout

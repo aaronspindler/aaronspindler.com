@@ -1,1 +1,31 @@
-@font-face{font-family:"JetBrains Mono Fast";src:url("/static/fonts/jetbrains-mono-regular-fast.woff2") format("woff2");font-weight:500;font-style:normal;font-display:swap}@font-face{font-family:"JetBrains Mono Fast";src:url("/static/fonts/jetbrains-mono-medium-fast.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}@font-face{font-family:"JetBrains Mono Fast";src:url("/static/fonts/jetbrains-mono-bold-fast.woff2") format("woff2");font-weight:800;font-style:normal;font-display:swap}.fast-font{font-family:"JetBrains Mono Fast",monospace;font-feature-settings:"calt" 1}.use-fast-font{--font-family:"JetBrains Mono Fast",monospace}.use-fast-font *{font-feature-settings:"calt" 1}
+@font-face {
+  font-family: "JetBrains Mono Fast";
+  src: url("/static/fonts/jetbrains-mono-regular-fast.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono Fast";
+  src: url("/static/fonts/jetbrains-mono-medium-fast.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono Fast";
+  src: url("/static/fonts/jetbrains-mono-bold-fast.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+.fast-font {
+  font-family: "JetBrains Mono Fast", monospace;
+  font-feature-settings: "calt" 1;
+}
+.use-fast-font {
+  --font-family: "JetBrains Mono Fast", monospace;
+}
+.use-fast-font * {
+  font-feature-settings: "calt" 1;
+}

@@ -1,1 +1,44 @@
-:root{--category-tech-node:#5fb4b6;--category-tech-hull:rgba(95,180,182,.2);--category-tech-border:rgba(95,180,182,.7);--category-tech-text:#7dd8da;--category-tech-hull-dark:rgba(95,180,182,.15);--category-tech-border-dark:rgba(95,180,182,.8);--category-personal-node:#c594c5;--category-personal-hull:rgba(197,148,197,.2);--category-personal-border:rgba(197,148,197,.7);--category-personal-text:#dbb3db;--category-personal-hull-dark:rgba(197,148,197,.15);--category-personal-border-dark:rgba(197,148,197,.8);--category-projects-node:#fac863;--category-projects-hull:rgba(250,200,99,.2);--category-projects-border:rgba(250,200,99,.7);--category-projects-text:#ffd885;--category-projects-hull-dark:rgba(250,200,99,.15);--category-projects-border-dark:rgba(250,200,99,.8);--category-guides-node:#99c794;--category-guides-hull:rgba(153,199,148,.2);--category-guides-border:rgba(153,199,148,.7);--category-guides-text:#b3dbb0;--category-guides-hull-dark:rgba(153,199,148,.15);--category-guides-border-dark:rgba(153,199,148,.8);--category-smart_home-node:#ec5f67;--category-smart_home-hull:rgba(236,95,103,.2);--category-smart_home-border:rgba(236,95,103,.7);--category-smart_home-text:#f07b82;--category-smart_home-hull-dark:rgba(236,95,103,.15);--category-smart_home-border-dark:rgba(236,95,103,.8);--category-reviews-node:#6c99bb;--category-reviews-hull:rgba(108,153,187,.2);--category-reviews-border:rgba(108,153,187,.7);--category-reviews-text:#8fb1cc;--category-reviews-hull-dark:rgba(108,153,187,.15);--category-reviews-border-dark:rgba(108,153,187,.8);--category-default-node:#999;--category-default-hull:rgba(153,153,153,.2);--category-default-border:rgba(153,153,153,.7);--category-default-text:#bbb;--category-default-hull-dark:rgba(153,153,153,.15);--category-default-border-dark:rgba(153,153,153,.8)}
+:root {
+  --category-tech-node: #5fb4b6;
+  --category-tech-hull: rgba(95, 180, 182, 0.2);
+  --category-tech-border: rgba(95, 180, 182, 0.7);
+  --category-tech-text: #7dd8da;
+  --category-tech-hull-dark: rgba(95, 180, 182, 0.15);
+  --category-tech-border-dark: rgba(95, 180, 182, 0.8);
+  --category-personal-node: #c594c5;
+  --category-personal-hull: rgba(197, 148, 197, 0.2);
+  --category-personal-border: rgba(197, 148, 197, 0.7);
+  --category-personal-text: #dbb3db;
+  --category-personal-hull-dark: rgba(197, 148, 197, 0.15);
+  --category-personal-border-dark: rgba(197, 148, 197, 0.8);
+  --category-projects-node: #fac863;
+  --category-projects-hull: rgba(250, 200, 99, 0.2);
+  --category-projects-border: rgba(250, 200, 99, 0.7);
+  --category-projects-text: #ffd885;
+  --category-projects-hull-dark: rgba(250, 200, 99, 0.15);
+  --category-projects-border-dark: rgba(250, 200, 99, 0.8);
+  --category-guides-node: #99c794;
+  --category-guides-hull: rgba(153, 199, 148, 0.2);
+  --category-guides-border: rgba(153, 199, 148, 0.7);
+  --category-guides-text: #b3dbb0;
+  --category-guides-hull-dark: rgba(153, 199, 148, 0.15);
+  --category-guides-border-dark: rgba(153, 199, 148, 0.8);
+  --category-smart_home-node: #ec5f67;
+  --category-smart_home-hull: rgba(236, 95, 103, 0.2);
+  --category-smart_home-border: rgba(236, 95, 103, 0.7);
+  --category-smart_home-text: #f07b82;
+  --category-smart_home-hull-dark: rgba(236, 95, 103, 0.15);
+  --category-smart_home-border-dark: rgba(236, 95, 103, 0.8);
+  --category-reviews-node: #6c99bb;
+  --category-reviews-hull: rgba(108, 153, 187, 0.2);
+  --category-reviews-border: rgba(108, 153, 187, 0.7);
+  --category-reviews-text: #8fb1cc;
+  --category-reviews-hull-dark: rgba(108, 153, 187, 0.15);
+  --category-reviews-border-dark: rgba(108, 153, 187, 0.8);
+  --category-default-node: #999;
+  --category-default-hull: rgba(153, 153, 153, 0.2);
+  --category-default-border: rgba(153, 153, 153, 0.7);
+  --category-default-text: #bbb;
+  --category-default-hull-dark: rgba(153, 153, 153, 0.15);
+  --category-default-border-dark: rgba(153, 153, 153, 0.8);
+}

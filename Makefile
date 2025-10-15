@@ -61,6 +61,8 @@ collect-optimize:
 clean:
 	rm -rf staticfiles/
 	rm -f static/css/combined.min.css*
+	rm -f static/css/*.opt.css
+	rm -f static/css/combined.css static/css/combined.processed.css static/css/combined.purged.css
 	rm -f static/js/*.min.js static/js/*.min.js.gz static/js/*.min.js.br
 
 # Docker test commands

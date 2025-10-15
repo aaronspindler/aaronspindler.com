@@ -1,0 +1,23 @@
+# Ignore generated and temporary CSS files
+static/css/combined*.css
+static/css/*.opt.css
+static/css/*.min.css
+static/css/*.backup
+static/css/critical.css
+
+# Ignore generated JS files
+static/js/*.min.js
+
+# Ignore dependencies and build artifacts
+node_modules/
+venv/
+env/
+staticfiles/
+allstaticfiles/
+
+# Ignore migrations
+**/migrations/
+
+# Ignore database
+*.sqlite3
+db.sqlite3

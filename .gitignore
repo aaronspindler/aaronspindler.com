@@ -22,7 +22,10 @@ static/css/combined.min.*.css*
 static/css/combined.min.css.gz
 static/css/combined.min.css.br
 static/css/*.backup
+static/css/*.opt.css
+static/css/combined.css
 static/css/combined.processed.css
+static/css/combined.purged.css
 static/css/critical.css
 
 # Generated JS files
