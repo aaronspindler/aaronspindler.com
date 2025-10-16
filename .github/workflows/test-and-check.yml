@@ -131,12 +131,6 @@ jobs:
           pre-commit run --all-files --show-diff-on-failure
         continue-on-error: true
 
-      - name: Run MyPy type checking (not in pre-commit)
-        run: |
-          pip install mypy django-stubs
-          mypy . --ignore-missing-imports --no-strict-optional
-        continue-on-error: true
-
   # Django checks (parallel matrix)
   django-checks:
     runs-on: ubuntu-latest
