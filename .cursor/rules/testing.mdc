@@ -4,6 +4,10 @@ alwaysApply: false
 ---
 
 # Testing Guidelines
+Do not test frameworks or libraries. Only test the code in this repository.
+Try to be as concise as possible when writing tests.
+Ensure that edge cases are tested.
+Utilize factories to create test data.
 
 ## Running Tests
 

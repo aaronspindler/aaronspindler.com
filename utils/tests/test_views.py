@@ -62,12 +62,6 @@ class BadgeEndpointTests(TestCase):
 class HistoryPageTests(TestCase):
     """Test cases for the history page."""
 
-    def test_history_page_loads(self):
-        """Test that the history page loads successfully."""
-        response = self.client.get(reverse("lighthouse_history"))
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Lighthouse Performance History")
-
     def test_history_page_no_audits(self):
         """Test history page displays appropriate message when no audits exist."""
         response = self.client.get(reverse("lighthouse_history"))
