@@ -10,7 +10,7 @@ Tests cover:
 
 import gc
 from io import BytesIO
-from unittest.mock import MagicMock, Mock, PropertyMock, patch
+from unittest.mock import Mock, PropertyMock, patch
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
@@ -355,64 +355,64 @@ class DownloadAlbumViewTestCase(TestCase):
 
     def test_download_album_optimized_redirect(self):
         """Test downloading optimized zip redirects to URL."""
-        # Create actual zip file to pass the existence check
-        from django.core.files.base import ContentFile
+        # Mock zip file
+        from unittest.mock import Mock, PropertyMock
 
-        self.album.zip_file_optimized.save("test.zip", ContentFile(b"test"), save=True)
+        mock_zip = Mock()
+        mock_zip.name = "test.zip"
+        mock_zip.__bool__ = lambda: True
+        type(mock_zip).url = PropertyMock(return_value="http://s3.example.com/album_optimized.zip")
 
-        # Mock the URL property using PropertyMock
-        with patch.object(
-            type(self.album.zip_file_optimized),
-            "url",
-            new_callable=PropertyMock(return_value="http://s3.example.com/album_optimized.zip"),
-        ):
-            response = self.client.get(reverse("photos:download_album", kwargs={"slug": "download-test"}))
+        self.album.zip_file_optimized = mock_zip
+        self.album.save()
+
+        response = self.client.get(reverse("photos:download_album", kwargs={"slug": "download-test"}))
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, "http://s3.example.com/album_optimized.zip")
 
     def test_download_album_original_quality(self):
         """Test downloading original quality zip."""
-        # Create actual zip file to pass the existence check
-        from django.core.files.base import ContentFile
+        # Mock zip file
+        from unittest.mock import Mock, PropertyMock
 
-        self.album.zip_file.save("test.zip", ContentFile(b"test"), save=True)
+        mock_zip = Mock()
+        mock_zip.name = "test.zip"
+        mock_zip.__bool__ = lambda: True
+        type(mock_zip).url = PropertyMock(return_value="http://s3.example.com/album_original.zip")
 
-        # Mock the URL property using PropertyMock
-        with patch.object(
-            type(self.album.zip_file),
-            "url",
-            new_callable=PropertyMock(return_value="http://s3.example.com/album_original.zip"),
-        ):
-            response = self.client.get(
-                reverse(
-                    "photos:download_album_quality",
-                    kwargs={"slug": "download-test", "quality": "original"},
-                )
+        self.album.zip_file = mock_zip
+        self.album.save()
+
+        response = self.client.get(
+            reverse(
+                "photos:download_album_quality",
+                kwargs={"slug": "download-test", "quality": "original"},
             )
+        )
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, "http://s3.example.com/album_original.zip")
 
     def test_download_album_invalid_quality(self):
         """Test invalid quality defaults to optimized."""
-        # Create actual zip file to pass the existence check
-        from django.core.files.base import ContentFile
+        # Mock zip file
+        from unittest.mock import Mock, PropertyMock
 
-        self.album.zip_file_optimized.save("test.zip", ContentFile(b"test"), save=True)
+        mock_zip = Mock()
+        mock_zip.name = "test.zip"
+        mock_zip.__bool__ = lambda: True
+        type(mock_zip).url = PropertyMock(return_value="http://s3.example.com/album_optimized.zip")
 
-        # Mock the URL property using PropertyMock
-        with patch.object(
-            type(self.album.zip_file_optimized),
-            "url",
-            new_callable=PropertyMock(return_value="http://s3.example.com/album_optimized.zip"),
-        ):
-            response = self.client.get(
-                reverse(
-                    "photos:download_album_quality",
-                    kwargs={"slug": "download-test", "quality": "invalid"},
-                )
+        self.album.zip_file_optimized = mock_zip
+        self.album.save()
+
+        response = self.client.get(
+            reverse(
+                "photos:download_album_quality",
+                kwargs={"slug": "download-test", "quality": "invalid"},
             )
+        )
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, "http://s3.example.com/album_optimized.zip")
@@ -454,17 +454,18 @@ class DownloadAlbumViewTestCase(TestCase):
         self.album.save()
         self.client.login(username="staff", password="testpass123")
 
-        # Create actual zip file to pass the existence check
-        from django.core.files.base import ContentFile
+        # Mock zip file
+        from unittest.mock import Mock, PropertyMock
 
-        self.album.zip_file_optimized.save("test.zip", ContentFile(b"test"), save=True)
+        mock_zip = Mock()
+        mock_zip.name = "test.zip"
+        mock_zip.__bool__ = lambda: True
+        type(mock_zip).url = PropertyMock(return_value="http://s3.example.com/album.zip")
 
-        # Mock the URL property by patching the storage backend
-        with patch(
-            "django.core.files.storage.default_storage.url",
-            return_value="http://s3.example.com/album.zip",
-        ):
-            response = self.client.get(reverse("photos:download_album", kwargs={"slug": "download-test"}))
+        self.album.zip_file_optimized = mock_zip
+        self.album.save()
+
+        response = self.client.get(reverse("photos:download_album", kwargs={"slug": "download-test"}))
 
         self.assertEqual(response.status_code, 302)
 
@@ -528,32 +529,24 @@ class AlbumDownloadStatusViewTestCase(TestCase):
 
     def test_status_with_both_zips(self):
         """Test status when both zip files exist."""
-        # Create both zip files
-        from django.core.files.base import ContentFile
+        # Mock both zip files
+        from unittest.mock import Mock
 
-        self.album.zip_file.save("test.zip", ContentFile(b"test"), save=False)
-        self.album.zip_file_optimized.save("test_opt.zip", ContentFile(b"test"), save=False)
+        mock_zip = Mock()
+        mock_zip.name = "test.zip"
+        mock_zip.size = 1024000
+        mock_zip.__bool__ = lambda: True
+
+        mock_zip_opt = Mock()
+        mock_zip_opt.name = "test_opt.zip"
+        mock_zip_opt.size = 512000
+        mock_zip_opt.__bool__ = lambda: True
+
+        self.album.zip_file = mock_zip
+        self.album.zip_file_optimized = mock_zip_opt
         self.album.save()
 
-        # Mock the album retrieval to return an album with mocked file sizes
-        def mock_get_object_or_404(model, **kwargs):
-            if model == PhotoAlbum and kwargs.get("slug") == "status-test":
-                mock_album = MagicMock()
-                mock_album.title = "Status Test Album"
-                mock_album.photos.count.return_value = 2
-                mock_album.allow_downloads = True
-
-                # Mock zip files with specific sizes
-                mock_album.zip_file.size = 1024000
-                mock_album.zip_file.__bool__ = lambda self: True
-                mock_album.zip_file_optimized.size = 512000
-                mock_album.zip_file_optimized.__bool__ = lambda self: True
-
-                return mock_album
-            return self.album
-
-        with patch("photos.views.get_object_or_404", side_effect=mock_get_object_or_404):
-            response = self.client.get(reverse("photos:album_download_status", kwargs={"slug": "status-test"}))
+        response = self.client.get(reverse("photos:album_download_status", kwargs={"slug": "status-test"}))
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -622,14 +615,19 @@ class AlbumDownloadStatusViewTestCase(TestCase):
 
     def test_status_partial_zips(self):
         """Test status when only one zip file exists."""
-        # Create only original zip file
-        from django.core.files.base import ContentFile
+        # Mock only original zip file
+        from unittest.mock import Mock
 
-        self.album.zip_file.save("test.zip", ContentFile(b"test"), save=True)
+        mock_zip = Mock()
+        mock_zip.name = "test.zip"
+        mock_zip.size = 1024000
+        mock_zip.__bool__ = lambda: True
 
-        # Mock the file size property
-        with patch("os.path.getsize", return_value=1024000):
-            response = self.client.get(reverse("photos:album_download_status", kwargs={"slug": "status-test"}))
+        self.album.zip_file = mock_zip
+        self.album.zip_file_optimized = None
+        self.album.save()
+
+        response = self.client.get(reverse("photos:album_download_status", kwargs={"slug": "status-test"}))
 
         data = response.json()
         self.assertTrue(data["original"]["ready"])

@@ -283,12 +283,19 @@ class AlbumSaveSignalTestCase(TestCase):
         album.photos.add(self.photo)
         mock_task.reset_mock()
 
-        # Simulate that zip files already exist by setting them directly
-        # Create actual file objects to avoid Mock-related DB errors
-        from django.core.files.base import ContentFile
+        # Mock zip files by directly setting the field name (avoid storage operations)
+        from unittest.mock import Mock
 
-        album.zip_file.save("test.zip", ContentFile(b"test"), save=False)
-        album.zip_file_optimized.save("test_opt.zip", ContentFile(b"test"), save=False)
+        mock_zip = Mock()
+        mock_zip.name = "test.zip"
+        mock_zip.__bool__ = lambda: True
+
+        mock_zip_opt = Mock()
+        mock_zip_opt.name = "test_opt.zip"
+        mock_zip_opt.__bool__ = lambda: True
+
+        album.zip_file = mock_zip
+        album.zip_file_optimized = mock_zip_opt
 
         # Now update title only (this should not trigger generation)
         album.title = "Updated Album"
