@@ -87,9 +87,22 @@ npm run build:all
 # Rebuild knowledge graph cache
 python manage.py rebuild_knowledge_graph
 
-# Generate knowledge graph screenshot (high-quality)
-python manage.py generate_knowledge_graph_screenshot --width 2400 --height 1600 --device-scale-factor 2.0 --quality 100 --transparent
+# Generate knowledge graph screenshot (high-quality, 2400x1600 at 2x DPI)
+# For local development (Django server running on localhost:8000)
+python manage.py generate_knowledge_graph_screenshot
+
+# For production (screenshot the live site)
+python manage.py generate_knowledge_graph_screenshot --url https://aaronspindler.com
+
+# Custom URL (e.g., staging environment)
+python manage.py generate_knowledge_graph_screenshot --url https://staging.example.com
 ```
+
+**Note**: The screenshot generation command:
+- Uses Playwright/Chromium to take high-quality screenshots (2400x1600, 2x device scale factor)
+- Runs automatically via Celery Beat daily at 4 AM UTC (screenshots production site)
+- Stores screenshots in the database with hash-based caching to avoid duplicates
+- Defaults to `http://localhost:8000` for local development
 
 ### Photo Management
 ```bash

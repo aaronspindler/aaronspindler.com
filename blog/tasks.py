@@ -33,12 +33,17 @@ def generate_knowledge_graph_screenshot():
 
     This task runs periodically to update the cached screenshot image,
     avoiding the need for dynamic generation on each request.
+
+    Uses Playwright/Chromium to take high-quality screenshots of the live site.
     """
+    from django.core.management import call_command
+
     try:
-        # For now, just return a placeholder since screenshot generation
-        # is handled in the view directly
-        logger.info("Knowledge graph screenshot generation task called")
-        return "screenshot_placeholder"
+        logger.info("Starting knowledge graph screenshot generation task...")
+        # Call the management command with the production URL
+        call_command("generate_knowledge_graph_screenshot", "--url", "https://aaronspindler.com")
+        logger.info("Knowledge graph screenshot generated successfully")
+        return "screenshot_generated"
     except Exception as e:
         logger.error(f"Error generating knowledge graph screenshot: {e}")
-        return None
+        raise
