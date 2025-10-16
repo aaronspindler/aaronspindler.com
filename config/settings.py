@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "blog",
     "photos",
     "utils",
+    "feefifofunds",
 ]
 
 MIDDLEWARE = [

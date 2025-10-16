@@ -145,9 +145,6 @@ python manage.py generate_knowledge_graph_screenshot --url https://staging.examp
 - Defaults to `http://localhost:8000` for local development
 
 ### Photo Management
-```bash
-# Generate photo album zips
-python manage.py generate_album_zips
 ```
 
 ### Lighthouse Performance Monitoring

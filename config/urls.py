@@ -23,6 +23,7 @@ urlpatterns = [
         name="django.contrib.sitemaps.views.sitemap",
     ),
     path("photos/", include("photos.urls")),
+    path("feefifofunds/", include("feefifofunds.urls")),
     path("", include("utils.urls")),
     path("", include("pages.urls")),
     path("", include("blog.urls")),
