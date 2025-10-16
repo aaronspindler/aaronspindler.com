@@ -412,3 +412,4 @@ For inline code within paragraphs, use simple `<code>` tags:
 - Database query optimization with select/prefetch related
 - PostgreSQL full-text search with GIN indexes
 - Trigram indexes for typo-tolerant search
+- Ensure that you are checking @.cursor/rules/ and keeping the rules in context along with your own memories.

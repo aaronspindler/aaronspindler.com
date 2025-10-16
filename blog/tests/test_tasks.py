@@ -43,20 +43,23 @@ class BlogTasksTest(TestCase):
 
         self.assertIsNone(result)
 
-    def test_generate_knowledge_graph_screenshot_success(self):
+    @patch("django.core.management.call_command")
+    def test_generate_knowledge_graph_screenshot_success(self, mock_call_command):
         """Test successful screenshot generation task."""
         result = generate_knowledge_graph_screenshot()
 
-        self.assertEqual(result, "screenshot_placeholder")
+        self.assertEqual(result, "screenshot_generated")
+        mock_call_command.assert_called_once_with(
+            "generate_knowledge_graph_screenshot", "--url", "https://aaronspindler.com"
+        )
 
-    @patch("blog.tasks.logger")
-    def test_generate_knowledge_graph_screenshot_failure(self, mock_logger):
+    @patch("django.core.management.call_command")
+    def test_generate_knowledge_graph_screenshot_failure(self, mock_call_command):
         """Test screenshot generation task handles errors."""
-        mock_logger.info.side_effect = Exception("Screenshot error")
+        mock_call_command.side_effect = Exception("Screenshot error")
 
-        result = generate_knowledge_graph_screenshot()
-
-        self.assertIsNone(result)
+        with self.assertRaises(Exception):
+            generate_knowledge_graph_screenshot()
 
 
 class ManagementCommandsTest(TestCase):
@@ -147,6 +150,31 @@ class ManagementCommandsTest(TestCase):
         output = out.getvalue()
         self.assertIn("Starting knowledge graph screenshot generation", output)
         self.assertIn("Successfully generated", output)
+        # Verify _generate_screenshot was called with the default URL
+        mock_generate_screenshot.assert_called_once_with("http://localhost:8000")
+
+    @patch("blog.management.commands.generate_knowledge_graph_screenshot.Command._generate_screenshot")
+    @patch("blog.knowledge_graph.build_knowledge_graph")
+    def test_generate_knowledge_graph_screenshot_command_custom_url(self, mock_build_graph, mock_generate_screenshot):
+        """Test generate_knowledge_graph_screenshot command with custom URL."""
+        # Mock the screenshot generation
+        mock_generate_screenshot.return_value = b"fake_screenshot_data"
+
+        # Mock the knowledge graph build
+        mock_build_graph.return_value = {
+            "nodes": [{"id": "test", "label": "Test"}],
+            "edges": [],
+            "metrics": {},
+        }
+
+        out = StringIO()
+        call_command("generate_knowledge_graph_screenshot", "--url", "https://example.com", stdout=out)
+
+        output = out.getvalue()
+        self.assertIn("Starting knowledge graph screenshot generation", output)
+        self.assertIn("Successfully generated", output)
+        # Verify _generate_screenshot was called with the custom URL
+        mock_generate_screenshot.assert_called_once_with("https://example.com")
 
 
 class TaskIntegrationTest(TestCase):

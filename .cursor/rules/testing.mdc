@@ -15,8 +15,5 @@ make test
 This command runs the Django test suite without parallel execution (suitable for local development).
 
 ## Important Notes
-
-- **Do NOT write new tests** unless explicitly requested by the user
+- **Do NOT run tests** unless explicitly requested by the user
 - When modifying existing code, always check for corresponding tests and update them to reflect changes
-- Tests should be run locally without the `--parallel` flag
-- The `--parallel` flag is only used in CI/CD environments
