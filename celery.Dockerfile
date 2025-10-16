@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright/python:v1.48.0-noble
+FROM mcr.microsoft.com/playwright/python:v1.55.0-noble
 
 # Set Python environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
