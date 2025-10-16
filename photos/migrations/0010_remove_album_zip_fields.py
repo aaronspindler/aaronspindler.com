@@ -16,8 +16,3 @@ class Migration(migrations.Migration):
             name="zip_file_optimized",
         ),
     ]
-<<<<<<< Updated upstream
-=======
-
-
->>>>>>> Stashed changes
