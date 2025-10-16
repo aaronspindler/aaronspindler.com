@@ -330,15 +330,3 @@ class DownloadPhotoViewTestCase(TestCase):
             )
 
         self.assertEqual(response.status_code, 404)
-
-
-class DownloadAlbumViewTestCase(TestCase):
-    """Removed - download_album view no longer exists."""
-
-    pass
-
-
-class AlbumDownloadStatusViewTestCase(TestCase):
-    """Removed - album_download_status view no longer exists."""
-
-    pass
