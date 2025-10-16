@@ -288,11 +288,11 @@ class AlbumSaveSignalTestCase(TestCase):
 
         mock_zip = Mock()
         mock_zip.name = "test.zip"
-        mock_zip.__bool__ = lambda: True
+        mock_zip.__bool__ = lambda self: True
 
         mock_zip_opt = Mock()
         mock_zip_opt.name = "test_opt.zip"
-        mock_zip_opt.__bool__ = lambda: True
+        mock_zip_opt.__bool__ = lambda self: True
 
         album.zip_file = mock_zip
         album.zip_file_optimized = mock_zip_opt

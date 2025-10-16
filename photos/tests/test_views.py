@@ -360,7 +360,7 @@ class DownloadAlbumViewTestCase(TestCase):
 
         mock_zip = Mock()
         mock_zip.name = "test.zip"
-        mock_zip.__bool__ = lambda: True
+        mock_zip.__bool__ = lambda self: True
         type(mock_zip).url = PropertyMock(return_value="http://s3.example.com/album_optimized.zip")
 
         self.album.zip_file_optimized = mock_zip
@@ -378,7 +378,7 @@ class DownloadAlbumViewTestCase(TestCase):
 
         mock_zip = Mock()
         mock_zip.name = "test.zip"
-        mock_zip.__bool__ = lambda: True
+        mock_zip.__bool__ = lambda self: True
         type(mock_zip).url = PropertyMock(return_value="http://s3.example.com/album_original.zip")
 
         self.album.zip_file = mock_zip
@@ -401,7 +401,7 @@ class DownloadAlbumViewTestCase(TestCase):
 
         mock_zip = Mock()
         mock_zip.name = "test.zip"
-        mock_zip.__bool__ = lambda: True
+        mock_zip.__bool__ = lambda self: True
         type(mock_zip).url = PropertyMock(return_value="http://s3.example.com/album_optimized.zip")
 
         self.album.zip_file_optimized = mock_zip
@@ -459,7 +459,7 @@ class DownloadAlbumViewTestCase(TestCase):
 
         mock_zip = Mock()
         mock_zip.name = "test.zip"
-        mock_zip.__bool__ = lambda: True
+        mock_zip.__bool__ = lambda self: True
         type(mock_zip).url = PropertyMock(return_value="http://s3.example.com/album.zip")
 
         self.album.zip_file_optimized = mock_zip
@@ -535,12 +535,12 @@ class AlbumDownloadStatusViewTestCase(TestCase):
         mock_zip = Mock()
         mock_zip.name = "test.zip"
         mock_zip.size = 1024000
-        mock_zip.__bool__ = lambda: True
+        mock_zip.__bool__ = lambda self: True
 
         mock_zip_opt = Mock()
         mock_zip_opt.name = "test_opt.zip"
         mock_zip_opt.size = 512000
-        mock_zip_opt.__bool__ = lambda: True
+        mock_zip_opt.__bool__ = lambda self: True
 
         self.album.zip_file = mock_zip
         self.album.zip_file_optimized = mock_zip_opt
@@ -621,7 +621,7 @@ class AlbumDownloadStatusViewTestCase(TestCase):
         mock_zip = Mock()
         mock_zip.name = "test.zip"
         mock_zip.size = 1024000
-        mock_zip.__bool__ = lambda: True
+        mock_zip.__bool__ = lambda self: True
 
         self.album.zip_file = mock_zip
         self.album.zip_file_optimized = None
