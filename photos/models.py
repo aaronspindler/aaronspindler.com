@@ -275,8 +275,6 @@ class PhotoAlbum(models.Model):
     # PostgreSQL full-text search vector
     search_vector = SearchVectorField(null=True, blank=True)
 
-    # Zip archive fields removed as album ZIP downloads are no longer supported
-
     class Meta:
         verbose_name = "Photo Album"
         verbose_name_plural = "Photo Albums"
@@ -293,8 +291,6 @@ class PhotoAlbum(models.Model):
                 self.slug = f"{original_slug}-{counter}"
                 counter += 1
         super().save(*args, **kwargs)
-
-    # Zip archive helpers removed along with ZIP support
 
     def __str__(self):
         return self.title if self.title else f"Album {self.pk}"
