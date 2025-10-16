@@ -3,7 +3,7 @@ Tests for Photo and PhotoAlbum models.
 
 Tests cover:
 - Photo save() with image processing and duplicate detection
-- PhotoAlbum slug generation and download URL methods
+- PhotoAlbum slug generation
 - get_similar_images() functionality
 - Model field validations
 """
@@ -365,62 +365,7 @@ class PhotoAlbumModelTestCase(TestCase):
         self.assertIn(album, photo1.albums.all())
         self.assertIn(album, photo2.albums.all())
 
-    def test_get_download_url(self):
-        """Test getting download URLs for album zips."""
-        album = PhotoAlbum(allow_downloads=True)
-
-        # Setup mock files with URL property
-        mock_zip_original = Mock()
-        mock_zip_original.name = "test.zip"
-        mock_zip_original.url = "http://example.com/original.zip"
-
-        mock_zip_optimized = Mock()
-        mock_zip_optimized.name = "test_optimized.zip"
-        mock_zip_optimized.url = "http://example.com/optimized.zip"
-
-        # Assign mocked files to album
-        album.zip_file = mock_zip_original
-        album.zip_file_optimized = mock_zip_optimized
-
-        # Test when downloads allowed
-        self.assertEqual(album.get_download_url("original"), "http://example.com/original.zip")
-        self.assertEqual(album.get_download_url("optimized"), "http://example.com/optimized.zip")
-
-        # Test default quality
-        self.assertEqual(album.get_download_url(), "http://example.com/optimized.zip")
-
-        # Test when downloads not allowed
-        album.allow_downloads = False
-        self.assertIsNone(album.get_download_url("original"))
-        self.assertIsNone(album.get_download_url("optimized"))
-
-    def test_get_download_url_no_files(self):
-        """Test get_download_url when zip files don't exist."""
-        album = PhotoAlbum(allow_downloads=True)
-        album.zip_file = None
-        album.zip_file_optimized = None
-
-        self.assertIsNone(album.get_download_url("original"))
-        self.assertIsNone(album.get_download_url("optimized"))
-
-    @patch("photos.tasks.generate_album_zip.delay")
-    def test_regenerate_zip_files_async(self, mock_task):
-        """Test regenerating zip files asynchronously."""
-        album = PhotoAlbum.objects.create(title="Test Album")
-
-        album.regenerate_zip_files(async_task=True)
-        mock_task.assert_called_once_with(album.pk)
-
-    @patch("photos.tasks.generate_album_zip")
-    def test_regenerate_zip_files_sync(self, mock_task):
-        """Test regenerating zip files synchronously."""
-        album = PhotoAlbum.objects.create(title="Test Album")
-        mock_task.return_value = True
-
-        result = album.regenerate_zip_files(async_task=False)
-
-        mock_task.assert_called_once_with(album.pk)
-        self.assertTrue(result)
+    # ZIP-related album methods removed; corresponding tests deleted
 
     def test_album_privacy_settings(self):
         """Test album privacy settings."""
@@ -442,14 +387,4 @@ class PhotoAlbumModelTestCase(TestCase):
         album2 = PhotoAlbum.objects.create(title="Album 2", allow_downloads=True)
         self.assertTrue(album2.allow_downloads)
 
-    def test_album_zip_file_storage(self):
-        """Test that zip files use private storage."""
-        album = PhotoAlbum.objects.create(title="Test Album")
-
-        # Check that the field uses private storage
-        self.assertEqual(album.zip_file.storage.__class__.__name__, "PrivateMediaStorage")
-        self.assertEqual(album.zip_file_optimized.storage.__class__.__name__, "PrivateMediaStorage")
-
-        # Check upload paths
-        self.assertEqual(album.zip_file.field.upload_to, "albums/zips/original/")
-        self.assertEqual(album.zip_file_optimized.field.upload_to, "albums/zips/optimized/")
+    # ZIP-related fields removed; storage/upload path tests deleted
