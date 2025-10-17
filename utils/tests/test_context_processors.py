@@ -24,7 +24,6 @@ class LighthouseBadgeContextProcessorTests(TestCase):
             accessibility_score=90,
             best_practices_score=85,
             seo_score=100,
-            pwa_score=80,
         )
         context = lighthouse_badge(self.request)
         self.assertTrue(context["show_lighthouse_badge"])

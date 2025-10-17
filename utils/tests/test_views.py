@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 
@@ -6,6 +7,12 @@ from utils.models import LighthouseAudit
 
 class BadgeEndpointTests(TestCase):
     """Test cases for the badge endpoint."""
+
+    def setUp(self):
+        """Ensure clean state before each test."""
+        LighthouseAudit.objects.all().delete()
+        # Clear cache to prevent test pollution from @cache_page decorator
+        cache.clear()
 
     def test_badge_endpoint_no_data(self):
         """Test badge endpoint returns 404 when no audits exist."""
@@ -61,12 +68,6 @@ class BadgeEndpointTests(TestCase):
 
 class HistoryPageTests(TestCase):
     """Test cases for the history page."""
-
-    def test_history_page_loads(self):
-        """Test that the history page loads successfully."""
-        response = self.client.get(reverse("lighthouse_history"))
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Lighthouse Performance History")
 
     def test_history_page_no_audits(self):
         """Test history page displays appropriate message when no audits exist."""

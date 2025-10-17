@@ -89,10 +89,12 @@ class Command(BaseCommand):
         total_fingerprint_count = RequestFingerprint.objects.filter(ip_address__pk__in=local_ip_pks).count()
 
         if limit:
-            queryset = queryset[:limit]
             delete_ip_count = min(total_ip_count, limit)
+            # Get limited PKs first (can't delete a sliced queryset)
+            limited_pks = list(queryset.values_list("pk", flat=True)[:limit])
+            # Filter by limited PKs for deletion
+            queryset = IPAddress.objects.filter(pk__in=limited_pks)
             # Count fingerprints for limited set
-            limited_pks = list(queryset.values_list("pk", flat=True))
             delete_fingerprint_count = RequestFingerprint.objects.filter(ip_address__pk__in=limited_pks).count()
         else:
             delete_ip_count = total_ip_count
