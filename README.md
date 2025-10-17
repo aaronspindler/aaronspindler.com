@@ -454,13 +454,7 @@ python manage.py clear_cache
 
 ### Photo Management
 
-**generate_album_zips** - Generate zip files for photo albums
-```bash
-python manage.py generate_album_zips --all  # Generate for all albums with downloads enabled
-python manage.py generate_album_zips --album-id 1  # Generate for specific album by ID
-python manage.py generate_album_zips --album-slug "my-album"  # Generate for specific album by slug
-python manage.py generate_album_zips --album-id 1 --async  # Use Celery for async processing
-```
+Album ZIP download functionality has been removed.
 
 ### Search Index Management
 

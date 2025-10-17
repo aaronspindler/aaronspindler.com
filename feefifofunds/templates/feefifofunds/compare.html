@@ -1,0 +1,185 @@
+{% extends '_base.html' %}
+
+{% block title %}Compare Funds{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1>Fund Comparison Tool</h1>
+  <p>Select multiple funds to compare side-by-side</p>
+
+  <!-- Fund Selection Form -->
+  <div class="fund-selector">
+    <h2>Select Funds to Compare</h2>
+    <form method="get" action="{% url 'feefifofunds:compare' %}">
+      <div class="fund-selection">
+        <label>Select up to 5 funds to compare:</label>
+        {% for fund in all_funds %}
+        <div class="fund-option">
+          <input type="checkbox" name="funds" value="{{ fund.id }}" id="fund_{{ fund.id }}"
+            {% if fund.id|stringformat:"s" in request.GET.funds %}checked{% endif %}>
+          <label for="fund_{{ fund.id }}">
+            {{ fund.ticker }} - {{ fund.name }} ({{ fund.get_fund_type_display }}, MER: {{ fund.mer }}%)
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+      <button type="submit">Compare Selected Funds</button>
+    </form>
+  </div>
+
+  <!-- Comparison Table -->
+  {% if comparison_data %}
+  <div class="comparison-table">
+    <h2>Comparison Results</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Attribute</th>
+          {% for data in comparison_data %}
+          <th>{{ data.fund.ticker }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Basic Info -->
+        <tr>
+          <td><strong>Full Name</strong></td>
+          {% for data in comparison_data %}
+          <td>{{ data.fund.name }}</td>
+          {% endfor %}
+        </tr>
+
+        <tr>
+          <td><strong>Provider</strong></td>
+          {% for data in comparison_data %}
+          <td>{{ data.fund.provider.name }}</td>
+          {% endfor %}
+        </tr>
+
+        <tr>
+          <td><strong>Fund Type</strong></td>
+          {% for data in comparison_data %}
+          <td>{{ data.fund.get_fund_type_display }}</td>
+          {% endfor %}
+        </tr>
+
+        <tr>
+          <td><strong>Asset Class</strong></td>
+          {% for data in comparison_data %}
+          <td>{{ data.fund.get_asset_class_display }}</td>
+          {% endfor %}
+        </tr>
+
+        <tr>
+          <td><strong>Geographic Focus</strong></td>
+          {% for data in comparison_data %}
+          <td>{{ data.fund.get_geographic_focus_display }}</td>
+          {% endfor %}
+        </tr>
+
+        <!-- Fee Structure -->
+        <tr class="section-header">
+          <td colspan="{{ comparison_data|length|add:1 }}"><strong>Fee Structure</strong></td>
+        </tr>
+
+        <tr>
+          <td><strong>MER (%)</strong></td>
+          {% for data in comparison_data %}
+          <td><strong>{{ data.fund.mer }}%</strong></td>
+          {% endfor %}
+        </tr>
+
+        <tr>
+          <td><strong>Front Load (%)</strong></td>
+          {% for data in comparison_data %}
+          <td>{{ data.fund.front_load }}%</td>
+          {% endfor %}
+        </tr>
+
+        <tr>
+          <td><strong>Back Load (%)</strong></td>
+          {% for data in comparison_data %}
+          <td>{{ data.fund.back_load }}%</td>
+          {% endfor %}
+        </tr>
+
+        <!-- Performance -->
+        <tr class="section-header">
+          <td colspan="{{ comparison_data|length|add:1 }}"><strong>Performance</strong></td>
+        </tr>
+
+        <tr>
+          <td><strong>1 Year Return (%)</strong></td>
+          {% for data in comparison_data %}
+          <td>{{ data.fund.one_year_return|default:"-" }}%</td>
+          {% endfor %}
+        </tr>
+
+        <tr>
+          <td><strong>3 Year Return (%)</strong></td>
+          {% for data in comparison_data %}
+          <td>{{ data.fund.three_year_return|default:"-" }}%</td>
+          {% endfor %}
+        </tr>
+
+        <tr>
+          <td><strong>5 Year Return (%)</strong></td>
+          {% for data in comparison_data %}
+          <td>{{ data.fund.five_year_return|default:"-" }}%</td>
+          {% endfor %}
+        </tr>
+
+        <!-- Fee Impact Analysis -->
+        <tr class="section-header">
+          <td colspan="{{ comparison_data|length|add:1 }}">
+            <strong>Fee Impact Analysis</strong>
+            <br><small>${{ initial_investment|floatformat:0 }} investment over {{ years }} years (7% annual return)</small>
+          </td>
+        </tr>
+
+        <tr>
+          <td><strong>Final Value</strong></td>
+          {% for data in comparison_data %}
+          <td><strong>${{ data.fee_impact.final_value_with_fees|floatformat:2 }}</strong></td>
+          {% endfor %}
+        </tr>
+
+        <tr>
+          <td><strong>Total Fees Paid</strong></td>
+          {% for data in comparison_data %}
+          <td><span style="color: red;">${{ data.fee_impact.total_fees_paid|floatformat:2 }}</span></td>
+          {% endfor %}
+        </tr>
+
+        <tr>
+          <td><strong>Fee Impact ($ Lost)</strong></td>
+          {% for data in comparison_data %}
+          <td><span style="color: red;">${{ data.fee_impact.fee_impact|floatformat:2 }}</span></td>
+          {% endfor %}
+        </tr>
+
+        <!-- Links -->
+        <tr>
+          <td><strong>View Details</strong></td>
+          {% for data in comparison_data %}
+          <td><a href="{% url 'feefifofunds:fund_detail' data.fund.slug %}">View Full Details</a></td>
+          {% endfor %}
+        </tr>
+      </tbody>
+    </table>
+
+    <p><em>Note: Performance data and fee impact calculations are illustrative. Actual results will vary.</em></p>
+  </div>
+  {% else %}
+  <div class="no-selection">
+    <p>Select at least one fund above to start comparing.</p>
+  </div>
+  {% endif %}
+
+  <!-- Navigation -->
+  <div class="navigation">
+    <a href="{% url 'feefifofunds:fund_list' %}">← Back to Fund List</a>
+  </div>
+</div>
+{% endblock %}
