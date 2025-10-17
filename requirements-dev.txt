@@ -8,11 +8,11 @@
 pre-commit==4.3.0
 
 # Linting and formatting (Ruff does it all!)
-ruff==0.14.0
+ruff==0.14.1
 
 # Security auditing (optional - used in CI/CD)
 safety==3.6.2
 pip-audit==2.9.0
 
 # Testing utilities (if not in main requirements)
-coverage==7.10.7
+coverage==7.11.0
