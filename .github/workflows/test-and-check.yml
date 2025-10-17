@@ -304,8 +304,7 @@ jobs:
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.5.1
         with:
           files: ./coverage-*.xml
-          fail_ci_if_error: false
-          verbose: true
+          fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
   # Final check to ensure all jobs passed
