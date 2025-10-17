@@ -12,7 +12,7 @@
 # Trade-off: Larger base image (~1.5GB) but optimized for CI/CD speed
 # See DOCKER_BUILD_OPTIMIZATION.md for details
 
-FROM mcr.microsoft.com/playwright/python:v1.48.0-noble
+FROM mcr.microsoft.com/playwright/python:v1.55.0-noble
 
 # Set Python environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
