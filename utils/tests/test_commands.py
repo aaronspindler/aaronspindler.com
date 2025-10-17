@@ -7,7 +7,7 @@ from io import StringIO
 from django.core.management import call_command
 from django.test import TestCase
 
-from utils.models import RequestFingerprint
+from utils.models import IPAddress, RequestFingerprint
 
 
 class RemoveLocalFingerprintsCommandTest(TestCase):
@@ -34,10 +34,11 @@ class RemoveLocalFingerprintsCommandTest(TestCase):
 
         # Create fingerprints for local IPs
         for ip in self.local_ips:
+            ip_address_obj, _ = IPAddress.objects.get_or_create(ip_address=ip)
             RequestFingerprint.objects.create(
                 fingerprint=f"test-fp-{ip}",
                 fingerprint_no_ip=f"test-fp-no-ip-{ip}",
-                ip_address=ip,
+                ip_address=ip_address_obj,
                 method="GET",
                 path="/test/",
                 user_agent="TestAgent",
@@ -45,10 +46,11 @@ class RemoveLocalFingerprintsCommandTest(TestCase):
 
         # Create fingerprints for public IPs
         for ip in self.public_ips:
+            ip_address_obj, _ = IPAddress.objects.get_or_create(ip_address=ip)
             RequestFingerprint.objects.create(
                 fingerprint=f"test-fp-{ip}",
                 fingerprint_no_ip=f"test-fp-no-ip-{ip}",
-                ip_address=ip,
+                ip_address=ip_address_obj,
                 method="GET",
                 path="/test/",
                 user_agent="TestAgent",
@@ -57,7 +59,7 @@ class RemoveLocalFingerprintsCommandTest(TestCase):
     def test_command_dry_run(self):
         """Test that dry-run mode doesn't delete records."""
         initial_count = RequestFingerprint.objects.count()
-        local_count = RequestFingerprint.objects.filter(ip_address__in=self.local_ips).count()
+        local_count = RequestFingerprint.objects.filter(ip_address__ip_address__in=self.local_ips).count()
 
         out = StringIO()
         call_command("remove_local_fingerprints", "--dry-run", stdout=out)
@@ -68,7 +70,8 @@ class RemoveLocalFingerprintsCommandTest(TestCase):
 
         # Output should indicate dry-run mode
         self.assertIn("DRY RUN MODE", output)
-        self.assertIn(f"Would delete {local_count} record(s)", output)
+        self.assertIn(f"Would delete {local_count} IP record(s)", output)
+        self.assertIn("related fingerprint record(s)", output)
 
     def test_command_deletes_local_ips(self):
         """Test that command deletes local IP fingerprints."""
@@ -85,14 +88,15 @@ class RemoveLocalFingerprintsCommandTest(TestCase):
 
         # Public records should remain
         for ip in self.public_ips:
-            self.assertTrue(RequestFingerprint.objects.filter(ip_address=ip).exists())
+            self.assertTrue(RequestFingerprint.objects.filter(ip_address__ip_address=ip).exists())
 
         # Local records should be gone
         for ip in self.local_ips:
-            self.assertFalse(RequestFingerprint.objects.filter(ip_address=ip).exists())
+            self.assertFalse(RequestFingerprint.objects.filter(ip_address__ip_address=ip).exists())
 
         # Output should show successful deletion
-        self.assertIn(f"Successfully deleted {local_count}", output)
+        self.assertIn(f"Successfully deleted {local_count} IP record(s)", output)
+        self.assertIn("related fingerprint record(s)", output)
 
     def test_command_with_limit(self):
         """Test that limit parameter works correctly."""
@@ -104,21 +108,22 @@ class RemoveLocalFingerprintsCommandTest(TestCase):
         output = out.getvalue()
 
         # Only 'limit' records should be deleted
-        remaining_local = RequestFingerprint.objects.filter(ip_address__in=self.local_ips).count()
+        remaining_local = RequestFingerprint.objects.filter(ip_address__ip_address__in=self.local_ips).count()
         self.assertEqual(remaining_local, local_count - limit)
 
         # Output should show deletion count
-        self.assertIn(f"Successfully deleted {limit}", output)
-        self.assertIn("records remaining", output)
+        self.assertIn(f"Successfully deleted {limit} IP record(s)", output)
+        self.assertIn("record(s) remaining", output)
 
     def test_command_no_local_ips(self):
         """Test command when no local IPs exist."""
-        # Delete all local IP records
-        RequestFingerprint.objects.filter(ip_address__in=self.local_ips).delete()
+        # Delete all local IP records (both fingerprints and IPAddress objects)
+        RequestFingerprint.objects.filter(ip_address__ip_address__in=self.local_ips).delete()
+        IPAddress.objects.filter(ip_address__in=self.local_ips).delete()
 
         out = StringIO()
         call_command("remove_local_fingerprints", stdout=out)
         output = out.getvalue()
 
         # Should report no local IPs found
-        self.assertIn("No local IP fingerprints found", output)
+        self.assertIn("No local IP records found", output)

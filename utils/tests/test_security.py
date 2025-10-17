@@ -113,7 +113,10 @@ class GetClientIPTest(TestCase):
     def test_no_ip_available(self):
         """Test fallback when no IP is available."""
         request = self.factory.get("/")
-        # Don't set any IP-related headers
+        # Clear all IP-related headers (RequestFactory sets REMOTE_ADDR to 127.0.0.1 by default)
+        request.META.pop("REMOTE_ADDR", None)
+        request.META.pop("HTTP_X_FORWARDED_FOR", None)
+        request.META.pop("HTTP_X_REAL_IP", None)
 
         ip = get_client_ip(request)
         self.assertEqual(ip, "unknown")
