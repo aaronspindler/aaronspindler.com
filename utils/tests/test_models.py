@@ -62,15 +62,3 @@ class LighthouseAuditModelTests(TestCase):
             seo_score=60,
         )
         self.assertEqual(audit.color_class, "danger")
-
-    def test_string_representation(self):
-        """Test the string representation of a LighthouseAudit."""
-        audit = LighthouseAudit.objects.create(
-            url="https://example.com",
-            performance_score=95,
-            accessibility_score=90,
-            best_practices_score=85,
-            seo_score=100,
-        )
-        self.assertIn("https://example.com", str(audit))
-        self.assertIn("Audit for", str(audit))

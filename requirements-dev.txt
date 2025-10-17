@@ -10,10 +10,6 @@ pre-commit==4.3.0
 # Linting and formatting (Ruff does it all!)
 ruff==0.14.0
 
-# Type checking (optional - used in CI/CD but not in local hooks)
-mypy==1.18.2
-django-stubs==5.2.7
-
 # Security auditing (optional - used in CI/CD)
 safety==3.6.2
 pip-audit==2.9.0

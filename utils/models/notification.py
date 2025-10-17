@@ -6,9 +6,7 @@ import json
 import random
 import uuid
 
-from django.conf import settings
 from django.db import models
-from django.urls import reverse
 
 from utils.tasks import send_email, send_text_message
 
@@ -40,28 +38,6 @@ class NotificationEmail(models.Model):
         if not self.verification_code_small:
             self.verification_code_small = random.randint(100000, 999999)
         super().save(*args, **kwargs)
-
-    def create_action_status_notification_message(self, context):
-        """Create and send an action status notification email."""
-        message = Email.objects.create(
-            template="actiuon_status_notification",
-            subject=f"🚨 ActionsUptime Alert {context['action_name']}🚨",
-            recipient=self.email,
-        )
-        context["unsubscribe_url"] = f"{settings.BASE_URL}{reverse('unsubscribe', args=[self.unsubscribe_code])}"
-        message.set_parameters(context)
-        send_email.delay(message.id)
-
-    def create_endpoint_status_notification_message(self, context):
-        """Create and send an endpoint status notification email."""
-        message = Email.objects.create(
-            template="endpoint_status_notification",
-            subject=f"🚨 ActionsUptime Alert {context['url']}🚨",
-            recipient=self.email,
-        )
-        context["unsubscribe_url"] = f"{settings.BASE_URL}{reverse('unsubscribe', args=[self.unsubscribe_code])}"
-        message.set_parameters(context)
-        send_email.delay(message.id)
 
     def create_verification_message(self):
         """Create and send email verification message."""
@@ -97,24 +73,6 @@ class NotificationPhoneNumber(models.Model):
         if not self.verification_code:
             self.verification_code = random.randint(100000, 999999)
         super().save(*args, **kwargs)
-
-    def create_action_status_notification_message(self, context):
-        """Create and send an action status notification SMS."""
-        message = TextMessage.objects.create(
-            template="actiuon_status_notification",
-            recipient=self.phone_number,
-        )
-        message.set_parameters(context)
-        send_text_message.delay(message.id)
-
-    def create_endpoint_status_notification_message(self, context):
-        """Create and send an endpoint status notification SMS."""
-        message = TextMessage.objects.create(
-            template="endpoint_status_notification",
-            recipient=self.phone_number,
-        )
-        message.set_parameters(context)
-        send_text_message.delay(message.id)
 
     def create_verification_message(self):
         """Create and send phone verification SMS."""
