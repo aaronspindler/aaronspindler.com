@@ -576,7 +576,7 @@ Simplified pre-commit setup (all-in-one with Ruff):
 - **Ruff import sorting:** Organize imports automatically
 - **File checks:** Trailing whitespace, end-of-file, YAML validation
 
-Heavier checks (MyPy, Django checks) stay in CI/CD only to keep commits fast.
+Heavier checks (Django system checks) stay in CI/CD only to keep commits fast.
 
 ---
 

@@ -6,10 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.text import slugify
 
-from config.storage_backends import PrivateMediaStorage
 from photos.image_utils import DuplicateDetector, ExifExtractor, ImageMetadataExtractor, ImageOptimizer
-
-private_storage = PrivateMediaStorage()
 
 
 class Photo(models.Model):
@@ -278,20 +275,7 @@ class PhotoAlbum(models.Model):
     # PostgreSQL full-text search vector
     search_vector = SearchVectorField(null=True, blank=True)
 
-    zip_file = models.FileField(
-        upload_to="albums/zips/original/",
-        storage=private_storage,
-        blank=True,
-        null=True,
-        help_text="Zip file containing original quality photos",
-    )
-    zip_file_optimized = models.FileField(
-        upload_to="albums/zips/optimized/",
-        storage=private_storage,
-        blank=True,
-        null=True,
-        help_text="Zip file containing optimized quality photos",
-    )
+    # Zip archive fields removed as album ZIP downloads are no longer supported
 
     class Meta:
         verbose_name = "Photo Album"
@@ -310,45 +294,7 @@ class PhotoAlbum(models.Model):
                 counter += 1
         super().save(*args, **kwargs)
 
-    def get_download_url(self, quality="optimized"):
-        """
-        Get a secure download URL for the album zip file.
-
-        Args:
-            quality: 'original' or 'optimized' (default)
-
-        Returns:
-            str: Secure URL for downloading the zip file, or None if not available
-        """
-        if not self.allow_downloads:
-            return None
-
-        if quality == "original" and self.zip_file:
-            try:
-                return self.zip_file.url
-            except (ValueError, AttributeError):
-                return None
-        elif quality == "optimized" and self.zip_file_optimized:
-            try:
-                return self.zip_file_optimized.url
-            except (ValueError, AttributeError):
-                return None
-
-        return None
-
-    def regenerate_zip_files(self, async_task=True):
-        """
-        Regenerate the zip files for this album.
-
-        Args:
-            async_task: If True, use Celery async task. If False, run synchronously.
-        """
-        from photos.tasks import generate_album_zip
-
-        if async_task:
-            return generate_album_zip.delay(self.pk)
-        else:
-            return generate_album_zip(self.pk)
+    # Zip archive helpers removed along with ZIP support
 
     def __str__(self):
         return self.title if self.title else f"Album {self.pk}"

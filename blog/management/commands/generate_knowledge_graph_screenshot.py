@@ -15,12 +15,21 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = "Generate a screenshot of the knowledge graph and save to database"
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--url",
+            type=str,
+            default="http://localhost:8000",
+            help="Base URL to screenshot (default: http://localhost:8000)",
+        )
+
     def handle(self, *args, **options):
         self.stdout.write("Starting knowledge graph screenshot generation...")
 
         try:
-            # Generate the screenshot with hardcoded defaults
-            screenshot_data = self._generate_screenshot()
+            # Generate the screenshot with the specified URL
+            base_url = options["url"]
+            screenshot_data = self._generate_screenshot(base_url)
 
             # Generate hash of current graph data
             self.stdout.write("Building knowledge graph data...")
@@ -58,7 +67,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"Error generating knowledge graph screenshot: {e}"))
             raise
 
-    def _generate_screenshot(self):
+    def _generate_screenshot(self, base_url):
         """Generate the screenshot using Playwright with high quality settings and return the screenshot data."""
         # Hardcoded defaults
         width = 2400
@@ -106,11 +115,6 @@ class Command(BaseCommand):
                     "pageerror",
                     lambda err: self.stdout.write(self.style.WARNING(f"Page error: {err}")),
                 )
-
-                # We need to use localhost since we're running this during build
-                # The Django server needs to be running temporarily for this
-                # In the Dockerfile, we'll start a temporary server
-                base_url = "http://localhost:8000"
 
                 self.stdout.write(f"Navigating to {base_url}...")
 

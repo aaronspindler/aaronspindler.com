@@ -6,6 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Django-based personal website and blog (aaronspindler.com) with advanced features including knowledge graph visualization, photo management, and analytics tracking.
 
+## Cursor Rules
+
+This project includes AI context rules in `.cursor/rules/` to guide development:
+- **ai-context.mdc**: Guidelines for maintaining CLAUDE.md and README.md
+- **prs.mdc**: Pull request creation guidelines
+- **styling.mdc**: Blog post template styling guidelines
+- **testing.mdc**: Testing guidelines and commands
+
+**IMPORTANT**: Always reference these cursor rules along with CLAUDE.md when working on this codebase.
+
 ## Common Development Commands
 
 ### Local Development
@@ -48,6 +58,36 @@ safety check
 
 **IMPORTANT**: Do not write new tests for code in this repository unless explicitly requested.
 
+### Makefile Commands
+
+The project includes a Makefile for common development tasks:
+
+```bash
+# Static file management (default target)
+make static         # Build CSS, optimize JS, collect/optimize static files, run pre-commit hooks
+make css            # Build CSS only
+make js             # Build and optimize JavaScript only
+make collect        # Collect static files only
+make clean          # Remove generated static files
+
+# Docker testing commands
+make test           # Run full test suite (build, run, cleanup)
+make test-build     # Build Docker test images
+make test-up        # Start test environment in background
+make test-run       # Run all tests in Docker
+make test-run-app APP=<app>    # Run tests for specific app
+make test-shell     # Open shell in test container
+make test-down      # Stop test environment
+make test-clean     # Stop and remove test volumes
+make test-coverage  # Run tests with coverage report
+
+# Examples
+make test-run-app APP=blog
+make test-run-specific TEST=blog.tests.test_models
+```
+
+**Note**: The `make static` command is the primary way to rebuild static assets after CSS/JS changes. It automatically runs pre-commit hooks at the end.
+
 ### CSS and JavaScript Build
 ```bash
 # Build and optimize CSS
@@ -87,9 +127,22 @@ npm run build:all
 # Rebuild knowledge graph cache
 python manage.py rebuild_knowledge_graph
 
-# Generate knowledge graph screenshot (high-quality)
-python manage.py generate_knowledge_graph_screenshot --width 2400 --height 1600 --device-scale-factor 2.0 --quality 100 --transparent
+# Generate knowledge graph screenshot (high-quality, 2400x1600 at 2x DPI)
+# For local development (Django server running on localhost:8000)
+python manage.py generate_knowledge_graph_screenshot
+
+# For production (screenshot the live site)
+python manage.py generate_knowledge_graph_screenshot --url https://aaronspindler.com
+
+# Custom URL (e.g., staging environment)
+python manage.py generate_knowledge_graph_screenshot --url https://staging.example.com
 ```
+
+**Note**: The screenshot generation command:
+- Uses Playwright/Chromium to take high-quality screenshots (2400x1600, 2x device scale factor)
+- Runs automatically via Celery Beat daily at 4 AM UTC (screenshots production site)
+- Stores screenshots in the database with hash-based caching to avoid duplicates
+- Defaults to `http://localhost:8000` for local development
 
 ### Photo Management
 ```bash
@@ -361,6 +414,15 @@ For inline code within paragraphs, use simple `<code>` tags:
 - Coverage reporting with coverage.py
 - CI/CD via GitHub Actions with PostgreSQL service container
 
+#### Docker Test Environment
+The project includes a comprehensive Docker-based test environment (`docker-compose.test.yml`):
+- **Services**: Web, PostgreSQL, Redis, Celery, Flower, Localstack (S3 emulation)
+- **Configuration**: `env.test` for test-specific environment variables
+- **Test runner**: Dedicated container for running tests with `config.settings_test`
+- **Benefits**: Isolated test environment matching production setup
+- **Usage**: Use `make test` commands (see Makefile Commands section above)
+- **Note**: Test environment uses Localstack for S3 testing (no AWS credentials needed)
+
 ### Security and Code Quality
 - **CodeQL Analysis**: Automated security scanning runs on:
   - Every push to main
@@ -383,13 +445,68 @@ For inline code within paragraphs, use simple `<code>` tags:
     4. Review and apply the suggested fix manually
   - Requires GitHub Advanced Security enabled (automatic for public repos)
 
-- **Pre-commit Hooks**: Local code quality enforcement
-  - Ruff linter with auto-fixing for Python code
-  - Ruff formatter (compatible with Black) for Python code
-  - Prettier formatter for CSS files (source files only)
-  - CSS format checker to prevent minified source files from being committed
-  - File quality checks (trailing whitespace, end-of-file, YAML validation, etc.)
-  - Setup: Run `pre-commit install` after cloning the repository
+- **Pre-commit Hooks**: Local code quality enforcement (`.pre-commit-config.yaml`)
+  - **Ruff**: Fast Python linter and formatter
+    - `ruff` hook: Linting with auto-fixing for Python code (replaces flake8, isort)
+    - `ruff-format` hook: Code formatting (Black-compatible)
+    - Configuration in `pyproject.toml`
+  - **Prettier**: CSS formatting for source files only
+    - Formats developer-friendly CSS files in `static/css/`
+    - Excludes generated/optimized CSS files (`.opt.css`, `combined.*.css`, etc.)
+  - **CSS Format Checker**: Custom script to prevent minified CSS from being committed
+    - Script: `scripts/check-css-format.sh`
+    - Ensures source CSS files remain developer-friendly
+  - **File Quality Checks**: Standard pre-commit hooks
+    - Trailing whitespace removal
+    - End-of-file fixer
+    - YAML validation
+    - Large file checker (max 1MB)
+    - Merge conflict checker
+  - **Setup**: Run `pre-commit install` after cloning the repository
+  - **Usage**: Automatically runs on `git commit`, or run manually with `pre-commit run --all-files`
+  - **Note**: The `make static` command automatically runs pre-commit hooks at the end
+
+### Code Style Configuration (`pyproject.toml`)
+
+The project uses Ruff for linting and formatting, configured in `pyproject.toml`:
+
+**General Settings**:
+- Line length: 120 characters
+- Target Python version: 3.13
+- Excludes: migrations, venv, staticfiles, node_modules, third-party projects
+
+**Linting Rules**:
+- Enabled: pycodestyle (E/W), pyflakes (F), isort (I)
+- Ignored: E501 (line too long, handled by formatter)
+
+**Formatting**:
+- Black-compatible formatter
+- Double quotes for strings
+- Space indentation
+- Auto line-ending detection
+
+**Per-File Ignores**:
+- Test files: Allow star imports (F403, F405), unused variables (F841)
+- `__init__.py`: Allow unused imports (F401)
+- Admin files: Allow bare except clauses (E722) for display methods
+- Build commands: Allow unused subprocess results (F841)
+- Settings/utils: Allow module-level imports not at top (E402)
+
+**Import Sorting**:
+- First-party packages: accounts, blog, pages, photos, utils, config
+- Order: future → standard-library → third-party → first-party → local-folder
+
+### Prettier Configuration (`.prettierrc`)
+
+CSS formatting is managed by Prettier with the following settings:
+- Print width: 120 characters
+- Tab width: 2 spaces
+- Semi-colons: Required
+- Quotes: Double quotes
+- Trailing commas: ES5 style
+- Line endings: LF (Unix-style)
+
+**Note**: Only source CSS files in `static/css/` are formatted by Prettier. Generated/optimized CSS files (`.opt.css`, `combined.*.css`, etc.) are excluded via `.prettierignore`.
 
 ### Performance Optimizations
 - Graph data caching with 20-minute timeout
@@ -399,3 +516,10 @@ For inline code within paragraphs, use simple `<code>` tags:
 - Database query optimization with select/prefetch related
 - PostgreSQL full-text search with GIN indexes
 - Trigram indexes for typo-tolerant search
+
+## Final Notes
+
+- Always reference the cursor rules in `.cursor/rules/` when working on this codebase
+- Keep CLAUDE.md and README.md synchronized with code changes (see `.cursor/rules/ai-context.mdc`)
+- Use `make static` after CSS/JS changes to rebuild assets
+- Run `pre-commit run --all-files` before pushing (or use graphite which auto-runs hooks)

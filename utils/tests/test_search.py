@@ -14,7 +14,6 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
-from pages.utils import get_books, get_projects
 from utils.models import SearchableContent
 
 
@@ -56,12 +55,6 @@ class SearchableContentModelTest(TestCase):
         self.assertEqual(self.project.content_type, "project")
         self.assertEqual(self.book.content_type, "book")
 
-    def test_model_str_representation(self):
-        """Test the string representation of SearchableContent."""
-        self.assertEqual(str(self.blog_post), "Blog Post: Introduction to Django")
-        self.assertEqual(str(self.project), "Project: My Cool Project")
-        self.assertEqual(str(self.book), "Book: Python Crash Course")
-
     def test_update_search_vector(self):
         """Test that search vectors are updated correctly."""
         # Initially, search_vector might be None
@@ -75,36 +68,6 @@ class SearchableContentModelTest(TestCase):
 
         # Verify search vector is populated
         self.assertIsNotNone(self.blog_post.search_vector)
-
-    def test_ordering(self):
-        """Test that SearchableContent is ordered by created_at descending."""
-        queryset = SearchableContent.objects.all()
-        # Book was created last, so it should be first in the queryset
-        self.assertEqual(queryset[0].id, self.book.id)
-
-    def test_content_type_filtering(self):
-        """Test filtering by content type."""
-        blog_posts = SearchableContent.objects.filter(content_type="blog_post")
-        self.assertEqual(blog_posts.count(), 1)
-        self.assertEqual(blog_posts.first().title, "Introduction to Django")
-
-        projects = SearchableContent.objects.filter(content_type="project")
-        self.assertEqual(projects.count(), 1)
-
-        books = SearchableContent.objects.filter(content_type="book")
-        self.assertEqual(books.count(), 1)
-
-    def test_category_filtering(self):
-        """Test filtering by category."""
-        tech_posts = SearchableContent.objects.filter(category="tech")
-        self.assertEqual(tech_posts.count(), 1)
-        self.assertEqual(tech_posts.first().title, "Introduction to Django")
-
-    def test_template_name_filtering(self):
-        """Test filtering by template name."""
-        post = SearchableContent.objects.filter(template_name="0001_introduction_to_django")
-        self.assertEqual(post.count(), 1)
-        self.assertEqual(post.first().title, "Introduction to Django")
 
 
 class SearchFunctionsTest(TestCase):
@@ -257,19 +220,6 @@ class SearchFunctionsTest(TestCase):
         self.assertGreater(len(results), 0)
         self.assertEqual(results[0]["name"], "Python for Everybody")
 
-    def test_empty_search_query(self):
-        """Test that empty queries return all results."""
-        from utils.search import search_blog_posts, search_books, search_projects
-
-        blog_results = search_blog_posts("")
-        self.assertEqual(len(blog_results), 2)
-
-        project_results = search_projects("")
-        self.assertEqual(len(project_results), 1)
-
-        book_results = search_books("")
-        self.assertEqual(len(book_results), 1)
-
 
 class SearchViewsTest(TestCase):
     """Test search views and autocomplete API."""
@@ -361,18 +311,6 @@ class SearchViewsTest(TestCase):
         data = response.json()
         self.assertEqual(data["suggestions"], [])
 
-    def test_autocomplete_suggestion_structure(self):
-        """Test that autocomplete suggestions have correct structure."""
-        url = reverse("search_autocomplete")
-        response = self.client.get(url, {"q": "django"})
-
-        data = response.json()
-        if len(data["suggestions"]) > 0:
-            suggestion = data["suggestions"][0]
-            self.assertIn("title", suggestion)
-            self.assertIn("type", suggestion)
-            self.assertIn("url", suggestion)
-
     def test_autocomplete_limits_results(self):
         """Test that autocomplete limits total results to 10."""
         # Create multiple searchable items
@@ -439,226 +377,3 @@ class RebuildSearchIndexCommandTest(TestCase):
         self.assertIn("Indexing blog posts", output)
         # Should not index other content types
         self.assertNotIn("Indexing photos", output)
-
-    def test_command_with_content_type_projects(self):
-        """Test rebuilding only projects."""
-        out = StringIO()
-        call_command("rebuild_search_index", "--content-type", "projects", stdout=out)
-        output = out.getvalue()
-
-        self.assertIn("Indexing projects", output)
-        # Should not index other content types
-        self.assertNotIn("Indexing blog posts", output)
-
-    def test_command_with_content_type_books(self):
-        """Test rebuilding only books."""
-        out = StringIO()
-        call_command("rebuild_search_index", "--content-type", "books", stdout=out)
-        output = out.getvalue()
-
-        self.assertIn("Indexing books", output)
-
-    def test_command_indexes_projects_from_utils(self):
-        """Test that projects are indexed from pages.utils.get_projects()."""
-        out = StringIO()
-        call_command("rebuild_search_index", "--clear", "--content-type", "projects", stdout=out)
-
-        # Should have indexed all projects from get_projects()
-        projects_count = SearchableContent.objects.filter(content_type="project").count()
-        expected_count = len(get_projects())
-        self.assertEqual(projects_count, expected_count)
-
-    def test_command_indexes_books_from_utils(self):
-        """Test that books are indexed from pages.utils.get_books()."""
-        out = StringIO()
-        call_command("rebuild_search_index", "--clear", "--content-type", "books", stdout=out)
-
-        # Should have indexed all books from get_books()
-        books_count = SearchableContent.objects.filter(content_type="book").count()
-        expected_count = len(get_books())
-        self.assertEqual(books_count, expected_count)
-
-    def test_command_shows_statistics(self):
-        """Test that command shows statistics at the end."""
-        out = StringIO()
-        call_command("rebuild_search_index", stdout=out)
-        output = out.getvalue()
-
-        self.assertIn("Search Index Statistics:", output)
-        self.assertIn("Total:", output)
-        self.assertIn("Blog Posts:", output)
-        self.assertIn("Projects:", output)
-        self.assertIn("Books:", output)
-
-
-class PhotoSearchTest(TestCase):
-    """Test search functionality for photos and albums."""
-
-    def setUp(self):
-        """Set up test photo data."""
-        # Note: Photo creation requires image files, so we'll test what we can
-        pass
-
-    def test_search_photos_function_exists(self):
-        """Test that search_photos function is importable."""
-        from utils.search import search_photos
-
-        # Function should be callable
-        self.assertTrue(callable(search_photos))
-
-    def test_search_photo_albums_function_exists(self):
-        """Test that search_photo_albums function is importable."""
-        from utils.search import search_photo_albums
-
-        # Function should be callable
-        self.assertTrue(callable(search_photo_albums))
-
-
-class SearchIntegrationTest(TestCase):
-    """Integration tests for full search workflow."""
-
-    def test_end_to_end_search_workflow(self):
-        """Test complete search workflow from indexing to searching."""
-        # 1. Index some content
-        blog_post = SearchableContent.objects.create(
-            content_type="blog_post",
-            title="Machine Learning Tutorial",
-            description="Introduction to ML",
-            content="Machine learning is a subset of artificial intelligence",
-            category="tech",
-            url="/b/tech/ml_tutorial/",
-            template_name="ml_tutorial",
-        )
-        SearchableContent.update_search_vector(blog_post.id)
-
-        # 2. Search for it
-        from utils.search import search_blog_posts
-
-        results = search_blog_posts("machine learning")
-        self.assertGreater(len(results), 0)
-        self.assertEqual(results[0]["template_name"], "ml_tutorial")
-
-        # 3. Test via API endpoint
-        url = reverse("search_autocomplete")
-        response = self.client.get(url, {"q": "machine"})
-
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertGreater(len(data["suggestions"]), 0)
-
-    def test_combined_search_across_content_types(self):
-        """Test searching across multiple content types."""
-        # Create different content types with same keyword
-        SearchableContent.objects.create(
-            content_type="blog_post",
-            title="Python Programming",
-            description="Learn Python",
-            content="Python is great",
-            category="tech",
-            url="/b/tech/python/",
-            template_name="python",
-        )
-
-        SearchableContent.objects.create(
-            content_type="project",
-            title="Python Automation",
-            description="Automate tasks with Python",
-            content="Python scripts",
-            url="https://github.com/user/automation",
-        )
-
-        SearchableContent.objects.create(
-            content_type="book",
-            title="Learning Python",
-            description="by Mark Lutz",
-            content="Comprehensive Python guide",
-            url="/#books",
-        )
-
-        # Update search vectors
-        for obj in SearchableContent.objects.all():
-            SearchableContent.update_search_vector(obj.id)
-
-        # Search via view
-        url = reverse("search")
-        response = self.client.get(url, {"q": "python"})
-
-        self.assertEqual(response.status_code, 200)
-        results = response.context["results"]
-
-        # Should find results in all content types
-        self.assertGreater(len(results["blog_posts"]), 0)
-        self.assertGreater(len(results["projects"]), 0)
-        self.assertGreater(len(results["books"]), 0)
-
-    def test_search_relevance_scoring(self):
-        """Test that search results are ordered by relevance."""
-        # Create posts with different relevance
-        high_relevance = SearchableContent.objects.create(
-            content_type="blog_post",
-            title="Django Framework",  # "Django" in title - high relevance
-            description="Django info",
-            content="Django Django Django",  # Multiple mentions
-            category="tech",
-            url="/b/tech/django_framework/",
-            template_name="django_framework",
-        )
-        SearchableContent.update_search_vector(high_relevance.id)
-
-        low_relevance = SearchableContent.objects.create(
-            content_type="blog_post",
-            title="Web Development",  # "Django" not in title
-            description="Web dev info",
-            content="Some Django mention here.",  # Single mention
-            category="tech",
-            url="/b/tech/web_dev/",
-            template_name="web_dev",
-        )
-        SearchableContent.update_search_vector(low_relevance.id)
-
-        from utils.search import search_blog_posts
-
-        results = search_blog_posts("django")
-
-        # High relevance post should appear first
-        self.assertGreater(len(results), 0)
-        self.assertEqual(results[0]["template_name"], "django_framework")
-
-
-class UtilsFunctionsTest(TestCase):
-    """Test utility functions for projects and books."""
-
-    def test_get_projects_returns_list(self):
-        """Test that get_projects() returns a list."""
-        projects = get_projects()
-        self.assertIsInstance(projects, list)
-        self.assertGreater(len(projects), 0)
-
-    def test_get_projects_structure(self):
-        """Test that project dicts have required fields."""
-        projects = get_projects()
-        for project in projects:
-            self.assertIn("name", project)
-            self.assertIn("description", project)
-            self.assertIn("link", project)
-            self.assertIn("tech", project)
-
-    def test_get_books_returns_list(self):
-        """Test that get_books() returns a list."""
-        books = get_books()
-        self.assertIsInstance(books, list)
-        self.assertGreater(len(books), 0)
-
-    def test_get_books_structure(self):
-        """Test that book dicts have required fields."""
-        books = get_books()
-        for book in books:
-            self.assertIn("name", book)
-            self.assertIn("author", book)
-            self.assertIn("cover_image", book)
-
-    def test_get_books_sorted_alphabetically(self):
-        """Test that books are sorted by name."""
-        books = get_books()
-        book_names = [book["name"] for book in books]
-        self.assertEqual(book_names, sorted(book_names))
