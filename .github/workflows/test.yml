@@ -1,40 +1,20 @@
-name: Reusable Test and Check
+name: CI - Tests
 
 on:
-  workflow_call:
-    inputs:
-      python-version:
-        description: 'Python version to use'
-        required: false
-        type: string
-        default: '3.12.2'
-      upload-coverage:
-        description: 'Whether to upload coverage to Codecov'
-        required: false
-        type: boolean
-        default: true
-      ref:
-        description: 'Git ref to checkout (branch, tag, or SHA)'
-        required: false
-        type: string
-        default: ''
-      run-code-quality:
-        description: 'Whether to run code quality checks (linting, formatting, type checking)'
-        required: false
-        type: boolean
-        default: true
-      run-tests:
-        description: 'Whether to run the test suite'
-        required: false
-        type: boolean
-        default: true
-      run-django-checks:
-        description: 'Whether to run Django system and migration checks'
-        required: false
-        type: boolean
-        default: true
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
+  workflow_dispatch:
+
+# Cancel in-progress test runs for fast feedback
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
+  SECRET_KEY: "FAKE_SECRET_KEY"
   PYTHONUNBUFFERED: 1
   DOCKER_IMAGE_NAME: test-runner
 
@@ -46,20 +26,14 @@ jobs:
   build-docker-image:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: inputs.run-tests || inputs.run-django-checks
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
-        with:
-          ref: ${{ inputs.ref }}
-          token: ${{ github.token }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
         with:
           driver-opts: |
             network=host
-
-      # Note: Docker layer caching is now handled via GitHub Actions cache in the build step
 
       - name: Verify Docker Compose file
         run: |
@@ -100,17 +74,13 @@ jobs:
   pre-commit-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: inputs.run-code-quality
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
-        with:
-          ref: ${{ inputs.ref }}
-          token: ${{ github.token }}
 
       - name: Set up Python
         uses: actions/setup-python@18566f86b301499665bd3eb1a2247e0849c64fa5  # v6.0.0
         with:
-          python-version: ${{ inputs.python-version }}
+          python-version: '3.12.2'
           cache: 'pip'
 
       - name: Install pre-commit
@@ -136,15 +106,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-docker-image
     timeout-minutes: 10
-    if: inputs.run-django-checks
     strategy:
       matrix:
         check: [migrations, system]
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
-        with:
-          ref: ${{ inputs.ref }}
-          token: ${{ github.token }}
 
       - name: Download Docker image artifact
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0  # v5.0.0
@@ -190,7 +156,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-docker-image
     timeout-minutes: 30  # Increased timeout for memory-intensive tests
-    if: inputs.run-tests
     strategy:
       fail-fast: false
       matrix:
@@ -205,9 +170,6 @@ jobs:
             apps: "utils"
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
-        with:
-          ref: ${{ inputs.ref }}
-          token: ${{ github.token }}
 
       - name: Download Docker image artifact
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0  # v5.0.0
@@ -259,13 +221,9 @@ jobs:
   coverage-upload:
     runs-on: ubuntu-latest
     needs: test-suite
-    if: inputs.upload-coverage && inputs.run-tests
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
-        with:
-          ref: ${{ inputs.ref }}
-          token: ${{ github.token }}
 
       - name: Download coverage artifacts
         uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0  # v5.0.0
@@ -277,7 +235,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@18566f86b301499665bd3eb1a2247e0849c64fa5  # v6.0.0
         with:
-          python-version: ${{ inputs.python-version }}
+          python-version: '3.12.2'
 
       - name: Install coverage
         run: |
@@ -310,46 +268,39 @@ jobs:
   # Final check to ensure all jobs passed
   all-checks:
     runs-on: ubuntu-latest
-    needs: [build-docker-image, django-checks, test-suite, pre-commit-checks]
+    needs: [build-docker-image, django-checks, test-suite, pre-commit-checks, coverage-upload]
     if: always()
     steps:
       - name: Check if all jobs passed
         run: |
-          # Check Docker build if tests or django checks were supposed to run
-          if [[ "${{ inputs.run-tests }}" == "true" ]] || [[ "${{ inputs.run-django-checks }}" == "true" ]]; then
-            BUILD_STATUS="${{ needs.build-docker-image.result }}"
-            if [[ "$BUILD_STATUS" == "failure" ]]; then
-              echo "❌ Docker build failed"
-              exit 1
-            fi
+          BUILD_STATUS="${{ needs.build-docker-image.result }}"
+          if [[ "$BUILD_STATUS" != "success" ]]; then
+            echo "❌ Docker build failed (status: $BUILD_STATUS)"
+            exit 1
           fi
 
-          # Check Django checks if they were supposed to run
-          if [[ "${{ inputs.run-django-checks }}" == "true" ]]; then
-            DJANGO_STATUS="${{ needs.django-checks.result }}"
-            if [[ "$DJANGO_STATUS" == "failure" ]]; then
-              echo "❌ Django checks failed"
-              exit 1
-            fi
+          DJANGO_STATUS="${{ needs.django-checks.result }}"
+          if [[ "$DJANGO_STATUS" != "success" ]]; then
+            echo "❌ Django checks failed (status: $DJANGO_STATUS)"
+            exit 1
           fi
 
-          # Check test suite if it was supposed to run
-          if [[ "${{ inputs.run-tests }}" == "true" ]]; then
-            TEST_STATUS="${{ needs.test-suite.result }}"
-            if [[ "$TEST_STATUS" == "failure" ]]; then
-              echo "❌ Test suite failed"
-              exit 1
-            fi
+          TEST_STATUS="${{ needs.test-suite.result }}"
+          if [[ "$TEST_STATUS" != "success" ]]; then
+            echo "❌ Test suite failed (status: $TEST_STATUS)"
+            exit 1
           fi
 
-          # Check pre-commit if it was supposed to run
-          if [[ "${{ inputs.run-code-quality }}" == "true" ]]; then
-            PRECOMMIT_STATUS="${{ needs.pre-commit-checks.result }}"
-
-            if [[ "$PRECOMMIT_STATUS" == "failure" ]]; then
-              echo "❌ Pre-commit checks failed"
-              exit 1
-            fi
+          PRECOMMIT_STATUS="${{ needs.pre-commit-checks.result }}"
+          if [[ "$PRECOMMIT_STATUS" != "success" ]]; then
+            echo "❌ Pre-commit checks failed (status: $PRECOMMIT_STATUS)"
+            exit 1
           fi
 
-          echo "✅ All enabled checks passed successfully!"
+          COVERAGE_STATUS="${{ needs.coverage-upload.result }}"
+          if [[ "$COVERAGE_STATUS" != "success" ]]; then
+            echo "❌ Coverage upload failed (status: $COVERAGE_STATUS)"
+            exit 1
+          fi
+
+          echo "✅ All checks passed successfully!"
