@@ -1,40 +1,32 @@
-name: CI/CD Pipeline
+name: CD - Build and Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI - Tests"]
+    types:
+      - completed
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-    types: [ opened, synchronize, reopened, ready_for_review ]
   workflow_dispatch:
 
-# Cancel in-progress runs for PRs but not for main branch
+# Do NOT cancel in-progress builds/deployments for safety and to avoid wasting CI minutes
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository }}
-  SECRET_KEY: "FAKE_SECRET_KEY"
-  PYTHONUNBUFFERED: 1
+
+permissions:
+  contents: read
 
 jobs:
-  # First, run tests to ensure code quality
-  test:
-    uses: ./.github/workflows/test-and-check.yml
-    permissions:
-      contents: read
-    with:
-      python-version: '3.12.2'
-      upload-coverage: true
-
-  # Build Docker images after tests pass (only for main branch)
+  # Build Docker images after tests pass
   build-and-push:
-    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Only run if the triggering workflow succeeded or if manually triggered
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: read
       packages: write
@@ -91,7 +83,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
-          # Build args removed - BUILDKIT_INLINE_CACHE is deprecated
           provenance: false
           sbom: false
 
@@ -100,7 +91,6 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
 
@@ -120,6 +110,7 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
             echo "⏭️ No Flower-related changes, skipping Flower deployment"
           fi
+
       - name: Deploy Web to CapRover
         continue-on-error: true
         run: |
@@ -160,21 +151,3 @@ jobs:
             --appToken "${{ secrets.CAPROVER_FLOWER_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_FLOWER_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-flower:latest"
-
-      - name: Deployment Summary
-        if: always()
-        run: |
-          echo "============================="
-          echo "✅ Deployment Complete!"
-          echo "============================="
-          echo "Services deployed:"
-          echo "• Web: ${{ secrets.CAPROVER_WEB_APP_NAME }}"
-          echo "• Celery: ${{ secrets.CAPROVER_CELERY_APP_NAME }}"
-          echo "• Celery Beat: ${{ secrets.CAPROVER_CELERYBEAT_APP_NAME }}"
-          if [[ "${{ steps.flower-changes.outputs.changed }}" == "true" ]]; then
-            echo "• Flower: ${{ secrets.CAPROVER_FLOWER_APP_NAME }}"
-          else
-            echo "• Flower: (skipped - no changes)"
-          fi
-          echo ""
-          echo "Check CapRover dashboard for deployment status"
