@@ -112,7 +112,6 @@ jobs:
           fi
 
       - name: Deploy Web to CapRover
-        id: deploy-web
         continue-on-error: true
         run: |
           echo "🚀 Deploying Web service to CapRover..."
@@ -123,7 +122,6 @@ jobs:
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-web:latest"
 
       - name: Deploy Celery to CapRover
-        id: deploy-celery
         continue-on-error: true
         run: |
           echo "🔧 Deploying Celery worker to CapRover..."
@@ -134,7 +132,6 @@ jobs:
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celery:latest"
 
       - name: Deploy Celery Beat to CapRover
-        id: deploy-celerybeat
         continue-on-error: true
         run: |
           echo "⏰ Deploying Celery Beat to CapRover..."
@@ -145,7 +142,6 @@ jobs:
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celerybeat:latest"
 
       - name: Deploy Flower to CapRover
-        id: deploy-flower
         if: steps.flower-changes.outputs.changed == 'true'
         continue-on-error: true
         run: |
@@ -155,72 +151,3 @@ jobs:
             --appToken "${{ secrets.CAPROVER_FLOWER_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_FLOWER_APP_NAME }}" \
             --imageName "${{ env.REGISTRY }}/${{ github.repository }}-flower:latest"
-
-      - name: Deployment Summary and Status Check
-        if: always()
-        run: |
-          echo "============================="
-          echo "📊 Deployment Summary"
-          echo "============================="
-
-          # Track deployment outcomes
-          FAILED_DEPLOYMENTS=0
-          SUCCESSFUL_DEPLOYMENTS=0
-
-          # Check Web deployment
-          if [[ "${{ steps.deploy-web.outcome }}" == "success" ]]; then
-            echo "✅ Web: ${{ secrets.CAPROVER_WEB_APP_NAME }}"
-            ((SUCCESSFUL_DEPLOYMENTS++))
-          else
-            echo "❌ Web: ${{ secrets.CAPROVER_WEB_APP_NAME }} (failed)"
-            ((FAILED_DEPLOYMENTS++))
-          fi
-
-          # Check Celery deployment
-          if [[ "${{ steps.deploy-celery.outcome }}" == "success" ]]; then
-            echo "✅ Celery: ${{ secrets.CAPROVER_CELERY_APP_NAME }}"
-            ((SUCCESSFUL_DEPLOYMENTS++))
-          else
-            echo "❌ Celery: ${{ secrets.CAPROVER_CELERY_APP_NAME }} (failed)"
-            ((FAILED_DEPLOYMENTS++))
-          fi
-
-          # Check Celery Beat deployment
-          if [[ "${{ steps.deploy-celerybeat.outcome }}" == "success" ]]; then
-            echo "✅ Celery Beat: ${{ secrets.CAPROVER_CELERYBEAT_APP_NAME }}"
-            ((SUCCESSFUL_DEPLOYMENTS++))
-          else
-            echo "❌ Celery Beat: ${{ secrets.CAPROVER_CELERYBEAT_APP_NAME }} (failed)"
-            ((FAILED_DEPLOYMENTS++))
-          fi
-
-          # Check Flower deployment (only if it was supposed to run)
-          if [[ "${{ steps.flower-changes.outputs.changed }}" == "true" ]]; then
-            if [[ "${{ steps.deploy-flower.outcome }}" == "success" ]]; then
-              echo "✅ Flower: ${{ secrets.CAPROVER_FLOWER_APP_NAME }}"
-              ((SUCCESSFUL_DEPLOYMENTS++))
-            else
-              echo "❌ Flower: ${{ secrets.CAPROVER_FLOWER_APP_NAME }} (failed)"
-              ((FAILED_DEPLOYMENTS++))
-            fi
-          else
-            echo "⏭️  Flower: (skipped - no changes)"
-          fi
-
-          echo ""
-          echo "Summary: $SUCCESSFUL_DEPLOYMENTS succeeded, $FAILED_DEPLOYMENTS failed"
-          echo "Check CapRover dashboard for details"
-
-          # Fail the workflow if all deployments failed
-          TOTAL_DEPLOYMENTS=$((SUCCESSFUL_DEPLOYMENTS + FAILED_DEPLOYMENTS))
-          if [[ $TOTAL_DEPLOYMENTS -gt 0 ]] && [[ $SUCCESSFUL_DEPLOYMENTS -eq 0 ]]; then
-            echo ""
-            echo "❌ All deployments failed!"
-            exit 1
-          fi
-
-          # Warn if any deployments failed
-          if [[ $FAILED_DEPLOYMENTS -gt 0 ]]; then
-            echo ""
-            echo "⚠️  Some deployments failed, but at least one succeeded"
-          fi
