@@ -143,6 +143,89 @@ test-coverage:
 test: test-build test-run test-down
 	@echo "Test suite completed!"
 
+# FeeFiFoFunds Development Environment Commands
+.PHONY: dev-up
+dev-up:
+	@echo "🚀 Starting FeeFiFoFunds development environment..."
+	docker-compose -f docker-compose.dev.yml up -d
+	@echo "✅ Development environment is running!"
+	@echo ""
+	@echo "Available services:"
+	@echo "  - Django Web UI: http://localhost:8002"
+	@echo "  - Flower (Celery monitoring): http://localhost:5557"
+	@echo "  - PostgreSQL: localhost:5434"
+	@echo "  - Redis: localhost:6381"
+	@echo ""
+	@echo "Admin credentials: admin / admin123"
+	@echo ""
+	@echo "Useful commands:"
+	@echo "  make dev-logs      - View all logs"
+	@echo "  make dev-shell     - Open Django shell"
+	@echo "  make dev-down      - Stop environment"
+
+.PHONY: dev-build
+dev-build:
+	@echo "🔨 Building development Docker images..."
+	docker-compose -f docker-compose.dev.yml build
+
+.PHONY: dev-down
+dev-down:
+	@echo "🛑 Stopping development environment..."
+	docker-compose -f docker-compose.dev.yml down
+	@echo "✅ Development environment stopped!"
+
+.PHONY: dev-clean
+dev-clean:
+	@echo "🧹 Cleaning development environment (removing volumes)..."
+	docker-compose -f docker-compose.dev.yml down -v
+	@echo "✅ Development environment cleaned!"
+
+.PHONY: dev-restart
+dev-restart:
+	@echo "🔄 Restarting development environment..."
+	docker-compose -f docker-compose.dev.yml restart
+	@echo "✅ Development environment restarted!"
+
+.PHONY: dev-logs
+dev-logs:
+	@echo "📋 Showing development environment logs..."
+	docker-compose -f docker-compose.dev.yml logs -f
+
+.PHONY: dev-shell
+dev-shell:
+	@echo "🐚 Opening Django shell in development container..."
+	docker-compose -f docker-compose.dev.yml exec web python manage.py shell
+
+.PHONY: dev-bash
+dev-bash:
+	@echo "💻 Opening bash shell in development container..."
+	docker-compose -f docker-compose.dev.yml exec web bash
+
+.PHONY: dev-migrate
+dev-migrate:
+	@echo "🗄️  Running migrations in development environment..."
+	docker-compose -f docker-compose.dev.yml exec web python manage.py migrate
+
+.PHONY: dev-makemigrations
+dev-makemigrations:
+	@echo "📝 Creating migrations in development environment..."
+	docker-compose -f docker-compose.dev.yml exec web python manage.py makemigrations
+
+.PHONY: dev-test
+dev-test:
+	@echo "🧪 Running tests in development environment..."
+	docker-compose -f docker-compose.dev.yml exec web python manage.py test
+
+.PHONY: dev-psql
+dev-psql:
+	@echo "🗄️  Opening PostgreSQL shell..."
+	docker-compose -f docker-compose.dev.yml exec postgres psql -U feefifofunds_dev -d feefifofunds_dev
+
+.PHONY: dev-redis
+dev-redis:
+	@echo "💾 Opening Redis CLI..."
+	docker-compose -f docker-compose.dev.yml exec redis redis-cli
+
 # Help
 .PHONY: help
 help:
@@ -155,6 +238,21 @@ help:
 	@echo "  make collect        - Collect static files only"
 	@echo "  make collect-optimize - Collect and optimize static files"
 	@echo "  make clean          - Remove generated static files"
+	@echo ""
+	@echo "FeeFiFoFunds Development Environment:"
+	@echo "  make dev-up         - Start development environment (Django + PostgreSQL + Redis + Celery + Flower)"
+	@echo "  make dev-build      - Build development Docker images"
+	@echo "  make dev-down       - Stop development environment"
+	@echo "  make dev-clean      - Stop and remove all development volumes"
+	@echo "  make dev-restart    - Restart all development services"
+	@echo "  make dev-logs       - Show all logs (follow mode)"
+	@echo "  make dev-shell      - Open Django shell"
+	@echo "  make dev-bash       - Open bash shell in web container"
+	@echo "  make dev-migrate    - Run database migrations"
+	@echo "  make dev-makemigrations - Create new migrations"
+	@echo "  make dev-test       - Run tests in development environment"
+	@echo "  make dev-psql       - Open PostgreSQL shell"
+	@echo "  make dev-redis      - Open Redis CLI"
 	@echo ""
 	@echo "Docker Testing Commands:"
 	@echo "  make test           - Run full test suite (build, run, cleanup)"
@@ -171,6 +269,6 @@ help:
 	@echo "  make test-coverage  - Run tests with coverage report"
 	@echo ""
 	@echo "Examples:"
+	@echo "  make dev-up && make dev-logs     - Start and watch logs"
 	@echo "  make test-run-app APP=blog"
 	@echo "  make test-run-specific TEST=blog.tests.test_models"
-	@echo "  make test-logs-service SERVICE=localstack"

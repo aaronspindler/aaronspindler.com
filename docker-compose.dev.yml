@@ -1,0 +1,177 @@
+# Docker Compose configuration for FeeFiFoFunds development environment
+#
+# Usage:
+#   docker-compose -f docker-compose.dev.yml up
+#   docker-compose -f docker-compose.dev.yml down
+#   docker-compose -f docker-compose.dev.yml logs -f
+
+services:
+  # PostgreSQL with TimescaleDB for development
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: feefifofunds_postgres_dev
+    environment:
+      - POSTGRES_USER=feefifofunds_dev
+      - POSTGRES_PASSWORD=dev_password_change_in_production
+      - POSTGRES_DB=feefifofunds_dev
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    ports:
+      - "5434:5432"  # Use different port to avoid conflicts with main DB
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./docker/init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feefifofunds_dev -d feefifofunds_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - feefifofunds_dev
+
+  # Redis for caching and Celery message broker
+  redis:
+    image: redis:7-alpine
+    container_name: feefifofunds_redis_dev
+    ports:
+      - "6381:6379"  # Use different port to avoid conflicts
+    volumes:
+      - redis_dev_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - feefifofunds_dev
+
+  # Django web application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: feefifofunds_web_dev
+    command: >
+      sh -c "
+        echo '🔄 Waiting for PostgreSQL and Redis...' &&
+        while ! nc -z postgres 5432; do sleep 1; done &&
+        while ! nc -z redis 6379; do sleep 1; done &&
+        echo '✅ Services ready!' &&
+        echo '🗄️  Running migrations...' &&
+        python manage.py migrate --no-input &&
+        echo '👤 Creating superuser (if needed)...' &&
+        python manage.py shell -c \"from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').exists() or User.objects.create_superuser('admin', 'admin@example.com', 'admin123')\" || true &&
+        echo '🎨 Building CSS...' &&
+        python manage.py build_css --dev || true &&
+        echo '📦 Collecting static files...' &&
+        python manage.py collectstatic --no-input || true &&
+        echo '🔍 Rebuilding search index...' &&
+        python manage.py rebuild_search_index || true &&
+        echo '🚀 Starting development server...' &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+    volumes:
+      - .:/code
+      - static_volume:/code/staticfiles
+      - media_volume:/code/media
+    ports:
+      - "8002:8000"  # Access at http://localhost:8002
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - SECRET_KEY=dev-secret-key-change-in-production-please
+      - DEBUG=True
+      - DATABASE_URL=postgres://feefifofunds_dev:dev_password_change_in_production@postgres:5432/feefifofunds_dev
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - USE_DEV_CACHE_PREFIX=True
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - feefifofunds_dev
+
+  # Celery worker for async tasks
+  celery_worker:
+    build:
+      context: .
+      dockerfile: celery.Dockerfile
+    container_name: feefifofunds_celery_worker_dev
+    command: celery -A config worker -l info --concurrency=4
+    volumes:
+      - .:/code
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - SECRET_KEY=dev-secret-key-change-in-production-please
+      - DATABASE_URL=postgres://feefifofunds_dev:dev_password_change_in_production@postgres:5432/feefifofunds_dev
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - postgres
+      - redis
+      - web
+    networks:
+      - feefifofunds_dev
+
+  # Celery beat for scheduled tasks
+  celery_beat:
+    build:
+      context: .
+      dockerfile: celerybeat.Dockerfile
+    container_name: feefifofunds_celery_beat_dev
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/code
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - SECRET_KEY=dev-secret-key-change-in-production-please
+      - DATABASE_URL=postgres://feefifofunds_dev:dev_password_change_in_production@postgres:5432/feefifofunds_dev
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - postgres
+      - redis
+      - celery_worker
+    networks:
+      - feefifofunds_dev
+
+  # Flower for Celery monitoring
+  flower:
+    build:
+      context: .
+      dockerfile: flower.Dockerfile
+    container_name: feefifofunds_flower_dev
+    command: celery -A config flower --port=5555
+    ports:
+      - "5557:5555"  # Access at http://localhost:5557
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - SECRET_KEY=dev-secret-key-change-in-production-please
+      - DATABASE_URL=postgres://feefifofunds_dev:dev_password_change_in_production@postgres:5432/feefifofunds_dev
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+    depends_on:
+      - redis
+      - celery_worker
+    networks:
+      - feefifofunds_dev
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+  static_volume:
+  media_volume:
+
+networks:
+  feefifofunds_dev:
+    driver: bridge
