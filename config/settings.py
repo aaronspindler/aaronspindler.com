@@ -44,11 +44,6 @@ INSTALLED_APPS = [
     "allauth.account",
     "storages",  # AWS S3 storage
     "django_celery_beat",  # Celery Beat scheduler
-    "rest_framework",  # Django REST Framework
-    "rest_framework.authtoken",  # Token authentication
-    "django_filters",  # Filtering for DRF
-    "corsheaders",  # CORS headers for API
-    "drf_spectacular",  # OpenAPI/Swagger documentation
     # Project apps
     "accounts",
     "pages",
@@ -61,7 +56,6 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "corsheaders.middleware.CorsMiddleware",  # CORS middleware (must be before CommonMiddleware)
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -317,133 +311,3 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 RESUME_ENABLED = env("RESUME_ENABLED", default=True)
 RESUME_FILENAME = env("RESUME_FILENAME", default="Aaron_Spindler_Resume_2025.pdf")
-
-# ==============================================================================
-# Django REST Framework Configuration
-# ==============================================================================
-
-REST_FRAMEWORK = {
-    # Use Django's standard `django.contrib.auth` permissions
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ],
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
-    ],
-    # Pagination
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 20,
-    # Filtering
-    "DEFAULT_FILTER_BACKENDS": [
-        "django_filters.rest_framework.DjangoFilterBackend",
-        "rest_framework.filters.SearchFilter",
-        "rest_framework.filters.OrderingFilter",
-    ],
-    # Rendering (browsable API only enabled in DEBUG mode)
-    "DEFAULT_RENDERER_CLASSES": (
-        ["rest_framework.renderers.JSONRenderer", "rest_framework.renderers.BrowsableAPIRenderer"]
-        if DEBUG
-        else ["rest_framework.renderers.JSONRenderer"]
-    ),
-    # Parsing
-    "DEFAULT_PARSER_CLASSES": [
-        "rest_framework.parsers.JSONParser",
-        "rest_framework.parsers.FormParser",
-        "rest_framework.parsers.MultiPartParser",
-    ],
-    # Versioning
-    "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.URLPathVersioning",
-    "DEFAULT_VERSION": "v1",
-    "ALLOWED_VERSIONS": ["v1"],
-    # Throttling (rate limiting)
-    "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
-    ],
-    "DEFAULT_THROTTLE_RATES": {
-        "anon": "100/hour",  # Anonymous users: 100 requests per hour
-        "user": "1000/hour",  # Authenticated users: 1000 requests per hour
-    },
-    # Schema generation
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    # Exception handling
-    "EXCEPTION_HANDLER": "rest_framework.views.exception_handler",
-    # Date/time formatting
-    "DATETIME_FORMAT": "%Y-%m-%dT%H:%M:%S%z",
-    "DATE_FORMAT": "%Y-%m-%d",
-    "TIME_FORMAT": "%H:%M:%S",
-}
-
-# Simple JWT Configuration (for FUND-028)
-from datetime import timedelta
-
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
-    "UPDATE_LAST_LOGIN": True,
-    "ALGORITHM": "HS256",
-    "SIGNING_KEY": SECRET_KEY,
-    "VERIFYING_KEY": None,
-    "AUTH_HEADER_TYPES": ("Bearer",),
-    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
-    "USER_ID_FIELD": "id",
-    "USER_ID_CLAIM": "user_id",
-    "TOKEN_TYPE_CLAIM": "token_type",
-}
-
-# drf-spectacular (OpenAPI/Swagger) Configuration
-SPECTACULAR_SETTINGS = {
-    "TITLE": "FeeFiFoFunds API",
-    "DESCRIPTION": "API for fund tracking, analysis, and comparison",
-    "VERSION": "1.0.0",
-    "SERVE_INCLUDE_SCHEMA": False,
-    "SWAGGER_UI_SETTINGS": {
-        "deepLinking": True,
-        "persistAuthorization": True,
-        "displayOperationId": True,
-    },
-    "COMPONENT_SPLIT_REQUEST": True,
-    "SCHEMA_PATH_PREFIX": r"/api/v[0-9]+",
-}
-
-# CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # React/Vue local dev
-    "http://localhost:8080",  # Alternative frontend port
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:8080",
-]
-
-# Add production origins if not in DEBUG mode
-if not DEBUG:
-    CORS_ALLOWED_ORIGINS.extend(
-        [
-            "https://aaronspindler.com",
-            "https://www.aaronspindler.com",
-        ]
-    )
-
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_METHODS = [
-    "DELETE",
-    "GET",
-    "OPTIONS",
-    "PATCH",
-    "POST",
-    "PUT",
-]
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
-    "authorization",
-    "content-type",
-    "dnt",
-    "origin",
-    "user-agent",
-    "x-csrftoken",
-    "x-requested-with",
-]

@@ -285,6 +285,13 @@ python manage.py remove_local_fingerprints --limit 100
   - Custom user model
   - Registration disabled by default (NoSignupAccountAdapter)
 
+- **feefifofunds/**: Fund tracking and analysis (FeeFiFoFunds project)
+  - Fund data models (Fund, Performance, Metrics, Holdings)
+  - Django views for fund data access and comparison
+  - Financial metrics calculation service
+  - Data source integrations for fund information
+  - Management commands for metrics calculation
+
 ### Key Technical Features
 
 1. **Knowledge Graph System** (`blog/knowledge_graph.py`)

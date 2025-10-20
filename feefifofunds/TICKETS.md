@@ -487,68 +487,70 @@ def fetch_daily_prices():
 
 ---
 
-## 🌐 Epic 4: API Development
+## 🌐 Epic 4: Views & JSON Endpoints
 
-### FUND-023: Set Up Django REST Framework
+### FUND-023: Set Up Django Views for Data Access
 **Priority**: P0
 **Effort**: S
 **Status**: 📝 Todo
 **Dependencies**: FUND-001
-**Description**: Configure DRF for API development
+**Description**: Create simple Django views with JSON responses
 
 **Tasks**:
-- Install Django REST Framework
-- Configure serializers
-- Set up viewsets
-- Configure pagination
+- Create views module in feefifofunds
+- Set up URL routing
+- Implement JsonResponse for data endpoints
+- Add basic error handling
 
 **Acceptance Criteria**:
-- [ ] DRF installed and configured
-- [ ] API root accessible
-- [ ] Documentation generated
+- [ ] Views returning JSON data
+- [ ] URL patterns configured
+- [ ] Error handling implemented
 
 ---
 
-### FUND-024: Create Fund List/Detail Endpoints
+### FUND-024: Create Fund List/Detail Views
 **Priority**: P0
 **Effort**: M
 **Status**: 📝 Todo
 **Dependencies**: FUND-023, FUND-002
-**Description**: Implement basic CRUD endpoints for funds
+**Description**: Implement basic views for fund data access
 
-**Endpoints**:
-- `GET /api/v1/funds/` - List all funds
-- `GET /api/v1/funds/{ticker}/` - Fund details
-- `GET /api/v1/funds/{ticker}/performance/` - Historical data
-- `GET /api/v1/funds/{ticker}/holdings/` - Current holdings
+**Views**:
+- `/funds/` - List all funds (HTML template)
+- `/funds/<ticker>/` - Fund detail page (HTML template)
+- `/funds/<ticker>/data/` - Fund data as JSON (for AJAX/charts)
+- `/funds/<ticker>/performance/` - Historical data as JSON
 
 **Acceptance Criteria**:
-- [ ] Endpoints return correct data
+- [ ] Templates render correctly
+- [ ] JSON endpoints return correct data
 - [ ] Filtering and sorting working
-- [ ] Pagination implemented
 - [ ] Response time < 200ms
 
 ---
 
-### FUND-025: Implement Comparison API
+### FUND-025: Implement Comparison View
 **Priority**: P0
 **Effort**: M
 **Status**: 📝 Todo
 **Dependencies**: FUND-019, FUND-024
-**Description**: Create API for fund comparisons
+**Description**: Create view for fund comparisons
 
-**Endpoints**:
-- `POST /api/v1/compare/` - Compare funds
-- `GET /api/v1/compare/{id}/` - Retrieve comparison
+**Implementation**:
+- `/compare/` - Comparison page with form
+- `/compare/data/` - JSON endpoint for AJAX comparison
+- Accept multiple tickers via query params or POST
+- Return comparison data as JSON for client-side rendering
 
 **Acceptance Criteria**:
 - [ ] Accept 2-10 funds for comparison
 - [ ] Results include all metrics
-- [ ] Caching implemented
+- [ ] Caching implemented with Redis
 
 ---
 
-### FUND-026: Build Search and Filter API
+### FUND-026: Build Search and Filter Views
 **Priority**: P1
 **Effort**: M
 **Status**: 📝 Todo
@@ -556,29 +558,31 @@ def fetch_daily_prices():
 **Description**: Implement search and filtering capabilities
 
 **Features**:
-- Full-text search
+- Full-text search view
 - Filter by category, expense ratio, etc.
-- Autocomplete suggestions
+- Autocomplete JSON endpoint
 - Advanced query support
 
 **Acceptance Criteria**:
 - [ ] Search returns relevant results
 - [ ] Filters combinable
 - [ ] Autocomplete < 50ms response
+- [ ] Uses existing search infrastructure (like blog autocomplete)
 
 ---
 
-### FUND-027: Create Analytics Endpoints
+### FUND-027: Create Analytics Views
 **Priority**: P1
 **Effort**: M
 **Status**: 📝 Todo
 **Dependencies**: FUND-020
-**Description**: API endpoints for analytics data
+**Description**: Views for analytics data
 
-**Endpoints**:
-- `/api/v1/analytics/market-overview/`
-- `/api/v1/analytics/top-performers/`
-- `/api/v1/analytics/sector-analysis/`
+**Views**:
+- `/analytics/` - Analytics dashboard
+- `/analytics/market-overview/` - Market overview JSON
+- `/analytics/top-performers/` - Top performers JSON
+- `/analytics/sector-analysis/` - Sector analysis JSON
 
 **Acceptance Criteria**:
 - [ ] Real-time data served
@@ -587,43 +591,31 @@ def fetch_daily_prices():
 
 ---
 
-### FUND-028: Implement Authentication & Authorization
-**Priority**: P0
-**Effort**: M
-**Status**: 📝 Todo
-**Dependencies**: FUND-023
-**Description**: Set up API authentication
-
-**Implementation**:
-- JWT token authentication
-- API key management
-- Rate limiting per user
-- Permission classes
-
-**Acceptance Criteria**:
-- [ ] Token generation working
-- [ ] Protected endpoints secured
-- [ ] Rate limiting enforced
-- [ ] API keys manageable
-
----
-
-### FUND-029: Add API Rate Limiting
+### FUND-028: Implement User Authentication
 **Priority**: P1
 **Effort**: S
 **Status**: 📝 Todo
-**Dependencies**: FUND-028
-**Description**: Implement rate limiting for API endpoints
+**Dependencies**: FUND-024
+**Description**: Use Django's built-in authentication for protected views
 
-**Limits**:
-- Anonymous: 100 requests/hour
-- Authenticated: 1000 requests/hour
-- Premium: 10000 requests/hour
+**Implementation**:
+- Use @login_required decorator
+- Leverage existing django-allauth setup
+- Session-based authentication (already configured)
+- Per-user data access controls
 
 **Acceptance Criteria**:
-- [ ] Rate limits enforced
-- [ ] Headers show remaining quota
-- [ ] 429 responses for exceeded limits
+- [ ] Protected views require login
+- [ ] User-specific data properly scoped
+- [ ] Uses existing auth infrastructure
+
+---
+
+### FUND-029: ~~Add API Rate Limiting~~
+**Priority**: P2
+**Effort**: N/A
+**Status**: 🚫 Skipped
+**Reason**: Not needed for personal use without public API
 
 ---
 
@@ -632,12 +624,14 @@ def fetch_daily_prices():
 **Effort**: L
 **Status**: 📝 Todo
 **Dependencies**: FUND-010
-**Description**: Implement Django Channels for real-time updates
+**Description**: Implement Django Channels for real-time updates (if needed)
 
 **Features**:
 - Real-time price updates
 - Live portfolio values
 - Alert notifications
+
+**Note**: Consider if this is necessary for personal use. Simple AJAX polling may suffice.
 
 **Acceptance Criteria**:
 - [ ] WebSocket connections stable
@@ -646,24 +640,11 @@ def fetch_daily_prices():
 
 ---
 
-### FUND-031: API Documentation with Swagger
-**Priority**: P1
-**Effort**: M
-**Status**: 📝 Todo
-**Dependencies**: FUND-024
-**Description**: Generate comprehensive API documentation
-
-**Tasks**:
-- Configure drf-yasg or drf-spectacular
-- Document all endpoints
-- Provide example requests/responses
-- Include authentication guide
-
-**Acceptance Criteria**:
-- [ ] Swagger UI accessible
-- [ ] All endpoints documented
-- [ ] Try-it-out feature working
-- [ ] Export to OpenAPI spec
+### FUND-031: ~~API Documentation with Swagger~~
+**Priority**: P3
+**Effort**: N/A
+**Status**: 🚫 Skipped
+**Reason**: Not using DRF, documentation not needed for internal views
 
 ---
 
@@ -1301,16 +1282,17 @@ def fetch_daily_prices():
 ## 📊 Ticket Summary
 
 ### By Priority
-- **P0 (Critical)**: 17 tickets
-- **P1 (High)**: 24 tickets
+- **P0 (Critical)**: 16 tickets
+- **P1 (High)**: 22 tickets
 - **P2 (Medium)**: 11 tickets
-- **P3 (Low)**: 0 tickets
+- **P3 (Low)**: 1 ticket (skipped)
+- **Skipped**: 2 tickets (FUND-029, FUND-031)
 
 ### By Epic
 - **Foundation**: 5 tickets
 - **Data Pipeline**: 11 tickets
 - **Analytics**: 6 tickets
-- **API Development**: 9 tickets
+- **Views & JSON Endpoints**: 7 tickets (reduced from 9, 2 skipped)
 - **Frontend**: 9 tickets
 - **ML & Recommendations**: 6 tickets
 - **Infrastructure**: 6 tickets
@@ -1319,12 +1301,12 @@ def fetch_daily_prices():
 - **Launch**: 3 tickets
 
 ### Total Estimated Effort
-- **Development**: ~16-20 weeks
+- **Development**: ~14-18 weeks (reduced by skipping DRF complexity)
 - **Testing & QA**: ~3-4 weeks
-- **Documentation**: ~2 weeks
+- **Documentation**: ~1-2 weeks (reduced, no API docs needed)
 - **Launch prep**: ~2 weeks
 
-**Total Timeline**: ~24-28 weeks (6-7 months)
+**Total Timeline**: ~20-24 weeks (5-6 months)
 
 ## 🎯 Suggested Sprint Plan
 
