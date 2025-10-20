@@ -149,7 +149,8 @@ table {
 th,
 td {
   border: var(--border-thickness) solid var(--text-color);
-  padding: calc((var(--line-height) / 2)) calc(1ch - var(--border-thickness) / 2)
+  padding: calc((var(--line-height) / 2))
+    calc(1ch - var(--border-thickness) / 2)
     calc((var(--line-height) / 2) - (var(--border-thickness)));
   line-height: var(--line-height);
   vertical-align: top;
@@ -276,7 +277,8 @@ input,
 button,
 textarea {
   border: var(--border-thickness) solid var(--text-color);
-  padding: calc(var(--line-height) / 2 - var(--border-thickness)) calc(1ch - var(--border-thickness));
+  padding: calc(var(--line-height) / 2 - var(--border-thickness))
+    calc(1ch - var(--border-thickness));
   margin: 0;
   font: inherit;
   font-weight: inherit;
@@ -386,12 +388,21 @@ label input {
   --grid-cells: 0;
   display: flex;
   gap: 1ch;
-  width: calc(round(down, 100%, (1ch * var(--grid-cells)) - (1ch * var(--grid-cells) - 1)));
+  width: calc(
+    round(down, 100%, (1ch * var(--grid-cells)) - (1ch * var(--grid-cells) - 1))
+  );
   margin-bottom: var(--line-height);
 }
 .grid > *,
 .grid > input {
-  flex: 0 0 calc(round(down, (100% - (1ch * (var(--grid-cells) - 1))) / var(--grid-cells), 1ch));
+  flex: 0 0
+    calc(
+      round(
+        down,
+        (100% - (1ch * (var(--grid-cells) - 1))) / var(--grid-cells),
+        1ch
+      )
+    );
 }
 .grid:has(> :last-child:nth-child(1)) {
   --grid-cells: 1;
@@ -421,14 +432,21 @@ label input {
   --grid-cells: 9;
 }
 .debug .debug-grid {
-  --color: color-mix(in srgb, var(--text-color) 10%, var(--background-color) 90%);
+  --color: color-mix(
+    in srgb,
+    var(--text-color) 10%,
+    var(--background-color) 90%
+  );
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: -1;
-  background-image: repeating-linear-gradient(var(--color) 0 1px, transparent 1px 100%),
+  background-image: repeating-linear-gradient(
+      var(--color) 0 1px,
+      transparent 1px 100%
+    ),
     repeating-linear-gradient(90deg, var(--color) 0 1px, transparent 1px 100%);
   background-size: 1ch var(--line-height);
   margin: 0;
