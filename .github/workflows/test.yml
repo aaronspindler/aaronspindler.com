@@ -198,10 +198,16 @@ jobs:
           mkdir -p ./test_output
           docker compose -f docker-compose.test.yml run --rm \
             -v $(pwd)/test_output:/code/test_output test_runner sh -c "
-            pip install coverage --no-cache-dir &&
+            pip install coverage unittest-xml-reporting --no-cache-dir &&
             export PYTHONDONTWRITEBYTECODE=1 &&
             export PYTHONUNBUFFERED=1 &&
-            coverage run --source='.' manage.py test ${{ matrix.test-group.apps }} --settings=config.settings_test --no-input --verbosity=2 &&
+            export TEST_OUTPUT_DIR=/code/test_output &&
+            coverage run --source='.' manage.py test ${{ matrix.test-group.apps }} \
+              --settings=config.settings_test \
+              --no-input \
+              --verbosity=2 \
+              --testrunner='xmlrunner.extra.djangotestrunner.XMLTestRunner' \
+              --output-dir=/code/test_output/test-results-${{ matrix.test-group.name }} &&
             coverage report &&
             coverage xml -o /code/test_output/coverage-${{ matrix.test-group.name }}.xml
           "
@@ -211,6 +217,13 @@ jobs:
         with:
           name: coverage-${{ matrix.test-group.name }}
           path: ./test_output/coverage-${{ matrix.test-group.name }}.xml
+          retention-days: 1
+
+      - name: Upload test results artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: test-results-${{ matrix.test-group.name }}
+          path: ./test_output/test-results-${{ matrix.test-group.name }}/
           retention-days: 1
 
       - name: Cleanup
@@ -231,6 +244,13 @@ jobs:
           pattern: coverage-*
           merge-multiple: true
           path: ./coverage-reports
+
+      - name: Download test results artifacts
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0  # v5.0.0
+        with:
+          pattern: test-results-*
+          merge-multiple: true
+          path: ./test-results
 
       - name: Set up Python
         uses: actions/setup-python@18566f86b301499665bd3eb1a2247e0849c64fa5  # v6.0.0
@@ -262,6 +282,13 @@ jobs:
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.5.1
         with:
           files: ./coverage-*.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results to Codecov
+        uses: codecov/test-results-action@v1  # v1.1.1
+        with:
+          files: ./test-results/**/*.xml
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
