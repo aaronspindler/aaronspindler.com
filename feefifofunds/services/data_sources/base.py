@@ -11,6 +11,7 @@ from typing import List, Optional
 
 import requests
 from django.core.cache import cache
+from django_ratelimit.core import is_ratelimited
 
 from feefifofunds.models import DataSource, DataSync
 
@@ -58,6 +59,7 @@ class BaseDataSource(ABC):
     requires_api_key: bool = False
     rate_limit_requests: int = 100
     rate_limit_period: int = 60  # seconds
+    request_timeout: int = 30  # default timeout in seconds
 
     def __init__(self, api_key: Optional[str] = None):
         """
@@ -87,10 +89,32 @@ class BaseDataSource(ABC):
         """
         Check if we can make a request without exceeding rate limits.
 
+        Uses Redis for distributed rate limiting across multiple workers to prevent
+        race conditions when multiple processes check the limit simultaneously.
+
         Returns:
             True if request can be made, False otherwise
         """
-        return self.data_source_model.can_make_request()
+        # Use Redis-backed rate limiting for atomic operations
+        key = f"datasource_ratelimit:{self.name}"
+
+        # Check if we're already rate limited (without incrementing)
+        is_limited = is_ratelimited(
+            key=key,
+            rate=f"{self.rate_limit_requests}/{self.rate_limit_period}s",
+            increment=False,
+        )
+
+        if not is_limited:
+            # Atomically increment the counter
+            is_ratelimited(
+                key=key,
+                rate=f"{self.rate_limit_requests}/{self.rate_limit_period}s",
+                increment=True,
+            )
+            return True
+
+        return False
 
     def record_request(self, success: bool = True, error_message: str = ""):
         """
@@ -109,14 +133,14 @@ class BaseDataSource(ABC):
             print(f"Rate limit reached for {self.name}, waiting {wait_time} seconds...")
             time.sleep(wait_time)
 
-    def _make_request(self, url: str, params: dict = None, timeout: int = 30) -> dict:
+    def _make_request(self, url: str, params: dict = None, timeout: int = None) -> dict:
         """
         Make an HTTP GET request with error handling and rate limiting.
 
         Args:
             url: URL to request
             params: Query parameters
-            timeout: Request timeout in seconds
+            timeout: Request timeout in seconds (uses class default if not specified)
 
         Returns:
             Response JSON as dictionary
@@ -125,6 +149,9 @@ class BaseDataSource(ABC):
             RateLimitError: If rate limit is exceeded
             DataSourceError: If request fails
         """
+        if timeout is None:
+            timeout = self.request_timeout
+
         self.wait_for_rate_limit()
 
         try:
@@ -133,17 +160,37 @@ class BaseDataSource(ABC):
             self.record_request(success=True)
             return response.json()
         except requests.exceptions.HTTPError as e:
+            # Enhanced error message with context
+            error_context = f"HTTP {e.response.status_code} error for {url}"
+            if params:
+                error_context += f" with params={params}"
+
+            # Include response body (truncated)
+            if e.response.text:
+                error_context += f": {e.response.text[:200]}"
+
             if e.response.status_code == 429:
-                self.record_request(success=False, error_message="Rate limit exceeded")
-                raise RateLimitError(f"Rate limit exceeded for {self.name}")
-            self.record_request(success=False, error_message=str(e))
-            raise DataSourceError(f"HTTP error: {e}")
+                self.record_request(success=False, error_message=error_context)
+                raise RateLimitError(f"Rate limit exceeded for {self.name}: {error_context}")
+
+            self.record_request(success=False, error_message=error_context)
+            raise DataSourceError(error_context)
+        except requests.exceptions.Timeout:
+            error_msg = f"Request timeout after {timeout}s for {url}"
+            if params:
+                error_msg += f" with params={params}"
+            self.record_request(success=False, error_message=error_msg)
+            raise DataSourceError(error_msg)
         except requests.exceptions.RequestException as e:
-            self.record_request(success=False, error_message=str(e))
-            raise DataSourceError(f"Request failed: {e}")
+            error_msg = f"Request failed for {url}: {str(e)}"
+            if params:
+                error_msg += f" with params={params}"
+            self.record_request(success=False, error_message=error_msg)
+            raise DataSourceError(error_msg)
         except ValueError as e:
-            self.record_request(success=False, error_message="Invalid JSON response")
-            raise DataSourceError(f"Invalid JSON response: {e}")
+            error_msg = f"Invalid JSON response from {url}: {str(e)}"
+            self.record_request(success=False, error_message=error_msg)
+            raise DataSourceError(error_msg)
 
     def _get_cached_or_fetch(self, cache_key: str, fetch_func, cache_timeout: int = 3600):
         """

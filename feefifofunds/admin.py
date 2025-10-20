@@ -3,7 +3,7 @@ Django admin configuration for FeeFiFoFunds models.
 """
 
 from django.contrib import admin
-from django.utils.html import format_html
+from django.utils.html import SafeString, format_html
 
 from .models import DataSource, DataSync, Fund, FundHolding, FundMetrics, FundPerformance
 
@@ -133,7 +133,7 @@ class FundAdmin(admin.ModelAdmin):
     ordering = ["ticker"]
     date_hierarchy = "created_at"
 
-    def price_change_display(self, obj):
+    def price_change_display(self, obj: Fund) -> SafeString:
         """Display price change with color coding."""
         change = obj.price_change_percent
         if change is None:
@@ -143,7 +143,7 @@ class FundAdmin(admin.ModelAdmin):
         return format_html('<span style="color: {};">{:.2f}%</span>', color, change)
 
     price_change_display.short_description = "Change %"
-    price_change_display.admin_order_field = "current_price"
+    price_change_display.admin_order_field = "price_change_percent"
 
 
 @admin.register(FundPerformance)
@@ -625,7 +625,7 @@ class DataSourceAdmin(admin.ModelAdmin):
     )
     ordering = ["-priority", "name"]
 
-    def status_display(self, obj):
+    def status_display(self, obj: DataSource) -> SafeString:
         """Display status with color coding."""
         colors = {
             "ACTIVE": "green",
@@ -731,7 +731,7 @@ class DataSyncAdmin(admin.ModelAdmin):
     date_hierarchy = "started_at"
     raw_id_fields = ["fund"]
 
-    def status_display(self, obj):
+    def status_display(self, obj: DataSync) -> SafeString:
         """Display status with color coding."""
         colors = {
             "PENDING": "gray",
