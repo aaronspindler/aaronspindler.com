@@ -34,7 +34,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends nodejs
 
 # Copy only requirements file first (changes less frequently)
-COPY requirements.txt .
+COPY requirements/base.txt requirements.txt
 
 # Install Python dependencies with pip cache mount
 RUN --mount=type=cache,target=/root/.cache/pip \
@@ -42,14 +42,14 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy package files for NPM (changes less frequently than app code)
-COPY package*.json postcss.config.js purgecss.config.js ./
+COPY package*.json .config/postcss.config.js .config/purgecss.config.js ./
 
 # Install NPM dependencies with cache mount
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --prefer-offline --no-audit
 
 # Copy entrypoint script (changes rarely)
-COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY deployment/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # Copy static files and build configuration (needed for JS build)
