@@ -180,17 +180,3 @@ Contributions welcome! Please:
 - **Request Fingerprinting**: Suspicious request detection
 
 Report security issues via GitHub Issues or directly to the maintainer.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-- **Documentation**: See `docs/` directory
-- **Issues**: [GitHub Issues](https://github.com/aaronspindler/aaronspindler.com/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/aaronspindler/aaronspindler.com/discussions)
-
----
-
-**Built with ❤️ using Django 5.2.5 and Python 3.13**
