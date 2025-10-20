@@ -145,9 +145,6 @@ python manage.py generate_knowledge_graph_screenshot --url https://staging.examp
 - Defaults to `http://localhost:8000` for local development
 
 ### Photo Management
-```bash
-# Generate photo album zips
-python manage.py generate_album_zips
 ```
 
 ### Lighthouse Performance Monitoring
@@ -287,6 +284,13 @@ python manage.py remove_local_fingerprints --limit 100
 - **accounts/**: User authentication via django-allauth
   - Custom user model
   - Registration disabled by default (NoSignupAccountAdapter)
+
+- **feefifofunds/**: Fund tracking and analysis (FeeFiFoFunds project)
+  - Fund data models (Fund, Performance, Metrics, Holdings)
+  - Django views for fund data access and comparison
+  - Financial metrics calculation service
+  - Data source integrations for fund information
+  - Management commands for metrics calculation
 
 ### Key Technical Features
 
