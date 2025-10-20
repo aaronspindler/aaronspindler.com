@@ -20,12 +20,16 @@ ALLOWED_HOSTS = [
     "aaronspindler-web.spindlers.dev",
     "aaronspindler.com",
     "www.aaronspindler.com",
+    "omas.coffee",
+    "www.omas.coffee",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://aaronspindler.com",
     "https://*.spindlers.org",
     "https://*.spindlers.dev",
     "https://www.aaronspindler.com",
+    "https://omas.coffee",
+    "https://www.omas.coffee",
 ]
 
 
@@ -48,9 +52,11 @@ INSTALLED_APPS = [
     "blog",
     "photos",
     "utils",
+    "omas",  # Omas Coffee website
 ]
 
 MIDDLEWARE = [
+    "config.domain_routing.DomainRoutingMiddleware",  # Domain-based URL routing (must be first)
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
