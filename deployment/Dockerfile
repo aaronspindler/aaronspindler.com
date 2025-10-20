@@ -20,14 +20,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /code
 
-# Install Node.js and npm (not included in Playwright image)
+# Install Node.js 20.x from NodeSource (required for Lighthouse @lhci/cli compatibility)
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libpq5 \
-    nodejs \
-    npm
+    ca-certificates \
+    gnupg && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && apt-get install -y --no-install-recommends nodejs
 
 # Copy only requirements file first (changes less frequently)
 COPY requirements/base.txt requirements.txt
