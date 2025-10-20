@@ -5,21 +5,23 @@ from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from accounts.tests.factories import UserFactory
 from blog.admin import BlogCommentAdmin
 from blog.models import BlogComment
 from blog.tests.factories import BlogCommentFactory
-from tests.factories import TestDataMixin
 
 User = get_user_model()
 
 
-class BlogCommentAdminTest(TestCase, TestDataMixin):
+class BlogCommentAdminTest(TestCase):
     """Test BlogComment admin interface."""
 
     def setUp(self):
         self.site = AdminSite()
         self.admin = BlogCommentAdmin(BlogComment, self.site)
-        self.setUp_users()
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
         self.comment = BlogCommentFactory.create_comment(author=self.user, status="pending")
 
     def test_list_display_fields(self):
@@ -286,12 +288,14 @@ class BlogCommentAdminTest(TestCase, TestDataMixin):
             self.assertIn(action, self.admin.actions)
 
 
-class AdminIntegrationTest(TestCase, TestDataMixin):
+class AdminIntegrationTest(TestCase):
     """Test admin interface integration."""
 
     def setUp(self):
         self.client = Client()
-        self.setUp_users()
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
         self.comment = BlogCommentFactory.create_pending_comment()
 
     def test_admin_changelist_view(self):

@@ -6,12 +6,11 @@ from django.urls import reverse
 from accounts.admin import CustomUserAdmin
 from accounts.forms import CustomUserChangeForm, CustomUserCreationForm
 from accounts.tests.factories import UserFactory
-from tests.factories import TestDataMixin
 
 User = get_user_model()
 
 
-class CustomUserAdminTest(TestCase, TestDataMixin):
+class CustomUserAdminTest(TestCase):
     """
     Test the CustomUserAdmin configuration.
     """
@@ -20,7 +19,9 @@ class CustomUserAdminTest(TestCase, TestDataMixin):
         """Set up test data."""
         self.site = AdminSite()
         self.admin = CustomUserAdmin(User, self.site)
-        self.setUp_users()
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
         self.client = Client()
 
     def test_admin_registered(self):

@@ -1,18 +1,20 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
+from accounts.tests.factories import UserFactory
 from blog.forms import CommentForm, CommentModerationForm, ReplyForm
 from blog.tests.factories import BlogCommentFactory, MockDataFactory
-from tests.factories import TestDataMixin
 
 User = get_user_model()
 
 
-class CommentFormTest(TestCase, TestDataMixin):
+class CommentFormTest(TestCase):
     """Test CommentForm validation and functionality."""
 
     def setUp(self):
-        self.setUp_users()
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
 
     def test_comment_form_valid_data(self):
         """Test form with valid data."""
