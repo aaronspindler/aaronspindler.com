@@ -8,12 +8,11 @@ from django.test import Client, TestCase
 from accounts.tests.factories import UserFactory
 from blog.models import BlogComment
 from blog.tests.factories import BlogCommentFactory, MockDataFactory
-from tests.factories import TestDataMixin
 
 User = get_user_model()
 
 
-class BlogViewsTest(TestCase, TestDataMixin):
+class BlogViewsTest(TestCase):
     """Test blog rendering and basic view functionality."""
 
     def setUp(self):
@@ -108,7 +107,7 @@ class BlogViewsTest(TestCase, TestDataMixin):
         self.assertEqual(response.context["pending_comments_count"], 2)
 
 
-class CommentSubmissionTest(TestCase, TestDataMixin):
+class CommentSubmissionTest(TestCase):
     """Test comment submission functionality."""
 
     def setUp(self):
@@ -240,7 +239,7 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
         self.assertIn("content", form.errors)
 
 
-class CommentReplyTest(TestCase, TestDataMixin):
+class CommentReplyTest(TestCase):
     """Test comment reply functionality."""
 
     def setUp(self):
@@ -295,7 +294,7 @@ class CommentReplyTest(TestCase, TestDataMixin):
         self.assertEqual(BlogComment.objects.filter(content="Spam reply").count(), 0)
 
 
-class CommentModerationTest(TestCase, TestDataMixin):
+class CommentModerationTest(TestCase):
     """Test comment moderation functionality."""
 
     def setUp(self):
@@ -364,7 +363,7 @@ class CommentModerationTest(TestCase, TestDataMixin):
         self.assertEqual(data["new_status"], "approved")
 
 
-class CommentVotingTest(TestCase, TestDataMixin):
+class CommentVotingTest(TestCase):
     """Test comment voting functionality."""
 
     def setUp(self):
@@ -447,7 +446,7 @@ class CommentVotingTest(TestCase, TestDataMixin):
         self.assertEqual(data["error"], "Invalid vote type")
 
 
-class CommentDeletionTest(TestCase, TestDataMixin):
+class CommentDeletionTest(TestCase):
     """Test comment deletion functionality."""
 
     def setUp(self):
