@@ -2,8 +2,8 @@ amqp==5.3.1
 asgiref==3.10.0
 beautifulsoup4==4.14.2
 billiard==4.2.2
-boto3==1.40.54
-botocore==1.40.54
+boto3==1.40.55
+botocore==1.40.55
 celery==5.5.3
 certifi==2025.10.5
 charset-normalizer==3.4.4
@@ -35,8 +35,8 @@ pillow==12.0.0
 playwright==1.55.0
 prometheus_client==0.23.1
 prompt_toolkit==3.0.52
-psycopg==3.2.10
-psycopg-binary==3.2.10
+psycopg==3.2.11
+psycopg-binary==3.2.11
 pyee==13.0.0
 python-crontab==3.3.0
 python-dateutil==2.9.0.post0
