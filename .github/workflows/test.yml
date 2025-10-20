@@ -201,13 +201,11 @@ jobs:
             pip install coverage unittest-xml-reporting --no-cache-dir &&
             export PYTHONDONTWRITEBYTECODE=1 &&
             export PYTHONUNBUFFERED=1 &&
-            export TEST_OUTPUT_DIR=/code/test_output &&
+            export TEST_OUTPUT_DIR=/code/test_output/test-results-${{ matrix.test-group.name }} &&
             coverage run --source='.' manage.py test ${{ matrix.test-group.apps }} \
               --settings=config.settings_test \
               --no-input \
-              --verbosity=2 \
-              --testrunner='xmlrunner.extra.djangotestrunner.XMLTestRunner' \
-              --output-dir=/code/test_output/test-results-${{ matrix.test-group.name }} &&
+              --verbosity=2 &&
             coverage report &&
             coverage xml -o /code/test_output/coverage-${{ matrix.test-group.name }}.xml
           "
