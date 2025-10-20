@@ -5,7 +5,8 @@ from django.urls import reverse
 
 from accounts.admin import CustomUserAdmin
 from accounts.forms import CustomUserChangeForm, CustomUserCreationForm
-from tests.factories import TestDataMixin, UserFactory
+from accounts.tests.factories import UserFactory
+from tests.factories import TestDataMixin
 
 User = get_user_model()
 

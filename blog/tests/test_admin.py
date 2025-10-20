@@ -7,7 +7,8 @@ from django.urls import reverse
 
 from blog.admin import BlogCommentAdmin
 from blog.models import BlogComment
-from tests.factories import BlogCommentFactory, TestDataMixin
+from blog.tests.factories import BlogCommentFactory
+from tests.factories import TestDataMixin
 
 User = get_user_model()
 

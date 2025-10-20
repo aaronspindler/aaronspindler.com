@@ -6,10 +6,11 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import Client, TestCase
 
+from accounts.tests.factories import UserFactory
 from blog.forms import CommentForm
 from blog.knowledge_graph import LinkParser, normalize_template_name
 from blog.models import BlogComment, CommentVote
-from tests.factories import BlogCommentFactory, MockDataFactory, UserFactory
+from blog.tests.factories import BlogCommentFactory, MockDataFactory
 
 User = get_user_model()
 

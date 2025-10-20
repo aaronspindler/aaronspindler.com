@@ -15,8 +15,9 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from PIL import Image
 
+from accounts.tests.factories import UserFactory
 from photos.models import Photo, PhotoAlbum
-from tests.factories import PhotoFactory, UserFactory
+from photos.tests.factories import PhotoFactory
 
 User = get_user_model()
 

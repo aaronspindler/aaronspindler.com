@@ -5,8 +5,10 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import Client, TestCase, TransactionTestCase
 
+from accounts.tests.factories import UserFactory
 from blog.models import BlogComment, CommentVote
-from tests.factories import BlogCommentFactory, MockDataFactory, TestDataMixin, UserFactory
+from blog.tests.factories import BlogCommentFactory, MockDataFactory
+from tests.factories import TestDataMixin
 
 User = get_user_model()
 
