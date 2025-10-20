@@ -30,7 +30,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     npm
 
 # Copy only requirements file first (changes less frequently)
-COPY requirements.txt .
+COPY requirements/base.txt requirements.txt
 
 # Install Python dependencies with pip cache mount
 RUN --mount=type=cache,target=/root/.cache/pip \
@@ -38,7 +38,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy package files for NPM (changes less frequently than app code)
-COPY package*.json postcss.config.js purgecss.config.js ./
+COPY package*.json .config/postcss.config.js .config/purgecss.config.js ./
 
 # Install NPM dependencies with cache mount
 RUN --mount=type=cache,target=/root/.npm \

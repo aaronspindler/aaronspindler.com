@@ -1,0 +1,323 @@
+# Documentation Guidelines
+
+This file provides guidance for maintaining documentation when making code changes or adding new features.
+
+## Documentation Structure
+
+```
+docs/
+├── architecture.md          # System design and Django apps
+├── testing.md              # Test framework and factories
+├── commands.md             # Management commands reference
+├── api.md                  # REST API endpoints
+├── deployment.md           # Production deployment
+├── maintenance.md          # Monitoring and troubleshooting
+└── features/               # Feature-specific documentation
+    ├── blog-system.md
+    ├── knowledge-graph.md
+    ├── photo-management.md
+    ├── search.md
+    ├── performance-monitoring.md
+    └── request-tracking.md
+```
+
+## When to Update Documentation
+
+### Always Update Documentation For:
+
+1. **New Features**
+   - Create new file in `docs/features/` for major features
+   - Update existing feature docs for enhancements
+   - Add to README.md features list with doc link
+   - Update architecture.md if new Django app or significant architectural change
+
+2. **New Management Commands**
+   - Add command to `docs/commands.md` with full reference
+   - Include usage examples, options, and when to run
+   - Update README.md common commands section if frequently used
+
+3. **API Changes**
+   - Update `docs/api.md` with new/modified endpoints
+   - Include request/response examples
+   - Document new query parameters or request body fields
+   - Update error responses if changed
+
+4. **Configuration Changes**
+   - Update relevant docs with new environment variables
+   - Document new settings in deployment.md
+   - Update .env.example if needed
+
+5. **Deployment Changes**
+   - Update `docs/deployment.md` for infrastructure changes
+   - Document new services, containers, or dependencies
+   - Update docker-compose.yml examples
+
+6. **Breaking Changes**
+   - Clearly document in relevant docs
+   - Add migration guide if needed
+   - Update README.md if affects quick start
+
+### Update If Relevant:
+
+1. **Bug Fixes**
+   - Update troubleshooting sections if fix addresses common issue
+   - Update examples if they were incorrect
+
+2. **Performance Improvements**
+   - Update relevant feature docs with new performance characteristics
+   - Update maintenance.md if new optimization techniques
+
+3. **Dependency Updates**
+   - Update tech stack in README.md for major version bumps
+   - Update deployment.md if deployment process changes
+
+## Documentation Standards
+
+### File Structure for Feature Docs
+
+Each feature doc should follow this template:
+
+```markdown
+# Feature Name
+
+## Overview
+Brief description of the feature (2-3 sentences)
+
+## Features
+- Bullet point list of key capabilities
+
+## Usage
+### Basic Usage
+Common use cases with code examples
+
+### Advanced Usage
+Complex scenarios and configuration
+
+## Configuration
+Environment variables and settings
+
+## API Endpoints (if applicable)
+Endpoint documentation with examples
+
+## Troubleshooting
+Common issues and solutions
+
+## Related Documentation
+Links to related docs
+```
+
+### Writing Style
+
+- **Clear and Concise**: Use simple language, avoid jargon
+- **Examples**: Include practical code examples for all features
+- **Commands**: Show actual commands users can copy/paste
+- **Cross-References**: Link to related documentation
+- **Assumptions**: State any prerequisites or assumptions clearly
+- **Professional Tone**: Technical but approachable
+
+### Code Examples
+
+- Include full context (imports, setup)
+- Show both success and error cases where relevant
+- Use realistic example data
+- Add comments for complex operations
+- Format consistently (bash, python, json, etc.)
+
+### Command Documentation Format
+
+```markdown
+### command_name
+
+Brief description of what the command does.
+
+**Usage**:
+\```bash
+python manage.py command_name [options]
+\```
+
+**Options**:
+- `--option-name`: Description (default: value)
+
+**Examples**:
+\```bash
+# Example 1: Common use case
+python manage.py command_name
+
+# Example 2: With options
+python manage.py command_name --option value
+\```
+
+**When to Run**:
+- Scenario 1
+- Scenario 2
+
+**What It Does**:
+1. Step 1
+2. Step 2
+```
+
+## Verification Checklist
+
+Before completing a PR with code changes, verify:
+
+- [ ] README.md updated if new feature or breaking change
+- [ ] Feature-specific doc created/updated in `docs/features/`
+- [ ] commands.md updated if new management command added
+- [ ] api.md updated if API endpoints added/modified
+- [ ] architecture.md updated if new app or architectural change
+- [ ] deployment.md updated if deployment process changes
+- [ ] Examples tested and working
+- [ ] Cross-references checked and valid
+- [ ] No broken links in documentation
+
+## Common Scenarios
+
+### Adding a New Feature
+
+1. **Create Feature Doc**: `docs/features/new-feature.md`
+2. **Update README.md**:
+   - Add to features list with emoji and doc link
+   - Add to feature documentation section
+3. **Update architecture.md**:
+   - Add to relevant Django app section
+   - Update architecture diagrams if applicable
+4. **Update commands.md**: If feature includes management commands
+5. **Update api.md**: If feature exposes API endpoints
+
+### Adding a Management Command
+
+1. **Update commands.md**:
+   - Add full command reference with usage section
+   - Include all options and examples
+   - Document when to run the command
+2. **Update README.md**:
+   - Add to common commands if frequently used
+3. **Update Feature Doc**:
+   - If command is feature-specific, add to that feature's doc
+
+### Modifying an API
+
+1. **Update api.md**:
+   - Update endpoint documentation
+   - Show new request/response formats
+   - Add examples for new functionality
+2. **Update Feature Doc**:
+   - Update relevant feature doc with API changes
+3. **Test Examples**: Ensure all examples work with new API
+
+### Changing Configuration
+
+1. **Update deployment.md**:
+   - Add new environment variables
+   - Update configuration examples
+2. **Update .env.example**:
+   - Add new variables with defaults/examples
+3. **Update Feature Docs**:
+   - Document new configuration in relevant feature docs
+
+### Architectural Changes
+
+1. **Update architecture.md**:
+   - Update project structure if files/directories changed
+   - Update Django apps overview if new app added
+   - Update diagrams if data flow changed
+2. **Update README.md**:
+   - Update project structure section
+   - Update tech stack if new major dependencies
+3. **Update Feature Docs**:
+   - Update any affected feature documentation
+
+## Documentation Review
+
+When reviewing PRs:
+
+1. **Check for Doc Updates**: Verify docs match code changes
+2. **Test Examples**: Try code examples to ensure they work
+3. **Check Links**: Verify cross-references are valid
+4. **Review Clarity**: Ensure documentation is clear and complete
+5. **Consistency**: Verify formatting matches existing docs
+
+## Maintaining Documentation Quality
+
+### Regular Reviews
+
+- **Quarterly**: Review all docs for accuracy
+- **After Major Releases**: Update version numbers and examples
+- **When User Reports Issues**: Update troubleshooting sections
+
+### Documentation Debt
+
+Track documentation debt as issues:
+- Missing documentation for existing features
+- Outdated examples or screenshots
+- Broken links or references
+- Incomplete troubleshooting sections
+
+## AI Assistant Instructions
+
+When an AI assistant (Claude, Copilot, etc.) is making code changes:
+
+1. **Always ask**: "Should I update the documentation for this change?"
+2. **Proactively suggest**: Which docs need updating based on the change
+3. **Create drafts**: Provide documentation updates along with code
+4. **Follow standards**: Use the templates and formats defined here
+5. **Verify completeness**: Ensure all relevant docs are updated
+
+## Examples
+
+### Example: Adding a New Blog Feature
+
+**Code Changes**: Add blog post scheduling feature
+
+**Documentation Updates Required**:
+1. `docs/features/blog-system.md`:
+   - Add "Scheduled Posts" section under Features
+   - Add usage examples for scheduling
+   - Document scheduling API if added
+2. `docs/commands.md`:
+   - Add `publish_scheduled_posts` command if created
+3. `docs/api.md`:
+   - Add scheduling endpoints if API exposed
+4. `README.md`:
+   - Update blog system feature description to mention scheduling
+
+### Example: Adding New Management Command
+
+**Code Changes**: Add `optimize_images` management command
+
+**Documentation Updates Required**:
+1. `docs/commands.md`:
+   ```markdown
+   ### optimize_images
+
+   Optimize all images in the media library by recompressing and generating WebP versions.
+
+   **Usage**:
+   \```bash
+   python manage.py optimize_images [options]
+   \```
+
+   **Options**:
+   - `--quality`: JPEG quality (default: 85)
+   - `--format`: Output format (default: webp)
+
+   **Examples**:
+   \```bash
+   # Optimize all images with default settings
+   python manage.py optimize_images
+
+   # Custom quality
+   python manage.py optimize_images --quality 90
+   \```
+   ```
+2. `docs/features/photo-management.md`:
+   - Add to "Image Optimization" section
+   - Reference the command for manual optimization
+3. `README.md`:
+   - Add to maintenance commands if relevant
+
+## Related Documentation
+
+- [AI Context Guidelines](.cursor/rules/ai-context.mdc) - Guidelines for maintaining CLAUDE.md and README.md
+- [Testing Guidelines](.cursor/rules/testing.mdc) - Testing documentation requirements
+- [PR Guidelines](.cursor/rules/prs.mdc) - Pull request documentation requirements
