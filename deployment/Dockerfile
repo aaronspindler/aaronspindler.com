@@ -45,7 +45,7 @@ RUN --mount=type=cache,target=/root/.npm \
     npm ci --prefer-offline --no-audit
 
 # Copy entrypoint script (changes rarely)
-COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY deployment/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # Copy static files and build configuration (needed for JS build)

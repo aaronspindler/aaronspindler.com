@@ -34,13 +34,13 @@ jobs:
       matrix:
         include:
           - service: web
-            dockerfile: Dockerfile
+            dockerfile: deployment/Dockerfile
           - service: celery
-            dockerfile: celery.Dockerfile
+            dockerfile: deployment/celery.Dockerfile
           - service: celerybeat
-            dockerfile: celerybeat.Dockerfile
+            dockerfile: deployment/celerybeat.Dockerfile
           - service: flower
-            dockerfile: flower.Dockerfile
+            dockerfile: deployment/flower.Dockerfile
 
     steps:
       - name: Checkout code
@@ -103,7 +103,7 @@ jobs:
       - name: Check for Flower changes
         id: flower-changes
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -E '(flower\.Dockerfile|requirements\.txt|config/celery\.py|captain-definition-flower)'; then
+          if git diff --name-only HEAD^ HEAD | grep -E '(deployment/flower\.Dockerfile|requirements/|config/celery\.py|captain-definition-flower)'; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "🌸 Flower-related files changed, will deploy Flower"
           else
