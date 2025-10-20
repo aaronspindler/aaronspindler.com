@@ -3,7 +3,8 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from blog.models import BlogComment, CommentVote
-from tests.factories import BlogCommentFactory, TestDataMixin
+from blog.tests.factories import BlogCommentFactory
+from tests.factories import TestDataMixin
 
 User = get_user_model()
 

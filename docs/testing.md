@@ -29,7 +29,13 @@ safety check
 
 ### Overview
 
-The project uses a comprehensive factory system (`tests/factories.py`) for consistent test data across all apps.
+The project uses a comprehensive factory system with app-specific factories for consistent test data. Each app has its own `tests/factories.py` module:
+
+- `accounts.tests.factories` - UserFactory
+- `blog.tests.factories` - BlogCommentFactory, MockDataFactory
+- `photos.tests.factories` - PhotoFactory
+
+For backward compatibility, all factories are also available from `tests.factories` (deprecated).
 
 ### Available Factories
 
@@ -38,7 +44,7 @@ The project uses a comprehensive factory system (`tests/factories.py`) for consi
 Create test users with various permission levels:
 
 ```python
-from tests.factories import UserFactory
+from accounts.tests.factories import UserFactory
 
 # Create regular user
 user = UserFactory.create_user()
@@ -63,7 +69,7 @@ admin = UserFactory.create_superuser()
 Create blog comments and votes:
 
 ```python
-from tests.factories import BlogCommentFactory
+from blog.tests.factories import BlogCommentFactory
 
 # Create comment
 comment = BlogCommentFactory.create_comment(author=user)
@@ -85,32 +91,12 @@ vote = BlogCommentFactory.create_comment_vote(
 )
 ```
 
-#### PageVisitFactory
-
-Create page visit tracking data:
-
-```python
-from tests.factories import PageVisitFactory
-
-# Create single visit
-visit = PageVisitFactory.create_visit()
-
-# Create visit with geolocation data
-geo_visit = PageVisitFactory.create_visit_with_geo()
-
-# Create bulk visits for load testing
-visits = PageVisitFactory.create_bulk_visits(count=50)
-
-# Create visit for specific page
-visit = PageVisitFactory.create_visit(page_name='home', url='/')
-```
-
 #### PhotoFactory
 
 Create photos with auto-generated test images:
 
 ```python
-from tests.factories import PhotoFactory
+from photos.tests.factories import PhotoFactory
 
 # Create photo with auto-generated image
 photo = PhotoFactory.create_photo()
@@ -311,7 +297,8 @@ MIGRATION_MODULES = DisableMigrations()
 
 ```python
 from django.test import TestCase
-from tests.factories import BlogCommentFactory, UserFactory
+from accounts.tests.factories import UserFactory
+from blog.tests.factories import BlogCommentFactory
 
 class BlogCommentModelTest(TestCase):
     """Test BlogComment model."""
@@ -344,7 +331,7 @@ class BlogCommentModelTest(TestCase):
 ```python
 from django.test import TestCase, Client
 from django.urls import reverse
-from tests.factories import UserFactory
+from accounts.tests.factories import UserFactory
 
 class HomeViewTest(TestCase):
     """Test home page view."""
@@ -388,7 +375,7 @@ class AuthenticatedViewTest(TestCase):
 ```python
 from django.test import TestCase
 from blog.forms import CommentForm
-from tests.factories import UserFactory
+from accounts.tests.factories import UserFactory
 
 class CommentFormTest(TestCase):
     """Test comment form."""
@@ -457,7 +444,8 @@ class APITest(TestCase):
 
 ```python
 from django.test import TestCase
-from tests.factories import PhotoFactory, UserFactory
+from accounts.tests.factories import UserFactory
+from photos.tests.factories import PhotoFactory
 
 class PhotoUploadIntegrationTest(TestCase):
     """Test complete photo upload workflow."""

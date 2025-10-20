@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from accounts.forms import CustomUserChangeForm, CustomUserCreationForm
-from tests.factories import UserFactory
+from accounts.tests.factories import UserFactory
 
 User = get_user_model()
 

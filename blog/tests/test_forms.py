@@ -2,7 +2,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from blog.forms import CommentForm, CommentModerationForm, ReplyForm
-from tests.factories import BlogCommentFactory, MockDataFactory, TestDataMixin
+from blog.tests.factories import BlogCommentFactory, MockDataFactory
+from tests.factories import TestDataMixin
 
 User = get_user_model()
 
