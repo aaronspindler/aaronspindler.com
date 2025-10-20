@@ -37,17 +37,17 @@ jobs:
 
       - name: Verify Docker Compose file
         run: |
-          if [ ! -f docker-compose.test.yml ]; then
-            echo "❌ docker-compose.test.yml not found!"
+          if [ ! -f deployment/docker-compose.test.yml ]; then
+            echo "❌ deployment/docker-compose.test.yml not found!"
             exit 1
           fi
-          echo "✅ docker-compose.test.yml found"
+          echo "✅ deployment/docker-compose.test.yml found"
 
       - name: Build Docker image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
         with:
           context: .
-          file: ./Dockerfile
+          file: ./deployment/Dockerfile
           push: false
           load: true
           tags: ${{ env.DOCKER_IMAGE_NAME }}:latest
@@ -124,32 +124,32 @@ jobs:
           docker load < /tmp/test-runner-image.tar.gz
           docker images | grep test-runner
 
-          # Update docker-compose.test.yml to use the loaded image
-          sed -i 's|build: \.|image: test-runner:latest|g' docker-compose.test.yml
+          # Update deployment/docker-compose.test.yml to use the loaded image
+          sed -i 's|build: \.|image: test-runner:latest|g' deployment/docker-compose.test.yml
 
       - name: Start required services
         run: |
-          docker compose -f docker-compose.test.yml up -d postgres redis
+          docker compose -f deployment/docker-compose.test.yml up -d postgres redis
           # Wait for services to be healthy
           echo "Waiting for services to be healthy..."
-          timeout 60s bash -c 'until docker compose -f docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
+          timeout 60s bash -c 'until docker compose -f deployment/docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
 
       - name: Run Django ${{ matrix.check }} check
         run: |
           case "${{ matrix.check }}" in
             migrations)
-              docker compose -f docker-compose.test.yml run --rm test_runner \
+              docker compose -f deployment/docker-compose.test.yml run --rm test_runner \
                 python manage.py makemigrations --check --dry-run --settings=config.settings_test
               ;;
             system)
-              docker compose -f docker-compose.test.yml run --rm test_runner \
+              docker compose -f deployment/docker-compose.test.yml run --rm test_runner \
                 python manage.py check --deploy --settings=config.settings_test
               ;;
           esac
 
       - name: Cleanup
         if: always()
-        run: docker compose -f docker-compose.test.yml down -v
+        run: docker compose -f deployment/docker-compose.test.yml down -v
 
   # Test suite split into groups (parallel matrix)
   test-suite:
@@ -183,20 +183,20 @@ jobs:
           docker load < /tmp/test-runner-image.tar.gz
           docker images | grep test-runner
 
-          # Update docker-compose.test.yml to use the loaded image
-          sed -i 's|build: \.|image: test-runner:latest|g' docker-compose.test.yml
+          # Update deployment/docker-compose.test.yml to use the loaded image
+          sed -i 's|build: \.|image: test-runner:latest|g' deployment/docker-compose.test.yml
 
       - name: Start test services
         run: |
-          docker compose -f docker-compose.test.yml up -d postgres redis
+          docker compose -f deployment/docker-compose.test.yml up -d postgres redis
           # Wait for services to be healthy
           echo "Waiting for services to be healthy..."
-          timeout 60s bash -c 'until docker compose -f docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
+          timeout 60s bash -c 'until docker compose -f deployment/docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
 
       - name: Run tests for ${{ matrix.test-group.name }}
         run: |
           mkdir -p ./test_output
-          docker compose -f docker-compose.test.yml run --rm \
+          docker compose -f deployment/docker-compose.test.yml run --rm \
             -v $(pwd)/test_output:/code/test_output test_runner sh -c "
             pip install coverage unittest-xml-reporting --no-cache-dir &&
             export PYTHONDONTWRITEBYTECODE=1 &&
@@ -226,7 +226,7 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: docker compose -f docker-compose.test.yml down -v
+        run: docker compose -f deployment/docker-compose.test.yml down -v
 
   # Combine and upload coverage
   coverage-upload:

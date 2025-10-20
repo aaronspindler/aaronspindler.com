@@ -35,8 +35,8 @@ python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+pip install -r requirements/base.txt
+pip install -r requirements/dev.txt
 playwright install chromium
 
 # Configure environment
@@ -62,7 +62,7 @@ Visit `http://localhost:8000`
 ### Docker Setup
 
 ```bash
-docker build -t aaronspindler.com .
+docker build -f deployment/Dockerfile -t aaronspindler.com .
 docker run -p 80:80 --env-file .env.production aaronspindler.com
 ```
 
@@ -124,6 +124,17 @@ aaronspindler.com/
 ├── photos/            # Photo management
 ├── utils/             # Search, notifications, monitoring
 ├── config/            # Django configuration
+├── deployment/        # 🐳 Docker and deployment files
+│   ├── Dockerfile
+│   ├── docker-compose.test.yml
+│   └── *.Dockerfile   # Service-specific images
+├── .config/           # 🔧 Tool configurations
+│   ├── postcss.config.js
+│   ├── purgecss.config.js
+│   └── .prettierrc    # CSS formatter
+├── requirements/      # 📦 Python dependencies
+│   ├── base.txt       # Core dependencies
+│   └── dev.txt        # Development dependencies
 ├── docs/              # 📚 Documentation
 │   ├── features/      # Feature-specific guides
 │   ├── architecture.md
@@ -133,8 +144,9 @@ aaronspindler.com/
 │   ├── deployment.md
 │   └── maintenance.md
 ├── templates/         # Django templates
-├── static/           # CSS, JS, images
-└── tests/            # Test factories
+├── static/            # CSS, JS, images
+├── scripts/           # Utility scripts
+└── tests/             # Test factories
 ```
 
 See [Architecture Guide](docs/architecture.md) for detailed structure.

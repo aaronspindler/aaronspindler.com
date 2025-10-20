@@ -297,7 +297,7 @@ class Command(BaseCommand):
         output_path = os.path.join(static_dir, "combined.processed.css")
 
         try:
-            cmd = ["npx", "postcss", input_path, "-o", output_path]
+            cmd = ["npx", "postcss", input_path, "-o", output_path, "--config", ".config/postcss.config.js"]
 
             if self.options.get("source_maps"):
                 cmd.extend(["--map", "true"])
@@ -326,7 +326,7 @@ class Command(BaseCommand):
                 "--css",
                 input_path,
                 "--config",
-                "purgecss.config.js",
+                ".config/purgecss.config.js",
                 "--output",
                 output_path,
             ]

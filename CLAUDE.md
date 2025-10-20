@@ -6,6 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Django-based personal website and blog (aaronspindler.com) with advanced features including knowledge graph visualization, photo management, and analytics tracking.
 
+## Directory Organization
+
+The project root has been organized for clarity:
+
+- **`deployment/`**: All Docker and deployment-related files (Dockerfiles, docker-compose, env files)
+- **`.config/`**: Tool configuration files (PostCSS, PurgeCSS, Prettier, .dockerignore, .python-version)
+- **`requirements/`**: Python dependencies (`base.txt` for core, `dev.txt` for development)
+- **Root directory**: Kept minimal with only essential files (manage.py, Makefile, package.json, captain-definition files)
+
+**Important**: When referencing files in commands or documentation:
+- Requirements: Use `requirements/base.txt` and `requirements/dev.txt`
+- Docker: Use `deployment/Dockerfile` and `deployment/docker-compose.test.yml`
+- Configs: PostCSS/PurgeCSS automatically find configs in `.config/` via explicit paths in build commands
+
 ## Cursor Rules
 
 This project includes AI context rules in `.cursor/rules/` to guide development:
@@ -25,7 +39,7 @@ This project includes AI context rules in `.cursor/rules/` to guide development:
 source venv/bin/activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r requirements/base.txt
 
 # Run migrations
 python manage.py migrate

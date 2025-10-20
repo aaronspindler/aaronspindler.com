@@ -21,7 +21,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends nodejs
 
 # Copy only requirements file first (changes less frequently)
-COPY requirements.txt .
+COPY requirements/base.txt requirements.txt
 
 # Install Python dependencies with pip cache mount
 RUN --mount=type=cache,target=/root/.cache/pip \
