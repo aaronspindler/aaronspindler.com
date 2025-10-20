@@ -6,10 +6,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Django-based personal website and blog (aaronspindler.com) with advanced features including knowledge graph visualization, photo management, and analytics tracking.
 
+## Directory Organization
+
+The project root has been organized for clarity:
+
+- **`deployment/`**: All Docker and deployment-related files (Dockerfiles, docker-compose, env files)
+- **`.config/`**: Tool configuration files (PostCSS, PurgeCSS, Prettier, .dockerignore, .python-version)
+- **`requirements/`**: Python dependencies (`base.txt` for core, `dev.txt` for development)
+- **Root directory**: Kept minimal with only essential files (manage.py, Makefile, package.json, captain-definition files)
+
+**Important**: When referencing files in commands or documentation:
+- Requirements: Use `requirements/base.txt` and `requirements/dev.txt`
+- Docker: Use `deployment/Dockerfile` and `deployment/docker-compose.test.yml`
+- Configs: PostCSS/PurgeCSS automatically find configs in `.config/` via explicit paths in build commands
+
 ## Cursor Rules
 
 This project includes AI context rules in `.cursor/rules/` to guide development:
 - **ai-context.mdc**: Guidelines for maintaining CLAUDE.md and README.md
+- **documentation.mdc**: Documentation maintenance and update requirements
 - **prs.mdc**: Pull request creation guidelines
 - **styling.mdc**: Blog post template styling guidelines
 - **testing.mdc**: Testing guidelines and commands
@@ -24,7 +39,7 @@ This project includes AI context rules in `.cursor/rules/` to guide development:
 source venv/bin/activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r requirements/base.txt
 
 # Run migrations
 python manage.py migrate
@@ -559,9 +574,92 @@ CSS formatting is managed by Prettier with the following settings:
 - PostgreSQL full-text search with GIN indexes
 - Trigram indexes for typo-tolerant search
 
+## Documentation Requirements
+
+**CRITICAL**: This project maintains comprehensive documentation in the `docs/` directory. All code changes MUST be accompanied by corresponding documentation updates.
+
+### Documentation Structure
+
+```
+docs/
+├── architecture.md          # System design and Django apps
+├── testing.md              # Test framework and factories
+├── commands.md             # Management commands reference
+├── api.md                  # REST API endpoints
+├── deployment.md           # Production deployment
+├── maintenance.md          # Monitoring and troubleshooting
+└── features/               # Feature-specific documentation
+    ├── blog-system.md
+    ├── knowledge-graph.md
+    ├── photo-management.md
+    ├── search.md
+    ├── performance-monitoring.md
+    └── request-tracking.md
+```
+
+### When to Update Documentation
+
+**ALWAYS update documentation when**:
+
+1. **Adding New Features**:
+   - Create new file in `docs/features/` for major features
+   - Update existing feature docs for enhancements
+   - Add to README.md features list with doc link
+   - Update `docs/architecture.md` if new Django app or architectural change
+
+2. **Adding Management Commands**:
+   - Add command to `docs/commands.md` with full reference (usage, options, examples, when to run)
+   - Update README.md common commands if frequently used
+
+3. **Modifying APIs**:
+   - Update `docs/api.md` with new/modified endpoints
+   - Include request/response examples
+   - Document new query parameters or body fields
+
+4. **Changing Configuration**:
+   - Update relevant docs with new environment variables
+   - Document in `docs/deployment.md`
+   - Update `.env.example` if needed
+
+5. **Deployment Changes**:
+   - Update `docs/deployment.md` for infrastructure changes
+   - Document new services, containers, or dependencies
+
+6. **Breaking Changes**:
+   - Clearly document in all relevant docs
+   - Add migration guide if needed
+   - Update README.md if affects quick start
+
+### Documentation Standards
+
+- **Clear and Concise**: Use simple language, avoid jargon
+- **Examples**: Include practical code examples for all features
+- **Commands**: Show actual commands users can copy/paste
+- **Cross-References**: Link to related documentation
+- **Professional Tone**: Technical but approachable
+
+See `.cursor/rules/documentation.mdc` for complete documentation guidelines, templates, and standards.
+
+### Verification Before PR
+
+Before completing ANY pull request, verify:
+
+- [ ] README.md updated if new feature or breaking change
+- [ ] Feature-specific doc created/updated in `docs/features/`
+- [ ] `docs/commands.md` updated if new management command added
+- [ ] `docs/api.md` updated if API endpoints added/modified
+- [ ] `docs/architecture.md` updated if new app or architectural change
+- [ ] `docs/deployment.md` updated if deployment process changes
+- [ ] Examples tested and working
+- [ ] Cross-references checked and valid
+- [ ] No broken links in documentation
+
+**IMPORTANT**: Code changes without documentation updates will be rejected. Documentation is not optional—it's a core part of every feature.
+
 ## Final Notes
 
 - Always reference the cursor rules in `.cursor/rules/` when working on this codebase
 - Keep CLAUDE.md and README.md synchronized with code changes (see `.cursor/rules/ai-context.mdc`)
+- **Update `docs/` directory whenever code changes** (see `.cursor/rules/documentation.mdc`)
 - Use `make static` after CSS/JS changes to rebuild assets
 - Run `pre-commit run --all-files` before pushing (or use graphite which auto-runs hooks)

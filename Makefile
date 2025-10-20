@@ -69,12 +69,12 @@ clean:
 .PHONY: test-build
 test-build:
 	@echo "Building Docker test images..."
-	docker-compose -f docker-compose.test.yml build
+	docker-compose -f deployment/docker-compose.test.yml build
 
 .PHONY: test-up
 test-up:
 	@echo "Starting test environment..."
-	docker-compose -f docker-compose.test.yml --env-file env.test up -d
+	docker-compose -f deployment/docker-compose.test.yml --env-file deployment/env.test up -d
 	@echo "Test environment is running!"
 	@echo "  - Web UI: http://localhost:8001"
 	@echo "  - Flower (Celery monitoring): http://localhost:5556"
@@ -82,7 +82,7 @@ test-up:
 .PHONY: test-run
 test-run:
 	@echo "Running tests in Docker..."
-	docker-compose -f docker-compose.test.yml --env-file env.test run --rm test_runner
+	docker-compose -f deployment/docker-compose.test.yml --env-file deployment/env.test run --rm test_runner
 
 .PHONY: test-run-app
 test-run-app:
@@ -91,7 +91,7 @@ test-run-app:
 		echo "Error: APP variable not set. Usage: make test-run-app APP=blog"; \
 		exit 1; \
 	fi
-	docker-compose -f docker-compose.test.yml --env-file env.test run --rm test_runner python manage.py test $(APP) --settings=config.settings_test --parallel --keepdb
+	docker-compose -f deployment/docker-compose.test.yml --env-file deployment/env.test run --rm test_runner python manage.py test $(APP) --settings=config.settings_test --parallel --keepdb
 
 .PHONY: test-run-specific
 test-run-specific:
@@ -100,29 +100,29 @@ test-run-specific:
 		echo "Error: TEST variable not set. Usage: make test-run-specific TEST=blog.tests.test_models.BlogCommentModelTest"; \
 		exit 1; \
 	fi
-	docker-compose -f docker-compose.test.yml --env-file env.test run --rm test_runner python manage.py test $(TEST) --settings=config.settings_test --keepdb
+	docker-compose -f deployment/docker-compose.test.yml --env-file deployment/env.test run --rm test_runner python manage.py test $(TEST) --settings=config.settings_test --keepdb
 
 .PHONY: test-shell
 test-shell:
 	@echo "Opening shell in test container..."
-	docker-compose -f docker-compose.test.yml --env-file env.test run --rm web bash
+	docker-compose -f deployment/docker-compose.test.yml --env-file deployment/env.test run --rm web bash
 
 .PHONY: test-down
 test-down:
 	@echo "Stopping test environment..."
-	docker-compose -f docker-compose.test.yml down
+	docker-compose -f deployment/docker-compose.test.yml down
 	@echo "Test environment stopped!"
 
 .PHONY: test-clean
 test-clean:
 	@echo "Cleaning test environment (removing volumes)..."
-	docker-compose -f docker-compose.test.yml down -v
+	docker-compose -f deployment/docker-compose.test.yml down -v
 	@echo "Test environment cleaned!"
 
 .PHONY: test-logs
 test-logs:
 	@echo "Showing test environment logs..."
-	docker-compose -f docker-compose.test.yml logs -f
+	docker-compose -f deployment/docker-compose.test.yml logs -f
 
 .PHONY: test-logs-service
 test-logs-service:
@@ -130,13 +130,13 @@ test-logs-service:
 		echo "Error: SERVICE variable not set. Usage: make test-logs-service SERVICE=web"; \
 		exit 1; \
 	fi
-	docker-compose -f docker-compose.test.yml logs -f $(SERVICE)
+	docker-compose -f deployment/docker-compose.test.yml logs -f $(SERVICE)
 
 
 .PHONY: test-coverage
 test-coverage:
 	@echo "Running tests with coverage in Docker..."
-	docker-compose -f docker-compose.test.yml --env-file env.test run --rm test_runner sh -c "coverage run --source='.' manage.py test --settings=config.settings_test && coverage report && coverage html"
+	docker-compose -f deployment/docker-compose.test.yml --env-file deployment/env.test run --rm test_runner sh -c "coverage run --source='.' manage.py test --settings=config.settings_test && coverage report && coverage html"
 	@echo "Coverage report generated in htmlcov/"
 
 .PHONY: test

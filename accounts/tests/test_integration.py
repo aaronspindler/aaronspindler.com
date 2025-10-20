@@ -4,7 +4,7 @@ from django.test import TransactionTestCase, override_settings
 from django.urls import reverse
 
 from accounts.adapters import NoSignupAccountAdapter
-from tests.factories import UserFactory
+from accounts.tests.factories import UserFactory
 
 User = get_user_model()
 
