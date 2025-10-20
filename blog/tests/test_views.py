@@ -20,6 +20,22 @@ class BlogViewsTest(TestCase):
         self.setUp_users()
         self.setUp_blog_data()
 
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
+
+    def setUp_blog_data(self):
+        """Set up common blog data for testing."""
+        self.comment_data = {
+            "blog_template_name": "0001_test_post",
+            "blog_category": "tech",
+            "content": "This is a test comment",
+            "author": self.user,
+        }
+        self.mock_blog_data = MockDataFactory.get_mock_blog_data()
+
     @patch("blog.views.get_blog_from_template_name")
     @patch("utils.models.RequestFingerprint")
     def test_render_blog_template_success(self, mock_request_fingerprint, mock_get_blog):
@@ -114,6 +130,22 @@ class CommentSubmissionTest(TestCase):
         self.client = Client()
         self.setUp_users()
         self.setUp_blog_data()
+
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
+
+    def setUp_blog_data(self):
+        """Set up common blog data for testing."""
+        self.comment_data = {
+            "blog_template_name": "0001_test_post",
+            "blog_category": "tech",
+            "content": "This is a test comment",
+            "author": self.user,
+        }
+        self.mock_blog_data = MockDataFactory.get_mock_blog_data()
 
     @patch("blog.views.get_blog_from_template_name")
     @patch("utils.models.RequestFingerprint")
@@ -248,6 +280,22 @@ class CommentReplyTest(TestCase):
         self.setUp_blog_data()
         self.parent_comment = BlogCommentFactory.create_approved_comment(content="Parent comment", author=self.user)
 
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
+
+    def setUp_blog_data(self):
+        """Set up common blog data for testing."""
+        self.comment_data = {
+            "blog_template_name": "0001_test_post",
+            "blog_category": "tech",
+            "content": "This is a test comment",
+            "author": self.user,
+        }
+        self.mock_blog_data = MockDataFactory.get_mock_blog_data()
+
     @patch("blog.views.get_blog_from_template_name")
     def test_reply_to_comment(self, mock_get_blog):
         """Test replying to a comment."""
@@ -301,6 +349,12 @@ class CommentModerationTest(TestCase):
         self.client = Client()
         self.setUp_users()
         self.comment = BlogCommentFactory.create_pending_comment()
+
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
 
     def test_moderate_comment_approve(self):
         """Test staff approving a comment."""
@@ -370,6 +424,12 @@ class CommentVotingTest(TestCase):
         self.client = Client()
         self.setUp_users()
         self.comment = BlogCommentFactory.create_approved_comment()
+
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
 
     def test_vote_comment_authenticated(self):
         """Test authenticated user voting on a comment."""
@@ -455,6 +515,12 @@ class CommentDeletionTest(TestCase):
         self.author = UserFactory.create_user(username="author")
         self.other_user = UserFactory.create_user(username="other")
         self.comment = BlogCommentFactory.create_approved_comment(author=self.author)
+
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
 
     def test_author_can_delete_own_comment(self):
         """Test that comment authors can delete their own comments."""

@@ -8,12 +8,11 @@ from django.test import Client, TestCase, TransactionTestCase
 from accounts.tests.factories import UserFactory
 from blog.models import BlogComment, CommentVote
 from blog.tests.factories import BlogCommentFactory, MockDataFactory
-from tests.factories import TestDataMixin
 
 User = get_user_model()
 
 
-class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
+class BlogIntegrationTest(TransactionTestCase):
     """Integration tests for the complete blog commenting system."""
 
     def setUp(self):
@@ -21,6 +20,22 @@ class BlogIntegrationTest(TransactionTestCase, TestDataMixin):
         self.setUp_users()
         self.setUp_blog_data()
         cache.clear()
+
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
+
+    def setUp_blog_data(self):
+        """Set up common blog data for testing."""
+        self.comment_data = {
+            "blog_template_name": "0001_test_post",
+            "blog_category": "tech",
+            "content": "This is a test comment",
+            "author": self.user,
+        }
+        self.mock_blog_data = MockDataFactory.get_mock_blog_data()
 
     @patch("blog.views.get_blog_from_template_name")
     @patch("utils.models.RequestFingerprint")
