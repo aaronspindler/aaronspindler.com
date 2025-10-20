@@ -63,3 +63,4 @@ zope.interface==8.0.1
 Brotli
 coverage==7.11.0
 tblib==3.1.0
+whitenoise[brotli]==6.9.0
