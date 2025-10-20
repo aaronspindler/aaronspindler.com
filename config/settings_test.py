@@ -166,8 +166,13 @@ SITE_ID = 1
 USE_RATE_LIMITING = False
 
 # Test runner configuration
-TEST_RUNNER = "django.test.runner.DiscoverRunner"
-TEST_OUTPUT_DIR = os.path.join(BASE_DIR, "test_output")  # noqa: F405
-
-# Create test output directory if it doesn't exist
-os.makedirs(TEST_OUTPUT_DIR, exist_ok=True)
+# Use XMLTestRunner if TEST_OUTPUT_DIR is set in environment (for CI)
+# Otherwise use standard DiscoverRunner
+if os.environ.get("TEST_OUTPUT_DIR"):
+    TEST_RUNNER = "xmlrunner.extra.djangotestrunner.XMLTestRunner"
+    TEST_OUTPUT_DIR = os.environ.get("TEST_OUTPUT_DIR")
+    os.makedirs(TEST_OUTPUT_DIR, exist_ok=True)
+else:
+    TEST_RUNNER = "django.test.runner.DiscoverRunner"
+    TEST_OUTPUT_DIR = os.path.join(BASE_DIR, "test_output")  # noqa: F405
+    os.makedirs(TEST_OUTPUT_DIR, exist_ok=True)
