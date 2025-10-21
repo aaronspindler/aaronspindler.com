@@ -31,12 +31,14 @@ This project includes AI context rules in `.cursor/rules/` to guide development:
 - **comments.mdc**: Clean comment guidelines - no redundant references to previous implementations
 - **dependencies.mdc**: Dependency management - only add direct dependencies to requirements files
 - **documentation.mdc**: Documentation maintenance and update requirements
+- **git-operations.mdc**: Git commit/push guidelines - always ask before committing or pushing
 - **styling.mdc**: Blog post template styling guidelines
 - **testing.mdc**: Testing guidelines and commands
 
 **IMPORTANT**: Always reference these cursor rules along with CLAUDE.md when working on this codebase.
 **CRITICAL**: When updating code or documentation, ensure comments focus on current implementation without references to what was replaced (see `.cursor/rules/comments.mdc`).
 **CRITICAL**: When adding dependencies, only add packages that are directly imported/used in the codebase (see `.cursor/rules/dependencies.mdc`).
+**CRITICAL**: Never commit or push changes without explicit user permission (see `.cursor/rules/git-operations.mdc`).
 
 ## Common Development Commands
 
