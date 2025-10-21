@@ -25,12 +25,14 @@ The project root has been organized for clarity:
 This project includes AI context rules in `.cursor/rules/` to guide development:
 - **ai-context.mdc**: Guidelines for maintaining CLAUDE.md and README.md
 - **comments.mdc**: Clean comment guidelines - no redundant references to previous implementations
+- **dependencies.mdc**: Dependency management - only add direct dependencies to requirements files
 - **documentation.mdc**: Documentation maintenance and update requirements
 - **styling.mdc**: Blog post template styling guidelines
 - **testing.mdc**: Testing guidelines and commands
 
 **IMPORTANT**: Always reference these cursor rules along with CLAUDE.md when working on this codebase.
 **CRITICAL**: When updating code or documentation, ensure comments focus on current implementation without references to what was replaced (see `.cursor/rules/comments.mdc`).
+**CRITICAL**: When adding dependencies, only add packages that are directly imported/used in the codebase (see `.cursor/rules/dependencies.mdc`).
 
 ## Common Development Commands
 

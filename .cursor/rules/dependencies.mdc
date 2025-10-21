@@ -1,0 +1,76 @@
+---
+description: apply this rule when modifying requirements files or managing dependencies
+alwaysApply: false
+---
+
+# Dependency Management Guidelines
+
+## Core Principle: Direct Dependencies Only
+
+**CRITICAL**: Only add packages that are **directly imported or used** by the application code to `requirements/base.txt` or `requirements/dev.txt`.
+
+### Direct vs Transitive Dependencies
+
+- **Direct Dependencies**: Packages your code explicitly imports or uses
+  - Examples: Django, celery, boto3, pillow, requests
+  - These MUST be in requirements files with pinned versions
+
+- **Transitive Dependencies**: Packages installed automatically as dependencies of your direct dependencies
+  - Examples: urllib3 (from requests), botocore (from boto3), kombu (from celery)
+  - These MUST NOT be in requirements files - let pip resolve them automatically
+
+### Why This Matters
+
+1. **Prevents Version Conflicts**: Transitive dependencies have their own compatibility requirements. Pinning them can create conflicts with parent packages.
+2. **Easier Maintenance**: Only manage versions of packages you actually use
+3. **Automatic Compatibility**: Pip automatically installs compatible versions of transitive dependencies
+4. **Cleaner Requirements**: Makes it obvious what the project actually uses
+
+### Recent Example
+
+The `pyee` dependency conflict was caused by pinning a transitive dependency:
+- `pyppeteer==2.0.0` (direct dependency) requires `pyee>=11.0.0,<12.0.0`
+- We had `pyee==13.0.0` pinned (transitive dependency) → Build failed
+- Solution: Removed `pyee` from requirements - let pyppeteer install the correct version
+
+## Before Adding a Dependency
+
+1. **Verify it's directly used**: Search the codebase for import statements
+   ```bash
+   grep -r "import <package>" --include="*.py"
+   grep -r "from <package>" --include="*.py"
+   ```
+
+2. **Check if it's transitive**: Look up the package on PyPI and see if it's listed as a dependency of packages already in requirements
+
+3. **Add with comments**: Group related packages and add clear section comments
+
+## Requirements File Structure
+
+```
+# Core Framework
+Django==x.y.z
+
+# Django Extensions
+django-allauth==x.y.z
+django-celery-beat==x.y.z
+
+# Task Queue
+celery==x.y.z
+
+# Image Processing
+Pillow==x.y.z
+```
+
+## When Updating Dependencies
+
+1. **Test thoroughly**: Run full test suite after updating
+2. **Check for breaking changes**: Read changelogs for major version bumps
+3. **Update related packages together**: e.g., boto3 and django-storages
+4. **Rebuild Docker images**: Ensure no build failures
+
+## Exception: Development Tools
+
+CLI tools used for development (not imported) are still direct dependencies:
+- `pre-commit`, `ruff`, `safety`, `pip-audit`
+- These belong in `requirements/dev.txt`
