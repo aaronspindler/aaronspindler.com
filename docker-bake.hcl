@@ -13,9 +13,8 @@ variable "TAG" {
   default = "latest"
 }
 
-# Common settings for all targets
-function "common" {
-  params = []
+# Common cache configuration
+target "_common" {
   cache-from = [
     "type=gha",
     "type=registry,ref=${REGISTRY}/${IMAGE_PREFIX}-web:latest"
@@ -26,7 +25,7 @@ function "common" {
 
 # Test image target (skips JS build for speed)
 target "test" {
-  inherits = ["common"]
+  inherits = ["_common"]
   dockerfile = "deployment/Dockerfile"
   tags = ["test-runner:latest"]
   args = {
@@ -37,7 +36,7 @@ target "test" {
 
 # Production web service
 target "web" {
-  inherits = ["common"]
+  inherits = ["_common"]
   dockerfile = "deployment/Dockerfile"
   tags = [
     "${REGISTRY}/${IMAGE_PREFIX}-web:latest"
@@ -49,7 +48,7 @@ target "web" {
 
 # Celery worker service
 target "celery" {
-  inherits = ["common"]
+  inherits = ["_common"]
   dockerfile = "deployment/celery.Dockerfile"
   tags = [
     "${REGISTRY}/${IMAGE_PREFIX}-celery:latest"
@@ -58,7 +57,7 @@ target "celery" {
 
 # Celery beat scheduler service
 target "celerybeat" {
-  inherits = ["common"]
+  inherits = ["_common"]
   dockerfile = "deployment/celerybeat.Dockerfile"
   tags = [
     "${REGISTRY}/${IMAGE_PREFIX}-celerybeat:latest"
@@ -67,7 +66,7 @@ target "celerybeat" {
 
 # Flower monitoring service
 target "flower" {
-  inherits = ["common"]
+  inherits = ["_common"]
   dockerfile = "deployment/flower.Dockerfile"
   tags = [
     "${REGISTRY}/${IMAGE_PREFIX}-flower:latest"
