@@ -4,10 +4,14 @@
 # Uses Microsoft's Playwright Python image (includes Python + Playwright + Chromium)
 # BuildKit cache mounts for pip, npm, and apt packages
 #
+# Build args:
+#   - SKIP_JS_BUILD=1: Skip JavaScript build for test environments (saves ~10-20s)
+#
 # Performance:
 #   - First build: ~2-3 minutes (vs 8 minutes with slim base)
 #   - Rebuild with code changes: ~30-60 seconds
 #   - Rebuild with dependencies: ~1-2 minutes
+#   - Test build (SKIP_JS_BUILD=1): ~20-40s faster
 #
 # Trade-off: Larger base image (~1.5GB) but optimized for CI/CD speed
 # See DOCKER_BUILD_OPTIMIZATION.md for details
@@ -60,8 +64,9 @@ RUN chmod +x /docker-entrypoint.sh
 COPY static/ ./static/
 COPY scripts/ ./scripts/
 
-# Build and optimize JavaScript files
-RUN npm run build:js
+# Build and optimize JavaScript files (skip during test builds with --build-arg SKIP_JS_BUILD=1)
+ARG SKIP_JS_BUILD=0
+RUN if [ "$SKIP_JS_BUILD" = "0" ]; then npm run build:js; else echo "Skipping JS build for tests"; fi
 
 # Copy rest of application code (changes most frequently - keep last!)
 COPY . /code/

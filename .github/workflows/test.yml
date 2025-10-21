@@ -19,6 +19,7 @@ env:
   SECRET_KEY: "FAKE_SECRET_KEY"
   PYTHONUNBUFFERED: 1
   DOCKER_IMAGE_NAME: test-runner
+  REGISTRY: ghcr.io
 
 permissions:
   contents: read
@@ -28,6 +29,9 @@ jobs:
   build-docker-image:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
@@ -45,22 +49,26 @@ jobs:
           fi
           echo "✅ deployment/docker-compose.test.yml found"
 
-      - name: Build Docker image
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
+      - name: Build Docker image with Bake
+        uses: docker/bake-action@a4d7f0b5b91c14a296d792d4ec53a9db17f02e67  # v5.10.0
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_PREFIX: ${{ github.repository }}
+          TAG: test
         with:
-          context: .
-          file: ./deployment/Dockerfile
-          push: false
+          files: docker-bake.hcl
+          targets: test
           load: true
-          tags: ${{ env.DOCKER_IMAGE_NAME }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64
 
-      - name: Save Docker image to file
+      - name: Save Docker image to file with optimized compression
         run: |
-          docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | gzip > test-runner-image.tar.gz
-          echo "Image size: $(du -h test-runner-image.tar.gz | cut -f1)"
+          # Install pigz for parallel compression (much faster than gzip)
+          sudo apt-get update && sudo apt-get install -y pigz
+
+          # Save and compress with pigz (parallel gzip) at level 6 (good balance)
+          docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | pigz -6 > test-runner-image.tar.gz
+
+          echo "📦 Compressed image size: $(du -h test-runner-image.tar.gz | cut -f1)"
           echo "Available images:"
           docker images | grep test-runner || true
 
@@ -70,9 +78,9 @@ jobs:
           name: docker-image
           path: test-runner-image.tar.gz
           retention-days: 1
-          compression-level: 0  # Already compressed
+          compression-level: 0  # Already compressed with pigz
 
-  # Code quality checks using pre-commit
+  # Code quality checks using pre-commit (runs in parallel with build-docker-image)
   pre-commit-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -120,10 +128,14 @@ jobs:
           name: docker-image
           path: /tmp
 
-      - name: Load Docker image
+      - name: Load Docker image with optimized decompression
         run: |
           echo "Loading Docker image..."
-          docker load < /tmp/test-runner-image.tar.gz
+          # Install pigz for parallel decompression (much faster than gzip)
+          sudo apt-get update && sudo apt-get install -y pigz
+
+          # Decompress and load with pigz
+          pigz -dc /tmp/test-runner-image.tar.gz | docker load
           docker images | grep test-runner
 
           # Update deployment/docker-compose.test.yml to use the loaded image
@@ -179,10 +191,14 @@ jobs:
           name: docker-image
           path: /tmp
 
-      - name: Load Docker image
+      - name: Load Docker image with optimized decompression
         run: |
           echo "Loading Docker image..."
-          docker load < /tmp/test-runner-image.tar.gz
+          # Install pigz for parallel decompression (much faster than gzip)
+          sudo apt-get update && sudo apt-get install -y pigz
+
+          # Decompress and load with pigz
+          pigz -dc /tmp/test-runner-image.tar.gz | docker load
           docker images | grep test-runner
 
           # Update deployment/docker-compose.test.yml to use the loaded image

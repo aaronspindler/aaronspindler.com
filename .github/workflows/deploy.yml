@@ -23,7 +23,7 @@ permissions:
   contents: read
 
 jobs:
-  # Build Docker images after tests pass
+  # Build all Docker images in parallel after tests pass
   build-and-push:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -32,17 +32,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    strategy:
-      matrix:
-        include:
-          - service: web
-            dockerfile: deployment/Dockerfile
-          - service: celery
-            dockerfile: deployment/celery.Dockerfile
-          - service: celerybeat
-            dockerfile: deployment/celerybeat.Dockerfile
-          - service: flower
-            dockerfile: deployment/flower.Dockerfile
 
     steps:
       - name: Checkout code
@@ -61,30 +50,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f  # v5.8.0
+      - name: Build and push all production images in parallel
+        uses: docker/bake-action@a4d7f0b5b91c14a296d792d4ec53a9db17f02e67  # v5.10.0
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+          TAG: ${{ github.sha }}
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix={{branch}}-
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
+          files: docker-bake.hcl
+          targets: production
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64
           provenance: false
           sbom: false
 
