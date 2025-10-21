@@ -133,7 +133,7 @@ npm run build:all
     - In dev mode (`--dev`): `.opt.css` files are just copies (no optimization)
     - In production: `.opt.css` files are fully optimized and minified
   - Phase 2: Combines all `.opt.css` files → runs PostCSS/PurgeCSS → creates `combined.min.css`
-  - Final file is pushed to S3 via `collectstatic_optimize`
+  - Final file is collected via `collectstatic_optimize` and served by WhiteNoise
   - Temporary files (`.opt.css`, `combined.css`, etc.) are auto-cleaned and gitignored
 - **Important**: Source CSS files are **never modified** by the build process - they stay formatted in git
 
@@ -263,7 +263,7 @@ python manage.py remove_local_fingerprints --limit 100
 - **config/**: Main Django configuration
   - `settings.py`: Environment-based settings using django-environ
   - `urls.py`: Main URL routing
-  - `storage_backends.py`: S3 storage configuration
+  - `storage_backends.py`: S3 storage configuration for media files (photos)
   - `celery.py`: Celery configuration for async tasks
 
 - **pages/**: Core website functionality
@@ -367,7 +367,7 @@ domain_mapping = {
    - CSS build pipeline with PostCSS, PurgeCSS, and critical CSS extraction
    - JavaScript minification with Terser
    - Brotli compression for static assets
-   - WhiteNoise for serving in production
+   - WhiteNoise for serving static files (CSS, JS, fonts) from container
 
 3. **Blog Post System**
    - HTML templates as blog posts
@@ -398,7 +398,9 @@ domain_mapping = {
 ### Deployment Configuration
 - **Docker**: Multi-stage build with Playwright for screenshot generation
 - **Database**: PostgreSQL with psycopg3
-- **Storage**: AWS S3 support via django-storages
+- **Storage**:
+  - Static files (CSS, JS, fonts): WhiteNoise (served from container)
+  - Media files (photos, uploads): AWS S3 via django-storages
 - **Server**: Gunicorn with 8 workers
 - **Cache**: Redis for caching and sessions
 - **Task Queue**: Celery with Redis broker
@@ -408,7 +410,7 @@ Required environment variables (use django-environ):
 - `DATABASE_URL`: PostgreSQL connection string
 - `SECRET_KEY`: Django secret key
 - `DEBUG`: Debug mode flag
-- AWS credentials (required for production with S3 storage; optional for local development):
+- AWS credentials (required for production media storage; optional for local development):
   - `AWS_ACCESS_KEY_ID`
   - `AWS_SECRET_ACCESS_KEY`
   - `AWS_STORAGE_BUCKET_NAME`

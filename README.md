@@ -21,7 +21,7 @@
 
 **Backend**: Django 5.2.5, Python 3.13, PostgreSQL 15+, Celery, Redis
 **Frontend**: D3.js, Vanilla JavaScript, PostCSS, Prism.js
-**Infrastructure**: Docker, Gunicorn, WhiteNoise, AWS S3, CloudFront
+**Infrastructure**: Docker, Gunicorn, WhiteNoise (static), AWS S3 (media)
 **Search**: PostgreSQL FTS with pg_trgm for typo tolerance
 **Monitoring**: Lighthouse, Playwright, Flower
 

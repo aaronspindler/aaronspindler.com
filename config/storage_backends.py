@@ -3,58 +3,6 @@ import mimetypes
 from storages.backends.s3boto3 import S3Boto3Storage
 
 
-class StaticStorage(S3Boto3Storage):
-    """Storage backend for static files"""
-
-    location = "public/static"
-    default_acl = "public-read"
-    file_overwrite = True
-    querystring_auth = False  # Don't add authentication to URLs for static files
-
-    def _save(self, name, content):
-        """Override _save to set proper headers for font files and other static assets."""
-        content_type, _ = mimetypes.guess_type(name)
-
-        # Special handling for font files to fix CORS issues
-        if name.endswith((".woff", ".woff2", ".ttf", ".otf", ".eot")):
-            # Set correct content type for fonts
-            if name.endswith(".woff2"):
-                content_type = "font/woff2"
-            elif name.endswith(".woff"):
-                content_type = "font/woff"
-            elif name.endswith(".ttf"):
-                content_type = "font/ttf"
-            elif name.endswith(".otf"):
-                content_type = "font/otf"
-            elif name.endswith(".eot"):
-                content_type = "application/vnd.ms-fontobject"
-
-            self.object_parameters = {
-                "CacheControl": "public, max-age=31536000",  # 1 year cache
-                "ContentType": content_type,
-                "ACL": "public-read",
-                "Metadata": {
-                    "Access-Control-Allow-Origin": "*",
-                },
-            }
-        elif name.endswith(".css"):
-            # CSS files also need proper headers
-            self.object_parameters = {
-                "CacheControl": "public, max-age=86400",  # 1 day
-                "ContentType": "text/css",
-                "ACL": "public-read",
-            }
-        else:
-            # Standard cache for other static files
-            self.object_parameters = {
-                "CacheControl": "public, max-age=86400",  # 1 day
-                "ContentType": content_type or "application/octet-stream",
-                "ACL": "public-read",
-            }
-
-        return super()._save(name, content)
-
-
 class PublicMediaStorage(S3Boto3Storage):
     """Storage backend for public media files (like photos)"""
 

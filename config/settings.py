@@ -58,6 +58,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "config.domain_routing.DomainRoutingMiddleware",  # Domain-based URL routing (must be first)
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # Serve static files
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -187,20 +188,27 @@ AWS_S3_MIME_TYPES = {
     ".eot": "application/vnd.ms-fontobject",
 }
 
-# S3 Storage Configuration
+# Storage Configuration
+# Static files: Served by WhiteNoise from container
+# Media files: Stored in S3 (photos, user uploads)
 STORAGES = {
     "default": {
         "BACKEND": "config.storage_backends.PublicMediaStorage",
     },
     "staticfiles": {
-        "BACKEND": "config.storage_backends.StaticStorage",
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
 MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/public/media/"
 MEDIA_ROOT = ""  # Not used with S3, but Django might expect it
 
-STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/public/static/"
+STATIC_URL = "/static/"
+
+# WhiteNoise Configuration
+WHITENOISE_MAX_AGE = 31536000  # 1 year cache for static files with versioned names
+WHITENOISE_MANIFEST_STRICT = False  # Allow missing files in development
+WHITENOISE_KEEP_ONLY_HASHED_FILES = True  # Remove unhashed files to save space
 
 if not DEBUG:
     # Security Headers

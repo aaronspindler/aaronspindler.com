@@ -237,9 +237,8 @@ class Command(BaseCommand):
                     with open(read_path, "r") as f:
                         content = f.read()
 
-                        # Replace relative font URLs with S3 URLs when in production mode
-                        if not self.options.get("dev"):
-                            content = self._replace_font_urls(content)
+                        # Normalize font URLs to use absolute paths (for WhiteNoise)
+                        content = self._normalize_font_urls(content)
 
                         # Remove duplicate @import statements
                         lines = []
@@ -259,33 +258,21 @@ class Command(BaseCommand):
         self.stdout.write(f"  📊 Combined CSS: {size:.1f}KB")
         return combined_path
 
-    def _replace_font_urls(self, content):
-        """Replace relative font URLs with absolute S3 URLs"""
-        # Import settings to get S3 configuration
-        from django.conf import settings
-
-        # Get S3 URL base
-        if hasattr(settings, "AWS_S3_CUSTOM_DOMAIN"):
-            s3_base = f"https://{settings.AWS_S3_CUSTOM_DOMAIN}/public/static"
-
-            # Replace various font URL patterns
-            content = re.sub(
-                r'url\(["\']?/static/fonts/([^"\']+)["\']?\)',
-                rf'url("{s3_base}/fonts/\1")',
-                content,
-            )
-            content = re.sub(
-                r'url\(["\']?static/fonts/([^"\']+)["\']?\)',
-                rf'url("{s3_base}/fonts/\1")',
-                content,
-            )
-            content = re.sub(
-                r'url\(["\']?fonts/([^"\']+)["\']?\)',
-                rf'url("{s3_base}/fonts/\1")',
-                content,
-            )
-
-            self.stdout.write("  ✓ Replaced font URLs with S3 URLs")
+    def _normalize_font_urls(self, content):
+        """Normalize font URLs to use absolute static paths (for WhiteNoise)"""
+        # Replace various font URL patterns with absolute /static/fonts/ paths
+        content = re.sub(
+            r'url\(["\']?(?:\.\.\/)*fonts/([^"\']+)["\']?\)',
+            r'url("/static/fonts/\1")',
+            content,
+        )
+        content = re.sub(
+            r'url\(["\']?static/fonts/([^"\']+)["\']?\)',
+            r'url("/static/fonts/\1")',
+            content,
+        )
+        # Already absolute paths - leave as is
+        # url("/static/fonts/...") - no change needed
 
         return content
 

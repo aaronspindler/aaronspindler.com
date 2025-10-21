@@ -11,7 +11,7 @@ aaronspindler.com/
 ├── config/              # Main Django configuration
 │   ├── settings.py     # Environment-based settings
 │   ├── urls.py         # Main URL routing
-│   ├── storage_backends.py  # S3 storage configuration
+│   ├── storage_backends.py  # S3 storage for media files
 │   └── celery.py       # Celery async task configuration
 ├── accounts/           # User authentication
 │   ├── models.py       # Custom user model
@@ -52,7 +52,7 @@ aaronspindler.com/
 - **settings.py**: Environment-based settings using django-environ
   - Database configuration (PostgreSQL)
   - Cache configuration (Redis)
-  - Storage backends (S3 for production, local for development)
+  - Storage backends (WhiteNoise for static, S3 for media)
   - Security settings (CORS, CSRF, session management)
   - Static file configuration
 
@@ -61,9 +61,9 @@ aaronspindler.com/
   - API endpoints
   - Admin interface
 
-- **storage_backends.py**: S3 storage configuration
-  - Separate storage classes for static and media files
-  - CloudFront CDN integration
+- **storage_backends.py**: S3 storage for media files
+  - PublicMediaStorage for photos and uploads
+  - CloudFront CDN integration for media delivery
 
 - **celery.py**: Celery configuration
   - Task queue setup
@@ -283,9 +283,9 @@ Photos automatically generate 5 optimized versions:
 ### Infrastructure
 - **Docker**: Containerization
 - **Gunicorn**: WSGI server
-- **WhiteNoise**: Static file serving
-- **AWS S3**: Media and static storage
-- **CloudFront**: CDN for assets
+- **WhiteNoise**: Static file serving (CSS, JS, fonts) from container
+- **AWS S3**: Media storage (photos, uploads)
+- **CloudFront**: Optional CDN for media files
 
 ### Development Tools
 - **Playwright**: Browser automation for screenshots
@@ -311,7 +311,7 @@ Photos automatically generate 5 optimized versions:
 3. **Template Rendering**:
    - Context processors add global data
    - Template rendered with context
-   - Static files served via WhiteNoise or CDN
+   - Static files served via WhiteNoise from container
 
 4. **Response**:
    - HTML returned to client
