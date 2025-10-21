@@ -7,7 +7,7 @@
     "build:css": "python manage.py build_css",
     "build:css:dev": "python manage.py build_css --dev",
     "build:js": "npm run minify:js && npm run compress:js",
-    "minify:js": "terser static/js/base.js -o static/js/base.min.js -c -m && terser static/js/knowledge_graph.js -o static/js/knowledge_graph.min.js -c -m && terser static/js/search-autocomplete.js -o static/js/search-autocomplete.min.js -c -m",
+    "minify:js": "terser static/js/base-optimized.js -o static/js/base-optimized.min.js -c -m && terser static/js/knowledge_graph.js -o static/js/knowledge_graph.min.js -c -m && terser static/js/search-autocomplete.js -o static/js/search-autocomplete.min.js -c -m",
     "compress:js": "node scripts/compress-js.js",
     "build:all": "npm run build:css && npm run build:js"
   },
