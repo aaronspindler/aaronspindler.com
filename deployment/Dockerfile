@@ -33,13 +33,17 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
     apt-get update && apt-get install -y --no-install-recommends nodejs
 
-# Copy only requirements file first (changes less frequently)
-COPY requirements/base.txt requirements.txt
+# Copy requirements files (changes less frequently)
+COPY requirements/base.txt requirements/celery.txt requirements/screenshot.txt ./requirements/
 
 # Install Python dependencies with pip cache mount
+# Production needs all dependencies: base + celery + screenshot
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir \
+        -r requirements/base.txt \
+        -r requirements/celery.txt \
+        -r requirements/screenshot.txt
 
 # Copy package files for NPM (changes less frequently than app code)
 COPY package*.json .config/postcss.config.js .config/purgecss.config.js ./
