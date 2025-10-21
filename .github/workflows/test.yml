@@ -76,6 +76,48 @@ jobs:
           retention-days: 1
           compression-level: 0  # Already compressed with pigz
 
+  # Build production images in parallel with tests (cached, not pushed until all tests pass)
+  build-production-images:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
+        with:
+          driver-opts: |
+            network=host
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build production images (cache only, don't push)
+        uses: docker/bake-action@a4d7f0b5b91c14a296d792d4ec53a9db17f02e67  # v5.10.0
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_PREFIX: ${{ github.repository }}
+          TAG: ${{ github.sha }}
+        with:
+          files: deployment/docker-bake.hcl
+          targets: production
+          push: false
+          set: |
+            *.cache-to=type=gha,mode=max,scope=prod-${{ github.sha }}
+            *.cache-from=type=gha,scope=prod-${{ github.sha }}
+            *.cache-from=type=gha
+          provenance: false
+          sbom: false
+
   pre-commit-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -283,48 +325,6 @@ jobs:
           files: ./test-results/**/*.xml
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-
-  # Build production images in parallel with tests (cached, not pushed until all tests pass)
-  build-production-images:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
-        with:
-          driver-opts: |
-            network=host
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build production images (cache only, don't push)
-        uses: docker/bake-action@a4d7f0b5b91c14a296d792d4ec53a9db17f02e67  # v5.10.0
-        env:
-          REGISTRY: ${{ env.REGISTRY }}
-          IMAGE_PREFIX: ${{ github.repository }}
-          TAG: ${{ github.sha }}
-        with:
-          files: deployment/docker-bake.hcl
-          targets: production
-          push: false
-          set: |
-            *.cache-to=type=gha,mode=max,scope=prod-${{ github.sha }}
-            *.cache-from=type=gha,scope=prod-${{ github.sha }}
-            *.cache-from=type=gha
-          provenance: false
-          sbom: false
 
   # Final check to ensure all jobs passed (gate before pushing images)
   all-checks:
