@@ -326,6 +326,26 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  # Cleanup artifacts if tests fail
+  cleanup-artifacts:
+    runs-on: ubuntu-latest
+    needs: [django-checks, test-suite]
+    if: always() && (needs.django-checks.result == 'failure' || needs.test-suite.result == 'failure')
+    steps:
+      - name: Delete Docker image artifact
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: docker-image
+          failOnError: false
+
+      - name: Delete coverage artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            coverage-*
+            test-results-*
+          failOnError: false
+
   # Final check to ensure all jobs passed (gate before pushing images)
   all-checks:
     runs-on: ubuntu-latest
