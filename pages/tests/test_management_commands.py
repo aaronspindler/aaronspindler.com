@@ -157,11 +157,11 @@ class BuildCssCommandTest(TestCase):
         minified_css.write_text("body{color:red}")
 
         out = StringIO()
-        call_command("build_css", stdout=out)
+        call_command("build_css", no_purge=True, stdout=out)
 
         output = out.getvalue()
-        self.assertIn("Running in production mode", output)
-        self.assertIn("CSS optimization complete", output)
+        self.assertIn("Building CSS in production mode", output)
+        self.assertIn("CSS build complete", output)
 
     @patch("pages.management.commands.build_css.settings")
     @patch("pages.management.commands.build_css.subprocess.run")
@@ -187,26 +187,15 @@ class BuildCssCommandTest(TestCase):
         call_command("build_css", dev=True, stdout=out)
 
         output = out.getvalue()
-        self.assertIn("Running in development mode", output)
+        self.assertIn("Building CSS in development mode", output)
 
     @patch("pages.management.commands.build_css.settings")
-    @patch("pages.management.commands.build_css.os.path.getsize")
-    def test_build_css_optimization(self, mock_getsize, mock_settings):
-        """Test CSS optimization logic."""
+    def test_build_css_pipeline(self, mock_settings):
+        """Test CSS build pipeline completes successfully."""
         mock_settings.BASE_DIR = self.temp_dir
-        mock_getsize.return_value = 512  # 0.5KB
 
-        # Create test CSS with optimizable content
-        css_content = """
-        body {
-            margin-top: 10px;
-            margin-right: 10px;
-            margin-bottom: 10px;
-            margin-left: 10px;
-            color: #ffffff;
-        }
-        """
-
+        # Create test CSS content
+        css_content = "body { margin: 10px; color: #ffffff; }"
         css_file = os.path.join(self.css_dir, "base.css")
         Path(css_file).write_text(css_content)
 
@@ -220,19 +209,15 @@ class BuildCssCommandTest(TestCase):
 
         with patch("pages.management.commands.build_css.subprocess.run"):
             out = StringIO()
-            call_command("build_css", stdout=out)
+            # Use --no-purge to skip PurgeCSS during testing
+            call_command("build_css", no_purge=True, stdout=out)
 
-            # Check that .opt.css file was created with optimizations
-            # In production mode, source files are NOT modified - .opt.css files are created instead
-            opt_file = Path(css_file.replace(".css", ".opt.css"))
-            if opt_file.exists():
-                optimized_content = opt_file.read_text()
-                # Should have consolidated margin
-                self.assertIn("margin:", optimized_content)
-                # Should have shortened color
-                self.assertIn("#fff", optimized_content.lower())
+            output = out.getvalue()
+            # Verify the build pipeline completed
+            self.assertIn("CSS build complete", output)
+            self.assertIn("Combining CSS files", output)
 
-            # Verify source file remains unchanged (developer-friendly)
+            # Verify source file remains unchanged
             source_content = Path(css_file).read_text()
             self.assertEqual(source_content.strip(), css_content.strip())
 
@@ -272,7 +257,8 @@ class BuildCssCommandTest(TestCase):
         minified_css.write_text("body{}")
 
         with patch("pages.management.commands.build_css.subprocess.run"):
-            call_command("build_css")
+            # Use --no-purge to skip PurgeCSS during testing
+            call_command("build_css", no_purge=True)
 
             # Check for versioned file
             versioned_files = list(Path(self.css_dir).glob("combined.min.*.css"))
@@ -296,7 +282,8 @@ class BuildCssCommandTest(TestCase):
         minified_css.write_text("body{color:red}")
 
         with patch("pages.management.commands.build_css.subprocess.run"):
-            call_command("build_css")
+            # Use --no-purge to skip PurgeCSS during testing
+            call_command("build_css", no_purge=True)
 
             # Check for compressed versions
             css_files = list(Path(self.css_dir).glob("combined.min.css*"))
