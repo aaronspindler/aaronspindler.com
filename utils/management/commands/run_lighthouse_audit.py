@@ -17,16 +17,37 @@ class Command(BaseCommand):
 
     help = "Run a Lighthouse audit and store the results"
 
+    # Default URL for audits
+    DEFAULT_URL = "https://aaronspindler.com"
+
     def add_arguments(self, parser):
         parser.add_argument(
-            "--url",
-            type=str,
-            default="https://aaronspindler.com",
-            help="URL to audit (default: https://aaronspindler.com)",
+            "--async",
+            action="store_true",
+            dest="async_mode",
+            help="Queue the audit task to Celery instead of running it directly",
         )
 
     def handle(self, *args, **options):
-        url = options["url"]
+        async_mode = options["async_mode"]
+        url = self.DEFAULT_URL
+
+        # If async mode, queue the task to Celery
+        if async_mode:
+            from utils.tasks import run_lighthouse_audit as run_lighthouse_audit_task
+
+            task = run_lighthouse_audit_task.delay()
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"✓ Lighthouse audit task queued to Celery!\n"
+                    f"  URL: {url}\n"
+                    f"  Task ID: {task.id}\n"
+                    f"  Use 'celery -A config inspect active' to monitor task status"
+                )
+            )
+            return
+
+        # Otherwise, run the audit directly
         self.stdout.write(f"Running Lighthouse audit for {url}...")
 
         try:
@@ -45,6 +66,10 @@ class Command(BaseCommand):
             chrome_path = os.environ.get("CHROME_PATH", "/ms-playwright/chromium-1187/chrome-linux/chrome")
 
             # Run Lighthouse using @lhci/cli with explicit Chrome path
+            # Chrome flags for containerized environments:
+            # --no-sandbox: Required when running as root in Docker
+            # --disable-dev-shm-usage: Prevents /dev/shm issues in containers
+            # --disable-gpu: Disables GPU hardware acceleration (not needed for headless)
             result = subprocess.run(
                 [
                     "npx",
@@ -53,6 +78,7 @@ class Command(BaseCommand):
                     f"--url={url}",
                     "--numberOfRuns=1",
                     f"--chromePath={chrome_path}",
+                    "--chrome-flags=--no-sandbox --disable-dev-shm-usage --disable-gpu",
                 ],
                 capture_output=True,
                 text=True,

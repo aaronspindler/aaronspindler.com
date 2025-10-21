@@ -83,12 +83,13 @@ lighthouse_log = lighthouse_logger.getLogger(__name__)
 @shared_task
 def run_lighthouse_audit():
     """
-    Celery task to run a Lighthouse audit of the production site.
+    Celery task to run a Lighthouse audit.
     Scheduled to run daily via Celery Beat.
     """
+    url = "https://aaronspindler.com"
     try:
-        lighthouse_log.info("Starting scheduled Lighthouse audit...")
-        call_command("run_lighthouse_audit", "--url", "https://aaronspindler.com")
+        lighthouse_log.info(f"Starting scheduled Lighthouse audit for {url}...")
+        call_command("run_lighthouse_audit")
         lighthouse_log.info("Lighthouse audit completed successfully")
     except Exception as e:
         lighthouse_log.error(f"Lighthouse audit failed: {e}")
