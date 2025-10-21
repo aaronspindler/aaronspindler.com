@@ -3,11 +3,12 @@
 
 version: 2
 updates:
-  # Python dependencies
-  # Note: Security updates are handled automatically by Dependabot and cannot be grouped
-  # They are created immediately when vulnerabilities are detected, regardless of schedule
+  # Python dependencies - Production (base.in)
+  # Note: Dependabot updates .in source files. Lockfiles are automatically regenerated
+  # by the dependabot-lockfile-regen.yml workflow when Dependabot creates/updates PRs.
+  # Security updates are handled automatically and cannot be grouped
   - package-ecosystem: "pip"
-    directory: "/"
+    directory: "/requirements"
     schedule:
       interval: "daily"  # Check daily for updates (most frequent option available)
       time: "03:00"  # Run early morning to catch overnight releases
