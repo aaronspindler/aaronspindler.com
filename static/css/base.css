@@ -771,6 +771,33 @@ label input {
     border-color: rgba(108, 153, 187, 0.8);
   }
 }
+@media screen and (max-width: 768px) {
+  .projects-table {
+    border: none;
+  }
+  .projects-table tbody,
+  .projects-table tr,
+  .projects-table td {
+    display: block;
+    border: none;
+  }
+  .projects-table tr {
+    margin-bottom: calc(var(--line-height) * 2);
+    border: var(--border-thickness) solid var(--text-color);
+    padding: calc(var(--line-height) / 2);
+  }
+  .projects-table td {
+    padding: calc(var(--line-height) / 2) 0;
+    border-bottom: none;
+  }
+  .projects-table td:first-child {
+    font-weight: var(--font-weight-bold);
+    margin-bottom: calc(var(--line-height) / 2);
+  }
+  .projects-table td:last-child {
+    margin-top: calc(var(--line-height) / 2);
+  }
+}
 @media screen and (max-width: 480px) {
   :root {
     font-size: 14px;
