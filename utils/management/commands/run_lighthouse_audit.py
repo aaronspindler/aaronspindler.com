@@ -41,7 +41,10 @@ class Command(BaseCommand):
             if os.path.exists(output_dir):
                 shutil.rmtree(output_dir)
 
-            # Run Lighthouse using @lhci/cli
+            # Get Chrome path from environment or use default from Playwright image
+            chrome_path = os.environ.get("CHROME_PATH", "/ms-playwright/chromium-1187/chrome-linux/chrome")
+
+            # Run Lighthouse using @lhci/cli with explicit Chrome path
             result = subprocess.run(
                 [
                     "npx",
@@ -49,6 +52,7 @@ class Command(BaseCommand):
                     "collect",
                     f"--url={url}",
                     "--numberOfRuns=1",
+                    f"--chromePath={chrome_path}",
                 ],
                 capture_output=True,
                 text=True,

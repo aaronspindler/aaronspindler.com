@@ -15,8 +15,12 @@
 FROM mcr.microsoft.com/playwright/python:v1.55.0-noble
 
 # Set Python environment variables
+# CHROME_PATH: Required for Lighthouse CLI (@lhci/cli) to find Chromium from Playwright
+# Version (chromium-1187) is stable for Playwright v1.55.0-noble
+# Update this path if upgrading Playwright base image
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    CHROME_PATH=/ms-playwright/chromium-1187/chrome-linux/chrome
 
 WORKDIR /code
 
