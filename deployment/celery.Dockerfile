@@ -59,13 +59,16 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Create pyppeteer directory for Chromium download
 RUN mkdir -p $PYPPETEER_HOME && chmod -R 755 $PYPPETEER_HOME
 
-# Copy only requirements file first (changes less frequently)
+# Install uv for fast dependency installation
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip uv
+
+# Copy only requirements lockfile first (changes less frequently)
 COPY requirements/base.txt requirements.txt
 
-# Install Python dependencies with pip cache mount
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies with uv (10-100x faster than pip)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system --no-cache -r requirements.txt
 
 # Pre-download Chromium for pyppeteer
 RUN python -c "from pyppeteer import chromium_downloader; chromium_downloader.download_chromium()"

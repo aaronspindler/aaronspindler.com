@@ -5,9 +5,13 @@ alwaysApply: false
 
 # Dependency Management Guidelines
 
-## Core Principle: Direct Dependencies Only
+## Core Principle: Direct Dependencies with Lockfiles
 
-**CRITICAL**: Only add packages that are **directly imported or used** by the application code to `requirements/base.txt` or `requirements/dev.txt`.
+**CRITICAL**: This project uses **uv** for dependency management with a two-file system:
+- **Source files** (`.in`): Direct dependencies only - `requirements/base.in` and `requirements/dev.in`
+- **Lockfiles** (`.txt`): Auto-generated with all dependencies pinned - `requirements/base.txt` and `requirements/dev.txt`
+
+**NEVER** manually edit `.txt` lockfiles! Only edit `.in` source files and regenerate lockfiles.
 
 ### Direct vs Transitive Dependencies
 
@@ -33,33 +37,72 @@ The `pyee` dependency conflict was caused by pinning a transitive dependency:
 - We had `pyee==13.0.0` pinned (transitive dependency) → Build failed
 - Solution: Removed `pyee` from requirements - let pyppeteer install the correct version
 
-## Before Adding a Dependency
+## Workflow: Adding or Updating Dependencies
 
-1. **Verify it's directly used**: Search the codebase for import statements
-   ```bash
-   grep -r "import <package>" --include="*.py"
-   grep -r "from <package>" --include="*.py"
-   ```
+### 1. Add/Update Direct Dependency in Source File
 
-2. **Check if it's transitive**: Look up the package on PyPI and see if it's listed as a dependency of packages already in requirements
-
-3. **Add with comments**: Group related packages and add clear section comments
-
-## Requirements File Structure
-
-```
+Edit `requirements/base.in` or `requirements/dev.in`:
+```bash
 # Core Framework
-Django==x.y.z
-
-# Django Extensions
-django-allauth==x.y.z
-django-celery-beat==x.y.z
+Django==5.2.7
 
 # Task Queue
-celery==x.y.z
+celery==5.5.3
+```
 
-# Image Processing
-Pillow==x.y.z
+**Before adding**:
+- Verify it's directly imported: `grep -r "import <package>" --include="*.py"`
+- Check it's not transitive: Look up on PyPI
+- Add with comments: Group related packages
+
+### 2. Regenerate Lockfile
+
+```bash
+# Base dependencies
+uv pip compile requirements/base.in -o requirements/base.txt --generate-hashes
+
+# Development dependencies
+uv pip compile requirements/dev.in -o requirements/dev.txt --generate-hashes
+```
+
+### 3. Test Changes
+
+```bash
+# Install from lockfile
+uv pip install -r requirements/base.txt
+
+# Run tests
+python manage.py test
+```
+
+### 4. Commit Both Files
+
+```bash
+git add requirements/base.in requirements/base.txt
+git commit -m "Add <package> dependency"
+```
+
+## Updating All Dependencies
+
+To update all dependencies to latest compatible versions:
+
+```bash
+# Update all packages
+uv pip compile --upgrade requirements/base.in -o requirements/base.txt --generate-hashes
+uv pip compile --upgrade requirements/dev.in -o requirements/dev.txt --generate-hashes
+
+# Test thoroughly
+python manage.py test
+```
+
+To update specific package:
+
+```bash
+# Update just Django
+uv pip compile --upgrade-package django requirements/base.in -o requirements/base.txt --generate-hashes
+
+# Test
+python manage.py test
 ```
 
 ## When Updating Dependencies
@@ -68,6 +111,7 @@ Pillow==x.y.z
 2. **Check for breaking changes**: Read changelogs for major version bumps
 3. **Update related packages together**: e.g., boto3 and django-storages
 4. **Rebuild Docker images**: Ensure no build failures
+5. **Review lockfile changes**: Check what transitive dependencies changed
 
 ## Exception: Development Tools
 

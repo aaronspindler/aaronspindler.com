@@ -12,11 +12,15 @@ The project root has been organized for clarity:
 
 - **`deployment/`**: All Docker and deployment-related files (Dockerfiles, docker-compose, env files)
 - **`.config/`**: Tool configuration files (PostCSS, PurgeCSS, Prettier, .dockerignore, .python-version)
-- **`requirements/`**: Python dependencies (`base.txt` for core, `dev.txt` for development)
+- **`requirements/`**: Python dependencies using **uv lockfiles**:
+  - **Source files** (`.in`): Direct dependencies only - edit these files
+  - **Lockfiles** (`.txt`): Auto-generated with all dependencies pinned - never edit directly
+  - `base.in` / `base.txt`: Production dependencies
+  - `dev.in` / `dev.txt`: Development dependencies
 - **Root directory**: Kept minimal with only essential files (manage.py, Makefile, package.json, captain-definition files)
 
 **Important**: When referencing files in commands or documentation:
-- Requirements: Use `requirements/base.txt` and `requirements/dev.txt`
+- Requirements: Install from `.txt` lockfiles, edit `.in` source files, regenerate with `uv pip compile`
 - Docker: Use `deployment/Dockerfile` and `deployment/docker-compose.test.yml`
 - Configs: PostCSS/PurgeCSS automatically find configs in `.config/` via explicit paths in build commands
 
@@ -41,8 +45,11 @@ This project includes AI context rules in `.cursor/rules/` to guide development:
 # Activate virtual environment
 source venv/bin/activate
 
-# Install dependencies
-pip install -r requirements/base.txt
+# Install uv (first time only)
+pip install uv
+
+# Install dependencies from lockfile (10-100x faster than pip)
+uv pip install -r requirements/base.txt
 
 # Run migrations
 python manage.py migrate
@@ -56,6 +63,30 @@ python manage.py runserver
 # Create superuser for admin access
 python manage.py createsuperuser
 ```
+
+### Dependency Management with uv
+
+```bash
+# Add a new dependency
+# 1. Edit requirements/base.in (add package with version)
+# 2. Regenerate lockfile
+uv pip compile requirements/base.in -o requirements/base.txt --generate-hashes
+
+# Update all dependencies to latest compatible versions
+uv pip compile --upgrade requirements/base.in -o requirements/base.txt --generate-hashes
+
+# Update specific package
+uv pip compile --upgrade-package django requirements/base.in -o requirements/base.txt --generate-hashes
+
+# Install from lockfile (fast!)
+uv pip install -r requirements/base.txt
+```
+
+**IMPORTANT**:
+- Only edit `.in` source files, never `.txt` lockfiles
+- Always regenerate lockfiles after modifying `.in` files
+- Commit both `.in` and `.txt` files together
+- See `.cursor/rules/dependencies.mdc` for complete workflow
 
 ### Testing
 ```bash
