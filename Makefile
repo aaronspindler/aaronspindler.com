@@ -61,11 +61,42 @@ collect-optimize:
 clean:
 	rm -rf staticfiles/
 	rm -f static/css/combined.min.css*
-	rm -f static/css/*.opt.css
 	rm -f static/css/combined.css static/css/combined.processed.css static/css/combined.purged.css
 	rm -f static/js/*.min.js static/js/*.min.js.gz static/js/*.min.js.br
 
-# Docker test commands
+# Docker development commands (minimal stack)
+.PHONY: dev-up
+dev-up:
+	@echo "Starting minimal dev environment..."
+	docker-compose -f deployment/docker-compose.dev.yml up -d
+	@echo "Dev environment is running!"
+	@echo "  - Web UI: http://localhost:8000"
+	@echo "  - PostgreSQL: localhost:5432"
+	@echo "  - Redis: localhost:6379"
+
+.PHONY: dev-down
+dev-down:
+	@echo "Stopping dev environment..."
+	docker-compose -f deployment/docker-compose.dev.yml down
+	@echo "Dev environment stopped!"
+
+.PHONY: dev-logs
+dev-logs:
+	@echo "Showing dev environment logs..."
+	docker-compose -f deployment/docker-compose.dev.yml logs -f
+
+.PHONY: dev-shell
+dev-shell:
+	@echo "Opening shell in dev container..."
+	docker-compose -f deployment/docker-compose.dev.yml exec web bash
+
+.PHONY: dev-clean
+dev-clean:
+	@echo "Cleaning dev environment (removing volumes)..."
+	docker-compose -f deployment/docker-compose.dev.yml down -v
+	@echo "Dev environment cleaned!"
+
+# Docker test commands (full stack)
 .PHONY: test-build
 test-build:
 	@echo "Building Docker test images..."
@@ -156,7 +187,14 @@ help:
 	@echo "  make collect-optimize - Collect and optimize static files"
 	@echo "  make clean          - Remove generated static files"
 	@echo ""
-	@echo "Docker Testing Commands:"
+	@echo "Docker Development Commands (minimal stack: postgres, redis, web):"
+	@echo "  make dev-up         - Start minimal dev environment"
+	@echo "  make dev-down       - Stop dev environment"
+	@echo "  make dev-logs       - Show dev environment logs"
+	@echo "  make dev-shell      - Open shell in dev container"
+	@echo "  make dev-clean      - Stop and remove dev volumes"
+	@echo ""
+	@echo "Docker Testing Commands (full stack: includes celery, flower, beat):"
 	@echo "  make test           - Run full test suite (build, run, cleanup)"
 	@echo "  make test-build     - Build Docker test images"
 	@echo "  make test-up        - Start test environment in background"
