@@ -317,8 +317,8 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 # Task result and log retention settings
 # Store extended task metadata including return values, exceptions, and tracebacks
 CELERY_RESULT_EXTENDED = True
-# Keep task results for 7 days (604800 seconds)
-CELERY_RESULT_EXPIRES = 604800
+# Keep task results for 90 days (7776000 seconds)
+CELERY_RESULT_EXPIRES = 7776000
 # Send task events for monitoring (enables Flower to track task progress)
 CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_SEND_SENT_EVENT = True
