@@ -1,0 +1,7 @@
+# Install ALL dependencies (base + dev + celery + screenshot)
+# Install with: pip install -r requirements/all.txt
+
+-r base.txt
+-r dev.txt
+-r celery.txt
+-r screenshot.txt

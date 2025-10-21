@@ -18,9 +18,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
-COPY requirements/base.txt /tmp/requirements.txt
+COPY requirements/base.txt requirements/celery.txt /tmp/requirements/
 RUN pip install --upgrade pip && \
-    pip install -r /tmp/requirements.txt && \
+    pip install \
+        -r /tmp/requirements/base.txt \
+        -r /tmp/requirements/celery.txt && \
     rm -rf /root/.cache/
 
 # Copy project

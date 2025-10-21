@@ -1,0 +1,28 @@
+# Celery and task queue dependencies (optional for local dev)
+# Install with: pip install -r requirements/celery.txt
+#
+# Required for:
+# - Background task processing
+# - Scheduled tasks (Celery Beat)
+# - Task monitoring (Flower)
+#
+# Note: Also requires Redis running locally
+
+celery==5.5.3
+django-celery-beat==2.8.1
+flower==2.0.1
+
+# Celery dependencies
+amqp==5.3.1
+billiard==4.2.2
+click-didyoumean==0.3.1
+click-plugins==1.1.1.2
+click-repl==0.3.0
+kombu==5.5.4
+prometheus_client==0.23.1
+prompt_toolkit==3.0.52
+tornado==6.5.2
+vine==5.1.0
+gevent==25.9.1
+greenlet==3.2.4
+cron_descriptor==2.0.6

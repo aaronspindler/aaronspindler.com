@@ -1,0 +1,11 @@
+# Screenshot generation dependencies (optional for local dev)
+# Install with: pip install -r requirements/screenshot.txt
+#
+# Used by:
+# - blog/knowledge_graph.py (generate_knowledge_graph_screenshot command)
+# - blog/tasks.py (Celery task for automated screenshots)
+#
+# Note: Playwright requires additional system setup
+# After installing: playwright install chromium
+
+playwright==1.55.0
