@@ -17,7 +17,7 @@ python manage.py build_css || {
 
 # Collect static files
 echo "Collecting static files..."
-python manage.py collectstatic || {
+python manage.py collectstatic --no-input || {
     echo "Warning: Static file collection failed, but continuing..."
 }
 
