@@ -623,3 +623,4 @@ Before completing ANY pull request, verify:
 - **Update `docs/` directory whenever code changes** (see `.cursor/rules/documentation.mdc`)
 - Use `make static` after CSS/JS changes to rebuild assets
 - Run `pre-commit run --all-files` before pushing (or use graphite which auto-runs hooks)
+- Dont run tests locally
