@@ -9,7 +9,7 @@ django-redis==6.0.0
 django-storages==1.14.6
 
 # Static File Serving (with Brotli compression)
-whitenoise[brotli]==6.9.0
+whitenoise[brotli]==6.11.0
 
 # Task Queue & Background Jobs
 celery==5.5.3
@@ -44,4 +44,4 @@ requests==2.32.5
 coverage==7.11.0
 
 # Celery Utilities
-tblib==3.1.0
+tblib==3.2.0
