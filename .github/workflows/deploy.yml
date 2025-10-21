@@ -1,6 +1,6 @@
-name: CD - Build and Deploy
+name: CD - Deploy
 
-run-name: "${{ github.event.workflow_run.head_commit.message || github.event.head_commit.message || 'Build and Deploy' }}"
+run-name: "${{ github.event.workflow_run.head_commit.message || github.event.head_commit.message || 'Deploy' }}"
 
 on:
   workflow_run:

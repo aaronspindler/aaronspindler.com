@@ -62,12 +62,8 @@ jobs:
 
       - name: Save Docker image to file with optimized compression
         run: |
-          # Install pigz for parallel compression (much faster than gzip)
           sudo apt-get update && sudo apt-get install -y pigz
-
-          # Save and compress with pigz (parallel gzip) at level 6 (good balance)
           docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | pigz -6 > test-runner-image.tar.gz
-
           echo "📦 Compressed image size: $(du -h test-runner-image.tar.gz | cut -f1)"
           echo "Available images:"
           docker images | grep test-runner || true
@@ -80,7 +76,6 @@ jobs:
           retention-days: 1
           compression-level: 0  # Already compressed with pigz
 
-  # Code quality checks using pre-commit (runs in parallel with build-docker-image)
   pre-commit-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -111,7 +106,6 @@ jobs:
           pre-commit run --all-files --show-diff-on-failure
         continue-on-error: true
 
-  # Django checks (parallel matrix)
   django-checks:
     runs-on: ubuntu-latest
     needs: build-docker-image
@@ -131,20 +125,14 @@ jobs:
       - name: Load Docker image with optimized decompression
         run: |
           echo "Loading Docker image..."
-          # Install pigz for parallel decompression (much faster than gzip)
           sudo apt-get update && sudo apt-get install -y pigz
-
-          # Decompress and load with pigz
           pigz -dc /tmp/test-runner-image.tar.gz | docker load
           docker images | grep test-runner
-
-          # Update deployment/docker-compose.test.yml to use the loaded image
           sed -i 's|build: \.|image: test-runner:latest|g' deployment/docker-compose.test.yml
 
       - name: Start required services
         run: |
           docker compose -f deployment/docker-compose.test.yml up -d postgres redis
-          # Wait for services to be healthy
           echo "Waiting for services to be healthy..."
           timeout 60s bash -c 'until docker compose -f deployment/docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
 
@@ -165,7 +153,6 @@ jobs:
         if: always()
         run: docker compose -f deployment/docker-compose.test.yml down -v
 
-  # Test suite split into groups (parallel matrix)
   test-suite:
     runs-on: ubuntu-latest
     needs: build-docker-image
@@ -194,20 +181,14 @@ jobs:
       - name: Load Docker image with optimized decompression
         run: |
           echo "Loading Docker image..."
-          # Install pigz for parallel decompression (much faster than gzip)
           sudo apt-get update && sudo apt-get install -y pigz
-
-          # Decompress and load with pigz
           pigz -dc /tmp/test-runner-image.tar.gz | docker load
           docker images | grep test-runner
-
-          # Update deployment/docker-compose.test.yml to use the loaded image
           sed -i 's|build: \.|image: test-runner:latest|g' deployment/docker-compose.test.yml
 
       - name: Start test services
         run: |
           docker compose -f deployment/docker-compose.test.yml up -d postgres redis
-          # Wait for services to be healthy
           echo "Waiting for services to be healthy..."
           timeout 60s bash -c 'until docker compose -f deployment/docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
 
@@ -279,13 +260,8 @@ jobs:
 
       - name: Merge coverage files
         run: |
-          # List downloaded files for debugging
           ls -la ./coverage-reports/
-
-          # Since we have XML files, we need to use a different approach
-          # We'll just concatenate them for Codecov which handles multiple files
           if ls ./coverage-reports/coverage-*.xml 1> /dev/null 2>&1; then
-            # Copy all coverage files to current directory for Codecov
             cp ./coverage-reports/coverage-*.xml .
             echo "Found coverage files:"
             ls -la coverage-*.xml
@@ -308,10 +284,9 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  # Build production images in parallel with tests (don't push yet)
+  # Build production images in parallel with tests (cached, not pushed until all tests pass)
   build-production-images:
     runs-on: ubuntu-latest
-    # Only build production images on main branch (not PRs)
     if: github.ref == 'refs/heads/main'
     timeout-minutes: 30
     permissions:
@@ -351,12 +326,65 @@ jobs:
           provenance: false
           sbom: false
 
-  # Push production images only if all tests pass
+  # Final check to ensure all jobs passed (gate before pushing images)
+  all-checks:
+    runs-on: ubuntu-latest
+    needs: [build-docker-image, django-checks, test-suite, pre-commit-checks, coverage-upload, build-production-images]
+    if: always()
+    steps:
+      - name: Check if all jobs passed
+        run: |
+          BUILD_STATUS="${{ needs.build-docker-image.result }}"
+          if [[ "$BUILD_STATUS" != "success" ]]; then
+            echo "❌ Docker build failed (status: $BUILD_STATUS)"
+            exit 1
+          fi
+
+          DJANGO_STATUS="${{ needs.django-checks.result }}"
+          if [[ "$DJANGO_STATUS" != "success" ]]; then
+            echo "❌ Django checks failed (status: $DJANGO_STATUS)"
+            exit 1
+          fi
+
+          TEST_STATUS="${{ needs.test-suite.result }}"
+          if [[ "$TEST_STATUS" != "success" ]]; then
+            echo "❌ Test suite failed (status: $TEST_STATUS)"
+            exit 1
+          fi
+
+          PRECOMMIT_STATUS="${{ needs.pre-commit-checks.result }}"
+          if [[ "$PRECOMMIT_STATUS" != "success" ]]; then
+            echo "❌ Pre-commit checks failed (status: $PRECOMMIT_STATUS)"
+            exit 1
+          fi
+
+          COVERAGE_STATUS="${{ needs.coverage-upload.result }}"
+          if [[ "$COVERAGE_STATUS" != "success" ]]; then
+            echo "❌ Coverage upload failed (status: $COVERAGE_STATUS)"
+            exit 1
+          fi
+
+          PROD_BUILD_STATUS="${{ needs.build-production-images.result }}"
+
+          # Only fail if production build ran and failed (skip if it was skipped for PRs)
+          if [[ "$PROD_BUILD_STATUS" != "success" && "$PROD_BUILD_STATUS" != "skipped" ]]; then
+            echo "❌ Production image build failed (status: $PROD_BUILD_STATUS)"
+            exit 1
+          fi
+
+          if [[ "$PROD_BUILD_STATUS" == "skipped" ]]; then
+            echo "⏭️  Production image build skipped (not on main branch)"
+          else
+            echo "✅ Production images built in parallel with tests"
+          fi
+
+          echo "✅ All checks passed successfully!"
+
+  # Push production images from cache after all checks pass
   push-production-images:
     runs-on: ubuntu-latest
-    needs: [build-production-images, django-checks, test-suite, pre-commit-checks]
-    # Only push on main branch after all tests pass
-    if: github.ref == 'refs/heads/main'
+    needs: [all-checks]
+    if: github.ref == 'refs/heads/main' && needs.all-checks.result == 'success'
     timeout-minutes: 15
     permissions:
       contents: read
@@ -393,67 +421,3 @@ jobs:
             *.cache-from=type=gha
           provenance: false
           sbom: false
-
-  # Final check to ensure all jobs passed
-  all-checks:
-    runs-on: ubuntu-latest
-    needs: [build-docker-image, django-checks, test-suite, pre-commit-checks, coverage-upload, build-production-images, push-production-images]
-    if: always()
-    steps:
-      - name: Check if all jobs passed
-        run: |
-          BUILD_STATUS="${{ needs.build-docker-image.result }}"
-          if [[ "$BUILD_STATUS" != "success" ]]; then
-            echo "❌ Docker build failed (status: $BUILD_STATUS)"
-            exit 1
-          fi
-
-          DJANGO_STATUS="${{ needs.django-checks.result }}"
-          if [[ "$DJANGO_STATUS" != "success" ]]; then
-            echo "❌ Django checks failed (status: $DJANGO_STATUS)"
-            exit 1
-          fi
-
-          TEST_STATUS="${{ needs.test-suite.result }}"
-          if [[ "$TEST_STATUS" != "success" ]]; then
-            echo "❌ Test suite failed (status: $TEST_STATUS)"
-            exit 1
-          fi
-
-          PRECOMMIT_STATUS="${{ needs.pre-commit-checks.result }}"
-          if [[ "$PRECOMMIT_STATUS" != "success" ]]; then
-            echo "❌ Pre-commit checks failed (status: $PRECOMMIT_STATUS)"
-            exit 1
-          fi
-
-          COVERAGE_STATUS="${{ needs.coverage-upload.result }}"
-          if [[ "$COVERAGE_STATUS" != "success" ]]; then
-            echo "❌ Coverage upload failed (status: $COVERAGE_STATUS)"
-            exit 1
-          fi
-
-          PROD_BUILD_STATUS="${{ needs.build-production-images.result }}"
-          PROD_PUSH_STATUS="${{ needs.push-production-images.result }}"
-
-          # Only fail if production build ran and failed (skip if it was skipped for PRs)
-          if [[ "$PROD_BUILD_STATUS" != "success" && "$PROD_BUILD_STATUS" != "skipped" ]]; then
-            echo "❌ Production image build failed (status: $PROD_BUILD_STATUS)"
-            exit 1
-          fi
-
-          # Only fail if production push ran and failed (skip if it was skipped for PRs)
-          if [[ "$PROD_PUSH_STATUS" != "success" && "$PROD_PUSH_STATUS" != "skipped" ]]; then
-            echo "❌ Production image push failed (status: $PROD_PUSH_STATUS)"
-            exit 1
-          fi
-
-          if [[ "$PROD_BUILD_STATUS" == "skipped" ]]; then
-            echo "⏭️  Production image build skipped (not on main branch)"
-          else
-            echo "✅ Production images built in parallel with tests"
-            if [[ "$PROD_PUSH_STATUS" == "success" ]]; then
-              echo "✅ Production images pushed after tests passed"
-            fi
-          fi
-
-          echo "✅ All checks passed successfully!"
