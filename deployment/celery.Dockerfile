@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.4
 # Celery worker Dockerfile - Optimized with pyppeteer for screenshot generation
 
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 # Set Python environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \

@@ -14,7 +14,7 @@
 #   - Rebuild with dependencies: ~1-2 minutes
 #   - Test build (SKIP_JS_BUILD=1): ~20-40s faster
 
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 # Set Python environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
