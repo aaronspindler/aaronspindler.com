@@ -137,12 +137,10 @@ class BuildCssCommandTest(TestCase):
 
     @patch("pages.management.commands.build_css.settings")
     @patch("pages.management.commands.build_css.subprocess.run")
-    @patch("pages.management.commands.build_css.os.path.getsize")
-    def test_build_css_production_mode(self, mock_getsize, mock_run, mock_settings):
+    def test_build_css_production_mode(self, mock_run, mock_settings):
         """Test CSS build in production mode."""
         mock_settings.BASE_DIR = self.temp_dir
         mock_run.return_value = MagicMock(returncode=0)
-        mock_getsize.return_value = 1024  # 1KB
 
         # Create test CSS files
         for filename in ["base.css", "theme-toggle.css"]:
@@ -165,12 +163,10 @@ class BuildCssCommandTest(TestCase):
 
     @patch("pages.management.commands.build_css.settings")
     @patch("pages.management.commands.build_css.subprocess.run")
-    @patch("pages.management.commands.build_css.os.path.getsize")
-    def test_build_css_dev_mode(self, mock_getsize, mock_run, mock_settings):
+    def test_build_css_dev_mode(self, mock_run, mock_settings):
         """Test CSS build in development mode."""
         mock_settings.BASE_DIR = self.temp_dir
         mock_run.return_value = MagicMock(returncode=0)
-        mock_getsize.return_value = 512  # 0.5KB
 
         # Create test CSS files
         Path(os.path.join(self.css_dir, "base.css")).write_text("body { }")
@@ -240,11 +236,9 @@ class BuildCssCommandTest(TestCase):
         self.assertIn("PostCSS failed", output)
 
     @patch("pages.management.commands.build_css.settings")
-    @patch("pages.management.commands.build_css.os.path.getsize")
-    def test_build_css_creates_versioned_file(self, mock_getsize, mock_settings):
+    def test_build_css_creates_versioned_file(self, mock_settings):
         """Test that build creates versioned CSS file."""
         mock_settings.BASE_DIR = self.temp_dir
-        mock_getsize.return_value = 512  # 0.5KB
 
         Path(os.path.join(self.css_dir, "base.css")).write_text("body { }")
 
@@ -265,11 +259,9 @@ class BuildCssCommandTest(TestCase):
             self.assertGreater(len(versioned_files), 0)
 
     @patch("pages.management.commands.build_css.settings")
-    @patch("pages.management.commands.build_css.os.path.getsize")
-    def test_build_css_compression(self, mock_getsize, mock_settings):
+    def test_build_css_compression(self, mock_settings):
         """Test CSS compression (gzip/brotli)."""
         mock_settings.BASE_DIR = self.temp_dir
-        mock_getsize.return_value = 1024  # 1KB
 
         Path(os.path.join(self.css_dir, "base.css")).write_text("body { color: red; }")
 
