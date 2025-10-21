@@ -66,9 +66,9 @@ updates:
         patterns:
           - "*"
 
-  # Docker (if you add Dockerfile dependencies)
+  # Docker - Dockerfile in deployment directory
   - package-ecosystem: "docker"
-    directory: "/"
+    directory: "/deployment"
     schedule:
       interval: "daily"  # Changed from weekly to daily
       time: "05:00"  # Run after GitHub Actions
