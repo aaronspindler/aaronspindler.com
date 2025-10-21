@@ -1,0 +1,100 @@
+# Minimal Docker Compose configuration for local development
+#
+# Includes only essential services: PostgreSQL, Redis, and Web
+# Excludes: Celery, Celery Beat, Flower (optional services)
+#
+# Usage:
+#   docker-compose -f deployment/docker-compose.dev.yml up
+#   docker-compose -f deployment/docker-compose.dev.yml down
+#
+# Benefits:
+#   - Faster startup (~10s vs ~30s with full stack)
+#   - Lower resource usage (3 containers vs 6)
+#   - Simpler for frontend/template development
+#
+# When to use full stack (docker-compose.test.yml):
+#   - Testing Celery tasks
+#   - Testing scheduled tasks
+#   - Full integration testing
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=dev_user
+      - POSTGRES_PASSWORD=dev_password
+      - POSTGRES_DB=dev_aaronspindler
+    ports:
+      - "5432:5432"  # Use standard port for easy connection
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev_user -d dev_aaronspindler"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - dev_network
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"  # Use standard port
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - dev_network
+
+  # Web application (Django)
+  web:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    command: >
+      sh -c "
+        echo 'Waiting for services to be healthy...' &&
+        while ! nc -z postgres 5432; do sleep 1; done &&
+        while ! nc -z redis 6379; do sleep 1; done &&
+        echo 'Running migrations...' &&
+        python manage.py migrate --no-input &&
+        echo 'Building CSS...' &&
+        python manage.py build_css --dev || true &&
+        echo 'Collecting static files...' &&
+        python manage.py collectstatic --no-input || true &&
+        echo 'Starting development server...' &&
+        python manage.py runserver 0.0.0.0:8000
+      "
+    volumes:
+      - ..:/code
+      - static_volume:/code/staticfiles
+      - media_volume:/code/media
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - DATABASE_URL=postgres://dev_user:dev_password@postgres:5432/dev_aaronspindler
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-not-for-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dev_network
+
+volumes:
+  postgres_dev_data:
+  static_volume:
+  media_volume:
+
+networks:
+  dev_network:
+    driver: bridge
