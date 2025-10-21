@@ -23,7 +23,7 @@
 **Frontend**: D3.js, Vanilla JavaScript, PostCSS, Prism.js
 **Infrastructure**: Docker, Gunicorn, WhiteNoise (static), AWS S3 (media)
 **Search**: PostgreSQL FTS with pg_trgm for typo tolerance
-**Monitoring**: Lighthouse, Playwright, Flower
+**Monitoring**: Lighthouse, Pyppeteer, Flower
 
 ## Quick Start
 
@@ -37,7 +37,7 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements/base.txt
 pip install -r requirements/dev.txt
-playwright install chromium
+# Pyppeteer will auto-download Chromium on first run
 
 # Configure environment
 cp .env.example .env  # Edit with your settings

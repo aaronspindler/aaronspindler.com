@@ -187,7 +187,7 @@ class BlogCommentModelTest(TestCase):
 │           Docker Test Network (Optimized)              │
 ├──────────────┬──────────────┬──────────────────────────┤
 │  PostgreSQL  │    Redis     │      Test Runner         │
-│  (Database)  │  (Cache/MQ)  │  (Django + Playwright)   │
+│  (Database)  │  (Cache/MQ)  │  (Django + Pyppeteer)    │
 │    :5433     │    :6380     │        :8001             │
 └──────────────┴──────────────┴──────────────────────────┘
 ```

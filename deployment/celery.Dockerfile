@@ -1,24 +1,63 @@
-FROM mcr.microsoft.com/playwright/python:v1.55.0-noble
+# syntax=docker/dockerfile:1.4
+# Celery worker Dockerfile - Optimized with pyppeteer for screenshot generation
+
+FROM python:3.13-slim
 
 # Set Python environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    # Path to Chromium for Lighthouse
+    CHROME_PATH=/usr/bin/chromium \
+    # Pyppeteer configuration
+    PYPPETEER_CHROMIUM_REVISION=1056772 \
+    PYPPETEER_HOME=/opt/pyppeteer
 
 # Create and set work directory
 WORKDIR /code
 
-# Install Node.js 20.x from NodeSource (required for Lighthouse @lhci/cli compatibility)
+# Install system dependencies including Chromium and Node.js
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
+    # Build essentials
     curl \
     ca-certificates \
     gnupg \
-    libpq5 && \
-    mkdir -p /etc/apt/keyrings && \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
-    apt-get update && apt-get install -y --no-install-recommends nodejs
+    # PostgreSQL client library
+    libpq5 \
+    # Chromium and dependencies for screenshot generation
+    chromium \
+    chromium-driver \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libx11-6 \
+    libxcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libxrandr2 \
+    xdg-utils \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y --no-install-recommends nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create pyppeteer directory for Chromium download
+RUN mkdir -p $PYPPETEER_HOME && chmod -R 755 $PYPPETEER_HOME
 
 # Copy only requirements file first (changes less frequently)
 COPY requirements/base.txt requirements.txt
@@ -27,6 +66,9 @@ COPY requirements/base.txt requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
+
+# Pre-download Chromium for pyppeteer
+RUN python -c "from pyppeteer import chromium_downloader; chromium_downloader.download_chromium()"
 
 # Copy package files for NPM (changes less frequently than app code)
 COPY package*.json ./

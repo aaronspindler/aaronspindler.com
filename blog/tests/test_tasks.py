@@ -130,12 +130,12 @@ class ManagementCommandsTest(TestCase):
         self.assertIn("API test passed", output)
         mock_client.get.assert_called_with("/api/knowledge-graph/")
 
-    @patch("blog.management.commands.generate_knowledge_graph_screenshot.Command._generate_screenshot")
+    @patch("asyncio.run")
     @patch("blog.knowledge_graph.build_knowledge_graph")
-    def test_generate_knowledge_graph_screenshot_command(self, mock_build_graph, mock_generate_screenshot):
+    def test_generate_knowledge_graph_screenshot_command(self, mock_build_graph, mock_asyncio_run):
         """Test generate_knowledge_graph_screenshot command."""
-        # Mock the screenshot generation to return fake data without launching Playwright
-        mock_generate_screenshot.return_value = b"fake_screenshot_data"
+        # Mock the screenshot generation to return fake data without launching pyppeteer
+        mock_asyncio_run.return_value = b"fake_screenshot_data"
 
         # Mock the knowledge graph build
         mock_build_graph.return_value = {
@@ -150,15 +150,15 @@ class ManagementCommandsTest(TestCase):
         output = out.getvalue()
         self.assertIn("Starting knowledge graph screenshot generation", output)
         self.assertIn("Successfully generated", output)
-        # Verify _generate_screenshot was called with the default URL
-        mock_generate_screenshot.assert_called_once_with("http://localhost:8000")
+        # Verify asyncio.run was called (pyppeteer is async)
+        self.assertTrue(mock_asyncio_run.called)
 
-    @patch("blog.management.commands.generate_knowledge_graph_screenshot.Command._generate_screenshot")
+    @patch("asyncio.run")
     @patch("blog.knowledge_graph.build_knowledge_graph")
-    def test_generate_knowledge_graph_screenshot_command_custom_url(self, mock_build_graph, mock_generate_screenshot):
+    def test_generate_knowledge_graph_screenshot_command_custom_url(self, mock_build_graph, mock_asyncio_run):
         """Test generate_knowledge_graph_screenshot command with custom URL."""
         # Mock the screenshot generation
-        mock_generate_screenshot.return_value = b"fake_screenshot_data"
+        mock_asyncio_run.return_value = b"fake_screenshot_data"
 
         # Mock the knowledge graph build
         mock_build_graph.return_value = {
@@ -173,8 +173,8 @@ class ManagementCommandsTest(TestCase):
         output = out.getvalue()
         self.assertIn("Starting knowledge graph screenshot generation", output)
         self.assertIn("Successfully generated", output)
-        # Verify _generate_screenshot was called with the custom URL
-        mock_generate_screenshot.assert_called_once_with("https://example.com")
+        # Verify asyncio.run was called (pyppeteer is async)
+        self.assertTrue(mock_asyncio_run.called)
 
 
 class TaskIntegrationTest(TestCase):

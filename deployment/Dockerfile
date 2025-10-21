@@ -1,45 +1,75 @@
 # syntax=docker/dockerfile:1.4
-# Optimized for CI/CD with fastest possible build times
+# Optimized for CI/CD with lightweight pyppeteer for screenshot generation
 #
-# Uses Microsoft's Playwright Python image (includes Python + Playwright + Chromium)
+# Uses Python slim base image with minimal Chromium installation
 # BuildKit cache mounts for pip, npm, and apt packages
 #
 # Build args:
 #   - SKIP_JS_BUILD=1: Skip JavaScript build for test environments (saves ~10-20s)
 #
 # Performance:
-#   - First build: ~2-3 minutes (vs 8 minutes with slim base)
+#   - Image size: ~800MB optimized for production
+#   - First build: ~2-3 minutes
 #   - Rebuild with code changes: ~30-60 seconds
 #   - Rebuild with dependencies: ~1-2 minutes
 #   - Test build (SKIP_JS_BUILD=1): ~20-40s faster
-#
-# Trade-off: Larger base image (~1.5GB) but optimized for CI/CD speed
-# See DOCKER_BUILD_OPTIMIZATION.md for details
 
-FROM mcr.microsoft.com/playwright/python:v1.55.0-noble
+FROM python:3.13-slim
 
 # Set Python environment variables
-# CHROME_PATH: Required for Lighthouse CLI (@lhci/cli) to find Chromium from Playwright
-# Version (chromium-1187) is stable for Playwright v1.55.0-noble
-# Update this path if upgrading Playwright base image
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    CHROME_PATH=/ms-playwright/chromium-1187/chrome-linux/chrome
+    # Path to Chromium for Lighthouse
+    CHROME_PATH=/usr/bin/chromium \
+    # Pyppeteer configuration
+    PYPPETEER_CHROMIUM_REVISION=1056772 \
+    PYPPETEER_HOME=/opt/pyppeteer
 
 WORKDIR /code
 
-# Install Node.js 20.x from NodeSource (required for Lighthouse @lhci/cli compatibility)
+# Install system dependencies including Chromium and Node.js
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
+    # Build essentials
     curl \
-    libpq5 \
     ca-certificates \
-    gnupg && \
-    mkdir -p /etc/apt/keyrings && \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
-    apt-get update && apt-get install -y --no-install-recommends nodejs
+    gnupg \
+    # PostgreSQL client library
+    libpq5 \
+    # Chromium and dependencies
+    chromium \
+    chromium-driver \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libx11-6 \
+    libxcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libxrandr2 \
+    xdg-utils \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y --no-install-recommends nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create pyppeteer directory for Chromium download
+RUN mkdir -p $PYPPETEER_HOME && chmod -R 755 $PYPPETEER_HOME
 
 # Copy only requirements file first (changes less frequently)
 COPY requirements/base.txt requirements.txt
@@ -48,6 +78,9 @@ COPY requirements/base.txt requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
+
+# Pre-download Chromium for pyppeteer
+RUN python -c "from pyppeteer import chromium_downloader; chromium_downloader.download_chromium()"
 
 # Copy package files for NPM (changes less frequently than app code)
 COPY package*.json .config/postcss.config.js .config/purgecss.config.js ./

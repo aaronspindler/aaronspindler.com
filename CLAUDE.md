@@ -24,12 +24,13 @@ The project root has been organized for clarity:
 
 This project includes AI context rules in `.cursor/rules/` to guide development:
 - **ai-context.mdc**: Guidelines for maintaining CLAUDE.md and README.md
+- **comments.mdc**: Clean comment guidelines - no redundant references to previous implementations
 - **documentation.mdc**: Documentation maintenance and update requirements
-- **prs.mdc**: Pull request creation guidelines
 - **styling.mdc**: Blog post template styling guidelines
 - **testing.mdc**: Testing guidelines and commands
 
 **IMPORTANT**: Always reference these cursor rules along with CLAUDE.md when working on this codebase.
+**CRITICAL**: When updating code or documentation, ensure comments focus on current implementation without references to what was replaced (see `.cursor/rules/comments.mdc`).
 
 ## Common Development Commands
 
@@ -154,7 +155,7 @@ python manage.py generate_knowledge_graph_screenshot --url https://staging.examp
 ```
 
 **Note**: The screenshot generation command:
-- Uses Playwright/Chromium to take high-quality screenshots (2400x1600, 2x device scale factor)
+- Uses Pyppeteer/Chromium to take high-quality screenshots (2400x1600, 2x device scale factor)
 - Runs automatically via Celery Beat daily at 4 AM UTC (screenshots production site)
 - Stores screenshots in the database with hash-based caching to avoid duplicates
 - Defaults to `http://localhost:8000` for local development
@@ -307,7 +308,7 @@ python manage.py remove_local_fingerprints --limit 100
 
 1. **Knowledge Graph System** (`blog/knowledge_graph.py`)
    - Builds interactive graph from blog post metadata
-   - Uses Playwright for server-side screenshot generation
+   - Uses Pyppeteer for server-side screenshot generation
    - Caching system for performance
    - LinkParser class for extracting internal/external links
    - GraphBuilder for constructing graph structures
@@ -354,7 +355,7 @@ python manage.py remove_local_fingerprints --limit 100
    - **Performance**: Sub-100ms response time for autocomplete queries
 
 ### Deployment Configuration
-- **Docker**: Multi-stage build with Playwright for screenshot generation
+- **Docker**: Optimized build with Pyppeteer for screenshot generation (~800MB image size)
 - **Database**: PostgreSQL with psycopg3
 - **Storage**:
   - Static files (CSS, JS, fonts): WhiteNoise (served from container)
@@ -621,6 +622,7 @@ Before completing ANY pull request, verify:
 - Always reference the cursor rules in `.cursor/rules/` when working on this codebase
 - Keep CLAUDE.md and README.md synchronized with code changes (see `.cursor/rules/ai-context.mdc`)
 - **Update `docs/` directory whenever code changes** (see `.cursor/rules/documentation.mdc`)
+- **Write clean, forward-looking comments** without references to replaced implementations (see `.cursor/rules/comments.mdc`)
 - Use `make static` after CSS/JS changes to rebuild assets
 - Run `pre-commit run --all-files` before pushing (or use graphite which auto-runs hooks)
 - Dont run tests locally

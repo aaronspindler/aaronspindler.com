@@ -63,7 +63,7 @@ class Command(BaseCommand):
                 shutil.rmtree(output_dir)
 
             # Get Chrome path from environment or use default from Playwright image
-            chrome_path = os.environ.get("CHROME_PATH", "/ms-playwright/chromium-1187/chrome-linux/chrome")
+            chrome_path = os.environ.get("CHROME_PATH", "/usr/bin/chromium")
 
             # Run Lighthouse using @lhci/cli with explicit Chrome path
             # Chrome flags for containerized environments:
