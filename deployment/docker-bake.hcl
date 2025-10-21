@@ -39,6 +39,7 @@ target "web" {
   inherits = ["_common"]
   dockerfile = "deployment/Dockerfile"
   tags = [
+    "${REGISTRY}/${IMAGE_PREFIX}-web:${TAG}",
     "${REGISTRY}/${IMAGE_PREFIX}-web:latest"
   ]
   args = {
@@ -51,6 +52,7 @@ target "celery" {
   inherits = ["_common"]
   dockerfile = "deployment/celery.Dockerfile"
   tags = [
+    "${REGISTRY}/${IMAGE_PREFIX}-celery:${TAG}",
     "${REGISTRY}/${IMAGE_PREFIX}-celery:latest"
   ]
 }
@@ -60,6 +62,7 @@ target "celerybeat" {
   inherits = ["_common"]
   dockerfile = "deployment/celerybeat.Dockerfile"
   tags = [
+    "${REGISTRY}/${IMAGE_PREFIX}-celerybeat:${TAG}",
     "${REGISTRY}/${IMAGE_PREFIX}-celerybeat:latest"
   ]
 }
@@ -69,6 +72,7 @@ target "flower" {
   inherits = ["_common"]
   dockerfile = "deployment/flower.Dockerfile"
   tags = [
+    "${REGISTRY}/${IMAGE_PREFIX}-flower:${TAG}",
     "${REGISTRY}/${IMAGE_PREFIX}-flower:latest"
   ]
 }
