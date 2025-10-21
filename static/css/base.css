@@ -771,6 +771,15 @@ label input {
     border-color: rgba(108, 153, 187, 0.8);
   }
 }
+.footer {
+  margin-top: calc(var(--line-height) * 2);
+  text-align: center;
+  font-size: 0.875rem;
+}
+.footer p {
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
 @media screen and (max-width: 768px) {
   .projects-table {
     border: none;
@@ -796,6 +805,13 @@ label input {
   }
   .projects-table td:last-child {
     margin-top: calc(var(--line-height) / 2);
+  }
+  .footer {
+    font-size: 0.75rem;
+    line-height: calc(var(--line-height) * 1.2);
+  }
+  .footer p {
+    padding: 0;
   }
 }
 @media screen and (max-width: 480px) {
