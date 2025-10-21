@@ -84,3 +84,7 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+    ignore:
+      # Ignore major Python version updates (only allow minor/patch updates like 3.13.x)
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major"]
