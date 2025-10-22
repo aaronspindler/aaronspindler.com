@@ -1,11 +1,5 @@
 # aaronspindler.com
-
-> A Django-powered personal website featuring interactive knowledge graphs, smart photo management, and a template-based blog system
-
-[![Django](https://img.shields.io/badge/Django-5.2.5-green?style=for-the-badge&logo=django)](https://www.djangoproject.com/)
-[![Python](https://img.shields.io/badge/Python-3.13-blue?style=for-the-badge&logo=python)](https://www.python.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=for-the-badge&logo=docker)](https://www.docker.com/)
+[![codecov](https://codecov.io/gh/aaronspindler/aaronspindler.com/graph/badge.svg?token=AO200M56SH)](https://codecov.io/gh/aaronspindler/aaronspindler.com)
 
 ## Features
 
