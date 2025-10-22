@@ -17,7 +17,7 @@ class Command(BaseCommand):
     help = "Create a new blog post with the next available blog number"
 
     # Valid blog post categories
-    VALID_CATEGORIES = ["personal", "projects", "reviews", "tech"]
+    VALID_CATEGORIES = ["hobbies", "personal", "projects", "reviews", "tech"]
 
     def add_arguments(self, parser):
         parser.add_argument(
