@@ -50,7 +50,7 @@ jobs:
           echo "✅ deployment/docker-compose.test.yml found"
 
       - name: Build Docker image with Bake
-        uses: docker/bake-action@a4d7f0b5b91c14a296d792d4ec53a9db17f02e67  # v5.10.0
+        uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c  # v5.10.0
         env:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_PREFIX: ${{ github.repository }}
@@ -102,7 +102,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build production images (cache only, don't push)
-        uses: docker/bake-action@a4d7f0b5b91c14a296d792d4ec53a9db17f02e67  # v5.10.0
+        uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c  # v5.10.0
         env:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_PREFIX: ${{ github.repository }}
@@ -430,7 +430,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push production images from cache
-        uses: docker/bake-action@a4d7f0b5b91c14a296d792d4ec53a9db17f02e67  # v5.10.0
+        uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c  # v5.10.0
         env:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_PREFIX: ${{ github.repository }}
