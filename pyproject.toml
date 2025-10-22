@@ -80,9 +80,6 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 [tool.coverage.run]
 # Source directories to measure coverage for
 source = ["."]
-# Track which lines were executed by which context
-# This enables proper handling of Django's --parallel flag
-parallel = true
 # Omit specific files and directories from coverage
 omit = [
     "*/migrations/*",
