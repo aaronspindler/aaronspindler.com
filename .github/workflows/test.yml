@@ -256,12 +256,14 @@ jobs:
         run: |
           mkdir -p ./test_output
           docker compose -f deployment/docker-compose.test.yml run --rm \
-            -v $(pwd)/test_output:/code/test_output test_runner sh -c "
-            pip install coverage unittest-xml-reporting --no-cache-dir &&
+            -v $(pwd)/test_output:/code/test_output \
+            -v $(pwd)/pyproject.toml:/code/pyproject.toml:ro \
+            test_runner sh -c "
+            pip install coverage unittest-xml-reporting --no-cache-dir --root-user-action=ignore &&
             export PYTHONDONTWRITEBYTECODE=1 &&
             export PYTHONUNBUFFERED=1 &&
             export TEST_OUTPUT_DIR=/code/test_output/test-results-${{ matrix.test-group.name }} &&
-            coverage run --source='.' --concurrency=multiprocessing manage.py test ${{ matrix.test-group.apps }} \
+            coverage run manage.py test ${{ matrix.test-group.apps }} \
               --settings=config.settings_test \
               --no-input \
               --parallel auto \
