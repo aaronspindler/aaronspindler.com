@@ -16,10 +16,10 @@ variable "TAG" {
 # Common cache configuration
 target "_common" {
   cache-from = [
-    "type=gha",
-    "type=registry,ref=${REGISTRY}/${IMAGE_PREFIX}-web:latest"
+    "type=gha,scope=buildx-main",
+    "type=gha"
   ]
-  cache-to = ["type=gha,mode=max"]
+  cache-to = ["type=gha,mode=max,scope=buildx-main"]
   platforms = ["linux/amd64"]
 }
 

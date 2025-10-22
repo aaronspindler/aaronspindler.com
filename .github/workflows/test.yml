@@ -101,22 +101,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate cache scopes
-        id: cache-scope
-        run: |
-          # Hash dependencies for accurate cache invalidation
-          DEPS_HASH=$(find requirements/ -type f \( -name "*.txt" -o -name "*.in" \) | sort | xargs sha256sum | sha256sum | cut -d' ' -f1 | cut -c1-16)
-          DOCKERFILE_HASH=$(sha256sum deployment/Dockerfile deployment/docker-bake.hcl 2>/dev/null | sha256sum | cut -d' ' -f1 | cut -c1-8)
-
-          echo "deps-scope=deps-${DEPS_HASH}" >> $GITHUB_OUTPUT
-          echo "docker-scope=docker-${DOCKERFILE_HASH}" >> $GITHUB_OUTPUT
-          echo "branch-scope=branch-main" >> $GITHUB_OUTPUT
-
-          echo "📊 Cache scopes generated:"
-          echo "  Dependencies: deps-${DEPS_HASH}"
-          echo "  Dockerfile: docker-${DOCKERFILE_HASH}"
-          echo "  Branch: branch-main"
-
       - name: Build production images (cache only, don't push)
         uses: docker/bake-action@a4d7f0b5b91c14a296d792d4ec53a9db17f02e67  # v5.10.0
         env:
@@ -128,11 +112,9 @@ jobs:
           targets: production
           push: false
           set: |
-            *.cache-to=type=gha,mode=max,scope=${{ steps.cache-scope.outputs.branch-scope }}
-            *.cache-from=type=gha,scope=${{ steps.cache-scope.outputs.deps-scope }}
-            *.cache-from=type=gha,scope=${{ steps.cache-scope.outputs.docker-scope }}
-            *.cache-from=type=gha,scope=${{ steps.cache-scope.outputs.branch-scope }}
+            *.cache-from=type=gha,scope=buildx-main
             *.cache-from=type=gha
+            *.cache-to=type=gha,mode=max,scope=buildx-main
           provenance: false
           sbom: false
 
@@ -267,9 +249,7 @@ jobs:
             coverage run manage.py test ${{ matrix.test-group.apps }} \
               --settings=config.settings_test \
               --no-input \
-              --parallel auto \
               --verbosity=2 &&
-            coverage combine &&
             coverage report &&
             coverage xml -o /code/test_output/coverage-${{ matrix.test-group.name }}.xml
           "
@@ -449,14 +429,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate cache scopes
-        id: cache-scope
-        run: |
-          # Hash dependencies for accurate cache invalidation
-          DEPS_HASH=$(find requirements/ -type f \( -name "*.txt" -o -name "*.in" \) | sort | xargs sha256sum | sha256sum | cut -d' ' -f1 | cut -c1-16)
-          echo "deps-scope=deps-${DEPS_HASH}" >> $GITHUB_OUTPUT
-          echo "branch-scope=branch-main" >> $GITHUB_OUTPUT
-
       - name: Push production images from cache
         uses: docker/bake-action@a4d7f0b5b91c14a296d792d4ec53a9db17f02e67  # v5.10.0
         env:
@@ -468,8 +440,8 @@ jobs:
           targets: production
           push: true
           set: |
-            *.cache-from=type=gha,scope=${{ steps.cache-scope.outputs.deps-scope }}
-            *.cache-from=type=gha,scope=${{ steps.cache-scope.outputs.branch-scope }}
+            *.cache-from=type=gha,scope=buildx-main
             *.cache-from=type=gha
+            *.cache-to=type=gha,mode=max,scope=buildx-main
           provenance: false
           sbom: false
