@@ -243,10 +243,12 @@ jobs:
             export PYTHONDONTWRITEBYTECODE=1 &&
             export PYTHONUNBUFFERED=1 &&
             export TEST_OUTPUT_DIR=/code/test_output/test-results-${{ matrix.test-group.name }} &&
-            coverage run --source='.' manage.py test ${{ matrix.test-group.apps }} \
+            coverage run --source='.' --concurrency=multiprocessing manage.py test ${{ matrix.test-group.apps }} \
               --settings=config.settings_test \
               --no-input \
+              --parallel auto \
               --verbosity=2 &&
+            coverage combine &&
             coverage report &&
             coverage xml -o /code/test_output/coverage-${{ matrix.test-group.name }}.xml
           "
