@@ -66,8 +66,9 @@ class Command(BaseCommand):
             chrome_path = os.environ.get("CHROME_PATH", "/usr/bin/chromium")
 
             # Run Lighthouse using @lhci/cli with explicit Chrome path
-            # Chrome flags for containerized environments:
+            # Chrome flags for containerized environments (passed as separate arguments):
             # --no-sandbox: Required when running as root in Docker
+            # --disable-setuid-sandbox: Additional sandbox disabling for root execution
             # --disable-dev-shm-usage: Prevents /dev/shm issues in containers
             # --disable-gpu: Disables GPU hardware acceleration (not needed for headless)
             result = subprocess.run(
@@ -78,7 +79,10 @@ class Command(BaseCommand):
                     f"--url={url}",
                     "--numberOfRuns=1",
                     f"--chromePath={chrome_path}",
-                    "--chrome-flags=--no-sandbox --disable-dev-shm-usage --disable-gpu",
+                    "--chrome-flags=--no-sandbox",
+                    "--chrome-flags=--disable-setuid-sandbox",
+                    "--chrome-flags=--disable-dev-shm-usage",
+                    "--chrome-flags=--disable-gpu",
                 ],
                 capture_output=True,
                 text=True,
