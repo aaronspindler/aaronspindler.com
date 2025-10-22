@@ -262,6 +262,7 @@ jobs:
             pip install coverage unittest-xml-reporting --no-cache-dir --root-user-action=ignore &&
             export PYTHONDONTWRITEBYTECODE=1 &&
             export PYTHONUNBUFFERED=1 &&
+            export COVERAGE_RCFILE=/code/pyproject.toml &&
             export TEST_OUTPUT_DIR=/code/test_output/test-results-${{ matrix.test-group.name }} &&
             coverage run manage.py test ${{ matrix.test-group.apps }} \
               --settings=config.settings_test \
