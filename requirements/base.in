@@ -24,7 +24,7 @@ psycopg==3.2.11
 psycopg-binary==3.2.11
 
 # Caching & Message Broker
-redis==6.4.0
+redis==7.0.0
 
 # Image Processing
 Pillow==12.0.0
