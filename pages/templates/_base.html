@@ -1,5 +1,4 @@
 {% load static %}
-{% load css_version %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -24,10 +23,9 @@
   </style>
 
   {% block css %}
-  {% versioned_css as css_file %}
-  <link rel="preload" href="{% static css_file %}" as="style" fetchpriority="high">
-  <link rel="stylesheet" href="{% static css_file %}" media="print" onload="this.media='all'; this.onload=null;">
-  <noscript><link rel="stylesheet" href="{% static css_file %}"></noscript>
+  <link rel="preload" href="{% static 'css/combined.min.css' %}" as="style" fetchpriority="high">
+  <link rel="stylesheet" href="{% static 'css/combined.min.css' %}" media="print" onload="this.media='all'; this.onload=null;">
+  <noscript><link rel="stylesheet" href="{% static 'css/combined.min.css' %}"></noscript>
   <link rel="stylesheet" href="{% static 'css/autocomplete.css' %}">
   {% endblock %}
 </head>

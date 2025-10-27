@@ -2,13 +2,13 @@
 Simplified CSS build pipeline.
 
 This command concatenates CSS files, runs PostCSS (with cssnano for minification),
-optionally runs PurgeCSS, and creates versioned + compressed output files.
+optionally runs PurgeCSS, and creates compressed output files.
 
+Versioning is handled automatically by WhiteNoise's ManifestStaticFilesStorage.
 All CSS optimization is handled by cssnano - no custom parsing needed.
 """
 
 import gzip
-import hashlib
 import re
 import subprocess
 import time
@@ -65,7 +65,7 @@ class Command(BaseCommand):
         final_path = self._create_versioned_file(processed_path)
         self._create_compressed_versions(final_path)
         self._cleanup_temp_files(final_path)
-        self._cleanup_old_versions(final_path)
+        self._cleanup_old_versions()
 
         self.stdout.write(self.style.SUCCESS("\n✅ CSS build complete!\n"))
 
@@ -188,24 +188,19 @@ class Command(BaseCommand):
 
     @timer
     def _create_versioned_file(self, input_path):
-        """Create versioned output file with content hash"""
-        self.stdout.write("📌 Creating versioned file...")
+        """Create final CSS file (versioning handled by WhiteNoise)"""
+        self.stdout.write("📌 Creating final file...")
 
-        # Read content and generate hash
+        # Read content
         content = input_path.read_bytes()
-        file_hash = hashlib.md5(content).hexdigest()[:8]
 
-        # Create versioned filename
-        versioned_path = input_path.parent / f"combined.min.{file_hash}.css"
-        versioned_path.write_bytes(content)
-
-        # Also create non-versioned file for compatibility
+        # Create final non-versioned file (WhiteNoise will handle versioning)
         final_path = input_path.parent / "combined.min.css"
         final_path.write_bytes(content)
 
-        size = versioned_path.stat().st_size / 1024
+        size = final_path.stat().st_size / 1024
         self.stdout.write(f"  ✓ Final CSS: {size:.1f}KB")
-        self.stdout.write(f"  ✓ Version: combined.min.{file_hash}.css")
+        self.stdout.write("  ℹ️  Versioning will be handled by WhiteNoise during collectstatic")
 
         return final_path
 
@@ -251,34 +246,21 @@ class Command(BaseCommand):
 
         self.stdout.write("  ✓ Cleanup complete")
 
-    def _cleanup_old_versions(self, current_file):
-        """Remove old versioned CSS files, keeping only the latest"""
+    def _cleanup_old_versions(self):
+        """Remove manually-versioned CSS files from source directory"""
         static_dir = Path(settings.BASE_DIR) / "static" / "css"
 
-        # Find all versioned files
+        # Find any manually-versioned files (pattern: combined.min.*.css*)
         versioned_files = list(static_dir.glob("combined.min.*.css*"))
 
         if not versioned_files:
             return
 
-        # Get the latest version's hash
-        latest_versioned = max(
-            [f for f in versioned_files if f.suffix == ".css"],
-            key=lambda f: f.stat().st_mtime,
-            default=None,
-        )
-
-        if not latest_versioned:
-            return
-
-        latest_hash = latest_versioned.stem.split(".")[-1]
-
-        # Remove all files that don't match the latest hash
+        # Remove manually-versioned files (versioning is handled by WhiteNoise)
         removed_count = 0
         for file_path in versioned_files:
-            if latest_hash not in file_path.name:
-                file_path.unlink()
-                removed_count += 1
+            file_path.unlink()
+            removed_count += 1
 
         if removed_count > 0:
-            self.stdout.write(f"  ✓ Removed {removed_count} old versioned files")
+            self.stdout.write(f"  ✓ Removed {removed_count} manually-versioned files")
