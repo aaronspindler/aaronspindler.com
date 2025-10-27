@@ -6,7 +6,7 @@ const brotli = require('brotli');
 
 // JavaScript files to compress
 const jsFiles = [
-    'static/js/base.min.js',
+    'static/js/base-optimized.min.js',
     'static/js/knowledge_graph.min.js',
     'static/js/search-autocomplete.min.js'
 ];

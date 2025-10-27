@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import subprocess
 
 from django.core.management.base import BaseCommand, CommandError
@@ -17,38 +18,82 @@ class Command(BaseCommand):
 
     help = "Run a Lighthouse audit and store the results"
 
+    # Default URL for audits
+    DEFAULT_URL = "https://aaronspindler.com"
+
     def add_arguments(self, parser):
         parser.add_argument(
-            "--url",
-            type=str,
-            default="https://aaronspindler.com",
-            help="URL to audit (default: https://aaronspindler.com)",
+            "--async",
+            action="store_true",
+            dest="async_mode",
+            help="Queue the audit task to Celery instead of running it directly",
         )
 
     def handle(self, *args, **options):
-        url = options["url"]
+        async_mode = options["async_mode"]
+        url = self.DEFAULT_URL
+
+        # If async mode, queue the task to Celery
+        if async_mode:
+            from utils.tasks import run_lighthouse_audit as run_lighthouse_audit_task
+
+            task = run_lighthouse_audit_task.delay()
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"✓ Lighthouse audit task queued to Celery!\n"
+                    f"  URL: {url}\n"
+                    f"  Task ID: {task.id}\n"
+                    f"  Use 'celery -A config inspect active' to monitor task status"
+                )
+            )
+            return
+
+        # Otherwise, run the audit directly
         self.stdout.write(f"Running Lighthouse audit for {url}...")
 
         try:
-            import glob
-            import os
             import shutil
+            import tempfile
 
-            # @lhci/cli saves to .lighthouseci directory by default
-            output_dir = ".lighthouseci"
+            # Get Chrome path from environment or use default
+            chrome_path = os.environ.get("CHROME_PATH", "/usr/bin/chromium")
 
-            # Clean up any existing reports
-            if os.path.exists(output_dir):
-                shutil.rmtree(output_dir)
+            # Check if Chrome binary exists and log version
+            if os.path.exists(chrome_path):
+                try:
+                    chrome_version = subprocess.run(
+                        [chrome_path, "--version"], capture_output=True, text=True, timeout=5
+                    )
+                    self.stdout.write(f"Chrome found: {chrome_version.stdout.strip()}")
+                except Exception:
+                    self.stdout.write(f"Chrome found at {chrome_path} but couldn't get version")
+            else:
+                logger.warning(f"Chrome binary not found at {chrome_path}")
 
-            # Run Lighthouse using @lhci/cli
+            # Create a temporary file for the JSON output
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp_file:
+                output_path = tmp_file.name
+
+            # Chrome flags for containerized environments (single string)
+            # --no-sandbox: Required when running as root in Docker
+            # --disable-setuid-sandbox: Additional sandbox disabling for root execution
+            # --disable-dev-shm-usage: Prevents /dev/shm issues in containers
+            # --disable-gpu: Disables GPU hardware acceleration (not needed for headless)
+            # --headless: Run in headless mode (no GUI)
+            chrome_flags = "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu --headless"
+
+            # Try native lighthouse first (more reliable with Chrome flags)
+            self.stdout.write("Attempting to run audit with native lighthouse...")
             result = subprocess.run(
                 [
                     "npx",
-                    "@lhci/cli",
-                    "collect",
-                    f"--url={url}",
-                    "--numberOfRuns=1",
+                    "lighthouse",
+                    url,
+                    f"--chrome-flags={chrome_flags}",
+                    "--output=json",
+                    f"--output-path={output_path}",
+                    "--quiet",
+                    "--only-categories=performance,accessibility,best-practices,seo",
                 ],
                 capture_output=True,
                 text=True,
@@ -56,23 +101,68 @@ class Command(BaseCommand):
                 timeout=300,  # 5 minute timeout
             )
 
+            # If native lighthouse failed, try @lhci/cli as fallback
             if result.returncode != 0:
-                logger.error(f"Lighthouse audit failed: {result.stderr}")
-                raise CommandError(f"Lighthouse audit failed: {result.stderr}")
+                logger.warning(f"Native lighthouse failed: {result.stderr}")
+                self.stdout.write("Native lighthouse failed, trying @lhci/cli as fallback...")
 
-            # Find and parse the Lighthouse report JSON
-            # @lhci/cli creates files with pattern: lhr-<timestamp>.json
-            json_files = glob.glob(os.path.join(output_dir, "lhr-*.json"))
+                # Clean up the temp file and try @lhci/cli
+                os.unlink(output_path)
 
-            if not json_files:
-                raise CommandError("No Lighthouse report found in output directory")
+                # @lhci/cli saves to .lighthouseci directory by default
+                output_dir = ".lighthouseci"
 
-            # Read the first JSON report
-            with open(json_files[0], "r") as f:
-                report = json.load(f)
+                # Clean up any existing reports
+                if os.path.exists(output_dir):
+                    shutil.rmtree(output_dir)
 
-            # Clean up the output directory
-            shutil.rmtree(output_dir)
+                # Try with @lhci/cli
+                result = subprocess.run(
+                    [
+                        "npx",
+                        "@lhci/cli",
+                        "collect",
+                        f"--url={url}",
+                        "--numberOfRuns=1",
+                        f"--chromePath={chrome_path}",
+                        f"--chrome-flags={chrome_flags}",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=300,
+                )
+
+                if result.returncode != 0:
+                    logger.error(f"@lhci/cli also failed: {result.stderr}")
+                    raise CommandError(f"Both lighthouse methods failed. Last error: {result.stderr}")
+
+                # Find the JSON report from @lhci/cli
+                import glob
+
+                json_files = glob.glob(os.path.join(output_dir, "lhr-*.json"))
+
+                if not json_files:
+                    raise CommandError("No Lighthouse report found in output directory")
+
+                # Read the first JSON report
+                with open(json_files[0], "r") as f:
+                    report = json.load(f)
+
+                # Clean up the output directory
+                shutil.rmtree(output_dir)
+
+                self.stdout.write("Successfully ran audit using @lhci/cli fallback")
+            else:
+                # Native lighthouse succeeded
+                self.stdout.write("Successfully ran audit using native lighthouse")
+
+                # Read the JSON report from native lighthouse
+                with open(output_path, "r") as f:
+                    report = json.load(f)
+
+                # Clean up the temp file
+                os.unlink(output_path)
 
             # Extract category scores
             categories = report.get("categories", {})

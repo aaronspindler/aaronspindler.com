@@ -126,7 +126,7 @@ python manage.py generate_knowledge_graph_screenshot \
 ```
 
 **Requirements**:
-- Playwright installed: `playwright install chromium`
+- Pyppeteer installed with Chromium: `pip install pyppeteer`
 - Django server running (for localhost screenshots)
 
 **Automated Generation**:

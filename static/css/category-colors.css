@@ -35,6 +35,12 @@
   --category-reviews-text: #8fb1cc;
   --category-reviews-hull-dark: rgba(108, 153, 187, 0.15);
   --category-reviews-border-dark: rgba(108, 153, 187, 0.8);
+  --category-hobbies-node: #f99157;
+  --category-hobbies-hull: rgba(249, 145, 87, 0.2);
+  --category-hobbies-border: rgba(249, 145, 87, 0.7);
+  --category-hobbies-text: #faa572;
+  --category-hobbies-hull-dark: rgba(249, 145, 87, 0.15);
+  --category-hobbies-border-dark: rgba(249, 145, 87, 0.8);
   --category-default-node: #999;
   --category-default-hull: rgba(153, 153, 153, 0.2);
   --category-default-border: rgba(153, 153, 153, 0.7);

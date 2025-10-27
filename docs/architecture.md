@@ -104,7 +104,7 @@ aaronspindler.com/
 **Knowledge Graph** (`knowledge_graph.py`):
 - **LinkParser**: Extracts internal/external links from blog posts
 - **GraphBuilder**: Constructs node/edge graph structures
-- **Screenshot Generation**: Playwright-powered server-side rendering
+- **Screenshot Generation**: Pyppeteer-powered server-side rendering
 - **Caching System**: 20-minute cache with smart invalidation
 
 **Template System**:
@@ -239,7 +239,7 @@ The knowledge graph system automatically maps relationships between blog posts:
 1. **Link Extraction**: Parses blog post templates to find internal links
 2. **Graph Building**: Constructs nodes (posts, categories) and edges (relationships)
 3. **Visualization**: D3.js force-directed graph with adaptive parameters
-4. **Screenshot Generation**: Playwright captures high-quality images for social sharing
+4. **Screenshot Generation**: Pyppeteer captures high-quality images for social sharing
 
 **Performance Optimizations**:
 - Caching with file modification tracking
@@ -288,7 +288,7 @@ Photos automatically generate 5 optimized versions:
 - **CloudFront**: Optional CDN for media files
 
 ### Development Tools
-- **Playwright**: Browser automation for screenshots
+- **Pyppeteer**: Browser automation for screenshots
 - **Ruff**: Python linting and formatting
 - **Prettier**: CSS formatting
 - **pre-commit**: Git hooks for code quality

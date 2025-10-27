@@ -1,0 +1,197 @@
+# Git Operations Guidelines
+
+## Purpose
+Ensure AI assistants always ask for explicit user permission before performing git commit or push operations. This prevents unexpected changes to the repository history or remote branches.
+
+## Key Principles
+
+### 1. Never Commit or Push Without Permission
+- **ALWAYS** ask the user before running `git commit`
+- **ALWAYS** ask the user before running `git push`
+- **NEVER** assume the user wants changes committed or pushed automatically
+- These operations modify repository history and must be under user control
+
+### 2. Safe Git Commands (No Permission Needed)
+These read-only git commands are safe to run without asking:
+- `git status` - View working tree status
+- `git diff` - View changes in files
+- `git log` - View commit history
+- `git show` - View commit details
+- `git branch` - List branches
+- `git fetch` - Download objects from remote (doesn't modify local branches)
+- `git stash list` - List stashed changes
+- `git remote -v` - View remote repositories
+
+### 3. Commands That Require Permission
+These commands modify the repository state and require explicit user approval:
+- `git commit` - Create a new commit
+- `git push` - Push commits to remote
+- `git pull` - Fetch and merge from remote
+- `git merge` - Merge branches
+- `git rebase` - Reapply commits on top of another branch
+- `git reset` - Reset current HEAD to a specified state
+- `git checkout` - Switch branches or restore files
+- `git stash push` - Stash working directory changes
+- `git add` - Stage files for commit (when leading to commit)
+
+### 4. How to Ask for Permission
+
+When you need to commit or push changes:
+
+❌ **Don't do this:**
+```
+I'll commit these changes now...
+[runs git commit]
+```
+
+✅ **Do this:**
+```
+I've made the following changes:
+- Updated X
+- Fixed Y
+- Added Z
+
+Would you like me to commit these changes? If yes, I can:
+1. Stage the files with git add
+2. Create a commit with message: "feat: Add feature X"
+3. Optionally push to the remote repository
+
+Should I proceed?
+```
+
+### 5. Workflow for Commits
+
+When the user asks to commit changes:
+
+1. **Show what will be committed:**
+   ```bash
+   git status
+   git diff
+   ```
+
+2. **Ask for confirmation with a proposed commit message:**
+   ```
+   I'll commit these changes with the message:
+   "feat: Add new feature"
+
+   Is this okay? Would you like me to modify the commit message?
+   ```
+
+3. **Only after user approval, run:**
+   ```bash
+   git add <files>
+   git commit -m "message"
+   ```
+
+4. **For pushing, ask separately:**
+   ```
+   Commit created successfully. Would you like me to push to remote?
+   ```
+
+### 6. Special Cases
+
+#### Pre-commit Hooks
+- If pre-commit hooks modify files, inform the user
+- Show the changes made by hooks
+- Ask if they want to amend the commit with hook changes
+
+#### Emergency Situations
+- Even in urgent situations, briefly inform the user before committing/pushing
+- Example: "The build is failing. I need to commit a hotfix. Proceeding now..."
+
+#### User's Global Configuration
+- The user's `~/.claude/CLAUDE.md` may specify "Always run pre-commit run -a before pushing"
+- This means you should run pre-commit checks, but still ask before the actual push
+
+## Examples
+
+### Example 1: Code Changes Complete
+
+❌ **Wrong approach:**
+```
+I've fixed the bug. Committing and pushing now...
+[runs git add, git commit, git push]
+```
+
+✅ **Correct approach:**
+```
+I've fixed the bug in auth.py. Here's what changed:
+- Fixed validation logic in login()
+- Added error handling for edge case
+
+Would you like me to commit these changes?
+```
+
+### Example 2: Multiple Files Changed
+
+❌ **Wrong approach:**
+```
+All done! Pushing to main...
+```
+
+✅ **Correct approach:**
+```
+I've completed the feature. Here are the changes:
+- app.py: Added new API endpoint
+- tests.py: Added test coverage
+- README.md: Updated documentation
+
+Would you like me to:
+1. Review the changes first (git diff)?
+2. Commit with message: "feat: Add user API endpoint"?
+3. Push to remote?
+
+Please let me know which steps to take.
+```
+
+### Example 3: User Says "Push the changes"
+
+Even when the user says "push", confirm what will be pushed:
+
+```
+I see there are 3 commits ready to push:
+- feat: Add feature X
+- fix: Resolve bug Y
+- docs: Update README
+
+I'll push these to origin/main. Proceeding now...
+[runs git push]
+```
+
+### Example 4: Working with Branches
+
+```
+I've completed the feature in the `feature/new-dashboard` branch.
+
+Would you like me to:
+1. Commit the changes?
+2. Push to remote?
+3. Create a pull request?
+
+Or would you prefer to review the changes first?
+```
+
+## Review Checklist
+
+Before running git commit or git push:
+
+- [ ] Have you shown the user what will be committed?
+- [ ] Have you asked for explicit permission to commit?
+- [ ] Have you asked for explicit permission to push?
+- [ ] Have you proposed a clear commit message?
+- [ ] Have you informed the user which branch will be affected?
+- [ ] If pre-commit hooks ran, have you shown the user any changes they made?
+
+## Exceptions
+
+The only time you may commit/push without asking is when:
+1. The user has given standing permission in their global configuration, AND
+2. The operation is part of an automated workflow they've explicitly set up
+
+For example, if the user has a workflow that says "always commit and push after tests pass", you may do so without asking each time.
+
+## Summary
+
+**The golden rule:** When in doubt, ask. It's better to ask unnecessarily than to commit/push without permission.
+
+Git operations modify repository history and can affect other developers. Always respect the user's control over their repository.

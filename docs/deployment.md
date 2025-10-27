@@ -108,8 +108,8 @@ RUN apt-get update && apt-get install -y \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Playwright for screenshots
-RUN pip install playwright && playwright install chromium
+# Install Pyppeteer for screenshots
+RUN pip install pyppeteer && python -c "from pyppeteer import chromium_downloader; chromium_downloader.download_chromium()"
 
 # Copy Python packages from builder
 COPY --from=builder /usr/local/lib/python3.13/site-packages/ /usr/local/lib/python3.13/site-packages/

@@ -1,4 +1,4 @@
-FROM python:3.14.0-slim-bookworm
+FROM python:3.13-slim
 
 # Set Python environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -17,11 +17,12 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install uv for fast dependency installation
+RUN pip install --upgrade pip uv
+
+# Install Python dependencies with uv lockfile
 COPY requirements/base.txt /tmp/requirements.txt
-RUN pip install --upgrade pip && \
-    pip install -r /tmp/requirements.txt && \
-    rm -rf /root/.cache/
+RUN uv pip install --system --no-cache -r /tmp/requirements.txt
 
 # Copy project
 COPY . /code/

@@ -320,5 +320,14 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_WORKER_POOL_RESTARTS = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
+# Task result and log retention settings
+# Store extended task metadata including return values, exceptions, and tracebacks
+CELERY_RESULT_EXTENDED = True
+# Keep task results for 90 days (7776000 seconds)
+CELERY_RESULT_EXPIRES = 7776000
+# Send task events for monitoring (enables Flower to track task progress)
+CELERY_WORKER_SEND_TASK_EVENTS = True
+CELERY_TASK_SEND_SENT_EVENT = True
+
 RESUME_ENABLED = env("RESUME_ENABLED", default=True)
 RESUME_FILENAME = env("RESUME_FILENAME", default="Aaron_Spindler_Resume_2025.pdf")

@@ -1,5 +1,7 @@
 name: CI - Tests
 
+run-name: "${{ github.event.head_commit.message || github.event.pull_request.title || 'Run Tests' }}"
+
 on:
   push:
     branches: [ main ]
@@ -17,6 +19,7 @@ env:
   SECRET_KEY: "FAKE_SECRET_KEY"
   PYTHONUNBUFFERED: 1
   DOCKER_IMAGE_NAME: test-runner
+  REGISTRY: ghcr.io
 
 permissions:
   contents: read
@@ -26,6 +29,9 @@ jobs:
   build-docker-image:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
@@ -43,34 +49,75 @@ jobs:
           fi
           echo "✅ deployment/docker-compose.test.yml found"
 
-      - name: Build Docker image
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
+      - name: Build Docker image with Bake
+        uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c  # v5.10.0
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_PREFIX: ${{ github.repository }}
+          TAG: test
         with:
-          context: .
-          file: ./deployment/Dockerfile
-          push: false
+          files: deployment/docker-bake.hcl
+          targets: test
           load: true
-          tags: ${{ env.DOCKER_IMAGE_NAME }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64
 
-      - name: Save Docker image to file
+      - name: Save Docker image to file with optimized compression
         run: |
-          docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | gzip > test-runner-image.tar.gz
-          echo "Image size: $(du -h test-runner-image.tar.gz | cut -f1)"
+          sudo apt-get update && sudo apt-get install -y pigz
+          docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | pigz -6 > test-runner-image.tar.gz
+          echo "📦 Compressed image size: $(du -h test-runner-image.tar.gz | cut -f1)"
           echo "Available images:"
           docker images | grep test-runner || true
 
       - name: Upload Docker image as artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: docker-image
           path: test-runner-image.tar.gz
           retention-days: 1
-          compression-level: 0  # Already compressed
+          compression-level: 0  # Already compressed with pigz
 
-  # Code quality checks using pre-commit
+  # Build production images in parallel with tests (cached, not pushed until all tests pass)
+  build-production-images:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
+        with:
+          driver-opts: |
+            network=host
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build production images (cache only, don't push)
+        uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c  # v5.10.0
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_PREFIX: ${{ github.repository }}
+          TAG: ${{ github.sha }}
+        with:
+          files: deployment/docker-bake.hcl
+          targets: production
+          push: false
+          set: |
+            *.cache-from=type=gha,scope=buildx-main
+            *.cache-from=type=gha
+            *.cache-to=type=gha,mode=max,scope=buildx-main
+          provenance: false
+          sbom: false
+
   pre-commit-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -78,7 +125,7 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
       - name: Set up Python
-        uses: actions/setup-python@18566f86b301499665bd3eb1a2247e0849c64fa5  # v6.0.0
+        uses: actions/setup-python@cfd55ca82492758d853442341ad4d8010466803a  # v6.0.0
         with:
           python-version: '3.12.2'
           cache: 'pip'
@@ -101,7 +148,6 @@ jobs:
           pre-commit run --all-files --show-diff-on-failure
         continue-on-error: true
 
-  # Django checks (parallel matrix)
   django-checks:
     runs-on: ubuntu-latest
     needs: build-docker-image
@@ -113,24 +159,22 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
       - name: Download Docker image artifact
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0  # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53  # v6.0.0
         with:
           name: docker-image
           path: /tmp
 
-      - name: Load Docker image
+      - name: Load Docker image with optimized decompression
         run: |
           echo "Loading Docker image..."
-          docker load < /tmp/test-runner-image.tar.gz
+          sudo apt-get update && sudo apt-get install -y pigz
+          pigz -dc /tmp/test-runner-image.tar.gz | docker load
           docker images | grep test-runner
-
-          # Update deployment/docker-compose.test.yml to use the loaded image
           sed -i 's|build: \.|image: test-runner:latest|g' deployment/docker-compose.test.yml
 
       - name: Start required services
         run: |
           docker compose -f deployment/docker-compose.test.yml up -d postgres redis
-          # Wait for services to be healthy
           echo "Waiting for services to be healthy..."
           timeout 60s bash -c 'until docker compose -f deployment/docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
 
@@ -151,7 +195,6 @@ jobs:
         if: always()
         run: docker compose -f deployment/docker-compose.test.yml down -v
 
-  # Test suite split into groups (parallel matrix)
   test-suite:
     runs-on: ubuntu-latest
     needs: build-docker-image
@@ -172,24 +215,22 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
       - name: Download Docker image artifact
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0  # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53  # v6.0.0
         with:
           name: docker-image
           path: /tmp
 
-      - name: Load Docker image
+      - name: Load Docker image with optimized decompression
         run: |
           echo "Loading Docker image..."
-          docker load < /tmp/test-runner-image.tar.gz
+          sudo apt-get update && sudo apt-get install -y pigz
+          pigz -dc /tmp/test-runner-image.tar.gz | docker load
           docker images | grep test-runner
-
-          # Update deployment/docker-compose.test.yml to use the loaded image
           sed -i 's|build: \.|image: test-runner:latest|g' deployment/docker-compose.test.yml
 
       - name: Start test services
         run: |
           docker compose -f deployment/docker-compose.test.yml up -d postgres redis
-          # Wait for services to be healthy
           echo "Waiting for services to be healthy..."
           timeout 60s bash -c 'until docker compose -f deployment/docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
 
@@ -197,12 +238,15 @@ jobs:
         run: |
           mkdir -p ./test_output
           docker compose -f deployment/docker-compose.test.yml run --rm \
-            -v $(pwd)/test_output:/code/test_output test_runner sh -c "
-            pip install coverage unittest-xml-reporting --no-cache-dir &&
+            -v $(pwd)/test_output:/code/test_output \
+            -v $(pwd)/pyproject.toml:/code/pyproject.toml:ro \
+            test_runner sh -c "
+            pip install coverage unittest-xml-reporting --no-cache-dir --root-user-action=ignore &&
             export PYTHONDONTWRITEBYTECODE=1 &&
             export PYTHONUNBUFFERED=1 &&
+            export COVERAGE_RCFILE=/code/pyproject.toml &&
             export TEST_OUTPUT_DIR=/code/test_output/test-results-${{ matrix.test-group.name }} &&
-            coverage run --source='.' manage.py test ${{ matrix.test-group.apps }} \
+            coverage run manage.py test ${{ matrix.test-group.apps }} \
               --settings=config.settings_test \
               --no-input \
               --verbosity=2 &&
@@ -211,14 +255,14 @@ jobs:
           "
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: coverage-${{ matrix.test-group.name }}
           path: ./test_output/coverage-${{ matrix.test-group.name }}.xml
           retention-days: 1
 
       - name: Upload test results artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: test-results-${{ matrix.test-group.name }}
           path: ./test_output/test-results-${{ matrix.test-group.name }}/
@@ -237,21 +281,21 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
 
       - name: Download coverage artifacts
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0  # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53  # v6.0.0
         with:
           pattern: coverage-*
           merge-multiple: true
           path: ./coverage-reports
 
       - name: Download test results artifacts
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0  # v5.0.0
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53  # v6.0.0
         with:
           pattern: test-results-*
           merge-multiple: true
           path: ./test-results
 
       - name: Set up Python
-        uses: actions/setup-python@18566f86b301499665bd3eb1a2247e0849c64fa5  # v6.0.0
+        uses: actions/setup-python@cfd55ca82492758d853442341ad4d8010466803a  # v6.0.0
         with:
           python-version: '3.12.2'
 
@@ -261,13 +305,8 @@ jobs:
 
       - name: Merge coverage files
         run: |
-          # List downloaded files for debugging
           ls -la ./coverage-reports/
-
-          # Since we have XML files, we need to use a different approach
-          # We'll just concatenate them for Codecov which handles multiple files
           if ls ./coverage-reports/coverage-*.xml 1> /dev/null 2>&1; then
-            # Copy all coverage files to current directory for Codecov
             cp ./coverage-reports/coverage-*.xml .
             echo "Found coverage files:"
             ls -la coverage-*.xml
@@ -290,10 +329,30 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  # Final check to ensure all jobs passed
+  # Cleanup artifacts if tests fail
+  cleanup-artifacts:
+    runs-on: ubuntu-latest
+    needs: [django-checks, test-suite]
+    if: always() && (needs.django-checks.result == 'failure' || needs.test-suite.result == 'failure')
+    steps:
+      - name: Delete Docker image artifact
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: docker-image
+          failOnError: false
+
+      - name: Delete coverage artifacts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: |
+            coverage-*
+            test-results-*
+          failOnError: false
+
+  # Final check to ensure all jobs passed (gate before pushing images)
   all-checks:
     runs-on: ubuntu-latest
-    needs: [build-docker-image, django-checks, test-suite, pre-commit-checks, coverage-upload]
+    needs: [build-docker-image, django-checks, test-suite, pre-commit-checks, coverage-upload, build-production-images]
     if: always()
     steps:
       - name: Check if all jobs passed
@@ -328,4 +387,61 @@ jobs:
             exit 1
           fi
 
+          PROD_BUILD_STATUS="${{ needs.build-production-images.result }}"
+
+          # Only fail if production build ran and failed (skip if it was skipped for PRs)
+          if [[ "$PROD_BUILD_STATUS" != "success" && "$PROD_BUILD_STATUS" != "skipped" ]]; then
+            echo "❌ Production image build failed (status: $PROD_BUILD_STATUS)"
+            exit 1
+          fi
+
+          if [[ "$PROD_BUILD_STATUS" == "skipped" ]]; then
+            echo "⏭️  Production image build skipped (not on main branch)"
+          else
+            echo "✅ Production images built in parallel with tests"
+          fi
+
           echo "✅ All checks passed successfully!"
+
+  # Push production images from cache after all checks pass
+  push-production-images:
+    runs-on: ubuntu-latest
+    needs: [all-checks]
+    if: github.ref == 'refs/heads/main' && needs.all-checks.result == 'success'
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
+        with:
+          driver-opts: |
+            network=host
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push production images from cache
+        uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c  # v5.10.0
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_PREFIX: ${{ github.repository }}
+          TAG: ${{ github.sha }}
+        with:
+          files: deployment/docker-bake.hcl
+          targets: production
+          push: true
+          set: |
+            *.cache-from=type=gha,scope=buildx-main
+            *.cache-from=type=gha
+            *.cache-to=type=gha,mode=max,scope=buildx-main
+          provenance: false
+          sbom: false
