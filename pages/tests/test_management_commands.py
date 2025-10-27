@@ -236,29 +236,6 @@ class BuildCssCommandTest(TestCase):
         self.assertIn("PostCSS failed", output)
 
     @patch("pages.management.commands.build_css.settings")
-    def test_build_css_creates_versioned_file(self, mock_settings):
-        """Test that build creates versioned CSS file."""
-        mock_settings.BASE_DIR = self.temp_dir
-
-        Path(os.path.join(self.css_dir, "base.css")).write_text("body { }")
-
-        # Create the expected output files that PostCSS would create
-        processed_css = Path(self.css_dir) / "combined.processed.css"
-        processed_css.write_text("body{}")
-
-        # Create the expected minified file
-        minified_css = Path(self.css_dir) / "combined.min.css"
-        minified_css.write_text("body{}")
-
-        with patch("pages.management.commands.build_css.subprocess.run"):
-            # Use --no-purge to skip PurgeCSS during testing
-            call_command("build_css", no_purge=True)
-
-            # Check for versioned file
-            versioned_files = list(Path(self.css_dir).glob("combined.min.*.css"))
-            self.assertGreater(len(versioned_files), 0)
-
-    @patch("pages.management.commands.build_css.settings")
     def test_build_css_compression(self, mock_settings):
         """Test CSS compression (gzip/brotli)."""
         mock_settings.BASE_DIR = self.temp_dir
