@@ -106,10 +106,10 @@ const translations = {
 
 The system includes translations for:
 
-- **Brand Terms**: Omas Coffee, Mit Erinnerung Gebraut
+- **Brand Terms**: Mit Erinnerung Gebraut
 - **Coffee Culture**: Kaffeezeit, Gemütlichkeit
 - **Food Terms**: Streuselkuchen
-- **Common Words**: Oma, Kaffee, Getränk, Lebensart, Erinnerung, Gebraut
+- **Common Words**: Kaffee, Getränk, Lebensart, Erinnerung, Gebraut
 - **Phrases**: "Kaffee ist nicht nur ein Getränk, sondern eine Lebensart"
 
 ## Design Elements
@@ -231,8 +231,9 @@ Ensure SSL certificates cover both domains for HTTPS support.
 
 Static files are served via WhiteNoise with automatic versioning and compression:
 - CSS files are optimized with PostCSS and PurgeCSS
-- JavaScript is minified with Terser
+- JavaScript is minified with Terser (including `german-translations.js`)
 - Brotli and Gzip compression for all static assets
+- The minified version (`german-translations.min.js`) is automatically used in production
 
 ## Future Enhancements
 

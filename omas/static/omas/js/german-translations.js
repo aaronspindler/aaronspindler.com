@@ -11,7 +11,6 @@
         // Main phrases
         'Mit Erinnerung Gebraut': 'Brewed with Memory',
         'Omas': 'Grandma\'s',
-        'Omas Coffee': 'Grandma\'s Coffee',
 
         // Coffee culture terms
         'Kaffeezeit': 'Coffee Time - The traditional German afternoon coffee break, typically at 3 PM',

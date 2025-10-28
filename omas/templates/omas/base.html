@@ -36,39 +36,21 @@
         <div class="footer-container">
             <div class="footer-column">
                 <div class="footer-logo">
-                    <span class="gothic" style="font-size: 1.5rem; color: var(--antique-gold);"><span data-german="Omas Coffee" data-translation="Grandma's Coffee">Omas Coffee</span></span>
+                    <span class="gothic" style="font-size: 1.5rem; color: var(--antique-gold);">Omas Coffee</span>
                     <p style="margin-top: 0.5rem; color: var(--soft-gold);"><span data-german="Mit Erinnerung Gebraut" data-translation="Brewed with Memory">Mit Erinnerung Gebraut</span></p>
                 </div>
-                <div class="footer-social">
-                    <a href="#" aria-label="Instagram">📷</a>
-                    <a href="#" aria-label="Facebook">f</a>
-                    <a href="#" aria-label="Twitter">𝕏</a>
-                </div>
             </div>
 
             <div class="footer-column">
-                <h4>Quick Links</h4>
-                <a href="#menu">Menu</a>
-                <a href="#about">About</a>
-                <a href="#location">Location</a>
-                <a href="#careers">Careers</a>
-            </div>
-
-            <div class="footer-column">
-                <h4>Hours & Contact</h4>
+                <h4>Contact</h4>
                 <p style="color: var(--soft-gold); line-height: 1.8;">
-                    <strong><span data-german="Kaffeezeit" data-translation="Coffee Time - The traditional German afternoon coffee break, typically at 3 PM">Kaffeezeit</span> Hours:</strong><br>
-                    Mon-Fri: 7AM - 7PM<br>
-                    Sat-Sun: 8AM - 8PM<br>
-                    <br>
-                    <strong>Call:</strong> (555) 123-4567<br>
                     <strong>Email:</strong> hello@omas.coffee
                 </p>
             </div>
 
             <div class="footer-column">
                 <h4>Newsletter</h4>
-                <p style="color: var(--soft-gold); margin-bottom: 1rem;">Join our family for weekly updates and special offers.</p>
+                <p style="color: var(--soft-gold); margin-bottom: 1rem;">Join our family for updates and special offers.</p>
                 <form>
                     <div class="form-group">
                         <input type="email" placeholder="Your email address" style="margin-bottom: 0.5rem;">
@@ -79,14 +61,12 @@
         </div>
 
         <div class="footer-bottom">
-            <p>&copy; {% now "Y" %} Omas Coffee. All rights reserved. |
-            <a href="#privacy">Privacy Policy</a> |
-            <a href="#terms">Terms of Service</a></p>
+            <p class="gothic">&copy; {% now "Y" %} Spindlers. All rights reserved.</p>
         </div>
     </footer>
 
     <!-- German Translation Tooltips -->
-    <script src="{% static 'omas/js/german-translations.js' %}"></script>
+    <script src="{% static 'omas/js/german-translations.min.js' %}"></script>
 
     {% block extra_js %}{% endblock %}
 </body>
