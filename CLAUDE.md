@@ -166,12 +166,16 @@ npm run build:all
   - Never commit minified/single-line CSS source files to git
   - Pre-commit hooks automatically format CSS with Prettier and prevent minified sources
 - **Build process** (`python manage.py build_css`):
-  - Phase 1: Optimizes each source file → creates temporary `.opt.css` versions
-    - In dev mode (`--dev`): `.opt.css` files are just copies (no optimization)
-    - In production: `.opt.css` files are fully optimized and minified
-  - Phase 2: Combines all `.opt.css` files → runs PostCSS/PurgeCSS → creates `combined.min.css`
-  - Final file is collected via `collectstatic_optimize` and served by WhiteNoise
-  - Temporary files (`.opt.css`, `combined.css`, etc.) are auto-cleaned and gitignored
+  - Combines all source CSS files in load order → creates `combined.css`
+  - Runs PostCSS with cssnano for minification → creates `combined.processed.css`
+  - Runs PurgeCSS to remove unused CSS → creates `combined.purged.css` (skipped in dev mode with `--dev`)
+  - Creates final `combined.min.css` with Gzip and Brotli compressed versions
+  - Temporary files (`combined.css`, `combined.processed.css`, etc.) are auto-cleaned and gitignored
+- **Versioning and serving**:
+  - WhiteNoise's `CompressedManifestStaticFilesStorage` handles versioning during `collectstatic`
+  - Automatically creates content-hashed filenames (e.g., `combined.min.263d67867382.css`)
+  - Serves pre-compressed Brotli/Gzip versions when supported by browser
+  - Cache headers set to 1 year with `immutable` directive for optimal performance
 - **Important**: Source CSS files are **never modified** by the build process - they stay formatted in git
 
 ### Knowledge Graph Commands

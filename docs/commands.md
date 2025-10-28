@@ -192,27 +192,28 @@ python manage.py build_css --dev
 ```
 
 **Build Process**:
-1. **Phase 1**: Optimize each CSS file individually
-   - Production: Full optimization and minification
-   - Development: Copy without optimization
-   - Output: `.opt.css` temporary files
-2. **Phase 2**: Combine and process
-   - Combine all `.opt.css` files
-   - Run PostCSS with autoprefixer
-   - Run PurgeCSS to remove unused CSS (production only)
-   - Create versioned filename with hash
-   - Generate gzip and brotli compressed versions
-3. **Cleanup**: Remove temporary files
+1. **Combine**: Concatenate all CSS files in load order → `combined.css`
+2. **Minify**: Run PostCSS with cssnano for minification → `combined.processed.css`
+3. **Purge**: Run PurgeCSS to remove unused CSS → `combined.purged.css` (production only)
+4. **Output**: Create final `combined.min.css`
+5. **Compress**: Generate Gzip (`.gz`) and Brotli (`.br`) compressed versions
+6. **Cleanup**: Remove temporary build files
 
 **CSS Source Files**:
 - Stored in `static/css/` (formatted, developer-friendly)
 - Never minified in git (pre-commit hooks enforce this)
-- Build output in `static/css/` (gitignored)
+- Build output: `combined.min.css` in `static/css/` (gitignored)
 
 **Output Files**:
-- `combined.min.{hash}.css`: Minified, combined CSS
-- `combined.min.{hash}.css.gz`: Gzip compressed
-- `combined.min.{hash}.css.br`: Brotli compressed
+- `combined.min.css`: Non-versioned file for development
+- `combined.min.css.gz`: Gzip compressed version
+- `combined.min.css.br`: Brotli compressed version
+
+**Versioning**:
+- Content-hashed versions automatically created by WhiteNoise during `collectstatic`
+- Example: `combined.min.css` → `combined.min.263d67867382.css`
+- Manifest file maps non-versioned to versioned filenames
+- Cache headers set to 1 year with `immutable` directive
 
 ---
 

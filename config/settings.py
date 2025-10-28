@@ -210,6 +210,37 @@ WHITENOISE_MAX_AGE = 31536000  # 1 year cache for static files with versioned na
 WHITENOISE_MANIFEST_STRICT = False  # Allow missing files in development
 WHITENOISE_KEEP_ONLY_HASHED_FILES = True  # Remove unhashed files to save space
 
+
+# Performance optimizations
+def _whitenoise_immutable_file_test(path, url):
+    """Add immutable cache headers for all static files except HTML"""
+    return url.startswith("/static/") and not url.endswith((".html", ".htm"))
+
+
+WHITENOISE_IMMUTABLE_FILE_TEST = _whitenoise_immutable_file_test
+WHITENOISE_SKIP_COMPRESS_EXTENSIONS = (
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "webp",
+    "zip",
+    "gz",
+    "tgz",
+    "bz2",
+    "tbz",
+    "xz",
+    "br",
+    "swf",
+    "flv",
+    "woff",
+    "woff2",
+)  # Skip compression for already-compressed files
+WHITENOISE_MIMETYPES = {
+    ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+}  # Explicitly set mimetypes for better browser caching
+
 if not DEBUG:
     # Security Headers
     SECURE_SSL_REDIRECT = True
