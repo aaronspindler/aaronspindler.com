@@ -1,24 +1,54 @@
-/* Omas Coffee - Dark Elegance with Gold & Walnut */
+/* Omas Coffee - Brand Guidelines Implementation */
 
 :root {
-  /* Dark Mode Color Palette */
-  --deep-black: #0a0908;
+  /* Primary Brand Colors */
+  --antique-gold: #d4af37; /* Primary accent, logo elements */
+  --bright-gold: #f4d03f;  /* Highlights, hover states */
+  --deep-walnut: #2c1810;  /* Primary dark background */
+  --rich-walnut: #4a2c20;  /* Secondary backgrounds */
+
+  /* Supporting Colors */
+  --deep-black: #0a0908;   /* Ultimate contrast */
+  --cream: #faf8f3;        /* Primary light text */
+  --soft-gold: #f5e6d3;    /* Body text on dark */
+
+  /* Extended Palette */
   --rich-black: #121110;
   --dark-surface: #1a1918;
   --elevated-surface: #242220;
-  --deep-walnut: #2c1810;
-  --rich-walnut: #4a2c20;
   --medium-walnut: #6b4423;
   --light-walnut: #8d6e63;
-  --antique-gold: #d4af37;
-  --bright-gold: #f4d03f;
-  --soft-gold: #f5e6d3;
-  --cream: #faf8f3;
-  --text-primary: #e8e5e0;
-  --text-secondary: #b8b3ab;
+  --text-primary: #faf8f3;     /* Cream for main text */
+  --text-secondary: #f5e6d3;   /* Soft gold for body */
   --text-muted: #8a8680;
+
+  /* UI States */
+  --error-color: #d45837;      /* Warm orange-red for errors */
+  --success-color: #8d6e63;    /* Light walnut for success */
+  --focus-color: #d4af37;      /* Antique gold for focus */
+
+  /* Borders & Effects */
   --border-subtle: rgba(212, 175, 55, 0.15);
-  --shadow: rgba(0, 0, 0, 0.5);
+  --border-gold: rgba(212, 175, 55, 0.3);
+  --shadow-low: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-high: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+  /* Typography Scale */
+  --font-hero: clamp(32px, 8vw, 72px);
+  --font-h1: clamp(28px, 6vw, 48px);
+  --font-h2: clamp(24px, 5vw, 32px);
+  --font-h3: clamp(20px, 4vw, 24px);
+  --font-body: 16px;
+  --font-small: 14px;
+
+  /* Spacing Scale */
+  --spacing-xs: 8px;
+  --spacing-sm: 16px;
+  --spacing-md: 24px;
+  --spacing-lg: 32px;
+  --spacing-xl: 48px;
+  --spacing-2xl: 64px;
 }
 
 * {
@@ -31,16 +61,59 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--deep-black);
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
   overflow-x: hidden;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Gothic Typography */
-.gothic {
-  font-family: 'UnifrakturMaguntia', 'IM Fell German', Georgia, serif;
+/* Typography System */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--cream);
+}
+
+h1 { font-size: var(--font-h1); margin-bottom: var(--spacing-md); }
+h2 { font-size: var(--font-h2); margin-bottom: var(--spacing-md); }
+h3 { font-size: var(--font-h3); margin-bottom: var(--spacing-sm); }
+
+p {
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-body);
+  line-height: 1.6;
+}
+
+/* Gothic Typography - ONLY for brand name */
+.gothic, .brand-name {
+  font-family: 'UnifrakturMaguntia', 'Old English Text MT', Georgia, serif;
   font-weight: 400;
   letter-spacing: 0.02em;
+}
+
+/* Links */
+a {
+  color: var(--cream);
+  text-decoration: underline;
+  transition: all 0.3s ease-in-out;
+}
+
+a:hover {
+  color: var(--antique-gold);
+}
+
+a:visited {
+  color: var(--soft-gold);
+}
+
+a:focus {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
 }
 
 /* Header */
@@ -490,29 +563,275 @@ body {
   letter-spacing: 0.05em;
 }
 
-/* Footer */
-.footer {
-  background: linear-gradient(180deg, var(--deep-walnut) 0%, var(--deep-black) 100%);
-  padding: 3rem 2rem;
+/* Buttons - Brand Compliant */
+.btn, button {
+  font-family: 'Inter', sans-serif;
+  font-size: var(--font-body);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  padding: 12px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  text-transform: uppercase;
+  border: none;
+  display: inline-block;
+  text-decoration: none;
+  min-width: 120px;
   text-align: center;
+}
+
+.btn-primary {
+  background: var(--antique-gold);
+  color: var(--deep-walnut);
+  border: 2px solid var(--antique-gold);
+}
+
+.btn-primary:hover {
+  background: var(--bright-gold);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-medium);
+  filter: brightness(1.1);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--antique-gold);
+  border: 2px solid var(--antique-gold);
+}
+
+.btn-secondary:hover {
+  background: var(--antique-gold);
+  color: var(--deep-walnut);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(212, 175, 55, 0.3);
+}
+
+/* Forms - Brand Compliant */
+form {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.form-group {
+  margin-bottom: var(--spacing-md);
+}
+
+label {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  color: var(--cream);
+  font-size: var(--font-small);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="password"],
+textarea,
+select {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--deep-walnut);
+  border: 2px solid var(--cream);
+  border-radius: 4px;
+  color: var(--cream);
+  font-size: var(--font-body);
+  transition: all 0.3s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--soft-gold);
+  opacity: 0.6;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--antique-gold);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
+}
+
+/* Loading States */
+.loading {
+  display: inline-block;
+  position: relative;
+  min-height: 40px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  animation: rotate-butterfly 2s linear infinite;
+}
+
+.loading-spinner::before {
+  content: '🦋';
+  position: absolute;
+  font-size: 2rem;
+  filter: sepia(1) saturate(5) hue-rotate(10deg) brightness(1.4);
+}
+
+@keyframes rotate-butterfly {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  color: var(--soft-gold);
+  font-style: italic;
+  text-align: center;
+  margin-top: var(--spacing-sm);
+}
+
+/* Error States */
+.error-message {
+  color: var(--error-color);
+  font-size: var(--font-small);
+  margin-top: var(--spacing-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.error-message::before {
+  content: '⊗';
+  font-size: 20px;
+}
+
+/* Cards & Containers */
+.card {
+  background: var(--rich-walnut);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-medium);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-high);
+  border-color: var(--border-gold);
+}
+
+/* Navigation Updates */
+.nav {
+  display: flex;
+  gap: var(--spacing-lg);
+  align-items: center;
+}
+
+.nav-link {
+  color: var(--cream);
+  text-decoration: none;
+  position: relative;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  padding-bottom: 2px;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--antique-gold);
+  transition: width 0.3s ease;
+}
+
+.nav-link:hover::after {
+  width: 100%;
+}
+
+.nav-link:hover {
+  color: var(--antique-gold);
+}
+
+.nav-link.active {
+  color: var(--antique-gold);
+}
+
+/* Footer - Brand Compliant */
+.footer {
+  background: var(--deep-black);
+  padding: var(--spacing-2xl) var(--spacing-lg) var(--spacing-lg);
   border-top: 1px solid var(--border-subtle);
 }
 
-.footer-text {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  letter-spacing: 0.05em;
-  opacity: 0.9;
+.footer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
 }
 
-.footer-text a {
+.footer-column h4 {
+  color: var(--antique-gold);
+  font-size: var(--font-small);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: var(--spacing-sm);
+}
+
+.footer-column a {
+  color: var(--soft-gold);
+  text-decoration: none;
+  display: block;
+  padding: var(--spacing-xs) 0;
+  transition: all 0.3s ease;
+}
+
+.footer-column a:hover {
+  color: var(--bright-gold);
+  transform: translateX(5px);
+}
+
+.footer-social {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.footer-social a {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--antique-gold);
+  border-radius: 50%;
+  color: var(--antique-gold);
+  transition: all 0.3s ease;
+}
+
+.footer-social a:hover {
+  background: var(--antique-gold);
+  color: var(--deep-walnut);
+  transform: translateY(-3px);
+}
+
+.footer-bottom {
+  text-align: center;
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--font-small);
+}
+
+.footer-bottom a {
   color: var(--antique-gold);
   text-decoration: none;
-  transition: opacity 0.3s ease;
-}
-
-.footer-text a:hover {
-  opacity: 0.7;
 }
 
 /* Animations */
@@ -579,4 +898,169 @@ body {
   .notify-button {
     padding: 0.875rem 2rem;
   }
+}
+
+/* ========================================
+   German Translation Tooltips
+   ======================================== */
+
+/* Translatable German terms - subtle underline on hover */
+.translatable-german,
+.german-term,
+[data-german] {
+  cursor: help;
+  position: relative;
+  display: inline-block;
+  transition: all 0.2s ease;
+}
+
+/* Subtle dashed underline to indicate translatable text */
+.translatable-german:hover,
+.german-term:hover,
+[data-german]:hover {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--antique-gold);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+/* The tooltip container */
+.german-tooltip {
+  background: linear-gradient(135deg, var(--rich-walnut), var(--deep-walnut));
+  border: 1px solid var(--border-gold);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  max-width: 300px;
+  min-width: 150px;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Active state with animation */
+.german-tooltip.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Tooltip arrow */
+.german-tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 8px 8px 0 8px;
+  border-color: var(--rich-walnut) transparent transparent transparent;
+}
+
+/* Tooltip below positioning (when shown below element) */
+.german-tooltip.tooltip-below::before {
+  bottom: auto;
+  top: -8px;
+  border-width: 0 8px 8px 8px;
+  border-color: transparent transparent var(--rich-walnut) transparent;
+}
+
+/* German text in tooltip */
+.tooltip-german {
+  color: var(--antique-gold);
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+}
+
+/* Add a small German flag or icon before German text */
+.tooltip-german::before {
+  content: '🇩🇪';
+  margin-right: 6px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* English translation in tooltip */
+.tooltip-english {
+  color: var(--soft-gold);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+}
+
+/* Add a translation icon before English text */
+.tooltip-english::before {
+  content: '→';
+  margin-right: 8px;
+  color: var(--antique-gold);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* Special styling for longer explanations */
+.german-tooltip .tooltip-english {
+  padding-top: 4px;
+  border-top: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .german-tooltip {
+    max-width: 250px;
+    font-size: 13px;
+  }
+
+  .tooltip-german {
+    font-size: 12px;
+  }
+
+  .tooltip-english {
+    font-size: 13px;
+  }
+}
+
+/* Animation for tooltip entrance */
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.german-tooltip.active {
+  animation: tooltipFadeIn 0.3s ease forwards;
+}
+
+/* Highlight animation for first-time hover */
+@keyframes highlightGerman {
+  0% {
+    background: transparent;
+  }
+  50% {
+    background: rgba(212, 175, 55, 0.1);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.translatable-german:first-of-type:hover,
+.german-term:first-of-type:hover {
+  animation: highlightGerman 0.6s ease;
 }

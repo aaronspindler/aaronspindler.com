@@ -138,7 +138,7 @@ make test-run-app APP=blog
 make test-run-specific TEST=blog.tests.test_models
 ```
 
-**Note**: The `make static` command is the primary way to rebuild static assets after CSS/JS changes. It automatically runs pre-commit hooks at the end.
+**Note**: The `make static` command can be used to manually rebuild and optimize static assets during development. WhiteNoise automatically handles versioning and serving of static files in production.
 
 ### CSS and JavaScript Build
 ```bash
@@ -158,7 +158,7 @@ npm run build:js
 npm run build:all
 ```
 
-**IMPORTANT**: Whenever CSS or JS files are modified, you MUST run `make static` to rebuild and apply the changes. This command handles all necessary build steps to optimize and deploy static assets.
+**Note**: CSS and JS files are automatically served by WhiteNoise with content-based cache busting. During development, you can run `make static` to manually rebuild and optimize assets if needed.
 
 **CSS Build Process and Workflow**:
 - **Source files** in `static/css/` (like `base.css`, `blog.css`, etc.) are **developer-friendly and formatted** in git
@@ -705,6 +705,5 @@ Before completing ANY pull request, verify:
 - Keep CLAUDE.md and README.md synchronized with code changes (see `.cursor/rules/ai-context.mdc`)
 - **Update `docs/` directory whenever code changes** (see `.cursor/rules/documentation.mdc`)
 - **Write clean, forward-looking comments** without references to replaced implementations (see `.cursor/rules/comments.mdc`)
-- Use `make static` after CSS/JS changes to rebuild assets
 - Run `pre-commit run --all-files` before pushing (or use graphite which auto-runs hooks)
 - Dont run tests locally
