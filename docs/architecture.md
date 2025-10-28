@@ -37,6 +37,15 @@ aaronspindler.com/
 │   ├── middleware.py   # Request fingerprinting
 │   ├── tasks.py        # Notification tasks
 │   └── management/     # Search index, cache commands
+├── feefifofunds/      # Financial data integration
+│   ├── models.py       # Fund, Performance, Holdings, Metrics, DataSource
+│   ├── admin.py        # Django admin configuration
+│   ├── services/       # Data source integrations
+│   │   └── data_sources/
+│   │       ├── base.py  # BaseDataSource abstract class
+│   │       ├── dto.py   # Data Transfer Objects
+│   │       └── implementations/  # Concrete data sources
+│   └── tests/          # Test suite
 ├── templates/         # Project-wide templates
 ├── static/           # Static assets (CSS, JS, images)
 └── tests/            # Test data factories
@@ -211,6 +220,42 @@ aaronspindler.com/
 - **remove_local_fingerprints**: Clean up local IP records
 - **run_lighthouse_audit**: Manual performance audit
 - **setup_periodic_tasks**: Configure Celery Beat tasks
+
+### feefifofunds/ - Financial Data Integration
+
+**Purpose**: Fund data acquisition, storage, and analysis system for investment fund research.
+
+**Key Components**:
+
+**Models** (`models.py`):
+- **Fund**: Core fund information (ticker, name, type, fees, current price)
+- **FundPerformance**: Historical OHLCV data with multiple intervals
+- **FundHolding**: Portfolio holdings with weights and classifications
+- **FundMetrics**: Calculated performance metrics (Sharpe ratio, alpha, drawdown, etc.)
+- **DataSource**: External API configuration and health monitoring
+- **DataSync**: Audit trail for all data synchronization operations
+
+**Data Sources** (`services/data_sources/`):
+- **BaseDataSource**: Abstract base class for all data source integrations
+- **DTOs**: Standardized data transfer objects (FundDataDTO, PerformanceDataDTO, HoldingDataDTO)
+- **Rate Limiting**: Automatic rate limit enforcement per data source
+- **Error Handling**: Comprehensive exception hierarchy (DataSourceError, RateLimitError, DataNotFoundError)
+- **Caching**: Redis-backed caching to reduce API calls
+- **Monitoring**: Request tracking, reliability scores, auto-disable on failures
+
+**Implementations** (`services/data_sources/implementations/`):
+- Yahoo Finance integration
+- Alpha Vantage integration (planned)
+- Finnhub integration (planned)
+- Polygon.io integration (planned)
+
+**Features**:
+- Standardized data acquisition from multiple sources
+- Automatic rate limiting and cost control
+- Data validation and type conversion (Decimal for financial precision)
+- Comprehensive audit trail (DataSync records)
+- Health monitoring and auto-recovery
+- Reliability scoring for source selection
 
 ## Design Patterns
 

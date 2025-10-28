@@ -16,3 +16,6 @@ pip-audit==2.9.0
 
 # Testing utilities (if not in main requirements)
 coverage==7.11.0
+pytest==7.4.3
+pytest-django==4.7.0
+pytest-mock==3.12.0
