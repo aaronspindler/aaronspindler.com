@@ -36,7 +36,7 @@ beautifulsoup4==4.14.2
 pyppeteer==2.0.0
 
 # AWS SDK
-boto3==1.40.60
+boto3==1.40.61
 
 # HTTP Client
 requests==2.32.5
