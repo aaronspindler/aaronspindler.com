@@ -3,6 +3,8 @@ JSON API views for FeeFiFoFunds.
 
 Implements FUND-024: Create Fund List/Detail Endpoints
 Uses Django JsonResponse instead of DRF (per PR #307 decision).
+
+Access Control: All endpoints restricted to superusers only.
 """
 
 from datetime import date, timedelta
@@ -10,10 +12,12 @@ from datetime import date, timedelta
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
+from .decorators import superuser_required
 from .models import Fund, FundPerformance
 
 
 @require_http_methods(["GET"])
+@superuser_required(json_response=True)
 def fund_list_json(request):
     """
     JSON endpoint for fund list.
@@ -29,6 +33,8 @@ def fund_list_json(request):
 
     Returns:
         JSON with fund list and pagination info
+
+    Access: Superusers only (returns 403 JSON error for non-superusers).
     """
     # Get query parameters
     search = request.GET.get("q", "")
@@ -91,6 +97,7 @@ def fund_list_json(request):
 
 
 @require_http_methods(["GET"])
+@superuser_required(json_response=True)
 def fund_detail_json(request, slug):
     """
     JSON endpoint for fund detail.
@@ -99,6 +106,8 @@ def fund_detail_json(request, slug):
 
     Returns:
         JSON with complete fund details
+
+    Access: Superusers only (returns 403 JSON error for non-superusers).
     """
     try:
         fund = Fund.objects.get(slug=slug, is_active=True)
@@ -153,6 +162,7 @@ def fund_detail_json(request, slug):
 
 
 @require_http_methods(["GET"])
+@superuser_required(json_response=True)
 def fund_performance_json(request, slug):
     """
     JSON endpoint for fund performance history.
@@ -164,6 +174,8 @@ def fund_performance_json(request, slug):
 
     Returns:
         JSON with OHLCV performance data
+
+    Access: Superusers only (returns 403 JSON error for non-superusers).
     """
     try:
         fund = Fund.objects.get(slug=slug, is_active=True)
@@ -207,6 +219,7 @@ def fund_performance_json(request, slug):
 
 
 @require_http_methods(["GET"])
+@superuser_required(json_response=True)
 def fund_holdings_json(request, slug):
     """
     JSON endpoint for fund holdings.
@@ -217,6 +230,8 @@ def fund_holdings_json(request, slug):
 
     Returns:
         JSON with fund holdings
+
+    Access: Superusers only (returns 403 JSON error for non-superusers).
     """
     try:
         fund = Fund.objects.get(slug=slug, is_active=True)

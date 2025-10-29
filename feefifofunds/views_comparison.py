@@ -3,15 +3,19 @@ Comparison views for FeeFiFoFunds.
 
 Implements FUND-025: Implement Comparison View
 Uses Django JsonResponse (no DRF per PR #307).
+
+Access Control: All endpoints restricted to superusers only.
 """
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
+from .decorators import superuser_required
 from .services.comparison import ComparisonEngine
 
 
 @require_http_methods(["POST", "GET"])
+@superuser_required(json_response=True)
 def compare_funds_json(request):
     """
     Compare multiple funds.
@@ -23,6 +27,8 @@ def compare_funds_json(request):
 
     Returns:
         JSON with comprehensive comparison data
+
+    Access: Superusers only (returns 403 JSON error for non-superusers).
     """
     # Get tickers
     if request.method == "POST":

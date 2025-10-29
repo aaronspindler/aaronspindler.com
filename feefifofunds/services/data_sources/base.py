@@ -11,7 +11,6 @@ from typing import List, Optional
 
 import requests
 from django.core.cache import cache
-from django_ratelimit.core import is_ratelimited
 
 from feefifofunds.models import DataSource, DataSync
 
@@ -89,29 +88,22 @@ class BaseDataSource(ABC):
         """
         Check if we can make a request without exceeding rate limits.
 
-        Uses Redis for distributed rate limiting across multiple workers to prevent
-        race conditions when multiple processes check the limit simultaneously.
+        Uses simple Redis-backed rate limiting. For production with multiple workers,
+        consider using django-ratelimit for atomic operations.
 
         Returns:
             True if request can be made, False otherwise
         """
-        # Use Redis-backed rate limiting for atomic operations
+        # Use Redis cache for rate limiting
         key = f"datasource_ratelimit:{self.name}"
 
-        # Check if we're already rate limited (without incrementing)
-        is_limited = is_ratelimited(
-            key=key,
-            rate=f"{self.rate_limit_requests}/{self.rate_limit_period}s",
-            increment=False,
-        )
+        # Get current count
+        current_count = cache.get(key, 0)
 
-        if not is_limited:
-            # Atomically increment the counter
-            is_ratelimited(
-                key=key,
-                rate=f"{self.rate_limit_requests}/{self.rate_limit_period}s",
-                increment=True,
-            )
+        # Check if we're under the limit
+        if current_count < self.rate_limit_requests:
+            # Increment counter
+            cache.set(key, current_count + 1, self.rate_limit_period)
             return True
 
         return False

@@ -2,19 +2,26 @@
 Views for FeeFiFoFunds frontend.
 
 Implements FUND-032: Base Templates and basic views.
+
+Access Control: All views restricted to superusers only.
 """
 
 from django.shortcuts import render
 from django.views.generic import DetailView, ListView
 
+from .decorators import superuser_required
+from .mixins import SuperuserRequiredMixin
 from .models import Fund
 
 
+@superuser_required
 def home(request):
     """
     Home page view.
 
     Shows popular funds, quick stats, and search.
+
+    Access: Superusers only.
     """
     # Get popular funds (top 6 by AUM)
     popular_funds = Fund.objects.filter(is_active=True).order_by("-aum")[:6]
@@ -34,11 +41,13 @@ def home(request):
     return render(request, "feefifofunds/home.html", context)
 
 
-class FundListView(ListView):
+class FundListView(SuperuserRequiredMixin, ListView):
     """
     Fund list view with filtering and sorting.
 
     Implements FUND-033 (basic version, full implementation in FUND-033 PR).
+
+    Access: Superusers only.
     """
 
     model = Fund
@@ -80,11 +89,13 @@ class FundListView(ListView):
         return queryset
 
 
-class FundDetailView(DetailView):
+class FundDetailView(SuperuserRequiredMixin, DetailView):
     """
     Fund detail view.
 
     Implements FUND-034 (basic version, full implementation in FUND-034 PR).
+
+    Access: Superusers only.
     """
 
     model = Fund
@@ -111,11 +122,14 @@ class FundDetailView(DetailView):
         return context
 
 
+@superuser_required
 def compare_view(request):
     """
     Fund comparison view.
 
     Implements FUND-035 (placeholder, full implementation in FUND-035 PR).
+
+    Access: Superusers only.
     """
     context = {
         "message": "Comparison tool will be fully implemented in FUND-035",
