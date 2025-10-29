@@ -3,12 +3,13 @@ URL configuration for FeeFiFoFunds.
 
 Implements:
 - FUND-024: Fund JSON API Endpoints (for AJAX, charts, etc.)
+- FUND-025: Comparison JSON endpoint
 - FUND-032: Base Templates routing (HTML views)
 """
 
 from django.urls import path
 
-from . import views, views_json
+from . import views, views_comparison, views_json
 
 app_name = "feefifofunds"
 
@@ -23,4 +24,6 @@ urlpatterns = [
     path("api/funds/<slug:slug>/", views_json.fund_detail_json, name="fund-detail-json"),
     path("api/funds/<slug:slug>/performance/", views_json.fund_performance_json, name="fund-performance-json"),
     path("api/funds/<slug:slug>/holdings/", views_json.fund_holdings_json, name="fund-holdings-json"),
+    # Comparison endpoint (FUND-025)
+    path("api/compare/", views_comparison.compare_funds_json, name="compare-json"),
 ]
