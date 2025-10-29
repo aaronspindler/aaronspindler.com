@@ -1,0 +1,156 @@
+{% extends "feefifofunds/base.html" %}
+{% load static %}
+
+{% block title %}FeeFiFoFunds - Smart Fund Comparison & Analysis{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="container">
+        <h1>Find Your Perfect Fund</h1>
+        <p class="hero-subtitle">Compare thousands of mutual funds and ETFs with advanced analytics and real-time data.</p>
+
+        <!-- Quick Search -->
+        <div class="search-box">
+            <form action="{% url 'feefifofunds:fund-list' %}" method="get">
+                <input
+                    type="text"
+                    name="q"
+                    placeholder="Search by ticker or name (e.g., SPY, VTSAX)..."
+                    class="search-input"
+                    autocomplete="off"
+                >
+                <button type="submit" class="search-button">
+                    <i class="fas fa-search"></i> Search
+                </button>
+            </form>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="quick-stats">
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.total_funds|default:"0" }}</div>
+                <div class="stat-label">Funds Tracked</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.data_points|default:"0" }}</div>
+                <div class="stat-label">Data Points</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ stats.last_update|default:"Today" }}</div>
+                <div class="stat-label">Last Updated</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="features">
+    <div class="container">
+        <h2>Why FeeFiFoFunds?</h2>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3>Advanced Analytics</h3>
+                <p>Sharpe ratio, Sortino ratio, maximum drawdown, and 40+ metrics calculated automatically.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-balance-scale"></i>
+                </div>
+                <h3>Side-by-Side Comparison</h3>
+                <p>Compare up to 5 funds simultaneously with interactive charts and detailed metrics.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h3>Smart Recommendations</h3>
+                <p>ML-powered fund similarity and personalized suggestions based on your preferences.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-database"></i>
+                </div>
+                <h3>Historical Data</h3>
+                <p>10+ years of historical performance data with TimescaleDB optimization.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3>Free & Open Source</h3>
+                <p>No hidden fees, no paywalls. Built with transparency in mind.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-code"></i>
+                </div>
+                <h3>Developer API</h3>
+                <p>REST API with OpenAPI documentation for building your own tools.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Popular Funds Section -->
+<section class="popular-funds">
+    <div class="container">
+        <h2>Popular Funds</h2>
+
+        {% if popular_funds %}
+        <div class="fund-grid">
+            {% for fund in popular_funds %}
+            <div class="fund-card">
+                <div class="fund-header">
+                    <h3>{{ fund.ticker }}</h3>
+                    <span class="fund-type">{{ fund.get_fund_type_display }}</span>
+                </div>
+                <p class="fund-name">{{ fund.name }}</p>
+
+                <div class="fund-metrics">
+                    <div class="metric">
+                        <span class="metric-label">Price</span>
+                        <span class="metric-value">${{ fund.current_price|floatformat:2 }}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Change</span>
+                        <span class="metric-value {% if fund.price_change_percent > 0 %}positive{% elif fund.price_change_percent < 0 %}negative{% endif %}">
+                            {% if fund.price_change_percent > 0 %}+{% endif %}{{ fund.price_change_percent|floatformat:2 }}%
+                        </span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Expense Ratio</span>
+                        <span class="metric-value">{{ fund.expense_ratio|floatformat:2 }}%</span>
+                    </div>
+                </div>
+
+                <a href="{% url 'feefifofunds:fund-detail' slug=fund.slug %}" class="btn btn-primary">View Details</a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="placeholder-text">No funds available yet. Add funds using the admin panel or run <code>python manage.py fetch_fund SPY --all --save</code></p>
+        {% endif %}
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta">
+    <div class="container">
+        <h2>Ready to Find Your Perfect Fund?</h2>
+        <p>Browse thousands of funds, compare performance, and make informed investment decisions.</p>
+        <a href="{% url 'feefifofunds:fund-list' %}" class="btn btn-large btn-primary">Browse All Funds</a>
+        <a href="{% url 'feefifofunds:compare' %}" class="btn btn-large btn-secondary">Start Comparing</a>
+    </div>
+</section>
+
+{% endblock %}
