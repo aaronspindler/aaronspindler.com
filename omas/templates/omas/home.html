@@ -1,4 +1,5 @@
 {% extends "omas/base.html" %}
+{% load static %}
 
 {% block title %}Omas Coffee - Mit Erinnerung Gebraut{% endblock %}
 
@@ -7,14 +8,19 @@
 {% block content %}
 <!-- Hero Section - Minimalist and Elegant -->
 <section class="hero-minimal">
-    <div class="butterfly-decoration butterfly-top-left"></div>
-    <div class="butterfly-decoration butterfly-bottom-right"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-top-left"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-bottom-right"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-mid-left"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-mid-right"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-top-right"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-bottom-left"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-center-float"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-far-left"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-far-right"></div>
 
     <div class="hero-inner">
-        <div class="brand-mark">
-            <span class="brand-symbol">🦋</span>
-        </div>
-        <h1 class="elegant-title gothic">Omas Coffee</h1>
+        <img src="{% static 'omas/images/omas_coffee_logo.png' %}" alt="Omas Coffee Logo" class="main-logo">
+        {% comment %} <h1 class="elegant-title gothic">Omas Coffee</h1> {% endcomment %}
         <div class="title-divider"></div>
         <p class="elegant-subtitle"><span data-german="Mit Erinnerung Gebraut" data-translation="Brewed with Memory">Mit Erinnerung Gebraut</span></p>
         <p style="margin-top: 1rem; color: var(--soft-gold); font-size: 1.1rem; letter-spacing: 0.15em; text-transform: uppercase;">
@@ -81,7 +87,7 @@
 <section class="memorial-section">
     <div class="memorial-container">
         <div class="memorial-header">
-            <div class="butterfly-memorial"></div>
+            <img src="{% static 'omas/images/omas_coffee_butterfly_v3.png' %}" alt="Golden Butterfly" class="butterfly-memorial-img">
             <p class="memorial-label">In Memory of <span data-german="Oma" data-translation="Grandma">Oma</span></p>
         </div>
         <blockquote class="memorial-quote">

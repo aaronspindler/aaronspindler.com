@@ -141,8 +141,9 @@ a:focus {
   color: var(--soft-gold);
   text-decoration: none;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0.9;
 }
@@ -157,6 +158,83 @@ a:focus {
 .brand-icon {
   font-size: 1.5rem;
   filter: drop-shadow(0 2px 4px rgba(212, 175, 55, 0.3));
+}
+
+/* Logo and Butterfly Images */
+.header-logo {
+  height: 40px;
+  width: auto;
+  filter: drop-shadow(0 2px 8px rgba(212, 175, 55, 0.3));
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.brand:hover .header-logo {
+  transform: scale(1.05);
+  filter: drop-shadow(0 4px 12px rgba(212, 175, 55, 0.5));
+}
+
+.main-logo {
+  width: 250px;
+  height: auto;
+  margin-bottom: 2rem;
+  filter: drop-shadow(0 4px 20px rgba(212, 175, 55, 0.4));
+  animation: fadeInUp 1.2s ease-out 0.2s both;
+  position: relative;
+  z-index: 10;
+}
+
+.butterfly-logo {
+  width: 80px;
+  height: auto;
+  filter: drop-shadow(0 4px 20px rgba(212, 175, 55, 0.5));
+  animation: floatButterfly 6s ease-in-out infinite;
+}
+
+.butterfly-memorial-img {
+  width: 60px;
+  height: auto;
+  opacity: 0.8;
+  filter: drop-shadow(0 2px 10px rgba(212, 175, 55, 0.4));
+  animation: gentleFloat 8s ease-in-out infinite;
+  margin-bottom: 1rem;
+}
+
+/* Butterfly animations */
+@keyframes floatButterfly {
+  0%, 100% {
+    transform: translateY(0) rotate(-5deg);
+  }
+  25% {
+    transform: translateY(-10px) rotate(5deg);
+  }
+  50% {
+    transform: translateY(5px) rotate(-3deg);
+  }
+  75% {
+    transform: translateY(-5px) rotate(3deg);
+  }
+}
+
+@keyframes gentleFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(-10px) scale(1.05);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Minimalist Hero Section */
@@ -176,44 +254,138 @@ a:focus {
 .butterfly-decoration {
   position: absolute;
   width: 60px;
-  height: 60px;
-  opacity: 0.25;
+  height: auto;
+  opacity: 0.2;
+  filter: drop-shadow(0 0 20px rgba(212, 175, 55, 0.5));
+  pointer-events: none;
+  z-index: 1;  /* Above background, behind content */
+  transition: opacity 0.4s ease, filter 0.4s ease;
 }
 
-.butterfly-decoration::before {
+/* Golden emoji butterflies */
+.butterfly-golden::before {
   content: '🦋';
   position: absolute;
-  font-size: 3rem;
+  font-size: 2.5rem;
   filter:
     sepia(1)
     saturate(5)
     hue-rotate(10deg)
     brightness(1.4)
-    drop-shadow(0 0 30px rgba(212, 175, 55, 0.8));
+    drop-shadow(0 0 25px rgba(212, 175, 55, 0.7));
+}
+
+/* Subtle hover effect for the hero section */
+.hero-minimal:hover .butterfly-decoration {
+  opacity: 0.25;
+  filter: drop-shadow(0 0 30px rgba(212, 175, 55, 0.6));
 }
 
 .butterfly-top-left {
-  top: 10%;
-  left: 10%;
-  animation: float-gentle 20s ease-in-out infinite;
+  top: 5%;
+  left: 3%;
+  width: 45px;
+  animation: float-gentle 22s ease-in-out infinite;
 }
 
 .butterfly-bottom-right {
-  bottom: 10%;
-  right: 10%;
-  animation: float-gentle 20s ease-in-out infinite 10s;
+  bottom: 5%;
+  right: 4%;
+  width: 50px;
+  animation: float-gentle 24s ease-in-out infinite 10s;
+}
+
+.butterfly-mid-left {
+  top: 40%;
+  left: 1%;
+  width: 40px;
+  opacity: 0.1;
+  animation: float-diagonal 26s ease-in-out infinite 5s;
+}
+
+.butterfly-mid-right {
+  top: 55%;
+  right: 2%;
+  width: 38px;
+  opacity: 0.1;
+  animation: float-circular 23s ease-in-out infinite 3s;
+}
+
+.butterfly-top-right {
+  top: 8%;
+  right: 6%;
+  width: 35px;
+  opacity: 0.08;
+  animation: float-gentle 20s ease-in-out infinite 7s;
+}
+
+.butterfly-bottom-left {
+  bottom: 8%;
+  left: 5%;
+  width: 43px;
+  animation: float-diagonal 25s ease-in-out infinite 2s;
+}
+
+.butterfly-center-float {
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  opacity: 0.08;
+  animation: float-vertical 32s ease-in-out infinite 4s;
+}
+
+.butterfly-far-left {
+  top: 70%;
+  left: 0.5%;
+  width: 38px;
+  opacity: 0.08;
+  animation: float-diagonal 30s ease-in-out infinite 6s;
+}
+
+.butterfly-far-right {
+  top: 30%;
+  right: 1%;
+  width: 36px;
+  opacity: 0.08;
+  animation: float-circular 28s ease-in-out infinite 8s;
 }
 
 @keyframes float-gentle {
   0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  33% { transform: translate(30px, -30px) rotate(10deg); }
-  66% { transform: translate(-20px, 20px) rotate(-5deg); }
+  20% { transform: translate(60px, -50px) rotate(15deg); }
+  40% { transform: translate(-40px, -70px) rotate(-10deg); }
+  60% { transform: translate(-70px, 40px) rotate(8deg); }
+  80% { transform: translate(30px, 60px) rotate(-12deg); }
+}
+
+@keyframes float-diagonal {
+  0%, 100% { transform: translate(0, 0) rotate(5deg); }
+  25% { transform: translate(80px, -80px) rotate(-15deg); }
+  50% { transform: translate(-60px, -100px) rotate(20deg); }
+  75% { transform: translate(-90px, 60px) rotate(-10deg); }
+}
+
+@keyframes float-circular {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(70px, -40px) rotate(90deg); }
+  50% { transform: translate(0, -80px) rotate(180deg); }
+  75% { transform: translate(-70px, -40px) rotate(270deg); }
+}
+
+@keyframes float-vertical {
+  0%, 100% { transform: translateX(-50%) translateY(0) rotate(-5deg); }
+  25% { transform: translateX(-50%) translateY(-80px) rotate(8deg); }
+  50% { transform: translateX(-50%) translateY(50px) rotate(-6deg); }
+  75% { transform: translateX(-50%) translateY(-40px) rotate(5deg); }
 }
 
 .hero-inner {
   text-align: center;
   padding: 2rem;
   animation: fadeInUp 1.2s ease-out;
+  position: relative;
+  z-index: 10; /* Above butterflies */
 }
 
 .brand-mark {
@@ -260,6 +432,8 @@ a:focus {
   background: var(--dark-surface);
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+  z-index: 10; /* Above butterflies */
 }
 
 .story-container {
@@ -301,6 +475,8 @@ a:focus {
 .features-modern {
   padding: 6rem 2rem;
   background: var(--rich-black);
+  position: relative;
+  z-index: 10;
 }
 
 .features-container {
@@ -381,6 +557,7 @@ a:focus {
   padding: 8rem 2rem;
   background: var(--dark-surface);
   position: relative;
+  z-index: 10;
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -463,6 +640,8 @@ a:focus {
 /* Countdown Section */
 .countdown-section {
   padding: 8rem 2rem;
+  position: relative;
+  z-index: 10;
   background: linear-gradient(135deg, var(--rich-walnut) 0%, var(--deep-black) 100%);
   text-align: center;
   border-top: 1px solid var(--border-subtle);
@@ -517,6 +696,7 @@ a:focus {
   background: var(--rich-black);
   position: relative;
   overflow: hidden;
+  z-index: 10;
 }
 
 .quote-refined::before {
@@ -871,6 +1051,50 @@ select:focus {
   .quote-elegant {
     font-size: 1.5rem;
   }
+
+  /* Logo and Butterfly Image Adjustments */
+  .header-logo {
+    height: 30px;
+  }
+
+  .main-logo {
+    width: 200px;
+    margin-bottom: 1.5rem;
+  }
+
+  .butterfly-logo {
+    width: 60px;
+  }
+
+  .butterfly-memorial-img {
+    width: 50px;
+  }
+
+  /* Hide some decorative butterflies on mobile */
+  .butterfly-mid-left,
+  .butterfly-mid-right,
+  .butterfly-center-float,
+  .butterfly-top-right,
+  .butterfly-far-left,
+  .butterfly-far-right {
+    display: none;
+  }
+
+  /* Reduce opacity on remaining decorative butterflies */
+  .butterfly-decoration {
+    opacity: 0.1;
+  }
+
+  /* Reduce movement on mobile */
+  @keyframes float-gentle {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    50% { transform: translate(30px, -30px) rotate(10deg); }
+  }
+
+  @keyframes float-diagonal {
+    0%, 100% { transform: translate(0, 0) rotate(5deg); }
+    50% { transform: translate(40px, -40px) rotate(-10deg); }
+  }
 }
 
 @media (max-width: 480px) {
@@ -897,6 +1121,47 @@ select:focus {
 
   .notify-button {
     padding: 0.875rem 2rem;
+  }
+
+  /* Logo and Butterfly adjustments for small screens */
+  .header-logo {
+    height: 25px;
+  }
+
+  .main-logo {
+    width: 150px;
+    margin-bottom: 1rem;
+  }
+
+  .butterfly-logo {
+    width: 50px;
+  }
+
+  .butterfly-memorial-img {
+    width: 40px;
+  }
+
+  /* Keep only essential decorative butterflies on very small screens */
+  .butterfly-bottom-left,
+  .butterfly-mid-left,
+  .butterfly-mid-right,
+  .butterfly-center-float,
+  .butterfly-top-right,
+  .butterfly-far-left,
+  .butterfly-far-right {
+    display: none;
+  }
+
+  /* Keep only top-left and bottom-right for balance */
+  .butterfly-top-left,
+  .butterfly-bottom-right {
+    opacity: 0.08;
+    width: 35px;
+  }
+
+  /* Smaller golden butterflies on mobile */
+  .butterfly-golden::before {
+    font-size: 1.8rem;
   }
 }
 
