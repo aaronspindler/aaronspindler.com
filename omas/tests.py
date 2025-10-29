@@ -1,5 +1,3 @@
-"""Tests for the Omas Coffee website."""
-
 from django.test import TestCase, override_settings
 
 

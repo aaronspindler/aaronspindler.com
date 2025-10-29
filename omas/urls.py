@@ -1,5 +1,3 @@
-"""URL configuration for the Omas Coffee website."""
-
 from django.urls import path
 
 from . import views
