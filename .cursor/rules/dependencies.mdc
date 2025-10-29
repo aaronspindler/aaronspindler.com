@@ -1,0 +1,120 @@
+---
+description: apply this rule when modifying requirements files or managing dependencies
+alwaysApply: false
+---
+
+# Dependency Management Guidelines
+
+## Core Principle: Direct Dependencies with Lockfiles
+
+**CRITICAL**: This project uses **uv** for dependency management with a two-file system:
+- **Source files** (`.in`): Direct dependencies only - `requirements/base.in` and `requirements/dev.in`
+- **Lockfiles** (`.txt`): Auto-generated with all dependencies pinned - `requirements/base.txt` and `requirements/dev.txt`
+
+**NEVER** manually edit `.txt` lockfiles! Only edit `.in` source files and regenerate lockfiles.
+
+### Direct vs Transitive Dependencies
+
+- **Direct Dependencies**: Packages your code explicitly imports or uses
+  - Examples: Django, celery, boto3, pillow, requests
+  - These MUST be in requirements files with pinned versions
+
+- **Transitive Dependencies**: Packages installed automatically as dependencies of your direct dependencies
+  - Examples: urllib3 (from requests), botocore (from boto3), kombu (from celery)
+  - These MUST NOT be in requirements files - let pip resolve them automatically
+
+### Why This Matters
+
+1. **Prevents Version Conflicts**: Transitive dependencies have their own compatibility requirements. Pinning them can create conflicts with parent packages.
+2. **Easier Maintenance**: Only manage versions of packages you actually use
+3. **Automatic Compatibility**: Pip automatically installs compatible versions of transitive dependencies
+4. **Cleaner Requirements**: Makes it obvious what the project actually uses
+
+### Recent Example
+
+The `pyee` dependency conflict was caused by pinning a transitive dependency:
+- `pyppeteer==2.0.0` (direct dependency) requires `pyee>=11.0.0,<12.0.0`
+- We had `pyee==13.0.0` pinned (transitive dependency) → Build failed
+- Solution: Removed `pyee` from requirements - let pyppeteer install the correct version
+
+## Workflow: Adding or Updating Dependencies
+
+### 1. Add/Update Direct Dependency in Source File
+
+Edit `requirements/base.in` or `requirements/dev.in`:
+```bash
+# Core Framework
+Django==5.2.7
+
+# Task Queue
+celery==5.5.3
+```
+
+**Before adding**:
+- Verify it's directly imported: `grep -r "import <package>" --include="*.py"`
+- Check it's not transitive: Look up on PyPI
+- Add with comments: Group related packages
+
+### 2. Regenerate Lockfile
+
+```bash
+# Base dependencies
+uv pip compile requirements/base.in -o requirements/base.txt --generate-hashes
+
+# Development dependencies
+uv pip compile requirements/dev.in -o requirements/dev.txt --generate-hashes
+```
+
+### 3. Test Changes
+
+```bash
+# Install from lockfile
+uv pip install -r requirements/base.txt
+
+# Run tests
+python manage.py test
+```
+
+### 4. Commit Both Files
+
+```bash
+git add requirements/base.in requirements/base.txt
+git commit -m "Add <package> dependency"
+```
+
+## Updating All Dependencies
+
+To update all dependencies to latest compatible versions:
+
+```bash
+# Update all packages
+uv pip compile --upgrade requirements/base.in -o requirements/base.txt --generate-hashes
+uv pip compile --upgrade requirements/dev.in -o requirements/dev.txt --generate-hashes
+
+# Test thoroughly
+python manage.py test
+```
+
+To update specific package:
+
+```bash
+# Update just Django
+uv pip compile --upgrade-package django requirements/base.in -o requirements/base.txt --generate-hashes
+
+# Test
+python manage.py test
+```
+
+## When Updating Dependencies
+
+1. **Test thoroughly**: Run full test suite after updating
+2. **Check for breaking changes**: Read changelogs for major version bumps
+3. **Update related packages together**: e.g., boto3 and django-storages
+4. **Rebuild Docker images**: Ensure no build failures
+5. **Review lockfile changes**: Check what transitive dependencies changed
+
+## Exception: Development Tools
+
+CLI tools used for development (not imported) are still direct dependencies:
+- `pre-commit`, `ruff`, `safety`, `pip-audit`
+- These belong in `requirements/dev.txt`

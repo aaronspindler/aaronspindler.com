@@ -37,8 +37,8 @@ services:
   # Web application (Django)
   web:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: deployment/Dockerfile
     command: >
       sh -c "
         echo 'Waiting for services to be healthy...' &&
@@ -54,7 +54,7 @@ services:
         python manage.py runserver 0.0.0.0:8000
       "
     volumes:
-      - .:/code
+      - ..:/code
       - static_volume:/code/staticfiles
       - media_volume:/code/media
     ports:
@@ -80,11 +80,11 @@ services:
   # Celery worker for background tasks
   celery_worker:
     build:
-      context: .
-      dockerfile: celery.Dockerfile
+      context: ..
+      dockerfile: deployment/celery.Dockerfile
     command: celery -A config worker -l info --concurrency=2
     volumes:
-      - .:/code
+      - ..:/code
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings_test
       - SECRET_KEY=test-secret-key-for-testing-only
@@ -103,11 +103,11 @@ services:
   # Celery beat for scheduled tasks
   celery_beat:
     build:
-      context: .
-      dockerfile: celerybeat.Dockerfile
+      context: ..
+      dockerfile: deployment/celerybeat.Dockerfile
     command: celery -A config beat -l info
     volumes:
-      - .:/code
+      - ..:/code
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings_test
       - SECRET_KEY=test-secret-key-for-testing-only
@@ -125,11 +125,19 @@ services:
   # Flower for monitoring Celery (optional, but useful for debugging)
   flower:
     build:
-      context: .
-      dockerfile: flower.Dockerfile
-    command: celery -A config flower --port=5555
+      context: ..
+      dockerfile: deployment/flower.Dockerfile
+    command: >
+      celery -A config flower
+      --port=5555
+      --persistent=true
+      --db=/data/flower.db
+      --max_tasks=50000
+      --state_save_interval=10000
     ports:
       - "5556:5555"  # Use different port to avoid conflicts
+    volumes:
+      - flower_data:/data
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings_test
       - SECRET_KEY=test-secret-key-for-testing-only
@@ -145,8 +153,8 @@ services:
   # Test runner service
   test_runner:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: deployment/Dockerfile
     command: >
       sh -c "
         echo 'Waiting for services to be ready...' &&
@@ -157,7 +165,7 @@ services:
         python manage.py test --settings=config.settings_test --keepdb --verbosity=2
       "
     volumes:
-      - .:/code
+      - ..:/code
       - static_volume:/code/staticfiles
       - media_volume:/code/media
     environment:
@@ -188,6 +196,7 @@ volumes:
   postgres_test_data:
   static_volume:
   media_volume:
+  flower_data:
 
 networks:
   test_network:

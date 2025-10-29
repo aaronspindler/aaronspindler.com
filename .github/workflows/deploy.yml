@@ -1,4 +1,6 @@
-name: CD - Build and Deploy
+name: CD - Deploy
+
+run-name: "${{ github.event.workflow_run.head_commit.message || github.event.head_commit.message || 'Deploy' }}"
 
 on:
   workflow_run:
@@ -21,76 +23,12 @@ permissions:
   contents: read
 
 jobs:
-  # Build Docker images after tests pass
-  build-and-push:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # Only run if the triggering workflow succeeded or if manually triggered
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      matrix:
-        include:
-          - service: web
-            dockerfile: Dockerfile
-          - service: celery
-            dockerfile: celery.Dockerfile
-          - service: celerybeat
-            dockerfile: celerybeat.Dockerfile
-          - service: flower
-            dockerfile: flower.Dockerfile
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
-        with:
-          driver-opts: |
-            network=host
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f  # v5.8.0
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix={{branch}}-
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83  # v6.18.0
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64
-          provenance: false
-          sbom: false
-
-  # Deploy to CapRover after successful build
+  # Deploy pre-built images to CapRover (images already built during test workflow)
   deploy:
-    needs: build-and-push
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Only run if the triggering workflow succeeded or if manually triggered
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: read
 
@@ -100,10 +38,23 @@ jobs:
         with:
           fetch-depth: 2
 
+      - name: Determine commit SHA
+        id: commit
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            # Get SHA from the workflow that triggered this deployment
+            COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
+          else
+            # Manual trigger - use current SHA
+            COMMIT_SHA="${{ github.sha }}"
+          fi
+          echo "sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
+          echo "📦 Deploying images tagged with: ${COMMIT_SHA}"
+
       - name: Check for Flower changes
         id: flower-changes
         run: |
-          if git diff --name-only HEAD^ HEAD | grep -E '(flower\.Dockerfile|requirements\.txt|config/celery\.py|captain-definition-flower)'; then
+          if git diff --name-only HEAD^ HEAD | grep -E '(deployment/flower\.Dockerfile|requirements/|config/celery\.py|captain-definition-flower)'; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "🌸 Flower-related files changed, will deploy Flower"
           else
@@ -119,7 +70,7 @@ jobs:
             --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
             --appToken "${{ secrets.CAPROVER_WEB_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_WEB_APP_NAME }}" \
-            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-web:latest"
+            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-web:${{ steps.commit.outputs.sha }}"
 
       - name: Deploy Celery to CapRover
         continue-on-error: true
@@ -129,7 +80,7 @@ jobs:
             --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
             --appToken "${{ secrets.CAPROVER_CELERY_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_CELERY_APP_NAME }}" \
-            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celery:latest"
+            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celery:${{ steps.commit.outputs.sha }}"
 
       - name: Deploy Celery Beat to CapRover
         continue-on-error: true
@@ -139,7 +90,7 @@ jobs:
             --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
             --appToken "${{ secrets.CAPROVER_CELERYBEAT_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_CELERYBEAT_APP_NAME }}" \
-            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celerybeat:latest"
+            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celerybeat:${{ steps.commit.outputs.sha }}"
 
       - name: Deploy Flower to CapRover
         if: steps.flower-changes.outputs.changed == 'true'
@@ -150,4 +101,4 @@ jobs:
             --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
             --appToken "${{ secrets.CAPROVER_FLOWER_APP_TOKEN }}" \
             --appName "${{ secrets.CAPROVER_FLOWER_APP_NAME }}" \
-            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-flower:latest"
+            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-flower:${{ steps.commit.outputs.sha }}"

@@ -18,7 +18,7 @@ from PIL import Image
 
 from photos.forms import MultipleFileField, MultipleFileInput, PhotoBulkUploadForm
 from photos.models import Photo
-from tests.factories import PhotoFactory
+from photos.tests.factories import PhotoFactory
 
 
 class MultipleFileInputTestCase(TestCase):

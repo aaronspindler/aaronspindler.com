@@ -5,19 +5,36 @@ from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 from django.test import Client, TestCase
 
+from accounts.tests.factories import UserFactory
 from blog.models import BlogComment
-from tests.factories import BlogCommentFactory, MockDataFactory, TestDataMixin, UserFactory
+from blog.tests.factories import BlogCommentFactory, MockDataFactory
 
 User = get_user_model()
 
 
-class BlogViewsTest(TestCase, TestDataMixin):
+class BlogViewsTest(TestCase):
     """Test blog rendering and basic view functionality."""
 
     def setUp(self):
         self.client = Client()
         self.setUp_users()
         self.setUp_blog_data()
+
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
+
+    def setUp_blog_data(self):
+        """Set up common blog data for testing."""
+        self.comment_data = {
+            "blog_template_name": "0001_test_post",
+            "blog_category": "tech",
+            "content": "This is a test comment",
+            "author": self.user,
+        }
+        self.mock_blog_data = MockDataFactory.get_mock_blog_data()
 
     @patch("blog.views.get_blog_from_template_name")
     @patch("utils.models.RequestFingerprint")
@@ -106,13 +123,29 @@ class BlogViewsTest(TestCase, TestDataMixin):
         self.assertEqual(response.context["pending_comments_count"], 2)
 
 
-class CommentSubmissionTest(TestCase, TestDataMixin):
+class CommentSubmissionTest(TestCase):
     """Test comment submission functionality."""
 
     def setUp(self):
         self.client = Client()
         self.setUp_users()
         self.setUp_blog_data()
+
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
+
+    def setUp_blog_data(self):
+        """Set up common blog data for testing."""
+        self.comment_data = {
+            "blog_template_name": "0001_test_post",
+            "blog_category": "tech",
+            "content": "This is a test comment",
+            "author": self.user,
+        }
+        self.mock_blog_data = MockDataFactory.get_mock_blog_data()
 
     @patch("blog.views.get_blog_from_template_name")
     @patch("utils.models.RequestFingerprint")
@@ -238,7 +271,7 @@ class CommentSubmissionTest(TestCase, TestDataMixin):
         self.assertIn("content", form.errors)
 
 
-class CommentReplyTest(TestCase, TestDataMixin):
+class CommentReplyTest(TestCase):
     """Test comment reply functionality."""
 
     def setUp(self):
@@ -246,6 +279,22 @@ class CommentReplyTest(TestCase, TestDataMixin):
         self.setUp_users()
         self.setUp_blog_data()
         self.parent_comment = BlogCommentFactory.create_approved_comment(content="Parent comment", author=self.user)
+
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
+
+    def setUp_blog_data(self):
+        """Set up common blog data for testing."""
+        self.comment_data = {
+            "blog_template_name": "0001_test_post",
+            "blog_category": "tech",
+            "content": "This is a test comment",
+            "author": self.user,
+        }
+        self.mock_blog_data = MockDataFactory.get_mock_blog_data()
 
     @patch("blog.views.get_blog_from_template_name")
     def test_reply_to_comment(self, mock_get_blog):
@@ -293,13 +342,19 @@ class CommentReplyTest(TestCase, TestDataMixin):
         self.assertEqual(BlogComment.objects.filter(content="Spam reply").count(), 0)
 
 
-class CommentModerationTest(TestCase, TestDataMixin):
+class CommentModerationTest(TestCase):
     """Test comment moderation functionality."""
 
     def setUp(self):
         self.client = Client()
         self.setUp_users()
         self.comment = BlogCommentFactory.create_pending_comment()
+
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
 
     def test_moderate_comment_approve(self):
         """Test staff approving a comment."""
@@ -362,13 +417,19 @@ class CommentModerationTest(TestCase, TestDataMixin):
         self.assertEqual(data["new_status"], "approved")
 
 
-class CommentVotingTest(TestCase, TestDataMixin):
+class CommentVotingTest(TestCase):
     """Test comment voting functionality."""
 
     def setUp(self):
         self.client = Client()
         self.setUp_users()
         self.comment = BlogCommentFactory.create_approved_comment()
+
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
 
     def test_vote_comment_authenticated(self):
         """Test authenticated user voting on a comment."""
@@ -445,7 +506,7 @@ class CommentVotingTest(TestCase, TestDataMixin):
         self.assertEqual(data["error"], "Invalid vote type")
 
 
-class CommentDeletionTest(TestCase, TestDataMixin):
+class CommentDeletionTest(TestCase):
     """Test comment deletion functionality."""
 
     def setUp(self):
@@ -454,6 +515,12 @@ class CommentDeletionTest(TestCase, TestDataMixin):
         self.author = UserFactory.create_user(username="author")
         self.other_user = UserFactory.create_user(username="other")
         self.comment = BlogCommentFactory.create_approved_comment(author=self.author)
+
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
 
     def test_author_can_delete_own_comment(self):
         """Test that comment authors can delete their own comments."""

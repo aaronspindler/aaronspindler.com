@@ -2,14 +2,14 @@
 
 ## Overview
 
-Comprehensive guide for deploying the Django application to production using Docker, with AWS S3 storage, Redis caching, PostgreSQL database, and Celery for background tasks.
+Comprehensive guide for deploying the Django application to production using Docker, with WhiteNoise for static files, AWS S3 for media storage, Redis caching, PostgreSQL database, and Celery for background tasks.
 
 ## Prerequisites
 
 - Docker and Docker Compose installed
 - PostgreSQL 15+ database
 - Redis server
-- AWS S3 bucket (for media/static storage)
+- AWS S3 bucket (for media storage - photos, uploads)
 - Domain name with DNS configured
 - SSL certificate (Let's Encrypt recommended)
 
@@ -34,12 +34,13 @@ REDIS_URL=redis://redis:6379/0
 CELERY_BROKER_URL=redis://redis:6379/1
 CELERY_RESULT_BACKEND=redis://redis:6379/2
 
-# AWS S3 Storage (Required for production)
+# AWS S3 Storage (Required for media files - photos, uploads)
+# Static files (CSS, JS, fonts) are served by WhiteNoise from the container
 AWS_ACCESS_KEY_ID=your-access-key-id
 AWS_SECRET_ACCESS_KEY=your-secret-access-key
 AWS_STORAGE_BUCKET_NAME=your-bucket-name
 AWS_S3_REGION_NAME=us-east-1
-AWS_S3_CUSTOM_DOMAIN=your-cloudfront-domain  # Optional, for CloudFront CDN
+AWS_S3_CUSTOM_DOMAIN=your-cloudfront-domain  # Optional, for CloudFront CDN on media
 
 # Email (Optional - for notifications)
 EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
@@ -107,8 +108,8 @@ RUN apt-get update && apt-get install -y \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Playwright for screenshots
-RUN pip install playwright && playwright install chromium
+# Install Pyppeteer for screenshots
+RUN pip install pyppeteer && python -c "from pyppeteer import chromium_downloader; chromium_downloader.download_chromium()"
 
 # Copy Python packages from builder
 COPY --from=builder /usr/local/lib/python3.13/site-packages/ /usr/local/lib/python3.13/site-packages/

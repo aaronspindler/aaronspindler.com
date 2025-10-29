@@ -2,7 +2,7 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import resolve, reverse
 
 from accounts.views import signup_disabled
-from tests.factories import MockDataFactory
+from blog.tests.factories import MockDataFactory
 
 
 class AccountsURLTest(SimpleTestCase):
