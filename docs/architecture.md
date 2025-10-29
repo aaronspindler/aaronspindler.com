@@ -11,7 +11,7 @@ aaronspindler.com/
 ├── config/              # Main Django configuration
 │   ├── settings.py     # Environment-based settings
 │   ├── urls.py         # Main URL routing
-│   ├── storage_backends.py  # S3 storage configuration
+│   ├── storage_backends.py  # S3 storage for media files
 │   └── celery.py       # Celery async task configuration
 ├── accounts/           # User authentication
 │   ├── models.py       # Custom user model
@@ -23,6 +23,11 @@ aaronspindler.com/
 │   ├── utils.py        # Blog template utilities
 │   ├── forms.py        # Comment forms
 │   └── templates/blog/ # Blog post templates by category
+├── omas/              # Omas Coffee website (omas.coffee)
+│   ├── urls.py         # Domain-specific routing
+│   ├── views.py        # Homepage and content pages
+│   ├── static/omas/    # CSS, JS, and images
+│   └── templates/omas/ # Domain-specific templates
 ├── pages/             # Core website pages
 │   ├── views.py        # Home, health check, resume
 │   ├── utils.py        # Books and projects data
@@ -61,7 +66,7 @@ aaronspindler.com/
 - **settings.py**: Environment-based settings using django-environ
   - Database configuration (PostgreSQL)
   - Cache configuration (Redis)
-  - Storage backends (S3 for production, local for development)
+  - Storage backends (WhiteNoise for static, S3 for media)
   - Security settings (CORS, CSRF, session management)
   - Static file configuration
 
@@ -70,9 +75,14 @@ aaronspindler.com/
   - API endpoints
   - Admin interface
 
-- **storage_backends.py**: S3 storage configuration
-  - Separate storage classes for static and media files
-  - CloudFront CDN integration
+- **domain_routing.py**: Multi-domain support
+  - Maps domains to specific URL configurations
+  - DomainRoutingMiddleware for request routing
+  - Supports omas.coffee for separate website
+
+- **storage_backends.py**: S3 storage for media files
+  - PublicMediaStorage for photos and uploads
+  - CloudFront CDN integration for media delivery
 
 - **celery.py**: Celery configuration
   - Task queue setup
@@ -113,7 +123,7 @@ aaronspindler.com/
 **Knowledge Graph** (`knowledge_graph.py`):
 - **LinkParser**: Extracts internal/external links from blog posts
 - **GraphBuilder**: Constructs node/edge graph structures
-- **Screenshot Generation**: Playwright-powered server-side rendering
+- **Screenshot Generation**: Pyppeteer-powered server-side rendering
 - **Caching System**: 20-minute cache with smart invalidation
 
 **Template System**:
@@ -121,6 +131,35 @@ aaronspindler.com/
 - Metadata extracted from template blocks
 - Categories: personal, projects, reviews, tech
 - Automatic numbering system (e.g., `0001_Post_Title.html`)
+
+### omas/ - Omas Coffee Website
+
+**Purpose**: Separate website (omas.coffee) served from the same Django application using multi-domain routing.
+
+**Key Components**:
+
+**Multi-Domain Routing**:
+- **DomainRoutingMiddleware** (`config/domain_routing.py`):
+  - Inspects request hostname and routes to appropriate URL configuration
+  - Maps `omas.coffee` and `www.omas.coffee` to `omas.urls`
+  - Must be first in middleware stack for proper routing
+
+**German Translation System**:
+- **Interactive Hover Tooltips** (`static/omas/js/german-translations.js`):
+  - Automatic detection of German terms in page content
+  - Elegant tooltips with German flag emoji and translations
+  - Mobile touch support with auto-dismiss
+  - Smart positioning based on viewport space
+- **Visual Design**: Rich walnut and antique gold color palette
+- **Typography**: UnifrakturMaguntia font for Gothic brand styling
+
+**Features**:
+- Coffee cart website honoring German Kaffeezeit tradition
+- Memorial tribute to owner's grandmother
+- Spring 2025 opening announcement
+- Newsletter signup integration
+
+**Related Documentation**: [Omas Coffee Feature Documentation](features/omas-coffee.md)
 
 ### pages/ - Core Website
 
@@ -284,7 +323,7 @@ The knowledge graph system automatically maps relationships between blog posts:
 1. **Link Extraction**: Parses blog post templates to find internal links
 2. **Graph Building**: Constructs nodes (posts, categories) and edges (relationships)
 3. **Visualization**: D3.js force-directed graph with adaptive parameters
-4. **Screenshot Generation**: Playwright captures high-quality images for social sharing
+4. **Screenshot Generation**: Pyppeteer captures high-quality images for social sharing
 
 **Performance Optimizations**:
 - Caching with file modification tracking
@@ -328,12 +367,12 @@ Photos automatically generate 5 optimized versions:
 ### Infrastructure
 - **Docker**: Containerization
 - **Gunicorn**: WSGI server
-- **WhiteNoise**: Static file serving
-- **AWS S3**: Media and static storage
-- **CloudFront**: CDN for assets
+- **WhiteNoise**: Static file serving (CSS, JS, fonts) from container
+- **AWS S3**: Media storage (photos, uploads)
+- **CloudFront**: Optional CDN for media files
 
 ### Development Tools
-- **Playwright**: Browser automation for screenshots
+- **Pyppeteer**: Browser automation for screenshots
 - **Ruff**: Python linting and formatting
 - **Prettier**: CSS formatting
 - **pre-commit**: Git hooks for code quality
@@ -356,7 +395,7 @@ Photos automatically generate 5 optimized versions:
 3. **Template Rendering**:
    - Context processors add global data
    - Template rendered with context
-   - Static files served via WhiteNoise or CDN
+   - Static files served via WhiteNoise from container
 
 4. **Response**:
    - HTML returned to client

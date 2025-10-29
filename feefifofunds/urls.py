@@ -14,7 +14,7 @@ from . import views, views_comparison, views_json
 app_name = "feefifofunds"
 
 urlpatterns = [
-    # HTML views (FUND-032)
+    # HTML views (FUND-032, FUND-033, FUND-034, FUND-035)
     path("", views.home, name="home"),
     path("funds/", views.FundListView.as_view(), name="fund-list"),
     path("funds/<slug:slug>/", views.FundDetailView.as_view(), name="fund-detail"),

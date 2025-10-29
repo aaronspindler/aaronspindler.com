@@ -3,7 +3,7 @@ from unittest.mock import mock_open, patch
 from django.core.cache import cache
 from django.test import Client, TestCase
 
-from tests.factories import PhotoFactory
+from photos.tests.factories import PhotoFactory
 
 
 class HealthCheckViewTest(TestCase):

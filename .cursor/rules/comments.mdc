@@ -1,0 +1,124 @@
+# Comment Guidelines
+
+## Purpose
+Ensure all code comments and documentation are clean, relevant, and focused on the current implementation without unnecessary references to previous states or replaced technologies.
+
+## Key Principles
+
+### 1. Focus on Current State
+- Write comments that describe what the code DOES, not what it replaced
+- Document the current implementation's purpose and behavior
+- Avoid mentioning previous tools, libraries, or approaches that were replaced
+
+### 2. Avoid Historical Comparisons
+❌ **Don't write:**
+```python
+# Using pyppeteer instead of Playwright for smaller image size
+# This replaces the old Playwright implementation
+# Image size: ~800MB (vs 2.5GB with Playwright)
+```
+
+✅ **Do write:**
+```python
+# Using pyppeteer for browser automation and screenshot generation
+# Image size: ~800MB optimized for production
+```
+
+### 3. Remove Redundant Information
+- Delete comments that reference removed code
+- Update comments when implementation changes
+- Don't leave "TODO: remove old X" comments after X is already removed
+
+### 4. Keep Comments Relevant
+- Comments should explain WHY, not just WHAT
+- Remove obvious comments that just restate the code
+- Update comments when refactoring or changing functionality
+
+## Examples
+
+### Dockerfile Comments
+❌ **Avoid:**
+```dockerfile
+# Switched from Playwright base image to slim Python
+# This reduces image size from 2.5GB to 800MB
+# Trade-off: smaller image vs Playwright features
+```
+
+✅ **Prefer:**
+```dockerfile
+# Optimized Python slim base with minimal dependencies
+# Includes Chromium for screenshot generation
+# Image size: ~800MB optimized for production
+```
+
+### Code Comments
+❌ **Avoid:**
+```python
+# Previously used Playwright, now using pyppeteer
+# This is faster than the old implementation
+async def take_screenshot():
+```
+
+✅ **Prefer:**
+```python
+# Captures high-quality screenshots using headless browser
+# Returns PNG data with transparent background
+async def take_screenshot():
+```
+
+### Configuration Comments
+❌ **Avoid:**
+```python
+# Changed from playwright==1.55.0 after migration
+BROWSER_ENGINE = "pyppeteer"  # Was using Playwright before
+```
+
+✅ **Prefer:**
+```python
+# Browser automation engine for screenshot generation
+BROWSER_ENGINE = "pyppeteer"
+```
+
+## Review Checklist
+
+When reviewing or updating comments:
+
+- [ ] Remove references to replaced technologies
+- [ ] Remove size/performance comparisons with old implementations
+- [ ] Focus comments on current functionality
+- [ ] Ensure comments explain the "why" not just "what"
+- [ ] Remove TODO comments for completed tasks
+- [ ] Update stale comments to match current code
+- [ ] Delete redundant or obvious comments
+
+## Migration Comments
+
+If you must document a migration or change:
+1. Use git commit messages for historical context
+2. Keep migration notes in separate migration guides or CHANGELOG
+3. Don't pollute code comments with migration details
+
+## Documentation Updates
+
+When updating documentation:
+- Focus on current capabilities and features
+- Move historical information to changelog or migration guides
+- Keep README and docs forward-looking
+- Archive old documentation rather than keeping it inline
+
+## Comment Maintenance
+
+### During Code Reviews
+- Flag comments referencing old implementations
+- Suggest rewrites focusing on current state
+- Remove commented-out old code
+
+### During Refactoring
+- Update all affected comments
+- Remove comments about removed features
+- Add comments for new complexity introduced
+
+### Regular Cleanup
+- Periodically scan for outdated comments
+- Remove TODO/FIXME comments for completed work
+- Update version-specific comments after upgrades

@@ -2,8 +2,8 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
+from blog.tests.factories import MockDataFactory
 from blog.utils import get_all_blog_posts, get_blog_from_template_name
-from tests.factories import MockDataFactory
 
 
 class BlogUtilsTest(TestCase):

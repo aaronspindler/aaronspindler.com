@@ -2,18 +2,35 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
+from accounts.tests.factories import UserFactory
 from blog.models import BlogComment, CommentVote
-from tests.factories import BlogCommentFactory, TestDataMixin
+from blog.tests.factories import BlogCommentFactory, MockDataFactory
 
 User = get_user_model()
 
 
-class BlogCommentModelTest(TestCase, TestDataMixin):
+class BlogCommentModelTest(TestCase):
     """Test BlogComment model functionality including moderation and threading."""
 
     def setUp(self):
         self.setUp_users()
         self.setUp_blog_data()
+
+    def setUp_users(self):
+        """Set up common users for testing."""
+        self.user = UserFactory.create_user()
+        self.staff_user = UserFactory.create_staff_user()
+        self.superuser = UserFactory.create_superuser()
+
+    def setUp_blog_data(self):
+        """Set up common blog data for testing."""
+        self.comment_data = {
+            "blog_template_name": "0001_test_post",
+            "blog_category": "tech",
+            "content": "This is a test comment",
+            "author": self.user,
+        }
+        self.mock_blog_data = MockDataFactory.get_mock_blog_data()
 
     def test_comment_creation_with_user(self):
         """Test creating a comment with an authenticated user."""

@@ -20,12 +20,16 @@ ALLOWED_HOSTS = [
     "aaronspindler-web.spindlers.dev",
     "aaronspindler.com",
     "www.aaronspindler.com",
+    "omas.coffee",
+    "www.omas.coffee",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://aaronspindler.com",
     "https://*.spindlers.org",
     "https://*.spindlers.dev",
     "https://www.aaronspindler.com",
+    "https://omas.coffee",
+    "https://www.omas.coffee",
 ]
 
 
@@ -51,10 +55,13 @@ INSTALLED_APPS = [
     "photos",
     "utils",
     "feefifofunds",
+    "omas",  # Omas Coffee website
 ]
 
 MIDDLEWARE = [
+    "config.domain_routing.DomainRoutingMiddleware",  # Domain-based URL routing (must be first)
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # Serve static files
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -184,20 +191,58 @@ AWS_S3_MIME_TYPES = {
     ".eot": "application/vnd.ms-fontobject",
 }
 
-# S3 Storage Configuration
+# Storage Configuration
+# Static files: Served by WhiteNoise from container
+# Media files: Stored in S3 (photos, user uploads)
 STORAGES = {
     "default": {
         "BACKEND": "config.storage_backends.PublicMediaStorage",
     },
     "staticfiles": {
-        "BACKEND": "config.storage_backends.StaticStorage",
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
 MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/public/media/"
 MEDIA_ROOT = ""  # Not used with S3, but Django might expect it
 
-STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/public/static/"
+STATIC_URL = "/static/"
+
+# WhiteNoise Configuration
+WHITENOISE_MAX_AGE = 31536000  # 1 year cache for static files with versioned names
+WHITENOISE_MANIFEST_STRICT = False  # Allow missing files in development
+WHITENOISE_KEEP_ONLY_HASHED_FILES = True  # Remove unhashed files to save space
+
+
+# Performance optimizations
+def _whitenoise_immutable_file_test(path, url):
+    """Add immutable cache headers for all static files except HTML"""
+    return url.startswith("/static/") and not url.endswith((".html", ".htm"))
+
+
+WHITENOISE_IMMUTABLE_FILE_TEST = _whitenoise_immutable_file_test
+WHITENOISE_SKIP_COMPRESS_EXTENSIONS = (
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "webp",
+    "zip",
+    "gz",
+    "tgz",
+    "bz2",
+    "tbz",
+    "xz",
+    "br",
+    "swf",
+    "flv",
+    "woff",
+    "woff2",
+)  # Skip compression for already-compressed files
+WHITENOISE_MIMETYPES = {
+    ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+}  # Explicitly set mimetypes for better browser caching
 
 if not DEBUG:
     # Security Headers
@@ -308,6 +353,15 @@ CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_WORKER_POOL_RESTARTS = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Task result and log retention settings
+# Store extended task metadata including return values, exceptions, and tracebacks
+CELERY_RESULT_EXTENDED = True
+# Keep task results for 90 days (7776000 seconds)
+CELERY_RESULT_EXPIRES = 7776000
+# Send task events for monitoring (enables Flower to track task progress)
+CELERY_WORKER_SEND_TASK_EVENTS = True
+CELERY_TASK_SEND_SENT_EVENT = True
 
 RESUME_ENABLED = env("RESUME_ENABLED", default=True)
 RESUME_FILENAME = env("RESUME_FILENAME", default="Aaron_Spindler_Resume_2025.pdf")

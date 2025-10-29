@@ -1,0 +1,48 @@
+# Core Django Framework
+Django==5.2.7
+
+# Django Extensions
+django-allauth==65.12.1
+django-celery-beat==2.8.1
+django-environ==0.12.0
+django-redis==6.0.0
+django-storages==1.14.6
+
+# Static File Serving (with Brotli compression)
+whitenoise[brotli]==6.11.0
+
+# Task Queue & Background Jobs
+celery==5.5.3
+flower==2.0.1
+gevent==25.9.1
+
+# Web Server
+gunicorn==23.0.0
+
+# Database Drivers
+psycopg==3.2.12
+psycopg-binary==3.2.12
+
+# Caching & Message Broker
+redis==7.0.1
+
+# Image Processing
+Pillow==12.0.0
+ImageHash==4.3.2
+numpy==2.3.4
+
+# Web Scraping & Browser Automation
+beautifulsoup4==4.14.2
+pyppeteer==2.0.0
+
+# AWS SDK
+boto3==1.40.61
+
+# HTTP Client
+requests==2.32.5
+
+# Testing & Coverage
+coverage==7.11.0
+
+# Celery Utilities
+tblib==3.2.0

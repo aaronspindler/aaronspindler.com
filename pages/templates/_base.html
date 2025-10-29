@@ -1,5 +1,4 @@
 {% load static %}
-{% load css_version %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -19,15 +18,14 @@
 
   <!-- Critical CSS inline for instant rendering -->
   <style>
-    @font-face{font-family:"JetBrains Mono";src:url("{% static 'fonts/jetbrains-mono-regular-fast.woff2' %}") format("woff2");font-weight:500;font-style:normal;font-display:swap}
-    :root{--font-family:"JetBrains Mono",monospace;--line-height:1.20rem;--border-thickness:2px;--text-color:#fff;--text-color-alt:#aaa;--background-color:#000;--background-color-alt:#111;--font-weight-normal:500;--font-weight-medium:600;--font-weight-bold:800;font-family:var(--font-family);font-optical-sizing:auto;font-weight:var(--font-weight-normal);font-style:normal;font-variant-numeric:tabular-nums lining-nums;font-size:16px;font-feature-settings:"calt" 1}*{box-sizing:border-box}html{display:flex;width:100%;margin:0;padding:0;flex-direction:column;align-items:center;background:var(--background-color);color:var(--text-color)}body{position:relative;width:100%;margin:0;padding:var(--line-height) 2ch;max-width:calc(min(120ch,round(down,100%,1ch)));line-height:var(--line-height);overflow-x:hidden}h1,h2{font-weight:var(--font-weight-bold);margin:calc(var(--line-height)*2) 0 var(--line-height);line-height:var(--line-height)}h1{font-size:2rem;line-height:calc(2*var(--line-height));margin-bottom:calc(var(--line-height)*2);text-transform:uppercase}a{text-decoration-thickness:var(--border-thickness)}a:link,a:visited{color:var(--text-color)}
+    @font-face{font-family:"JetBrains Mono Fast";src:url("{% static 'fonts/jetbrains-mono-regular-fast.woff2' %}") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+    :root{--font-family:"JetBrains Mono Fast",monospace;--line-height:1.20rem;--border-thickness:2px;--text-color:#fff;--text-color-alt:#aaa;--background-color:#000;--background-color-alt:#111;--font-weight-normal:500;--font-weight-medium:600;--font-weight-bold:800;font-family:var(--font-family);font-optical-sizing:auto;font-weight:var(--font-weight-normal);font-style:normal;font-variant-numeric:tabular-nums lining-nums;font-size:16px;font-feature-settings:"calt" 1}*{box-sizing:border-box}html{display:flex;width:100%;margin:0;padding:0;flex-direction:column;align-items:center;background:var(--background-color);color:var(--text-color)}body{position:relative;width:100%;margin:0;padding:var(--line-height) 2ch;max-width:calc(min(120ch,round(down,100%,1ch)));line-height:var(--line-height);overflow-x:hidden}h1,h2{font-weight:var(--font-weight-bold);margin:calc(var(--line-height)*2) 0 var(--line-height);line-height:var(--line-height)}h1{font-size:2rem;line-height:calc(2*var(--line-height));margin-bottom:calc(var(--line-height)*2);text-transform:uppercase}a{text-decoration-thickness:var(--border-thickness)}a:link,a:visited{color:var(--text-color)}
   </style>
 
   {% block css %}
-  {% versioned_css as css_file %}
-  <link rel="preload" href="{% static css_file %}" as="style" fetchpriority="high">
-  <link rel="stylesheet" href="{% static css_file %}" media="print" onload="this.media='all'; this.onload=null;">
-  <noscript><link rel="stylesheet" href="{% static css_file %}"></noscript>
+  <link rel="preload" href="{% static 'css/combined.min.css' %}" as="style" fetchpriority="high">
+  <link rel="stylesheet" href="{% static 'css/combined.min.css' %}" media="print" onload="this.media='all'; this.onload=null;">
+  <noscript><link rel="stylesheet" href="{% static 'css/combined.min.css' %}"></noscript>
   <link rel="stylesheet" href="{% static 'css/autocomplete.css' %}">
   {% endblock %}
 </head>
