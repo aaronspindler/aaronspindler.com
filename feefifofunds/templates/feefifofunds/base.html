@@ -35,7 +35,6 @@
                 <li><a href="{% url 'feefifofunds:home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">Home</a></li>
                 <li><a href="{% url 'feefifofunds:fund-list' %}" class="{% if 'fund-list' in request.resolver_match.url_name %}active{% endif %}">Funds</a></li>
                 <li><a href="{% url 'feefifofunds:compare' %}" class="{% if 'compare' in request.resolver_match.url_name %}active{% endif %}">Compare</a></li>
-                <li><a href="{% url 'api:root' %}" class="{% if 'api' in request.resolver_match.url_name %}active{% endif %}">API</a></li>
             </ul>
 
             <button class="nav-toggle" aria-label="Toggle navigation">
@@ -64,8 +63,7 @@
                     <ul>
                         <li><a href="{% url 'feefifofunds:home' %}">Home</a></li>
                         <li><a href="{% url 'feefifofunds:fund-list' %}">Browse Funds</a></li>
-                        <li><a href="{% url 'api:root' %}">API</a></li>
-                        <li><a href="/api/docs/">API Docs</a></li>
+                        <li><a href="{% url 'feefifofunds:compare' %}">Compare</a></li>
                     </ul>
                 </div>
 
@@ -73,7 +71,7 @@
                     <h4>Resources</h4>
                     <ul>
                         <li><a href="https://github.com/aaronspindler/aaronspindler.com">GitHub</a></li>
-                        <li><a href="/api/docs/">Documentation</a></li>
+                        <li><a href="{% url 'feefifofunds:home' %}">Documentation</a></li>
                     </ul>
                 </div>
             </div>
