@@ -1,0 +1,93 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <title>{% block title %}FeeFiFoFunds - Smart Fund Comparison{% endblock %}</title>
+
+    <meta name="description" content="{% block meta_description %}Compare mutual funds and ETFs with advanced analytics, performance tracking, and smart recommendations.{% endblock %}">
+    <meta name="keywords" content="{% block meta_keywords %}mutual funds, ETF comparison, fund analysis, investment tools{% endblock %}">
+
+    <!-- Favicon -->
+    <link rel="icon" href="{% static 'feefifofunds/favicon.ico' %}" type="image/x-icon">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="{% static 'feefifofunds/css/main.css' %}">
+    {% block extra_css %}{% endblock %}
+
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="{% url 'feefifofunds:home' %}" class="logo">
+                <i class="fas fa-chart-line"></i>
+                <span>FeeFiFoFunds</span>
+            </a>
+
+            <ul class="nav-menu">
+                <li><a href="{% url 'feefifofunds:home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">Home</a></li>
+                <li><a href="{% url 'feefifofunds:fund-list' %}" class="{% if 'fund-list' in request.resolver_match.url_name %}active{% endif %}">Funds</a></li>
+                <li><a href="{% url 'feefifofunds:compare' %}" class="{% if 'compare' in request.resolver_match.url_name %}active{% endif %}">Compare</a></li>
+                <li><a href="{% url 'api:root' %}" class="{% if 'api' in request.resolver_match.url_name %}active{% endif %}">API</a></li>
+            </ul>
+
+            <button class="nav-toggle" aria-label="Toggle navigation">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>FeeFiFoFunds</h4>
+                    <p>Smart fund comparison and analysis platform.</p>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Links</h4>
+                    <ul>
+                        <li><a href="{% url 'feefifofunds:home' %}">Home</a></li>
+                        <li><a href="{% url 'feefifofunds:fund-list' %}">Browse Funds</a></li>
+                        <li><a href="{% url 'api:root' %}">API</a></li>
+                        <li><a href="/api/docs/">API Docs</a></li>
+                    </ul>
+                </div>
+
+                <div class="footer-section">
+                    <h4>Resources</h4>
+                    <ul>
+                        <li><a href="https://github.com/aaronspindler/aaronspindler.com">GitHub</a></li>
+                        <li><a href="/api/docs/">Documentation</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>&copy; {% now "Y" %} FeeFiFoFunds. Data provided for informational purposes only.</p>
+                <p class="disclaimer">Not investment advice. Past performance does not guarantee future results.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="{% static 'feefifofunds/js/main.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+
+</body>
+</html>

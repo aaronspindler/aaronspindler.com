@@ -1,0 +1,56 @@
+{% extends "feefifofunds/base.html" %}
+{% load static %}
+
+{% block title %}{{ fund.ticker }} - {{ fund.name }} - FeeFiFoFunds{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <div class="fund-title">
+            <h1>{{ fund.ticker }}</h1>
+            <span class="fund-type">{{ fund.get_fund_type_display }}</span>
+        </div>
+        <p>{{ fund.name }}</p>
+    </div>
+</section>
+
+<section class="fund-detail">
+    <div class="container">
+        <p class="info-message">
+            <i class="fas fa-info-circle"></i>
+            Full fund detail page will be implemented in <strong>FUND-034</strong>.
+            This is a placeholder template.
+        </p>
+
+        <div class="detail-grid">
+            <div class="detail-card">
+                <h3>Basic Information</h3>
+                <dl>
+                    <dt>Ticker</dt><dd>{{ fund.ticker }}</dd>
+                    <dt>Name</dt><dd>{{ fund.name }}</dd>
+                    <dt>Type</dt><dd>{{ fund.get_fund_type_display }}</dd>
+                    <dt>Asset Class</dt><dd>{{ fund.get_asset_class_display }}</dd>
+                </dl>
+            </div>
+
+            <div class="detail-card">
+                <h3>Costs</h3>
+                <dl>
+                    <dt>Expense Ratio</dt><dd>{{ fund.expense_ratio|floatformat:2 }}%</dd>
+                    <dt>Total Cost</dt><dd>{{ fund.total_cost_percent|floatformat:2 }}%</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="coming-soon">
+            <h3>Coming in FUND-034:</h3>
+            <ul>
+                <li>Performance charts</li>
+                <li>Holdings breakdown</li>
+                <li>Risk metrics</li>
+                <li>Historical data</li>
+            </ul>
+        </div>
+    </div>
+</section>
+{% endblock %}
