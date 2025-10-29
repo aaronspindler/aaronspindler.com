@@ -7,16 +7,15 @@ from decimal import Decimal
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.urls import reverse
-from django.utils.text import slugify
 
-from .base import SoftDeleteModel, TimestampedModel
+from .asset import Asset
 
 
-class Fund(TimestampedModel, SoftDeleteModel):
+class Fund(Asset):
     """
     Represents a mutual fund, ETF, or other investment fund.
 
-    Core model that stores master fund information and metadata.
+    Extends Asset base model with fund-specific fields and functionality.
     """
 
     class FundType(models.TextChoices):
@@ -41,26 +40,6 @@ class Fund(TimestampedModel, SoftDeleteModel):
         REAL_ESTATE = "REIT", "Real Estate"
         ALTERNATIVE = "ALT", "Alternative"
 
-    # Core identification
-    ticker = models.CharField(
-        max_length=20,
-        unique=True,
-        db_index=True,
-        help_text="Primary ticker symbol",
-    )
-    name = models.CharField(
-        max_length=255,
-        db_index=True,
-        help_text="Full fund name",
-    )
-    slug = models.SlugField(
-        max_length=255,
-        unique=True,
-        db_index=True,
-        blank=True,
-        help_text="URL-friendly slug",
-    )
-
     # Fund classification
     fund_type = models.CharField(
         max_length=10,
@@ -84,10 +63,6 @@ class Fund(TimestampedModel, SoftDeleteModel):
     )
 
     # Fund details
-    description = models.TextField(
-        blank=True,
-        help_text="Fund description and investment strategy",
-    )
     inception_date = models.DateField(
         null=True,
         blank=True,
@@ -134,29 +109,6 @@ class Fund(TimestampedModel, SoftDeleteModel):
         help_text="Back-end load fee as a percentage",
     )
 
-    # Current state
-    current_price = models.DecimalField(
-        max_digits=15,
-        decimal_places=4,
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(Decimal("0.0001"))],
-        help_text="Most recent NAV or price",
-    )
-    previous_close = models.DecimalField(
-        max_digits=15,
-        decimal_places=4,
-        null=True,
-        blank=True,
-        validators=[MinValueValidator(Decimal("0.0001"))],
-        help_text="Previous closing price",
-    )
-    currency = models.CharField(
-        max_length=3,
-        default="USD",
-        help_text="Currency code (ISO 4217)",
-    )
-
     # Fund size and liquidity
     aum = models.DecimalField(
         max_digits=20,
@@ -179,11 +131,6 @@ class Fund(TimestampedModel, SoftDeleteModel):
         blank=True,
         help_text="Primary exchange where the fund trades",
     )
-    website = models.URLField(
-        blank=True,
-        max_length=500,
-        help_text="Official fund website",
-    )
     isin = models.CharField(
         max_length=12,
         blank=True,
@@ -198,11 +145,6 @@ class Fund(TimestampedModel, SoftDeleteModel):
     )
 
     # Data freshness
-    last_updated = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="When the fund data was last updated from external sources",
-    )
     last_price_update = models.DateTimeField(
         null=True,
         blank=True,
@@ -213,9 +155,7 @@ class Fund(TimestampedModel, SoftDeleteModel):
         db_table = "feefifofunds_fund"
         verbose_name = "Fund"
         verbose_name_plural = "Funds"
-        ordering = ["ticker"]
         indexes = [
-            models.Index(fields=["ticker", "is_active"]),
             models.Index(fields=["fund_type", "asset_class"]),
             models.Index(fields=["category"]),
             models.Index(fields=["expense_ratio"]),
@@ -225,12 +165,6 @@ class Fund(TimestampedModel, SoftDeleteModel):
         """String representation."""
         return f"{self.ticker} - {self.name}"
 
-    def save(self, *args, **kwargs):
-        """Override save to auto-generate slug."""
-        if not self.slug:
-            self.slug = slugify(f"{self.ticker}-{self.name}")
-        super().save(*args, **kwargs)
-
     def get_absolute_url(self) -> str:
         """Get the canonical URL for this fund."""
         return reverse("feefifofunds:fund-detail", kwargs={"slug": self.slug})
@@ -238,16 +172,16 @@ class Fund(TimestampedModel, SoftDeleteModel):
     @property
     def price_change(self) -> Decimal | None:
         """Calculate price change from previous close."""
-        if self.current_price and self.previous_close:
-            return self.current_price - self.previous_close
+        if self.current_value and self.previous_value:
+            return self.current_value - self.previous_value
         return None
 
     @property
     def price_change_percent(self) -> Decimal | None:
         """Calculate percentage price change from previous close."""
-        if self.current_price and self.previous_close and self.previous_close > 0:
-            change = self.current_price - self.previous_close
-            return (change / self.previous_close) * 100
+        if self.current_value and self.previous_value and self.previous_value > 0:
+            change = self.current_value - self.previous_value
+            return (change / self.previous_value) * 100
         return None
 
     @property

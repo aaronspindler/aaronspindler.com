@@ -4,12 +4,50 @@ Django admin configuration for FeeFiFoFunds models.
 
 from django.contrib import admin
 from django.utils.html import SafeString, format_html
+from polymorphic.admin import PolymorphicChildModelAdmin, PolymorphicParentModelAdmin
 
-from .models import DataSource, DataSync, Fund, FundHolding, FundMetrics, FundPerformance
+from .models import (
+    Asset,
+    Commodity,
+    CommodityMetrics,
+    CommodityPerformance,
+    Crypto,
+    CryptoMetrics,
+    CryptoPerformance,
+    Currency,
+    CurrencyMetrics,
+    CurrencyPerformance,
+    DataSource,
+    DataSync,
+    Fund,
+    FundHolding,
+    FundMetrics,
+    FundPerformance,
+    InflationData,
+    InflationIndex,
+    InflationMetrics,
+    PropertyValuation,
+    RealEstate,
+    RealEstateMetrics,
+    SavingsAccount,
+    SavingsMetrics,
+    SavingsRateHistory,
+)
+
+
+@admin.register(Asset)
+class AssetParentAdmin(PolymorphicParentModelAdmin):
+    """Polymorphic parent admin for all asset types."""
+
+    base_model = Asset
+    child_models = (Fund, Crypto, Currency, Commodity, InflationIndex, SavingsAccount, RealEstate)
+    list_display = ["ticker", "name", "asset_type_display", "current_value", "quote_currency", "is_active"]
+    list_filter = ["is_active", "quote_currency"]
+    search_fields = ["ticker", "name", "description"]
 
 
 @admin.register(Fund)
-class FundAdmin(admin.ModelAdmin):
+class FundAdmin(PolymorphicChildModelAdmin, admin.ModelAdmin):
     """Admin interface for Fund model."""
 
     list_display = [
@@ -18,7 +56,7 @@ class FundAdmin(admin.ModelAdmin):
         "fund_type",
         "asset_class",
         "expense_ratio",
-        "current_price",
+        "current_value",
         "price_change_display",
         "is_active",
         "last_price_update",
@@ -27,7 +65,7 @@ class FundAdmin(admin.ModelAdmin):
         "fund_type",
         "asset_class",
         "is_active",
-        "currency",
+        "quote_currency",
         "category",
     ]
     search_fields = [
@@ -98,11 +136,11 @@ class FundAdmin(admin.ModelAdmin):
             "Current State",
             {
                 "fields": (
-                    "current_price",
-                    "previous_close",
+                    "current_value",
+                    "previous_value",
                     "price_change",
                     "price_change_percent",
-                    "currency",
+                    "quote_currency",
                     "last_price_update",
                 )
             },
@@ -151,7 +189,7 @@ class FundPerformanceAdmin(admin.ModelAdmin):
     """Admin interface for FundPerformance model."""
 
     list_display = [
-        "fund",
+        "asset",
         "date",
         "interval",
         "close_price",
@@ -167,8 +205,8 @@ class FundPerformanceAdmin(admin.ModelAdmin):
         "date",
     ]
     search_fields = [
-        "fund__ticker",
-        "fund__name",
+        "asset__ticker",
+        "asset__name",
     ]
     readonly_fields = [
         "created_at",
@@ -183,7 +221,7 @@ class FundPerformanceAdmin(admin.ModelAdmin):
             "Basic Info",
             {
                 "fields": (
-                    "fund",
+                    "asset",
                     "date",
                     "interval",
                     "data_source",
@@ -242,7 +280,7 @@ class FundPerformanceAdmin(admin.ModelAdmin):
     )
     ordering = ["-date"]
     date_hierarchy = "date"
-    raw_id_fields = ["fund"]
+    raw_id_fields = ["asset"]
 
 
 @admin.register(FundHolding)
@@ -352,7 +390,7 @@ class FundMetricsAdmin(admin.ModelAdmin):
     """Admin interface for FundMetrics model."""
 
     list_display = [
-        "fund",
+        "asset",
         "time_frame",
         "calculation_date",
         "total_return",
@@ -366,8 +404,8 @@ class FundMetricsAdmin(admin.ModelAdmin):
         "is_active",
     ]
     search_fields = [
-        "fund__ticker",
-        "fund__name",
+        "asset__ticker",
+        "asset__name",
     ]
     readonly_fields = [
         "created_at",
@@ -380,7 +418,7 @@ class FundMetricsAdmin(admin.ModelAdmin):
             "Basic Info",
             {
                 "fields": (
-                    "fund",
+                    "asset",
                     "calculation_date",
                     "time_frame",
                     "data_points",
@@ -495,9 +533,9 @@ class FundMetricsAdmin(admin.ModelAdmin):
             },
         ),
     )
-    ordering = ["-calculation_date", "fund"]
+    ordering = ["-calculation_date", "asset"]
     date_hierarchy = "calculation_date"
-    raw_id_fields = ["fund"]
+    raw_id_fields = ["asset"]
 
 
 @admin.register(DataSource)
@@ -744,3 +782,242 @@ class DataSyncAdmin(admin.ModelAdmin):
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.get_status_display())
 
     status_display.short_description = "Status"
+
+
+# ============================================================================
+# Asset Type Admins
+# ============================================================================
+
+
+@admin.register(Crypto)
+class CryptoAdmin(PolymorphicChildModelAdmin, admin.ModelAdmin):
+    """Admin interface for Crypto model."""
+
+    base_model = Crypto
+    list_display = ["ticker", "name", "blockchain", "token_type", "current_value", "market_cap_rank", "is_active"]
+    list_filter = ["blockchain", "token_type", "is_active"]
+    search_fields = ["ticker", "name", "contract_address"]
+    readonly_fields = ["slug", "created_at", "updated_at", "supply_percentage", "is_capped"]
+
+
+@admin.register(Currency)
+class CurrencyAdmin(PolymorphicChildModelAdmin, admin.ModelAdmin):
+    """Admin interface for Currency model."""
+
+    base_model = Currency
+    list_display = ["ticker", "currency_code", "base_currency", "country", "current_value", "is_major_currency"]
+    list_filter = ["currency_type", "is_major_currency", "is_reserve_currency", "country"]
+    search_fields = ["ticker", "name", "currency_code", "country"]
+    readonly_fields = ["slug", "created_at", "updated_at", "currency_pair"]
+
+
+@admin.register(Commodity)
+class CommodityAdmin(PolymorphicChildModelAdmin, admin.ModelAdmin):
+    """Admin interface for Commodity model."""
+
+    base_model = Commodity
+    list_display = ["ticker", "name", "commodity_type", "unit_of_measure", "current_value", "is_spot_price"]
+    list_filter = ["commodity_type", "trading_exchange", "is_spot_price"]
+    search_fields = ["ticker", "name", "contract_symbol", "grade"]
+    readonly_fields = ["slug", "created_at", "updated_at", "is_precious_metal", "is_energy"]
+
+
+@admin.register(InflationIndex)
+class InflationIndexAdmin(PolymorphicChildModelAdmin, admin.ModelAdmin):
+    """Admin interface for InflationIndex model."""
+
+    base_model = InflationIndex
+    list_display = ["ticker", "index_type", "geographic_region", "base_year", "frequency", "seasonal_adjustment"]
+    list_filter = ["index_type", "geographic_region", "frequency", "seasonal_adjustment"]
+    search_fields = ["ticker", "name", "geographic_region"]
+    readonly_fields = ["slug", "created_at", "updated_at"]
+
+
+@admin.register(SavingsAccount)
+class SavingsAccountAdmin(PolymorphicChildModelAdmin, admin.ModelAdmin):
+    """Admin interface for SavingsAccount model."""
+
+    base_model = SavingsAccount
+    list_display = ["ticker", "institution_name", "account_type", "current_value", "fdic_insured", "is_cd"]
+    list_filter = ["account_type", "fdic_insured", "institution_name"]
+    search_fields = ["ticker", "name", "institution_name"]
+    readonly_fields = ["slug", "created_at", "updated_at", "is_cd", "term_years"]
+
+
+@admin.register(RealEstate)
+class RealEstateAdmin(PolymorphicChildModelAdmin, admin.ModelAdmin):
+    """Admin interface for RealEstate model."""
+
+    base_model = RealEstate
+    list_display = ["ticker", "name", "property_type", "location_city", "location_state", "is_index", "current_value"]
+    list_filter = ["property_type", "location_country", "location_state", "is_index"]
+    search_fields = ["ticker", "name", "location_city", "location_state"]
+    readonly_fields = ["slug", "created_at", "updated_at", "price_per_sqft", "appreciation_percent"]
+
+
+# ============================================================================
+# Performance Model Admins
+# ============================================================================
+
+
+@admin.register(CryptoPerformance)
+class CryptoPerformanceAdmin(admin.ModelAdmin):
+    """Admin interface for CryptoPerformance model."""
+
+    list_display = ["asset", "date", "close_price", "volume_24h", "market_cap", "daily_return"]
+    list_filter = ["interval", "data_source", "is_active", "date"]
+    search_fields = ["asset__ticker", "asset__name"]
+    ordering = ["-date"]
+    date_hierarchy = "date"
+    raw_id_fields = ["asset"]
+
+
+@admin.register(CurrencyPerformance)
+class CurrencyPerformanceAdmin(admin.ModelAdmin):
+    """Admin interface for CurrencyPerformance model."""
+
+    list_display = ["asset", "date", "exchange_rate", "spread", "daily_return"]
+    list_filter = ["interval", "data_source", "is_active", "date"]
+    search_fields = ["asset__ticker", "asset__name"]
+    ordering = ["-date"]
+    date_hierarchy = "date"
+    raw_id_fields = ["asset"]
+
+
+@admin.register(CommodityPerformance)
+class CommodityPerformanceAdmin(admin.ModelAdmin):
+    """Admin interface for CommodityPerformance model."""
+
+    list_display = ["asset", "date", "spot_price", "futures_price", "volume", "daily_return"]
+    list_filter = ["interval", "data_source", "is_active", "date"]
+    search_fields = ["asset__ticker", "asset__name"]
+    ordering = ["-date"]
+    date_hierarchy = "date"
+    raw_id_fields = ["asset"]
+
+
+@admin.register(InflationData)
+class InflationDataAdmin(admin.ModelAdmin):
+    """Admin interface for InflationData model."""
+
+    list_display = ["asset", "date", "index_value", "annual_rate", "monthly_rate"]
+    list_filter = ["interval", "data_source", "is_active", "date"]
+    search_fields = ["asset__ticker", "asset__name"]
+    ordering = ["-date"]
+    date_hierarchy = "date"
+    raw_id_fields = ["asset"]
+
+
+@admin.register(SavingsRateHistory)
+class SavingsRateHistoryAdmin(admin.ModelAdmin):
+    """Admin interface for SavingsRateHistory model."""
+
+    list_display = ["asset", "date", "annual_percentage_yield", "interest_rate", "compounding_frequency"]
+    list_filter = ["interval", "compounding_frequency", "is_active", "date"]
+    search_fields = ["asset__ticker", "asset__name"]
+    ordering = ["-date"]
+    date_hierarchy = "date"
+    raw_id_fields = ["asset"]
+
+
+@admin.register(PropertyValuation)
+class PropertyValuationAdmin(admin.ModelAdmin):
+    """Admin interface for PropertyValuation model."""
+
+    list_display = ["asset", "date", "market_value", "assessed_value", "rental_income_monthly", "valuation_method"]
+    list_filter = ["interval", "valuation_method", "is_active", "date"]
+    search_fields = ["asset__ticker", "asset__name"]
+    ordering = ["-date"]
+    date_hierarchy = "date"
+    raw_id_fields = ["asset"]
+
+
+# ============================================================================
+# Metrics Model Admins
+# ============================================================================
+
+
+@admin.register(CryptoMetrics)
+class CryptoMetricsAdmin(admin.ModelAdmin):
+    """Admin interface for CryptoMetrics model."""
+
+    list_display = ["asset", "time_frame", "calculation_date", "total_return", "sharpe_ratio", "max_drawdown"]
+    list_filter = ["time_frame", "calculation_date", "is_active"]
+    search_fields = ["asset__ticker", "asset__name"]
+    ordering = ["-calculation_date"]
+    date_hierarchy = "calculation_date"
+    raw_id_fields = ["asset"]
+
+
+@admin.register(CurrencyMetrics)
+class CurrencyMetricsAdmin(admin.ModelAdmin):
+    """Admin interface for CurrencyMetrics model."""
+
+    list_display = ["asset", "time_frame", "calculation_date", "total_return", "sharpe_ratio", "volatility"]
+    list_filter = ["time_frame", "calculation_date", "is_active"]
+    search_fields = ["asset__ticker", "asset__name"]
+    ordering = ["-calculation_date"]
+    date_hierarchy = "calculation_date"
+    raw_id_fields = ["asset"]
+
+
+@admin.register(CommodityMetrics)
+class CommodityMetricsAdmin(admin.ModelAdmin):
+    """Admin interface for CommodityMetrics model."""
+
+    list_display = ["asset", "time_frame", "calculation_date", "total_return", "sharpe_ratio", "max_drawdown"]
+    list_filter = ["time_frame", "calculation_date", "is_active"]
+    search_fields = ["asset__ticker", "asset__name"]
+    ordering = ["-calculation_date"]
+    date_hierarchy = "calculation_date"
+    raw_id_fields = ["asset"]
+
+
+@admin.register(InflationMetrics)
+class InflationMetricsAdmin(admin.ModelAdmin):
+    """Admin interface for InflationMetrics model."""
+
+    list_display = [
+        "asset",
+        "time_frame",
+        "calculation_date",
+        "average_annual_rate",
+        "cumulative_inflation",
+        "trend_direction",
+    ]
+    list_filter = ["time_frame", "trend_direction", "calculation_date", "is_active"]
+    search_fields = ["asset__ticker", "asset__name"]
+    ordering = ["-calculation_date"]
+    date_hierarchy = "calculation_date"
+    raw_id_fields = ["asset"]
+
+
+@admin.register(SavingsMetrics)
+class SavingsMetricsAdmin(admin.ModelAdmin):
+    """Admin interface for SavingsMetrics model."""
+
+    list_display = [
+        "asset",
+        "time_frame",
+        "calculation_date",
+        "effective_annual_rate",
+        "real_return",
+        "rate_stability_score",
+    ]
+    list_filter = ["time_frame", "calculation_date", "is_active"]
+    search_fields = ["asset__ticker", "asset__name"]
+    ordering = ["-calculation_date"]
+    date_hierarchy = "calculation_date"
+    raw_id_fields = ["asset"]
+
+
+@admin.register(RealEstateMetrics)
+class RealEstateMetricsAdmin(admin.ModelAdmin):
+    """Admin interface for RealEstateMetrics model."""
+
+    list_display = ["asset", "time_frame", "calculation_date", "cap_rate", "rental_yield", "appreciation_rate"]
+    list_filter = ["time_frame", "calculation_date", "is_active"]
+    search_fields = ["asset__ticker", "asset__name"]
+    ordering = ["-calculation_date"]
+    date_hierarchy = "calculation_date"
+    raw_id_fields = ["asset"]
