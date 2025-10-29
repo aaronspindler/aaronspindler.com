@@ -4,9 +4,9 @@ run-name: "${{ github.event.head_commit.message || github.event.pull_request.tit
 
 on:
   push:
-    branches: [ main ]
+    branches: [ '**' ]  # Run on all branches
   pull_request:
-    branches: [ main ]
+    branches: [ '**' ]  # Run on PRs targeting any branch
     types: [ opened, synchronize, reopened, ready_for_review ]
   workflow_dispatch:
 
