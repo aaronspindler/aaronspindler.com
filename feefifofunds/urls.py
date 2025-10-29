@@ -1,9 +1,3 @@
-"""
-URL configuration for FeeFiFoFunds frontend.
-
-Implements FUND-032: Base Templates routing.
-"""
-
 from django.urls import path
 
 from . import views
