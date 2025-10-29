@@ -138,7 +138,7 @@ make test-run-app APP=blog
 make test-run-specific TEST=blog.tests.test_models
 ```
 
-**Note**: The `make static` command is the primary way to rebuild static assets after CSS/JS changes. It automatically runs pre-commit hooks at the end.
+**Note**: The `make static` command can be used to manually rebuild and optimize static assets during development. WhiteNoise automatically handles versioning and serving of static files in production.
 
 ### CSS and JavaScript Build
 ```bash
@@ -158,7 +158,7 @@ npm run build:js
 npm run build:all
 ```
 
-**IMPORTANT**: Whenever CSS or JS files are modified, you MUST run `make static` to rebuild and apply the changes. This command handles all necessary build steps to optimize and deploy static assets.
+**Note**: CSS and JS files are automatically served by WhiteNoise with content-based cache busting. During development, you can run `make static` to manually rebuild and optimize assets if needed.
 
 **CSS Build Process and Workflow**:
 - **Source files** in `static/css/` (like `base.css`, `blog.css`, etc.) are **developer-friendly and formatted** in git
@@ -343,6 +343,48 @@ python manage.py remove_local_fingerprints --limit 100
 - **accounts/**: User authentication via django-allauth
   - Custom user model
   - Registration disabled by default (NoSignupAccountAdapter)
+
+- **omas/**: Omas Coffee website (omas.coffee)
+  - Separate website served via domain routing middleware
+  - Independent URL routing and templates
+  - Coffee-themed design and branding
+  - Homepage with feature showcase
+
+### Multi-Domain Support
+
+The application uses custom middleware (`config/domain_routing.py`) to serve multiple websites from a single Django project:
+
+**How It Works**:
+- `DomainRoutingMiddleware` inspects the request hostname
+- Maps specific domains to their corresponding URL configurations
+- Falls back to `config.urls` (main site) for unmapped domains
+
+**Configuration** (`config/domain_routing.py`):
+```python
+domain_mapping = {
+    "omas.coffee": "omas.urls",
+    "www.omas.coffee": "omas.urls",
+}
+```
+
+**Settings** (`config/settings.py`):
+- Middleware: `DomainRoutingMiddleware` must be first in the middleware stack
+- `ALLOWED_HOSTS`: Must include all domains to be served
+- `CSRF_TRUSTED_ORIGINS`: Must include all trusted domain origins
+
+**Adding New Domains**:
+1. Create a new Django app for the domain
+2. Add app to `INSTALLED_APPS` in settings.py
+3. Add domain mapping to `config/domain_routing.py`
+4. Add domain to `ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` in settings.py
+5. Create URL configuration (`urls.py`) and views for the new domain
+6. Create templates for the new domain
+7. Deploy and configure DNS to point to the application
+
+**Local Development**:
+- Use `/etc/hosts` to map domains to localhost for testing
+- Example: Add `127.0.0.1 omas.coffee` to `/etc/hosts` to test omas.coffee locally
+- Access via `http://omas.coffee:8000` when running `python manage.py runserver`
 
 ### Key Technical Features
 
@@ -663,6 +705,5 @@ Before completing ANY pull request, verify:
 - Keep CLAUDE.md and README.md synchronized with code changes (see `.cursor/rules/ai-context.mdc`)
 - **Update `docs/` directory whenever code changes** (see `.cursor/rules/documentation.mdc`)
 - **Write clean, forward-looking comments** without references to replaced implementations (see `.cursor/rules/comments.mdc`)
-- Use `make static` after CSS/JS changes to rebuild assets
 - Run `pre-commit run --all-files` before pushing (or use graphite which auto-runs hooks)
 - Dont run tests locally

@@ -23,6 +23,11 @@ aaronspindler.com/
 │   ├── utils.py        # Blog template utilities
 │   ├── forms.py        # Comment forms
 │   └── templates/blog/ # Blog post templates by category
+├── omas/              # Omas Coffee website (omas.coffee)
+│   ├── urls.py         # Domain-specific routing
+│   ├── views.py        # Homepage and content pages
+│   ├── static/omas/    # CSS, JS, and images
+│   └── templates/omas/ # Domain-specific templates
 ├── pages/             # Core website pages
 │   ├── views.py        # Home, health check, resume
 │   ├── utils.py        # Books and projects data
@@ -60,6 +65,11 @@ aaronspindler.com/
   - App-level URL includes
   - API endpoints
   - Admin interface
+
+- **domain_routing.py**: Multi-domain support
+  - Maps domains to specific URL configurations
+  - DomainRoutingMiddleware for request routing
+  - Supports omas.coffee for separate website
 
 - **storage_backends.py**: S3 storage for media files
   - PublicMediaStorage for photos and uploads
@@ -112,6 +122,35 @@ aaronspindler.com/
 - Metadata extracted from template blocks
 - Categories: personal, projects, reviews, tech
 - Automatic numbering system (e.g., `0001_Post_Title.html`)
+
+### omas/ - Omas Coffee Website
+
+**Purpose**: Separate website (omas.coffee) served from the same Django application using multi-domain routing.
+
+**Key Components**:
+
+**Multi-Domain Routing**:
+- **DomainRoutingMiddleware** (`config/domain_routing.py`):
+  - Inspects request hostname and routes to appropriate URL configuration
+  - Maps `omas.coffee` and `www.omas.coffee` to `omas.urls`
+  - Must be first in middleware stack for proper routing
+
+**German Translation System**:
+- **Interactive Hover Tooltips** (`static/omas/js/german-translations.js`):
+  - Automatic detection of German terms in page content
+  - Elegant tooltips with German flag emoji and translations
+  - Mobile touch support with auto-dismiss
+  - Smart positioning based on viewport space
+- **Visual Design**: Rich walnut and antique gold color palette
+- **Typography**: UnifrakturMaguntia font for Gothic brand styling
+
+**Features**:
+- Coffee cart website honoring German Kaffeezeit tradition
+- Memorial tribute to owner's grandmother
+- Spring 2025 opening announcement
+- Newsletter signup integration
+
+**Related Documentation**: [Omas Coffee Feature Documentation](features/omas-coffee.md)
 
 ### pages/ - Core Website
 

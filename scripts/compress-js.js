@@ -8,7 +8,8 @@ const brotli = require('brotli');
 const jsFiles = [
     'static/js/base-optimized.min.js',
     'static/js/knowledge_graph.min.js',
-    'static/js/search-autocomplete.min.js'
+    'static/js/search-autocomplete.min.js',
+    'omas/static/omas/js/german-translations.min.js'
 ];
 
 // Compression function
