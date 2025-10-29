@@ -1,0 +1,124 @@
+{% extends "omas/base.html" %}
+{% load static %}
+
+{% block title %}Omas Coffee - Mit Erinnerung Gebraut{% endblock %}
+
+{% block meta_description %}Premium coffee cart honoring German Kaffeezeit tradition. Experience where memories steep and tradition meets modern craft. Opening Spring 2025.{% endblock %}
+
+{% block content %}
+<!-- Hero Section - Minimalist and Elegant -->
+<section class="hero-minimal">
+    <div class="butterfly-decoration butterfly-golden butterfly-top-left"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-bottom-right"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-mid-left"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-mid-right"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-top-right"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-bottom-left"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-center-float"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-far-left"></div>
+    <div class="butterfly-decoration butterfly-golden butterfly-far-right"></div>
+
+    <div class="hero-inner">
+        <img src="{% static 'omas/images/omas_coffee_logo.png' %}" alt="Omas Coffee Logo" class="main-logo">
+        {% comment %} <h1 class="elegant-title gothic">Omas Coffee</h1> {% endcomment %}
+        <div class="title-divider"></div>
+        <p class="elegant-subtitle"><span data-german="Mit Erinnerung Gebraut" data-translation="Brewed with Memory">Mit Erinnerung Gebraut</span></p>
+        <p style="margin-top: 1rem; color: var(--soft-gold); font-size: 1.1rem; letter-spacing: 0.15em; text-transform: uppercase;">
+            Brewed with Memory
+        </p>
+    </div>
+</section>
+
+<!-- Story Section -->
+<section class="story-section" id="about">
+    <div class="story-container">
+        <div class="story-header">
+            <span class="story-label">Our Story</span>
+            <h2 class="story-title">The <span data-german="Kaffeezeit" data-translation="Coffee Time - The traditional German afternoon coffee break, typically at 3 PM">Kaffeezeit</span> Tradition</h2>
+        </div>
+        <p class="story-text">
+            Every afternoon at 3 PM, German families pause for <em data-german="Kaffeezeit" data-translation="Coffee Time - The traditional German afternoon coffee break, typically at 3 PM">Kaffeezeit</em>—a cherished ritual
+            where coffee, cake, and conversation create moments that matter. At <span data-german="Omas" data-translation="Grandma's">Omas</span> Coffee, we honor
+            this tradition through the memory of our owner's grandmother, whose kitchen welcomed all
+            with the warmth of fresh-brewed coffee and the gentle dance of a golden butterfly at her window.
+        </p>
+        <p class="story-text" style="margin-top: 1.5rem;">
+            That weathered walnut cutting board, worn smooth by generations of loving hands preparing
+            <em data-german="Streuselkuchen" data-translation="Crumb Cake - A traditional German cake with a crumbly topping">Streuselkuchen</em>, inspires every cup we serve. We bring you not just coffee, but
+            a moment of <em data-german="Gemütlichkeit" data-translation="A feeling of warmth, coziness, belonging, and contentment">Gemütlichkeit</em>—that untranslatable feeling of warmth, belonging, and contentment.
+        </p>
+    </div>
+</section>
+
+<!-- Features - Card Layout -->
+<section class="features-modern">
+    <div class="features-container">
+        <div class="feature-modern">
+            <div class="feature-number">01</div>
+            <h3 class="feature-heading">Heritage Roasts</h3>
+            <p class="feature-text">
+                Beans selected with the wisdom of tradition,
+                roasted with modern precision.
+            </p>
+        </div>
+
+        <div class="feature-modern featured">
+            <div class="feature-number">02</div>
+            <h3 class="feature-heading">The Golden Hour</h3>
+            <p class="feature-text">
+                Every afternoon, like clockwork, the perfect moment
+                for coffee and contemplation arrives.
+            </p>
+            <div class="butterfly-accent"></div>
+        </div>
+
+        <div class="feature-modern">
+            <div class="feature-number">03</div>
+            <h3 class="feature-heading">Handcrafted</h3>
+            <p class="feature-text">
+                Each cup prepared with the care of a family recipe
+                passed through loving hands.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- Memorial Section - Elegant and Touching -->
+<section class="memorial-section">
+    <div class="memorial-container">
+        <div class="memorial-header">
+            <img src="{% static 'omas/images/omas_coffee_butterfly_v3.png' %}" alt="Golden Butterfly" class="butterfly-memorial-img">
+            <p class="memorial-label">In Memory of <span data-german="Oma" data-translation="Grandma">Oma</span></p>
+        </div>
+        <blockquote class="memorial-quote">
+            "In her kitchen, a gold butterfly rested on the windowsill
+            while the walnut cutting board bore witness to countless
+            moments of love, laughter, and the perfect cup of coffee."
+        </blockquote>
+        <div class="wood-grain-divider"></div>
+    </div>
+</section>
+
+<!-- Coming Soon Section -->
+<section class="countdown-section">
+    <div class="countdown-container">
+        <h2 class="countdown-title">Getting Started</h2>
+        <p class="countdown-subtitle">
+            We're crafting something special. Join us when we open our doors
+            to share the warmth of tradition with you.
+        </p>
+        <button class="notify-button">Notify Me</button>
+    </div>
+</section>
+
+<!-- Quote Section - Refined -->
+<section class="quote-refined">
+    <div class="quote-container">
+        <p class="quote-elegant">
+            <span class="quote-mark">"</span>
+            <span data-german="Kaffee ist nicht nur ein Getränk" data-translation="Coffee is not just a drink">Kaffee ist nicht nur ein Getränk</span>, <span data-german="sondern eine Lebensart" data-translation="but a way of life">sondern eine Lebensart</span>
+            <span class="quote-mark">"</span>
+        </p>
+    </div>
+</section>
+{% endblock %}

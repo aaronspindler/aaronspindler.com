@@ -1,21 +1,20 @@
 {
   "name": "aaronspindler-css-optimization",
   "version": "1.0.0",
-  "description": "CSS optimization tools for aaronspindler.com",
+  "description": "CSS and JS optimization tools for aaronspindler.com",
   "private": true,
   "scripts": {
     "build:css": "python manage.py build_css",
-    "build:css:critical": "python manage.py build_css --extract-critical",
-    "optimize:css": "python manage.py optimize_css_files",
+    "build:css:dev": "python manage.py build_css --dev",
     "build:js": "npm run minify:js && npm run compress:js",
-    "minify:js": "terser static/js/base.js -o static/js/base.min.js -c -m && terser static/js/knowledge_graph.js -o static/js/knowledge_graph.min.js -c -m && terser static/js/search-autocomplete.js -o static/js/search-autocomplete.min.js -c -m",
+    "minify:js": "terser static/js/base-optimized.js -o static/js/base-optimized.min.js -c -m && terser static/js/knowledge_graph.js -o static/js/knowledge_graph.min.js -c -m && terser static/js/search-autocomplete.js -o static/js/search-autocomplete.min.js -c -m && terser omas/static/omas/js/german-translations.js -o omas/static/omas/js/german-translations.min.js -c -m",
     "compress:js": "node scripts/compress-js.js",
     "build:all": "npm run build:css && npm run build:js"
   },
   "devDependencies": {
     "@lhci/cli": "^0.15.1",
     "autoprefixer": "^10.4.16",
-    "critical": "^5.1.1",
+    "lighthouse": "^12.2.0",
     "cssnano": "^6.0.1",
     "cssnano-preset-advanced": "^6.0.1",
     "postcss": "^8.4.32",

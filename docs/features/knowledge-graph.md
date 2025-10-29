@@ -249,7 +249,7 @@ const forceParams = {
 
 ### Screenshot Settings
 
-Configure Playwright screenshot parameters:
+Configure Pyppeteer screenshot parameters:
 
 ```python
 # In blog/management/commands/generate_knowledge_graph_screenshot.py
@@ -295,7 +295,7 @@ if cache_mtime < latest_mtime:
 - Simplified rendering during interactions
 
 **Server-Side**:
-- Playwright headless mode for screenshots
+- Pyppeteer headless mode for screenshots
 - Viewport optimization (high DPI, hardware acceleration)
 - Parallel link parsing
 - Cached graph data reuse
@@ -317,10 +317,10 @@ if cache_mtime < latest_mtime:
 **Symptoms**: `generate_knowledge_graph_screenshot` command fails
 
 **Solutions**:
-1. Install Playwright browsers: `playwright install chromium`
+1. Install/update Pyppeteer chromium: `python -c "from pyppeteer import chromium_downloader; chromium_downloader.download_chromium()"`
 2. Check URL is accessible: `curl http://localhost:8000/knowledge-graph/`
 3. Ensure server is running (for localhost screenshots)
-4. Check Playwright logs in command output
+4. Check Pyppeteer logs in command output
 5. Try with `--url` parameter pointing to production site
 
 ### Performance Issues

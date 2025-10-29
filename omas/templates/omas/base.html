@@ -1,0 +1,74 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de-en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Omas Coffee - Mit Erinnerung Gebraut{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}Premium coffee cart honoring German coffee tradition. Experience the warmth of Kaffeezeit - where memories steep in every cup.{% endblock %}">
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'omas/images/favicon-32x32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'omas/images/favicon-16x16.png' %}">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
+
+    <!-- Omas Coffee Styles -->
+    <link rel="stylesheet" href="{% static 'omas/css/main.css' %}">
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="/" class="brand">
+                <img src="{% static 'omas/images/omas_coffee_butterfly_v3.png' %}" alt="Omas Coffee Butterfly" class="header-logo">
+                <span class="brand-name gothic">Omas Coffee</span>
+            </a>
+        </div>
+    </header>
+
+    {% block content %}{% endblock %}
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-column">
+                <div class="footer-logo">
+                    <span class="gothic" style="font-size: 1.5rem; color: var(--antique-gold);">Omas Coffee</span>
+                    <p style="margin-top: 0.5rem; color: var(--soft-gold);"><span data-german="Mit Erinnerung Gebraut" data-translation="Brewed with Memory">Mit Erinnerung Gebraut</span></p>
+                </div>
+            </div>
+
+            <div class="footer-column">
+                <h4>Contact</h4>
+                <p style="color: var(--soft-gold); line-height: 1.8;">
+                    <strong>Email:</strong> hello@omas.coffee
+                </p>
+            </div>
+
+            <div class="footer-column">
+                <h4>Newsletter</h4>
+                <p style="color: var(--soft-gold); margin-bottom: 1rem;">Join our family for updates and special offers.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="email" placeholder="Your email address" style="margin-bottom: 0.5rem;">
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Subscribe</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p class="gothic">&copy; {% now "Y" %} Spindlers. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- German Translation Tooltips -->
+    <script src="{% static 'omas/js/german-translations.min.js' %}"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -2,7 +2,7 @@ from django.contrib.messages.storage.fallback import FallbackStorage
 from django.test import RequestFactory, TestCase
 
 from accounts.views import signup_disabled
-from tests.factories import MockDataFactory
+from blog.tests.factories import MockDataFactory
 
 
 class SignupDisabledViewTest(TestCase):

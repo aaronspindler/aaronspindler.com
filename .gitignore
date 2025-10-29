@@ -32,6 +32,9 @@ static/css/critical.css
 static/js/*.min.js
 static/js/*.min.js.gz
 static/js/*.min.js.br
+omas/static/omas/js/*.min.js
+omas/static/omas/js/*.min.js.gz
+omas/static/omas/js/*.min.js.br
 
 # Lighthouse temporary files
 .lighthouseci/

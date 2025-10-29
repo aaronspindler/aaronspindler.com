@@ -1,11 +1,5 @@
 # aaronspindler.com
-
-> A Django-powered personal website featuring interactive knowledge graphs, smart photo management, and a template-based blog system
-
-[![Django](https://img.shields.io/badge/Django-5.2.5-green?style=for-the-badge&logo=django)](https://www.djangoproject.com/)
-[![Python](https://img.shields.io/badge/Python-3.13-blue?style=for-the-badge&logo=python)](https://www.python.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=for-the-badge&logo=docker)](https://www.docker.com/)
+[![codecov](https://codecov.io/gh/aaronspindler/aaronspindler.com/graph/badge.svg?token=AO200M56SH)](https://codecov.io/gh/aaronspindler/aaronspindler.com)
 
 ## Features
 
@@ -22,9 +16,9 @@
 
 **Backend**: Django 5.2.5, Python 3.13, PostgreSQL 15+, Celery, Redis
 **Frontend**: D3.js, Vanilla JavaScript, PostCSS, Prism.js
-**Infrastructure**: Docker, Gunicorn, WhiteNoise, AWS S3, CloudFront
+**Infrastructure**: Docker, Gunicorn, WhiteNoise (static), AWS S3 (media)
 **Search**: PostgreSQL FTS with pg_trgm for typo tolerance
-**Monitoring**: Lighthouse, Playwright, Flower
+**Monitoring**: Lighthouse, Pyppeteer, Flower
 
 ## Quick Start
 
@@ -36,9 +30,9 @@ python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-playwright install chromium
+pip install -r requirements/base.txt
+pip install -r requirements/dev.txt
+# Pyppeteer will auto-download Chromium on first run
 
 # Configure environment
 cp .env.example .env  # Edit with your settings
@@ -63,7 +57,7 @@ Visit `http://localhost:8000`
 ### Docker Setup
 
 ```bash
-docker build -t aaronspindler.com .
+docker build -f deployment/Dockerfile -t aaronspindler.com .
 docker run -p 80:80 --env-file .env.production aaronspindler.com
 ```
 
@@ -127,6 +121,17 @@ aaronspindler.com/
 ├── utils/             # Search, notifications, monitoring
 ├── feefifofunds/      # Financial data integration
 ├── config/            # Django configuration
+├── deployment/        # 🐳 Docker and deployment files
+│   ├── Dockerfile
+│   ├── docker-compose.test.yml
+│   └── *.Dockerfile   # Service-specific images
+├── .config/           # 🔧 Tool configurations
+│   ├── postcss.config.js
+│   ├── purgecss.config.js
+│   └── .prettierrc    # CSS formatter
+├── requirements/      # 📦 Python dependencies
+│   ├── base.txt       # Core dependencies
+│   └── dev.txt        # Development dependencies
 ├── docs/              # 📚 Documentation
 │   ├── features/      # Feature-specific guides
 │   ├── architecture.md
@@ -136,8 +141,9 @@ aaronspindler.com/
 │   ├── deployment.md
 │   └── maintenance.md
 ├── templates/         # Django templates
-├── static/           # CSS, JS, images
-└── tests/            # Test factories
+├── static/            # CSS, JS, images
+├── scripts/           # Utility scripts
+└── tests/             # Test factories
 ```
 
 See [Architecture Guide](docs/architecture.md) for detailed structure.
