@@ -1,115 +1,47 @@
 {% extends "feefifofunds/base.html" %}
-{% load static %}
 
-{% block title %}Compare Funds - FeeFiFoFunds{% endblock %}
+{% block title %}Compare Funds{% endblock %}
 
 {% block content %}
-<section class="page-header">
-    <div class="container">
-        <h1>Compare Funds</h1>
-        <p>Side-by-side comparison with advanced metrics and interactive charts</p>
-    </div>
-</section>
 
-<section class="comparison-tool">
-    <div class="container">
-        <!-- Fund Selector -->
-        <div class="fund-selector-panel">
-            <h3>Select Funds to Compare (up to 5)</h3>
+<h2>Compare Funds</h2>
 
-            <div class="selected-funds">
-                <div class="fund-slot empty">
-                    <i class="fas fa-plus"></i>
-                    <span>Add Fund</span>
-                </div>
-                <div class="fund-slot empty">
-                    <i class="fas fa-plus"></i>
-                    <span>Add Fund</span>
-                </div>
-                <div class="fund-slot empty">
-                    <i class="fas fa-plus"></i>
-                    <span>Add Fund</span>
-                </div>
-                <div class="fund-slot empty">
-                    <i class="fas fa-plus"></i>
-                    <span>Add Fund</span>
-                </div>
-                <div class="fund-slot empty">
-                    <i class="fas fa-plus"></i>
-                    <span>Add Fund</span>
-                </div>
-            </div>
+<p>Fund comparison tool will be fully implemented in <strong>FUND-035</strong>.</p>
 
-            <div class="search-funds">
-                <input type="text" placeholder="Search for funds..." id="fund-search" autocomplete="off">
-                <div class="search-results" id="search-results"></div>
-            </div>
-        </div>
+<h2>API Access</h2>
 
-        <!-- Comparison Table (shown when funds selected) -->
-        <div class="comparison-table" style="display: none;">
-            <h3>Comparison Results</h3>
+<p>For programmatic access, use the comparison JSON endpoint:</p>
 
-            <p class="info-message">
-                <i class="fas fa-info-circle"></i>
-                This feature will be fully implemented in <strong>FUND-035</strong>.
-                For now, use the API endpoint: <code>POST /api/v1/compare/</code>
-            </p>
+<pre><code>GET /feefifofunds/api/compare/?tickers=SPY,VOO,IVV&time_frame=1Y
 
-            <div class="placeholder-comparison">
-                <h4>Coming Soon:</h4>
-                <ul>
-                    <li>Side-by-side metrics comparison</li>
-                    <li>Performance chart overlay</li>
-                    <li>Holdings overlap analysis</li>
-                    <li>Risk-adjusted returns</li>
-                    <li>Export to PDF/Excel</li>
-                </ul>
-            </div>
-        </div>
+POST /feefifofunds/api/compare/
+Body: {"tickers": ["SPY", "VOO", "IVV"], "time_frame": "1Y"}</code></pre>
 
-        <!-- Quick Start -->
-        <div class="quick-start-guide">
-            <h3>How to Compare</h3>
-            <ol>
-                <li>Search for funds by ticker or name</li>
-                <li>Select up to 5 funds to compare</li>
-                <li>View side-by-side metrics and charts</li>
-                <li>Export comparison to PDF or Excel</li>
-            </ol>
+<h2>Planned Features</h2>
 
-            <div class="popular-comparisons">
-                <h4>Popular Comparisons</h4>
-                <ul>
-                    <li><a href="#">SPY vs VOO vs IVV</a> - S&P 500 ETFs</li>
-                    <li><a href="#">QQQ vs VGT vs XLK</a> - Tech Sector</li>
-                    <li><a href="#">BND vs AGG vs TLT</a> - Bond Funds</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</section>
-{% endblock %}
+<table>
+  <tr>
+    <th>Feature</th>
+    <th>Status</th>
+  </tr>
+  <tr>
+    <td>Side-by-side metrics comparison</td>
+    <td>Planned (FUND-035)</td>
+  </tr>
+  <tr>
+    <td>Performance chart overlay</td>
+    <td>Planned (FUND-036)</td>
+  </tr>
+  <tr>
+    <td>Holdings overlap analysis</td>
+    <td>Backend complete</td>
+  </tr>
+  <tr>
+    <td>Risk-adjusted returns</td>
+    <td>Planned (FUND-018)</td>
+  </tr>
+</table>
 
-{% block extra_js %}
-<script>
-// Placeholder for comparison functionality
-// Will be fully implemented in FUND-035
+<p><a href="{% url 'feefifofunds:fund-list' %}">← Back to fund list</a></p>
 
-const fundSearch = document.getElementById('fund-search');
-const searchResults = document.getElementById('search-results');
-
-fundSearch.addEventListener('input', function(e) {
-    const query = e.target.value;
-
-    if (query.length < 2) {
-        searchResults.innerHTML = '';
-        return;
-    }
-
-    // This will use /api/v1/funds/search/ endpoint (FUND-026)
-    console.log('Searching for:', query);
-    searchResults.innerHTML = '<div class="placeholder">Fund search will be implemented in FUND-026</div>';
-});
-</script>
 {% endblock %}

@@ -1,177 +1,91 @@
 {% extends "feefifofunds/base.html" %}
-{% load static %}
 
-{% block title %}Browse Funds - FeeFiFoFunds{% endblock %}
+{% block title %}Browse Funds{% endblock %}
 
 {% block content %}
-<section class="page-header">
-    <div class="container">
-        <h1>Browse Funds</h1>
-        <p>Explore and compare thousands of mutual funds and ETFs</p>
-    </div>
-</section>
 
-<section class="fund-browser">
-    <div class="container">
-        <div class="browser-layout">
-            <!-- Filters Sidebar -->
-            <aside class="filters-sidebar">
-                <h3>Filters</h3>
+<h2>Browse Funds</h2>
 
-                <form method="get" action="{% url 'feefifofunds:fund-list' %}" class="filter-form">
-                    <!-- Search -->
-                    <div class="filter-group">
-                        <label for="search">Search</label>
-                        <input type="text" id="search" name="q" placeholder="Ticker or name..." value="{{ request.GET.q }}">
-                    </div>
+<details>
+  <summary>Filters</summary>
+  <form method="get" action="{% url 'feefifofunds:fund-list' %}">
+    <table>
+      <tr>
+        <th>Search</th>
+        <td><input type="text" name="q" placeholder="Ticker or name..." value="{{ request.GET.q }}" style="width: 100%;"></td>
+      </tr>
+      <tr>
+        <th>Fund Type</th>
+        <td>
+          <select name="fund_type" style="width: 100%;">
+            <option value="">All Types</option>
+            <option value="ETF" {% if request.GET.fund_type == "ETF" %}selected{% endif %}>ETF</option>
+            <option value="MUTUAL" {% if request.GET.fund_type == "MUTUAL" %}selected{% endif %}>Mutual Fund</option>
+            <option value="INDEX" {% if request.GET.fund_type == "INDEX" %}selected{% endif %}>Index Fund</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <th>Asset Class</th>
+        <td>
+          <select name="asset_class" style="width: 100%;">
+            <option value="">All Assets</option>
+            <option value="EQUITY" {% if request.GET.asset_class == "EQUITY" %}selected{% endif %}>Equity</option>
+            <option value="BOND" {% if request.GET.asset_class == "BOND" %}selected{% endif %}>Fixed Income</option>
+            <option value="MIXED" {% if request.GET.asset_class == "MIXED" %}selected{% endif %}>Balanced</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <th>Max Expense Ratio (%)</th>
+        <td><input type="number" name="max_expense" step="0.01" min="0" placeholder="e.g., 0.50" value="{{ request.GET.max_expense }}" style="width: 100%;"></td>
+      </tr>
+      <tr>
+        <td colspan="2" style="text-align: right;">
+          <button type="submit">Apply Filters</button>
+          <a href="{% url 'feefifofunds:fund-list' %}">Clear</a>
+        </td>
+      </tr>
+    </table>
+  </form>
+</details>
 
-                    <!-- Fund Type -->
-                    <div class="filter-group">
-                        <label for="fund_type">Fund Type</label>
-                        <select id="fund_type" name="fund_type">
-                            <option value="">All Types</option>
-                            <option value="ETF">ETF</option>
-                            <option value="MUTUAL">Mutual Fund</option>
-                            <option value="INDEX">Index Fund</option>
-                        </select>
-                    </div>
+{% if funds %}
+<table>
+  <tr>
+    <th>Ticker</th>
+    <th>Name</th>
+    <th>Type</th>
+    <th>Price</th>
+    <th>Change</th>
+    <th>Expense Ratio</th>
+  </tr>
+  {% for fund in funds %}
+  <tr>
+    <td><a href="{% url 'feefifofunds:fund-detail' slug=fund.slug %}">{{ fund.ticker }}</a></td>
+    <td>{{ fund.name|truncatewords:8 }}</td>
+    <td>{{ fund.get_fund_type_display }}</td>
+    <td>{% if fund.current_price %}${{ fund.current_price|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td>{% if fund.price_change_percent %}{% if fund.price_change_percent > 0 %}+{% endif %}{{ fund.price_change_percent|floatformat:2 }}%{% else %}—{% endif %}</td>
+    <td>{% if fund.expense_ratio %}{{ fund.expense_ratio|floatformat:4 }}%{% else %}—{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
 
-                    <!-- Asset Class -->
-                    <div class="filter-group">
-                        <label for="asset_class">Asset Class</label>
-                        <select id="asset_class" name="asset_class">
-                            <option value="">All Assets</option>
-                            <option value="EQUITY">Equity</option>
-                            <option value="BOND">Fixed Income</option>
-                            <option value="MIXED">Balanced</option>
-                        </select>
-                    </div>
+{% if is_paginated %}
+<p>
+  Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+  {% if page_obj.has_previous %}
+  | <a href="?page={{ page_obj.previous_page_number }}">← Previous</a>
+  {% endif %}
+  {% if page_obj.has_next %}
+  | <a href="?page={{ page_obj.next_page_number }}">Next →</a>
+  {% endif %}
+</p>
+{% endif %}
 
-                    <!-- Expense Ratio -->
-                    <div class="filter-group">
-                        <label for="max_expense">Max Expense Ratio (%)</label>
-                        <input type="number" id="max_expense" name="max_expense" step="0.01" min="0" placeholder="e.g., 0.50">
-                    </div>
+{% else %}
+<p>No funds found. {% if request.GET %}<a href="{% url 'feefifofunds:fund-list' %}">Clear filters</a> or {% endif %}add funds using the admin panel.</p>
+{% endif %}
 
-                    <button type="submit" class="btn btn-primary">Apply Filters</button>
-                    <a href="{% url 'feefifofunds:fund-list' %}" class="btn btn-secondary">Clear</a>
-                </form>
-            </aside>
-
-            <!-- Fund List -->
-            <div class="fund-list-main">
-                <div class="list-controls">
-                    <div class="sort-options">
-                        <label>Sort by:</label>
-                        <select name="sort" onchange="this.form.submit()">
-                            <option value="ticker">Ticker</option>
-                            <option value="name">Name</option>
-                            <option value="-current_price">Price (High to Low)</option>
-                            <option value="current_price">Price (Low to High)</option>
-                            <option value="expense_ratio">Expense Ratio</option>
-                        </select>
-                    </div>
-
-                    <div class="view-options">
-                        <span>View:</span>
-                        <button class="view-toggle active" data-view="grid"><i class="fas fa-th"></i></button>
-                        <button class="view-toggle" data-view="list"><i class="fas fa-list"></i></button>
-                    </div>
-                </div>
-
-                {% if funds %}
-                <div class="fund-grid">
-                    {% for fund in funds %}
-                    <div class="fund-card">
-                        <div class="fund-header">
-                            <h3>{{ fund.ticker }}</h3>
-                            <span class="fund-type">{{ fund.get_fund_type_display }}</span>
-                        </div>
-                        <p class="fund-name">{{ fund.name }}</p>
-
-                        <div class="fund-metrics">
-                            <div class="metric">
-                                <span class="metric-label">Price</span>
-                                <span class="metric-value">${{ fund.current_price|floatformat:2 }}</span>
-                            </div>
-                            <div class="metric">
-                                <span class="metric-label">Change</span>
-                                <span class="metric-value {% if fund.price_change_percent > 0 %}positive{% elif fund.price_change_percent < 0 %}negative{% endif %}">
-                                    {% if fund.price_change_percent > 0 %}+{% endif %}{{ fund.price_change_percent|floatformat:2 }}%
-                                </span>
-                            </div>
-                            <div class="metric">
-                                <span class="metric-label">Expense Ratio</span>
-                                <span class="metric-value">{{ fund.expense_ratio|floatformat:2 }}%</span>
-                            </div>
-                        </div>
-
-                        <div class="fund-actions">
-                            <a href="{% url 'feefifofunds:fund-detail' slug=fund.slug %}" class="btn btn-sm btn-primary">View Details</a>
-                            <button class="btn btn-sm btn-secondary add-to-compare" data-ticker="{{ fund.ticker }}">
-                                <i class="fas fa-plus"></i> Compare
-                            </button>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-
-                <!-- Pagination -->
-                {% if is_paginated %}
-                <div class="pagination">
-                    {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-sm">Previous</a>
-                    {% endif %}
-
-                    <span class="page-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
-
-                    {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}" class="btn btn-sm">Next</a>
-                    {% endif %}
-                </div>
-                {% endif %}
-
-                {% else %}
-                <div class="empty-state">
-                    <i class="fas fa-folder-open fa-3x"></i>
-                    <h3>No funds found</h3>
-                    <p>Try adjusting your filters or add funds using the admin panel.</p>
-                    <a href="{% url 'feefifofunds:fund-list' %}" class="btn btn-primary">Clear Filters</a>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</section>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-// Add to compare functionality (placeholder)
-document.querySelectorAll('.add-to-compare').forEach(button => {
-    button.addEventListener('click', function() {
-        const ticker = this.dataset.ticker;
-        console.log('Adding to compare:', ticker);
-        // Will be implemented in FUND-035
-        alert(`Adding ${ticker} to comparison (feature coming in FUND-035)`);
-    });
-});
-
-// View toggle functionality
-document.querySelectorAll('.view-toggle').forEach(button => {
-    button.addEventListener('click', function() {
-        document.querySelectorAll('.view-toggle').forEach(b => b.classList.remove('active'));
-        this.classList.add('active');
-
-        const view = this.dataset.view;
-        const grid = document.querySelector('.fund-grid');
-
-        if (view === 'list') {
-            grid.classList.add('list-view');
-        } else {
-            grid.classList.remove('list-view');
-        }
-    });
-});
-</script>
 {% endblock %}

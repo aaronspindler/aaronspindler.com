@@ -3,17 +3,29 @@ Yahoo Finance data source integration.
 
 Uses yfinance library to fetch fund data from Yahoo Finance.
 Free tier with no API key required.
+
+NOTE: Requires 'yfinance' package to be installed.
+Install with: pip install yfinance
 """
 
 from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 
-import yfinance as yf
 from django.utils import timezone
 
 from .base import BaseDataSource, DataNotFoundError, DataSourceError
 from .dto import FundDataDTO, HoldingDataDTO, PerformanceDataDTO
+
+# Lazy import yfinance to avoid import errors when package is not installed
+# This allows the module to be imported during test discovery without failing
+try:
+    import yfinance as yf
+
+    YFINANCE_AVAILABLE = True
+except ImportError:
+    YFINANCE_AVAILABLE = False
+    yf = None
 
 
 class YahooFinance(BaseDataSource):
@@ -44,7 +56,15 @@ class YahooFinance(BaseDataSource):
 
         Args:
             api_key: Not required for Yahoo Finance
+
+        Raises:
+            ImportError: If yfinance package is not installed
         """
+        if not YFINANCE_AVAILABLE:
+            raise ImportError(
+                "yfinance package is required for Yahoo Finance data source. " "Install with: pip install yfinance"
+            )
+
         super().__init__(api_key=api_key)
 
         # Update data source model with capabilities

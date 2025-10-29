@@ -2,90 +2,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
-    <title>{% block title %}FeeFiFoFunds - Smart Fund Comparison{% endblock %}</title>
+  <title>{% block title %}FeeFiFoFunds{% endblock %} - Aaron Spindler</title>
 
-    <meta name="description" content="{% block meta_description %}Compare mutual funds and ETFs with advanced analytics, performance tracking, and smart recommendations.{% endblock %}">
-    <meta name="keywords" content="{% block meta_keywords %}mutual funds, ETF comparison, fund analysis, investment tools{% endblock %}">
+  <meta name="description" content="{% block meta_description %}Fund comparison and analysis tool.{% endblock %}">
 
-    <!-- Favicon -->
-    <link rel="icon" href="{% static 'feefifofunds/favicon.ico' %}" type="image/x-icon">
+  <!-- DNS Prefetch for external resources -->
+  <link rel="dns-prefetch" href="https://spindlers-s3.s3.amazonaws.com">
+  <link rel="preconnect" href="https://spindlers-s3.s3.amazonaws.com" crossorigin>
 
-    <!-- Stylesheets -->
-    <link rel="stylesheet" href="{% static 'feefifofunds/css/main.css' %}">
-    {% block extra_css %}{% endblock %}
+  <!-- Preload critical fonts with high priority -->
+  <link rel="preload" href="{% static 'fonts/jetbrains-mono-regular-fast.woff2' %}" as="font" type="font/woff2" crossorigin="anonymous" fetchpriority="high">
+  <link rel="preload" href="{% static 'fonts/jetbrains-mono-medium-fast.woff2' %}" as="font" type="font/woff2" crossorigin="anonymous">
+  <link rel="preload" href="{% static 'fonts/jetbrains-mono-bold-fast.woff2' %}" as="font" type="font/woff2" crossorigin="anonymous">
 
-    <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Critical CSS inline for instant rendering -->
+  <style>
+    @font-face{font-family:"JetBrains Mono Fast";src:url("{% static 'fonts/jetbrains-mono-regular-fast.woff2' %}") format("woff2");font-weight:500;font-style:normal;font-display:swap}
+    :root{--font-family:"JetBrains Mono Fast",monospace;--line-height:1.20rem;--border-thickness:2px;--text-color:#fff;--text-color-alt:#aaa;--background-color:#000;--background-color-alt:#111;--font-weight-normal:500;--font-weight-medium:600;--font-weight-bold:800;font-family:var(--font-family);font-optical-sizing:auto;font-weight:var(--font-weight-normal);font-style:normal;font-variant-numeric:tabular-nums lining-nums;font-size:16px;font-feature-settings:"calt" 1}*{box-sizing:border-box}html{display:flex;width:100%;margin:0;padding:0;flex-direction:column;align-items:center;background:var(--background-color);color:var(--text-color)}body{position:relative;width:100%;margin:0;padding:var(--line-height) 2ch;max-width:calc(min(120ch,round(down,100%,1ch)));line-height:var(--line-height);overflow-x:hidden}h1,h2{font-weight:var(--font-weight-bold);margin:calc(var(--line-height)*2) 0 var(--line-height);line-height:var(--line-height)}h1{font-size:2rem;line-height:calc(2*var(--line-height));margin-bottom:calc(var(--line-height)*2);text-transform:uppercase}a{text-decoration-thickness:var(--border-thickness)}a:link,a:visited{color:var(--text-color)}
+  </style>
+
+  {% block css %}
+  <link rel="preload" href="{% static 'css/combined.min.css' %}" as="style" fetchpriority="high">
+  <link rel="stylesheet" href="{% static 'css/combined.min.css' %}" media="print" onload="this.media='all'; this.onload=null;">
+  <noscript><link rel="stylesheet" href="{% static 'css/combined.min.css' %}"></noscript>
+  {% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}">
 
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="container">
-            <a href="{% url 'feefifofunds:home' %}" class="logo">
-                <i class="fas fa-chart-line"></i>
-                <span>FeeFiFoFunds</span>
-            </a>
+<body>
+  <!-- Header -->
+  <header role="banner">
+    <table class="header">
+      <tr>
+        <td colspan="2" rowspan="2" class="width-auto">
+          <h1 class="title"><a href="{% url 'feefifofunds:home' %}" style="color: inherit; text-decoration: none;">FEEFIFOFUNDS</a></h1>
+          <span class="subtitle">Fund comparison and analysis</span>
+        </td>
+        <th scope="row">Funds</th>
+        <td class="width-min"><a href="{% url 'feefifofunds:fund-list' %}">/funds</a></td>
+      </tr>
+      <tr>
+        <th scope="row">Compare</th>
+        <td class="width-min"><a href="{% url 'feefifofunds:compare' %}">/compare</a></td>
+      </tr>
+    </table>
+  </header>
 
-            <ul class="nav-menu">
-                <li><a href="{% url 'feefifofunds:home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">Home</a></li>
-                <li><a href="{% url 'feefifofunds:fund-list' %}" class="{% if 'fund-list' in request.resolver_match.url_name %}active{% endif %}">Funds</a></li>
-                <li><a href="{% url 'feefifofunds:compare' %}" class="{% if 'compare' in request.resolver_match.url_name %}active{% endif %}">Compare</a></li>
-            </ul>
+  {% block content %}
+  {% endblock content %}
 
-            <button class="nav-toggle" aria-label="Toggle navigation">
-                <i class="fas fa-bars"></i>
-            </button>
-        </div>
-    </nav>
+  <!-- Footer -->
+  <footer role="contentinfo" style="margin-top: calc(var(--line-height) * 4); padding-top: calc(var(--line-height) * 2); border-top: calc(var(--border-thickness) * 3) double var(--text-color);">
+    <p style="color: var(--text-color-alt); font-size: 0.875rem; margin: 0;">
+      Data provided for informational purposes only. Not investment advice.
+    </p>
+  </footer>
 
-    <!-- Main Content -->
-    <main>
-        {% block content %}
-        {% endblock %}
-    </main>
+  {% block javascript %}
+  <script src="{% static 'js/base-optimized.min.js' %}" defer></script>
+  {% endblock javascript %}
 
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h4>FeeFiFoFunds</h4>
-                    <p>Smart fund comparison and analysis platform.</p>
-                </div>
-
-                <div class="footer-section">
-                    <h4>Links</h4>
-                    <ul>
-                        <li><a href="{% url 'feefifofunds:home' %}">Home</a></li>
-                        <li><a href="{% url 'feefifofunds:fund-list' %}">Browse Funds</a></li>
-                        <li><a href="{% url 'feefifofunds:compare' %}">Compare</a></li>
-                    </ul>
-                </div>
-
-                <div class="footer-section">
-                    <h4>Resources</h4>
-                    <ul>
-                        <li><a href="https://github.com/aaronspindler/aaronspindler.com">GitHub</a></li>
-                        <li><a href="{% url 'feefifofunds:home' %}">Documentation</a></li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="footer-bottom">
-                <p>&copy; {% now "Y" %} FeeFiFoFunds. Data provided for informational purposes only.</p>
-                <p class="disclaimer">Not investment advice. Past performance does not guarantee future results.</p>
-            </div>
-        </div>
-    </footer>
-
-    <!-- Scripts -->
-    <script src="{% static 'feefifofunds/js/main.js' %}"></script>
-    {% block extra_js %}{% endblock %}
+  {% block extra_js %}{% endblock extra_js %}
 
 </body>
 </html>

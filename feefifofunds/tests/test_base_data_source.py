@@ -8,7 +8,6 @@ from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import Mock, patch
 
-import pytest
 import requests
 from django.core.cache import cache
 from django.test import TestCase
@@ -430,8 +429,3 @@ class HoldingDataDTOTestCase(TestCase):
         dto = HoldingDataDTO(ticker="AAPL", name="Apple Inc.", weight=Decimal("5.25"))
 
         self.assertEqual(dto.holding_type, "EQUITY")
-
-
-# Run tests with pytest
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])

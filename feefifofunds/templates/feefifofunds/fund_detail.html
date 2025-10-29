@@ -1,56 +1,93 @@
 {% extends "feefifofunds/base.html" %}
-{% load static %}
 
-{% block title %}{{ fund.ticker }} - {{ fund.name }} - FeeFiFoFunds{% endblock %}
+{% block title %}{{ fund.ticker }}{% endblock %}
 
 {% block content %}
-<section class="page-header">
-    <div class="container">
-        <div class="fund-title">
-            <h1>{{ fund.ticker }}</h1>
-            <span class="fund-type">{{ fund.get_fund_type_display }}</span>
-        </div>
-        <p>{{ fund.name }}</p>
-    </div>
-</section>
 
-<section class="fund-detail">
-    <div class="container">
-        <p class="info-message">
-            <i class="fas fa-info-circle"></i>
-            Full fund detail page will be implemented in <strong>FUND-034</strong>.
-            This is a placeholder template.
-        </p>
+<h2>{{ fund.ticker }} - {{ fund.name }}</h2>
 
-        <div class="detail-grid">
-            <div class="detail-card">
-                <h3>Basic Information</h3>
-                <dl>
-                    <dt>Ticker</dt><dd>{{ fund.ticker }}</dd>
-                    <dt>Name</dt><dd>{{ fund.name }}</dd>
-                    <dt>Type</dt><dd>{{ fund.get_fund_type_display }}</dd>
-                    <dt>Asset Class</dt><dd>{{ fund.get_asset_class_display }}</dd>
-                </dl>
-            </div>
+<table>
+  <tr>
+    <th>Type</th>
+    <td>{{ fund.get_fund_type_display }}</td>
+  </tr>
+  <tr>
+    <th>Asset Class</th>
+    <td>{{ fund.get_asset_class_display }}</td>
+  </tr>
+  {% if fund.category %}
+  <tr>
+    <th>Category</th>
+    <td>{{ fund.category }}</td>
+  </tr>
+  {% endif %}
+  {% if fund.issuer %}
+  <tr>
+    <th>Issuer</th>
+    <td>{{ fund.issuer }}</td>
+  </tr>
+  {% endif %}
+  {% if fund.inception_date %}
+  <tr>
+    <th>Inception Date</th>
+    <td>{{ fund.inception_date|date:"Y-m-d" }}</td>
+  </tr>
+  {% endif %}
+</table>
 
-            <div class="detail-card">
-                <h3>Costs</h3>
-                <dl>
-                    <dt>Expense Ratio</dt><dd>{{ fund.expense_ratio|floatformat:2 }}%</dd>
-                    <dt>Total Cost</dt><dd>{{ fund.total_cost_percent|floatformat:2 }}%</dd>
-                </dl>
-            </div>
-        </div>
+<h2>Current Price</h2>
 
-        <div class="coming-soon">
-            <h3>Coming in FUND-034:</h3>
-            <ul>
-                <li>Performance charts</li>
-                <li>Holdings breakdown</li>
-                <li>Risk metrics</li>
-                <li>Historical data</li>
-            </ul>
-        </div>
-    </div>
-</section>
+<table>
+  <tr>
+    <th>Current Price</th>
+    <td>{% if fund.current_price %}${{ fund.current_price|floatformat:2 }}{% else %}—{% endif %}</td>
+  </tr>
+  <tr>
+    <th>Previous Close</th>
+    <td>{% if fund.previous_close %}${{ fund.previous_close|floatformat:2 }}{% else %}—{% endif %}</td>
+  </tr>
+  <tr>
+    <th>Change</th>
+    <td>{% if fund.price_change %}${{ fund.price_change|floatformat:2 }} ({% if fund.price_change_percent > 0 %}+{% endif %}{{ fund.price_change_percent|floatformat:2 }}%){% else %}—{% endif %}</td>
+  </tr>
+  {% if fund.aum %}
+  <tr>
+    <th>AUM</th>
+    <td>${{ fund.aum|floatformat:2 }}M</td>
+  </tr>
+  {% endif %}
+</table>
+
+<h2>Costs & Fees</h2>
+
+<table>
+  <tr>
+    <th>Expense Ratio</th>
+    <td>{% if fund.expense_ratio %}{{ fund.expense_ratio|floatformat:4 }}%{% else %}—{% endif %}</td>
+  </tr>
+  {% if fund.management_fee %}
+  <tr>
+    <th>Management Fee</th>
+    <td>{{ fund.management_fee|floatformat:4 }}%</td>
+  </tr>
+  {% endif %}
+  <tr>
+    <th>Total Cost</th>
+    <td>{{ fund.total_cost_percent|floatformat:4 }}%</td>
+  </tr>
+</table>
+
+{% if fund.description %}
+<h2>Description</h2>
+<p>{{ fund.description }}</p>
+{% endif %}
+
+<hr>
+
+<p style="color: var(--text-color-alt); font-size: 0.875rem;">
+  Full fund detail page (performance charts, holdings, risk metrics) will be implemented in FUND-034.
+</p>
+
+<p><a href="{% url 'feefifofunds:fund-list' %}">← Back to fund list</a></p>
+
 {% endblock %}

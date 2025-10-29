@@ -11,8 +11,10 @@ from celery import shared_task
 from django.utils import timezone
 
 from feefifofunds.models import DataSync, Fund, FundPerformance
-from feefifofunds.services.data_sources.yahoo_finance import YahooFinance
 from feefifofunds.services.validators import DataValidator
+
+# YahooFinance imported inside task functions to avoid import errors
+# when yfinance package is not installed (e.g., during test collection)
 
 
 @shared_task(
@@ -31,6 +33,8 @@ def fetch_daily_prices_task(self):
     Returns:
         Dict with task results
     """
+    from feefifofunds.services.data_sources.yahoo_finance import YahooFinance
+
     source = YahooFinance()
     validator = DataValidator()
 
@@ -140,6 +144,8 @@ def fetch_fund_data_task(self, ticker: str):
     Returns:
         Dict with fetch results
     """
+    from feefifofunds.services.data_sources.yahoo_finance import YahooFinance
+
     source = YahooFinance()
     validator = DataValidator()
 

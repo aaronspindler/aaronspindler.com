@@ -94,6 +94,17 @@ class BaseDataSource(ABC):
         Returns:
             True if request can be made, False otherwise
         """
+        # Refresh data source model to get latest status
+        self.data_source_model.refresh_from_db()
+
+        # Check if data source is in ERROR status (auto-disabled after 5 failures)
+        if self.data_source_model.status == DataSource.Status.ERROR:
+            return False
+
+        # Check if data source is inactive
+        if not self.data_source_model.is_active:
+            return False
+
         # Use Redis cache for rate limiting
         key = f"datasource_ratelimit:{self.name}"
 
@@ -102,8 +113,8 @@ class BaseDataSource(ABC):
 
         # Check if we're under the limit
         if current_count < self.rate_limit_requests:
-            # Increment counter
-            cache.set(key, current_count + 1, self.rate_limit_period)
+            # Increment counter with proper expiry
+            cache.set(key, current_count + 1, timeout=self.rate_limit_period)
             return True
 
         return False
@@ -117,6 +128,12 @@ class BaseDataSource(ABC):
             error_message: Error message if request failed
         """
         self.data_source_model.record_request(success=success, error_message=error_message)
+
+        # Also update Redis cache counter to keep it in sync with database
+        # This ensures can_make_request() rate limiting works correctly
+        key = f"datasource_ratelimit:{self.name}"
+        self.data_source_model.refresh_from_db()
+        cache.set(key, self.data_source_model.requests_today, timeout=self.rate_limit_period)
 
     def wait_for_rate_limit(self):
         """Wait if necessary to respect rate limits."""
@@ -153,17 +170,22 @@ class BaseDataSource(ABC):
             return response.json()
         except requests.exceptions.HTTPError as e:
             # Enhanced error message with context
-            error_context = f"HTTP {e.response.status_code} error for {url}"
+            error_context = f"HTTP error for {url}"
+            if hasattr(e, "response") and e.response is not None:
+                error_context = f"HTTP {e.response.status_code} error for {url}"
+                # Include response body (truncated) - check if text is string
+                try:
+                    if hasattr(e.response, "text") and isinstance(e.response.text, str):
+                        error_context += f": {e.response.text[:200]}"
+                except (TypeError, AttributeError):
+                    pass
+
+                if e.response.status_code == 429:
+                    self.record_request(success=False, error_message=error_context)
+                    raise RateLimitError(f"Rate limit exceeded for {self.name}: {error_context}")
+
             if params:
                 error_context += f" with params={params}"
-
-            # Include response body (truncated)
-            if e.response.text:
-                error_context += f": {e.response.text[:200]}"
-
-            if e.response.status_code == 429:
-                self.record_request(success=False, error_message=error_context)
-                raise RateLimitError(f"Rate limit exceeded for {self.name}: {error_context}")
 
             self.record_request(success=False, error_message=error_context)
             raise DataSourceError(error_context)
