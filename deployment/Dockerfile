@@ -99,6 +99,7 @@ RUN chmod +x /docker-entrypoint.sh
 # Copy static files and build configuration (needed for JS build)
 COPY static/ ./static/
 COPY scripts/ ./scripts/
+COPY omas/static/ ./omas/static/
 
 # Build and optimize JavaScript files (skip during test builds with --build-arg SKIP_JS_BUILD=1)
 ARG SKIP_JS_BUILD=0
