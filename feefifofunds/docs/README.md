@@ -35,7 +35,7 @@ For detailed setup instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 - ✅ **DTOs** - Standardized data transfer objects for external APIs
 - ✅ **Comparison Engine** - Logic for comparing multiple funds across various metrics
 - ✅ **Data Validation** - Comprehensive validation pipeline for external data
-- ⚠️ **External Data Sources** - Framework ready, but no working implementations (Yahoo Finance removed)
+- ⚠️ **External Data Sources** - Framework ready, implementations pending
 - ✅ **Basic Views** - HTML views (home, list, detail, compare)
 - ✅ **JSON API Endpoints** - Fund data, performance, holdings, comparison
 - ✅ **Management Commands** - CLI tools for data fetching and metrics calculation
@@ -72,10 +72,10 @@ feefifofunds/
 │   ├── calculators.py   # 🚧 Metrics calculation (stub)
 │   ├── comparison.py    # ✅ Fund comparison (complete)
 │   ├── validators.py    # ✅ Data validation (complete)
-│   └── data_sources/    # ✅ External API integrations
+│   └── data_sources/    # 🚧 External API integrations
 │       ├── base.py      # ✅ Abstract base (complete)
 │       ├── dto.py       # ✅ Data transfer objects (complete)
-│       └── yahoo_finance.py  # 🚧 Yahoo Finance (ready for testing)
+│       └── example_source.py  # 📋 Placeholder for future implementations
 │
 ├── views.py             # ✅ HTML views (basic)
 ├── views_json.py        # ✅ JSON API endpoints (complete)
@@ -110,7 +110,7 @@ feefifofunds/
 ### Short-term Goals (Next 3-6 Months)
 
 1. Complete metrics calculation algorithms
-2. Integrate and test Yahoo Finance data source
+2. Implement official data source (Alpha Vantage, Polygon.io, or Finnhub)
 3. Build interactive frontend with charts
 4. Add user authentication and watchlists
 5. Implement basic recommendations
@@ -150,7 +150,7 @@ python manage.py calculate_metrics SPY
 python manage.py calculate_metrics --all --timeframe 1Y
 ```
 
-**Note**: `fetch_fund` command is currently disabled. External data sources (Yahoo Finance, etc.) are not implemented due to reliability issues. Add funds manually via Django admin.
+**Note**: `fetch_fund` command is currently disabled. No external data sources are implemented yet. Add funds manually via Django admin or use `add_sample_funds` command.
 
 ## 🧪 Testing
 
@@ -204,9 +204,9 @@ To extract as standalone, see deployment documentation.
 
 **Data Sources**:
 - No external data sources currently implemented
-- Yahoo Finance was removed due to unreliable API access
 - All fund data must be added manually via Django admin
-- Alternative data sources (Alpha Vantage, Polygon.io, Finnhub) planned
+- Use `python manage.py add_sample_funds` for testing
+- Official data sources (Alpha Vantage, Polygon.io, Finnhub) planned
 
 **Metrics**:
 - Basic returns calculated by database properties

@@ -39,7 +39,7 @@ class BaseDataSource(ABC):
     """
     Abstract base class for all data sources.
 
-    All data source implementations (Yahoo Finance, Alpha Vantage, etc.)
+    All data source implementations (Alpha Vantage, Polygon.io, Finnhub, etc.)
     must inherit from this class and implement the abstract methods.
 
     Attributes:

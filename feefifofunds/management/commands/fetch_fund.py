@@ -16,7 +16,7 @@ from django.core.management.base import BaseCommand
 class Command(BaseCommand):
     """Fetch fund data from external sources."""
 
-    help = "Fetch fund data from external sources (Yahoo Finance, Alpha Vantage, etc.)"
+    help = "Fetch fund data from external sources (currently disabled)"
 
     def add_arguments(self, parser):
         """Add command arguments."""
@@ -25,9 +25,9 @@ class Command(BaseCommand):
         parser.add_argument(
             "--source",
             type=str,
-            default="yahoo_finance",
-            choices=["yahoo_finance"],
-            help="Data source to use (default: yahoo_finance)",
+            default="none",
+            choices=["none"],
+            help="Data source to use (none available)",
         )
 
         parser.add_argument("--info", action="store_true", help="Fetch fund information only")
@@ -45,10 +45,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         """Execute the command."""
         # Show helpful error message
-        self.stdout.write(self.style.ERROR("\n❌ External data sources are currently disabled\n"))
-        self.stdout.write(
-            self.style.WARNING("Yahoo Finance was removed due to unreliable API access and aggressive rate limiting.\n")
-        )
+        self.stdout.write(self.style.ERROR("\n❌ External data sources are not currently implemented\n"))
         self.stdout.write("\n📋 How to add fund data:\n")
         self.stdout.write("  1. Use Django admin: http://localhost:8000/admin/feefifofunds/fund/add/")
         self.stdout.write("  2. Add funds manually with all required fields")

@@ -34,7 +34,6 @@ FeeFiFoFunds is a Django-based fund analysis platform for tracking, comparing, a
 #### 🔌 Data Source Infrastructure (90%)
 - **BaseDataSource** - Abstract base class with rate limiting, caching, and error handling
 - **DTOs** - FundDataDTO, PerformanceDataDTO, HoldingDataDTO
-- **YahooFinance** - Implementation complete (needs testing)
 - **DataValidator** - Comprehensive validation pipeline
 
 #### 📊 Services (60%)
@@ -120,8 +119,7 @@ USE_DEV_CACHE_PREFIX=True
 DEBUG=True
 SECRET_KEY=your-secret-key-here
 
-# Optional: Data Source API Keys
-YAHOO_FINANCE_API_KEY=  # Not required for basic usage
+# Optional: Data Source API Keys (when implemented)
 ALPHA_VANTAGE_API_KEY=
 FINNHUB_API_KEY=
 POLYGON_API_KEY=
@@ -192,7 +190,7 @@ feefifofunds/
 │       ├── __init__.py
 │       ├── base.py      # Abstract base class
 │       ├── dto.py       # Data transfer objects
-│       └── yahoo_finance.py  # Yahoo Finance implementation
+│       └── example_source.py  # Placeholder for future implementations
 │
 ├── management/commands/ # Django management commands
 │   ├── calculate_metrics.py
@@ -489,7 +487,7 @@ Hooks include:
 Follow conventional commits format:
 
 ```
-feat: Add Yahoo Finance data source integration
+feat: Add Alpha Vantage data source integration
 fix: Correct expense ratio calculation in Fund model
 docs: Update development setup instructions
 test: Add tests for ComparisonEngine
@@ -519,7 +517,7 @@ refactor: Simplify rate limiting logic
 
 - [Django Documentation](https://docs.djangoproject.com/)
 - [TimescaleDB Documentation](https://docs.timescale.com/)
-- [yfinance Documentation](https://ranaroussi.github.io/yfinance/)
+- [Alpha Vantage Documentation](https://www.alphavantage.co/documentation/)
 - [Project README](../README.md)
 - [Architecture Documentation](ARCHITECTURE.md)
 

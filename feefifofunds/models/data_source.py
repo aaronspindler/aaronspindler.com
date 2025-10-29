@@ -41,7 +41,7 @@ class DataSource(TimestampedModel, SoftDeleteModel):
         max_length=100,
         unique=True,
         db_index=True,
-        help_text="Name of the data source (e.g., 'yahoo_finance', 'alpha_vantage')",
+        help_text="Name of the data source (e.g., 'alpha_vantage', 'polygon', 'finnhub')",
     )
     display_name = models.CharField(
         max_length=255,

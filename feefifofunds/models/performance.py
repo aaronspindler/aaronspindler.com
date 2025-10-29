@@ -143,7 +143,7 @@ class FundPerformance(TimestampedModel, SoftDeleteModel):
     data_source = models.CharField(
         max_length=50,
         blank=True,
-        help_text="Source of this data (e.g., 'yahoo_finance', 'alpha_vantage')",
+        help_text="Source of this data (e.g., 'alpha_vantage', 'polygon', 'manual')",
     )
     data_quality_score = models.IntegerField(
         null=True,

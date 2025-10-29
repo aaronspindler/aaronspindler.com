@@ -143,7 +143,7 @@ UNIQUE(fund_id, calculation_date, time_frame)
 External API provider configuration and monitoring.
 
 **Key Fields**:
-- `name` (CharField, unique) - Source identifier (e.g., "yahoo_finance")
+- `name` (CharField, unique) - Source identifier (e.g., "alpha_vantage")
 - `display_name` (CharField) - Human-readable name
 - `status` (CharField) - ACTIVE, INACTIVE, ERROR, RATE_LIMITED
 - `rate_limit_requests` (IntegerField) - Max requests allowed
@@ -246,7 +246,7 @@ def delete(soft=True):
 ### 1. Data Ingestion Flow
 
 ```
-External API (Yahoo Finance, etc.)
+External API (Alpha Vantage, Polygon.io, etc.)
        ↓
 BaseDataSource (with rate limiting & caching)
        ↓
@@ -451,7 +451,7 @@ cache_key = f"feefifofunds:metrics:{fund_id}:{time_frame}"
 
 **Per-Source Limits**:
 ```python
-# Yahoo Finance: ~2000 requests/hour
+# Alpha Vantage Free: 25 requests/day
 rate_limit_requests = 2000
 rate_limit_period = 3600
 
