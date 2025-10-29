@@ -35,6 +35,7 @@ For detailed setup instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 - ✅ **DTOs** - Standardized data transfer objects for external APIs
 - ✅ **Comparison Engine** - Logic for comparing multiple funds across various metrics
 - ✅ **Data Validation** - Comprehensive validation pipeline for external data
+- ⚠️ **External Data Sources** - Framework ready, but no working implementations (Yahoo Finance removed)
 - ✅ **Basic Views** - HTML views (home, list, detail, compare)
 - ✅ **JSON API Endpoints** - Fund data, performance, holdings, comparison
 - ✅ **Management Commands** - CLI tools for data fetching and metrics calculation
@@ -43,7 +44,6 @@ For detailed setup instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 ### 🚧 In Progress
 
 - 🚧 **Metrics Calculator** - Interface defined, algorithms need implementation
-- 🚧 **Yahoo Finance Integration** - Code complete, needs integration testing
 - 🚧 **Frontend Templates** - Basic structure exists, needs styling and interactivity
 
 ### 📋 Planned
@@ -145,15 +145,12 @@ Create a comprehensive fund analysis platform that:
 # Check TimescaleDB status
 python manage.py check_timescaledb
 
-# Fetch fund data from Yahoo Finance
-python manage.py fetch_fund SPY --info --save
-python manage.py fetch_fund SPY --historical --days 365 --save
-python manage.py fetch_fund SPY --holdings --save
-
 # Calculate metrics (stub - needs implementation)
 python manage.py calculate_metrics SPY
 python manage.py calculate_metrics --all --timeframe 1Y
 ```
+
+**Note**: `fetch_fund` command is currently disabled. External data sources (Yahoo Finance, etc.) are not implemented due to reliability issues. Add funds manually via Django admin.
 
 ## 🧪 Testing
 
@@ -206,9 +203,10 @@ To extract as standalone, see deployment documentation.
 ## 📝 Current Limitations
 
 **Data Sources**:
-- Only Yahoo Finance implemented (free, no API key required)
-- Historical data limited to what Yahoo Finance provides
-- Real-time data not yet implemented
+- No external data sources currently implemented
+- Yahoo Finance was removed due to unreliable API access
+- All fund data must be added manually via Django admin
+- Alternative data sources (Alpha Vantage, Polygon.io, Finnhub) planned
 
 **Metrics**:
 - Basic returns calculated by database properties
