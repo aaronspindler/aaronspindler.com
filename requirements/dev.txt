@@ -38,13 +38,13 @@ boolean-py==5.0 \
     --hash=sha256:60cbc4bad079753721d32649545505362c754e121570ada4658b852a3a318d95 \
     --hash=sha256:ef28a70bd43115208441b53a045d1549e2f0ec6e3d08a9d142cbc41c1938e8d9
     # via license-expression
-boto3==1.40.61 \
-    --hash=sha256:6b9c57b2a922b5d8c17766e29ed792586a818098efe84def27c8f582b33f898c \
-    --hash=sha256:d6c56277251adf6c2bdd25249feae625abe4966831676689ff23b4694dea5b12
+boto3==1.40.62 \
+    --hash=sha256:3dbe7e1e7dc9127a4b1f2020a14f38ffe64fad84df00623e8ab6a5d49a82ea28 \
+    --hash=sha256:f422d4ae3b278832ba807059aafa553164bce2c464cd65b24c9ea8fb8a6c4192
     # via -r requirements/base.in
-botocore==1.40.61 \
-    --hash=sha256:17ebae412692fd4824f99cde0f08d50126dc97954008e5ba2b522eb049238aa7 \
-    --hash=sha256:a2487ad69b090f9cccd64cf07c7021cd80ee9c0655ad974f87045b02f3ef52cd
+botocore==1.40.62 \
+    --hash=sha256:1e8e57c131597dc234d67428bda1323e8f0a687ea13ea570253159ab9256fa28 \
+    --hash=sha256:780f1d476d4b530ce3b12fd9f7112156d97d99ebdbbd9ef60635b0432af9d3a5
     # via
     #   boto3
     #   s3transfer
