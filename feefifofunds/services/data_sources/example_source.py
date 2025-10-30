@@ -42,6 +42,7 @@ class ExampleDataSource(BaseDataSource):
     rate_limit_period = 0
 
     def __init__(self, api_key=None):
+        super().__init__(api_key)
         """Not implemented - raises error on initialization."""
         raise DataSourceError(
             "No external data sources are currently implemented. "
