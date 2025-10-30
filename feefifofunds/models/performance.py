@@ -18,6 +18,9 @@ class BasePerformance(TimestampedModel, SoftDeleteModel):
     Abstract base model for asset performance/price history.
 
     Provides common fields for all performance tracking models.
+
+    Note: Uses composite primary key (asset, date, interval) for TimescaleDB compatibility.
+    Django's auto id field is disabled to allow partitioning on the date column.
     """
 
     class Interval(models.TextChoices):
@@ -29,7 +32,10 @@ class BasePerformance(TimestampedModel, SoftDeleteModel):
         QUARTERLY = "1Q", "Quarterly"
         YEARLY = "1Y", "Yearly"
 
-    # Foreign key to asset
+    # Disable Django's auto-incrementing id for TimescaleDB compatibility
+    id = None
+
+    # Foreign key to asset (part of composite PK)
     asset = models.ForeignKey(
         "feefifofunds.Asset",
         on_delete=models.CASCADE,
@@ -38,7 +44,7 @@ class BasePerformance(TimestampedModel, SoftDeleteModel):
         help_text="The asset this performance data belongs to",
     )
 
-    # Time dimension
+    # Time dimension (part of composite PK)
     date = models.DateField(
         db_index=True,
         help_text="Date of this performance record",
@@ -179,6 +185,8 @@ class FundPerformance(BasePerformance):
         verbose_name = "Fund Performance"
         verbose_name_plural = "Fund Performance Records"
         ordering = ["-date"]
+        # Note: These fields form the composite primary key (set up in migration for TimescaleDB)
+        # The migration converts unique_together to a composite PK including date for partitioning
         unique_together = [["asset", "date", "interval"]]
         indexes = [
             # Primary time-series query patterns
@@ -388,6 +396,7 @@ class CryptoPerformance(BasePerformance):
         verbose_name = "Crypto Performance"
         verbose_name_plural = "Crypto Performance Records"
         ordering = ["-date"]
+        # Note: These fields form the composite primary key (set up in migration for TimescaleDB)
         unique_together = [["asset", "date", "interval"]]
         indexes = [
             models.Index(fields=["asset", "-date"]),
@@ -445,6 +454,7 @@ class InflationData(BasePerformance):
         verbose_name = "Inflation Data"
         verbose_name_plural = "Inflation Data Records"
         ordering = ["-date"]
+        # Note: These fields form the composite primary key (set up in migration for TimescaleDB)
         unique_together = [["asset", "date", "interval"]]
         indexes = [
             models.Index(fields=["asset", "-date"]),
@@ -507,6 +517,7 @@ class SavingsRateHistory(BasePerformance):
         verbose_name = "Savings Rate History"
         verbose_name_plural = "Savings Rate History"
         ordering = ["-date"]
+        # Note: These fields form the composite primary key (set up in migration for TimescaleDB)
         unique_together = [["asset", "date", "interval"]]
         indexes = [
             models.Index(fields=["asset", "-date"]),
@@ -581,6 +592,7 @@ class PropertyValuation(BasePerformance):
         verbose_name = "Property Valuation"
         verbose_name_plural = "Property Valuations"
         ordering = ["-date"]
+        # Note: These fields form the composite primary key (set up in migration for TimescaleDB)
         unique_together = [["asset", "date", "interval"]]
         indexes = [
             models.Index(fields=["asset", "-date"]),
@@ -653,6 +665,7 @@ class CurrencyPerformance(BasePerformance):
         verbose_name = "Currency Performance"
         verbose_name_plural = "Currency Performance Records"
         ordering = ["-date"]
+        # Note: These fields form the composite primary key (set up in migration for TimescaleDB)
         unique_together = [["asset", "date", "interval"]]
         indexes = [
             models.Index(fields=["asset", "-date"]),
@@ -764,6 +777,7 @@ class CommodityPerformance(BasePerformance):
         verbose_name = "Commodity Performance"
         verbose_name_plural = "Commodity Performance Records"
         ordering = ["-date"]
+        # Note: These fields form the composite primary key (set up in migration for TimescaleDB)
         unique_together = [["asset", "date", "interval"]]
         indexes = [
             models.Index(fields=["asset", "-date"]),
