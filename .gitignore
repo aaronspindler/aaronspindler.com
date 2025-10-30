@@ -44,3 +44,5 @@ omas/static/omas/js/*.min.js.br
 
 temp_fonts/
 media/
+backups/
+backups/*
