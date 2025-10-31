@@ -8,7 +8,7 @@
 pre-commit==4.3.0
 
 # Linting and formatting (Ruff does it all!)
-ruff==0.14.2
+ruff==0.14.3
 
 # Security auditing (optional - used in CI/CD)
 safety==3.6.2
