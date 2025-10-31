@@ -201,9 +201,6 @@ python manage.py generate_knowledge_graph_screenshot --url https://staging.examp
 - Defaults to `http://localhost:8000` for local development
 
 ### Photo Management
-```bash
-# Generate photo album zips
-python manage.py generate_album_zips
 ```
 
 ### Lighthouse Performance Monitoring
@@ -344,11 +341,66 @@ python manage.py remove_local_fingerprints --limit 100
   - Custom user model
   - Registration disabled by default (NoSignupAccountAdapter)
 
+- **feefifofunds/**: Multi-asset tracking and analysis (FeeFiFoFunds project)
+  - **Polymorphic asset architecture** using django-polymorphic
+  - **7 asset types**: Fund, Crypto, Currency, Commodity, InflationIndex, SavingsAccount, RealEstate
+  - **Asset-specific performance models**: Track prices, rates, indices with type-appropriate fields
+  - **Asset-specific metrics models**: Calculate returns, volatility, and asset-specific analytics
+  - **Holdings tracking**: Fund holdings with sector/country allocation
+  - **Data source integrations**: Extensible framework for fetching data from external APIs
+  - Django admin with polymorphic parent/child interfaces for all asset types
+
 - **omas/**: Omas Coffee website (omas.coffee)
   - Separate website served via domain routing middleware
   - Independent URL routing and templates
   - Coffee-themed design and branding
   - Homepage with feature showcase
+
+### FeeFiFoFunds Multi-Asset Architecture
+
+The **feefifofunds** app uses **django-polymorphic** for flexible multi-asset tracking. This allows tracking of diverse financial instruments with asset-specific fields and behaviors.
+
+**Model Structure:**
+
+```
+Asset (PolymorphicModel)  ← Base model with common fields
+├── Fund                  ← Mutual funds, ETFs, index funds
+├── Crypto                ← Cryptocurrencies and tokens
+├── Currency              ← Forex pairs and exchange rates
+├── Commodity             ← Gold, oil, agricultural products
+├── InflationIndex        ← CPI, PPI, PCE indices
+├── SavingsAccount        ← Savings accounts, CDs, money market
+└── RealEstate            ← Properties, REITs, housing indices
+```
+
+**Performance Models** (asset-specific):
+- `FundPerformance` - OHLCV data, dividends, splits
+- `CryptoPerformance` - OHLCV, market cap, TVL (DeFi)
+- `CurrencyPerformance` - Exchange rates, bid/ask spreads
+- `CommodityPerformance` - Spot/futures prices, open interest
+- `InflationData` - Index values, annual/monthly rates
+- `SavingsRateHistory` - APY, interest rates, compounding
+- `PropertyValuation` - Market/assessed values, rental income
+
+**Metrics Models** (asset-specific analytics):
+- `FundMetrics` - Comprehensive: Sharpe, Sortino, alpha, beta, VaR, drawdowns
+- `CryptoMetrics` - Volatility, Sharpe, correlation to BTC
+- `CurrencyMetrics` - Returns, volatility, Sharpe
+- `CommodityMetrics` - Returns, volatility, Sharpe, Sortino
+- `InflationMetrics` - Average rates, cumulative inflation, purchasing power
+- `SavingsMetrics` - Effective rates, real returns, stability scores
+- `RealEstateMetrics` - Cap rates, rental yields, appreciation, total returns
+
+**Key Features:**
+- **Polymorphic queries**: `Asset.objects.filter(ticker='BTC')` works across all types
+- **Type-specific fields**: Each asset has relevant fields (e.g., blockchain for crypto, APY for savings)
+- **Flexible tracking**: Easy to add new asset types without breaking existing code
+- **Semantic clarity**: Performance and metrics models match asset semantics
+
+**Field Naming:**
+- `current_value` - Generic value field (price/rate/index)
+- `quote_currency` - Currency for quotes/prices (renamed from `currency` to avoid conflict with Currency model)
+- `asset` - ForeignKey in performance/metrics models (polymorphic relationship)
 
 ### Multi-Domain Support
 

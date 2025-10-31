@@ -1,0 +1,91 @@
+{% extends "feefifofunds/base.html" %}
+
+{% block title %}Browse Funds{% endblock %}
+
+{% block content %}
+
+<h2>Browse Funds</h2>
+
+<details>
+  <summary>Filters</summary>
+  <form method="get" action="{% url 'feefifofunds:fund-list' %}">
+    <table>
+      <tr>
+        <th>Search</th>
+        <td><input type="text" name="q" placeholder="Ticker or name..." value="{{ request.GET.q }}" style="width: 100%;"></td>
+      </tr>
+      <tr>
+        <th>Fund Type</th>
+        <td>
+          <select name="fund_type" style="width: 100%;">
+            <option value="">All Types</option>
+            <option value="ETF" {% if request.GET.fund_type == "ETF" %}selected{% endif %}>ETF</option>
+            <option value="MUTUAL" {% if request.GET.fund_type == "MUTUAL" %}selected{% endif %}>Mutual Fund</option>
+            <option value="INDEX" {% if request.GET.fund_type == "INDEX" %}selected{% endif %}>Index Fund</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <th>Asset Class</th>
+        <td>
+          <select name="asset_class" style="width: 100%;">
+            <option value="">All Assets</option>
+            <option value="EQUITY" {% if request.GET.asset_class == "EQUITY" %}selected{% endif %}>Equity</option>
+            <option value="BOND" {% if request.GET.asset_class == "BOND" %}selected{% endif %}>Fixed Income</option>
+            <option value="MIXED" {% if request.GET.asset_class == "MIXED" %}selected{% endif %}>Balanced</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <th>Max Expense Ratio (%)</th>
+        <td><input type="number" name="max_expense" step="0.01" min="0" placeholder="e.g., 0.50" value="{{ request.GET.max_expense }}" style="width: 100%;"></td>
+      </tr>
+      <tr>
+        <td colspan="2" style="text-align: right;">
+          <button type="submit">Apply Filters</button>
+          <a href="{% url 'feefifofunds:fund-list' %}">Clear</a>
+        </td>
+      </tr>
+    </table>
+  </form>
+</details>
+
+{% if funds %}
+<table>
+  <tr>
+    <th>Ticker</th>
+    <th>Name</th>
+    <th>Type</th>
+    <th>Price</th>
+    <th>Change</th>
+    <th>Expense Ratio</th>
+  </tr>
+  {% for fund in funds %}
+  <tr>
+    <td><a href="{% url 'feefifofunds:fund-detail' slug=fund.slug %}">{{ fund.ticker }}</a></td>
+    <td>{{ fund.name|truncatewords:8 }}</td>
+    <td>{{ fund.get_fund_type_display }}</td>
+    <td>{% if fund.current_price %}${{ fund.current_price|floatformat:2 }}{% else %}—{% endif %}</td>
+    <td>{% if fund.price_change_percent %}{% if fund.price_change_percent > 0 %}+{% endif %}{{ fund.price_change_percent|floatformat:2 }}%{% else %}—{% endif %}</td>
+    <td>{% if fund.expense_ratio %}{{ fund.expense_ratio|floatformat:4 }}%{% else %}—{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+{% if is_paginated %}
+<p>
+  Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+  {% if page_obj.has_previous %}
+  | <a href="?page={{ page_obj.previous_page_number }}">← Previous</a>
+  {% endif %}
+  {% if page_obj.has_next %}
+  | <a href="?page={{ page_obj.next_page_number }}">Next →</a>
+  {% endif %}
+</p>
+{% endif %}
+
+{% else %}
+<p>No funds found. {% if request.GET %}<a href="{% url 'feefifofunds:fund-list' %}">Clear filters</a> or {% endif %}add funds using the admin panel.</p>
+{% endif %}
+
+{% endblock %}

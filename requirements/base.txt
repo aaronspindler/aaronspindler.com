@@ -412,6 +412,7 @@ django==5.2.7 \
     #   -r requirements/base.in
     #   django-allauth
     #   django-celery-beat
+    #   django-polymorphic
     #   django-redis
     #   django-storages
     #   django-timezone-field
@@ -425,6 +426,10 @@ django-celery-beat==2.8.1 \
 django-environ==0.12.0 \
     --hash=sha256:227dc891453dd5bde769c3449cf4a74b6f2ee8f7ab2361c93a07068f4179041a \
     --hash=sha256:92fb346a158abda07ffe6eb23135ce92843af06ecf8753f43adf9d2366dcc0ca
+    # via -r requirements/base.in
+django-polymorphic==4.1.0 \
+    --hash=sha256:0ce3984999e103a0d1a434a5c5617f2c7f990dc3d5fb3585ce0fadadf9ff90ea \
+    --hash=sha256:4438d95a0aef6c4307cd6c83ead387e1142ce80b65188a931ec2f0dbdd9bfc51
     # via -r requirements/base.in
 django-redis==6.0.0 \
     --hash=sha256:20bf0063a8abee567eb5f77f375143c32810c8700c0674ced34737f8de4e36c0 \

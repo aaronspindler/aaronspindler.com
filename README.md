@@ -9,6 +9,7 @@
 - **🔍 Full-Text Search** - PostgreSQL FTS with trigram similarity, sub-100ms autocomplete • [📚 Docs](docs/features/search.md)
 - **⚡ Performance Monitoring** - Automated Lighthouse audits with historical trends • [📚 Docs](docs/features/performance-monitoring.md)
 - **🔒 Request Tracking** - Privacy-focused analytics with IP geolocation • [📚 Docs](docs/features/request-tracking.md)
+- **💰 Financial Data Integration** - Standardized framework for fund data from external APIs with rate limiting, caching, and monitoring • [📚 Docs](docs/features/data-sources.md)
 - **🎨 Optimized Assets** - Static file compression, multi-stage Docker builds, intelligent caching
 
 ## Tech Stack
@@ -81,6 +82,7 @@ See [Deployment Guide](docs/deployment.md) for production setup.
 - [Full-Text Search](docs/features/search.md) - PostgreSQL FTS, autocomplete, indexing
 - [Performance Monitoring](docs/features/performance-monitoring.md) - Lighthouse audits, badges
 - [Request Tracking](docs/features/request-tracking.md) - Fingerprinting, geolocation, security
+- [Data Sources](docs/features/data-sources.md) - External API integration framework for fund data
 
 ## Common Commands
 
@@ -117,6 +119,7 @@ aaronspindler.com/
 ├── pages/             # Core website pages
 ├── photos/            # Photo management
 ├── utils/             # Search, notifications, monitoring
+├── feefifofunds/      # Financial data integration
 ├── config/            # Django configuration
 ├── deployment/        # 🐳 Docker and deployment files
 │   ├── Dockerfile

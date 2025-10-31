@@ -1,7 +1,7 @@
 services:
-  # PostgreSQL database for testing
+  # PostgreSQL database for testing (with TimescaleDB)
   postgres:
-    image: postgres:16-alpine
+    image: timescale/timescaledb:latest-pg14
     environment:
       - POSTGRES_USER=test_user
       - POSTGRES_PASSWORD=test_password

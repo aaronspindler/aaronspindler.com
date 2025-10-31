@@ -1,0 +1,47 @@
+{% extends "feefifofunds/base.html" %}
+
+{% block title %}Compare Funds{% endblock %}
+
+{% block content %}
+
+<h2>Compare Funds</h2>
+
+<p>Fund comparison tool will be fully implemented in <strong>FUND-035</strong>.</p>
+
+<h2>API Access</h2>
+
+<p>For programmatic access, use the comparison JSON endpoint:</p>
+
+<pre><code>GET /feefifofunds/api/compare/?tickers=SPY,VOO,IVV&time_frame=1Y
+
+POST /feefifofunds/api/compare/
+Body: {"tickers": ["SPY", "VOO", "IVV"], "time_frame": "1Y"}</code></pre>
+
+<h2>Planned Features</h2>
+
+<table>
+  <tr>
+    <th>Feature</th>
+    <th>Status</th>
+  </tr>
+  <tr>
+    <td>Side-by-side metrics comparison</td>
+    <td>Planned (FUND-035)</td>
+  </tr>
+  <tr>
+    <td>Performance chart overlay</td>
+    <td>Planned (FUND-036)</td>
+  </tr>
+  <tr>
+    <td>Holdings overlap analysis</td>
+    <td>Backend complete</td>
+  </tr>
+  <tr>
+    <td>Risk-adjusted returns</td>
+    <td>Planned (FUND-018)</td>
+  </tr>
+</table>
+
+<p><a href="{% url 'feefifofunds:fund-list' %}">← Back to fund list</a></p>
+
+{% endblock %}

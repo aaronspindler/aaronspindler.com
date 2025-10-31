@@ -43,15 +43,19 @@ INSTALLED_APPS = [
     "django.contrib.sites",
     "django.contrib.sitemaps",
     "django.contrib.postgres",  # PostgreSQL full-text search
+    # Third-party apps
+    "polymorphic",  # Django polymorphic models
     "allauth",
     "allauth.account",
     "storages",  # AWS S3 storage
     "django_celery_beat",  # Celery Beat scheduler
+    # Project apps
     "accounts",
     "pages",
     "blog",
     "photos",
     "utils",
+    "feefifofunds",
     "omas",  # Omas Coffee website
 ]
 

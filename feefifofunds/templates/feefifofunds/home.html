@@ -1,0 +1,61 @@
+{% extends "feefifofunds/base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+
+<h2>Overview</h2>
+
+<p>A fund comparison and analysis platform for tracking ETFs and mutual funds.</p>
+
+<table>
+  <tr>
+    <th>Statistic</th>
+    <th>Value</th>
+  </tr>
+  <tr>
+    <td>Funds Tracked</td>
+    <td>{{ stats.total_funds|default:"0" }}</td>
+  </tr>
+  <tr>
+    <td>Data Points</td>
+    <td>{{ stats.data_points|default:"0" }}</td>
+  </tr>
+  <tr>
+    <td>Last Updated</td>
+    <td>{{ stats.last_update|default:"Today" }}</td>
+  </tr>
+</table>
+
+{% if popular_funds %}
+<h2>Popular Funds</h2>
+
+<table>
+  <tr>
+    <th>Ticker</th>
+    <th>Name</th>
+    <th>Price</th>
+    <th>Change</th>
+    <th>Expense Ratio</th>
+  </tr>
+  {% for fund in popular_funds %}
+  <tr>
+    <td><a href="{% url 'feefifofunds:fund-detail' slug=fund.slug %}">{{ fund.ticker }}</a></td>
+    <td>{{ fund.name }}</td>
+    <td>${{ fund.current_price|floatformat:2|default:"—" }}</td>
+    <td>{% if fund.price_change_percent %}{% if fund.price_change_percent > 0 %}+{% endif %}{{ fund.price_change_percent|floatformat:2 }}%{% else %}—{% endif %}</td>
+    <td>{{ fund.expense_ratio|floatformat:4|default:"—" }}%</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<p><a href="{% url 'feefifofunds:fund-list' %}">Browse all funds →</a></p>
+{% else %}
+<h2>Getting Started</h2>
+
+<p>No funds available yet. Add funds using the admin panel or run the following command:</p>
+
+<pre><code>python manage.py fetch_fund SPY --all --save</code></pre>
+{% endif %}
+
+{% endblock %}

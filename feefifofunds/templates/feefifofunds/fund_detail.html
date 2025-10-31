@@ -1,0 +1,93 @@
+{% extends "feefifofunds/base.html" %}
+
+{% block title %}{{ fund.ticker }}{% endblock %}
+
+{% block content %}
+
+<h2>{{ fund.ticker }} - {{ fund.name }}</h2>
+
+<table>
+  <tr>
+    <th>Type</th>
+    <td>{{ fund.get_fund_type_display }}</td>
+  </tr>
+  <tr>
+    <th>Asset Class</th>
+    <td>{{ fund.get_asset_class_display }}</td>
+  </tr>
+  {% if fund.category %}
+  <tr>
+    <th>Category</th>
+    <td>{{ fund.category }}</td>
+  </tr>
+  {% endif %}
+  {% if fund.issuer %}
+  <tr>
+    <th>Issuer</th>
+    <td>{{ fund.issuer }}</td>
+  </tr>
+  {% endif %}
+  {% if fund.inception_date %}
+  <tr>
+    <th>Inception Date</th>
+    <td>{{ fund.inception_date|date:"Y-m-d" }}</td>
+  </tr>
+  {% endif %}
+</table>
+
+<h2>Current Price</h2>
+
+<table>
+  <tr>
+    <th>Current Price</th>
+    <td>{% if fund.current_price %}${{ fund.current_price|floatformat:2 }}{% else %}—{% endif %}</td>
+  </tr>
+  <tr>
+    <th>Previous Close</th>
+    <td>{% if fund.previous_close %}${{ fund.previous_close|floatformat:2 }}{% else %}—{% endif %}</td>
+  </tr>
+  <tr>
+    <th>Change</th>
+    <td>{% if fund.price_change %}${{ fund.price_change|floatformat:2 }} ({% if fund.price_change_percent > 0 %}+{% endif %}{{ fund.price_change_percent|floatformat:2 }}%){% else %}—{% endif %}</td>
+  </tr>
+  {% if fund.aum %}
+  <tr>
+    <th>AUM</th>
+    <td>${{ fund.aum|floatformat:2 }}M</td>
+  </tr>
+  {% endif %}
+</table>
+
+<h2>Costs & Fees</h2>
+
+<table>
+  <tr>
+    <th>Expense Ratio</th>
+    <td>{% if fund.expense_ratio %}{{ fund.expense_ratio|floatformat:4 }}%{% else %}—{% endif %}</td>
+  </tr>
+  {% if fund.management_fee %}
+  <tr>
+    <th>Management Fee</th>
+    <td>{{ fund.management_fee|floatformat:4 }}%</td>
+  </tr>
+  {% endif %}
+  <tr>
+    <th>Total Cost</th>
+    <td>{{ fund.total_cost_percent|floatformat:4 }}%</td>
+  </tr>
+</table>
+
+{% if fund.description %}
+<h2>Description</h2>
+<p>{{ fund.description }}</p>
+{% endif %}
+
+<hr>
+
+<p style="color: var(--text-color-alt); font-size: 0.875rem;">
+  Full fund detail page (performance charts, holdings, risk metrics) will be implemented in FUND-034.
+</p>
+
+<p><a href="{% url 'feefifofunds:fund-list' %}">← Back to fund list</a></p>
+
+{% endblock %}
