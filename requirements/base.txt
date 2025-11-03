@@ -22,13 +22,13 @@ billiard==4.2.2 \
     --hash=sha256:4bc05dcf0d1cc6addef470723aac2a6232f3c7ed7475b0b580473a9145829457 \
     --hash=sha256:e815017a062b714958463e07ba15981d802dc53d41c5b69d28c5a7c238f8ecf3
     # via celery
-boto3==1.40.63 \
-    --hash=sha256:3bf4b034900c87a6a9b3b3b44c4aec26e96fc73bff2505f0766224b7295178ce \
-    --hash=sha256:f15d4abf1a6283887c336f660cdfc2162a210d2d8f4d98dbcbcef983371c284d
+boto3==1.40.64 \
+    --hash=sha256:35ca3dd80dd90d5f4e8ed032440f28790696fdf50f48c0d16a09a75675f9112f \
+    --hash=sha256:b92d6961c352f2bb8710c9892557d4b0e11258b70967d4e740e1c97375bcd779
     # via -r requirements/base.in
-botocore==1.40.63 \
-    --hash=sha256:0324552c3c800e258cbcb8c22b495a2e2e0260a7408d08016196e46fa0d1b587 \
-    --hash=sha256:83657b3ee487268fccc9ba022cba572ba657b9ece8cddd1fa241e2c6a49c8c14
+botocore==1.40.64 \
+    --hash=sha256:6902b3dadfba1fbacc9648171bef3942530d8f823ff2bdb0e585a332323f89fc \
+    --hash=sha256:a13af4009f6912eafe32108f6fa584fb26e24375149836c2bcaaaaec9a7a9e58
     # via
     #   boto3
     #   s3transfer
@@ -416,8 +416,9 @@ django==5.2.7 \
     #   django-redis
     #   django-storages
     #   django-timezone-field
-django-allauth==65.12.1 \
-    --hash=sha256:662666ff2d5c71766f66b1629ac7345c30796813221184e13e11ed7460940c6a
+django-allauth==65.13.0 \
+    --hash=sha256:119c0cf1cc2e0d1a0fe2f13588f30951d64989256084de2d60f13ab9308f9fa0 \
+    --hash=sha256:7d7b7e7ad603eb3864c142f051e2cce7be2f9a9c6945a51172ec83d48c6c843b
     # via -r requirements/base.in
 django-celery-beat==2.8.1 \
     --hash=sha256:da2b1c6939495c05a551717509d6e3b79444e114a027f7b77bf3727c2a39d171 \
@@ -1001,9 +1002,9 @@ sqlparse==0.5.3 \
     --hash=sha256:09f67787f56a0b16ecdbde1bfc7f5d9c3371ca683cfeaa8e6ff60b4807ec9272 \
     --hash=sha256:cf2196ed3418f3ba5de6af7e82c694a9fbdbfecccdfc72e281548517081f16ca
     # via django
-tblib==3.2.0 \
-    --hash=sha256:32c4d3c36ac59c59e8c442d94e7b274b3ce80263ca3201686476ee7616f3579a \
-    --hash=sha256:62ae1b8808cfd7c1c15b871d4022abb46188c49d21ace87a02a88707dc7aa1b1
+tblib==3.2.1 \
+    --hash=sha256:846e274d0aeec822953251a3cbd3d840fd0ee7a5ec844d59ffbde7b056f9cd2b \
+    --hash=sha256:aacdaffceac6c4ef6818887b15677513f16d75c68384b76b415a935d548dd172
     # via -r requirements/base.in
 tornado==6.5.2 \
     --hash=sha256:06ceb1300fd70cb20e43b1ad8aaee0266e69e7ced38fa910ad2e03285009ce7c \

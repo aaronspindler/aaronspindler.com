@@ -2,7 +2,7 @@
 Django==5.2.7
 
 # Django Extensions
-django-allauth==65.12.1
+django-allauth==65.13.0
 django-celery-beat==2.8.1
 django-environ==0.12.0
 django-polymorphic==4.1.0
@@ -37,7 +37,7 @@ beautifulsoup4==4.14.2
 pyppeteer==2.0.0
 
 # AWS SDK
-boto3==1.40.63
+boto3==1.40.64
 
 # HTTP Client
 requests==2.32.5
@@ -46,4 +46,4 @@ requests==2.32.5
 coverage==7.11.0
 
 # Celery Utilities
-tblib==3.2.0
+tblib==3.2.1
