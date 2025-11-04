@@ -24,8 +24,7 @@
 
   {% block css %}
   <link rel="preload" href="{% static 'css/combined.min.css' %}" as="style" fetchpriority="high">
-  <link rel="stylesheet" href="{% static 'css/combined.min.css' %}" media="print" onload="this.media='all'; this.onload=null;">
-  <noscript><link rel="stylesheet" href="{% static 'css/combined.min.css' %}"></noscript>
+  <link rel="stylesheet" href="{% static 'css/combined.min.css' %}">
   <link rel="stylesheet" href="{% static 'css/autocomplete.css' %}">
   {% endblock %}
 </head>
