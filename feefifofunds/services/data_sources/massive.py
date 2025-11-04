@@ -10,6 +10,7 @@ Massive.com provides free financial market data with generous limits:
 API Documentation: https://massive.com/docs/
 """
 
+import re
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import List, Optional
@@ -19,22 +20,10 @@ from django.conf import settings
 from .base import BaseDataSource, DataNotFoundError, DataSourceError
 from .dto import FundDataDTO, HoldingDataDTO, PerformanceDataDTO
 
+MAX_FREE_TIER_DAYS = 730
+
 
 class MassiveDataSource(BaseDataSource):
-    """
-    Massive.com (formerly Polygon.io) data source implementation.
-
-    Provides access to historical stock/ETF data including:
-    - Ticker details (basic fund info)
-    - Aggregate bars (OHLCV data)
-    - Previous close data
-
-    Free tier features:
-    - Unlimited requests (~100/sec soft limit)
-    - 2 years of historical data
-    - End-of-day data only (no real-time on free tier)
-    """
-
     name = "massive"
     display_name = "Massive.com"
     base_url = "https://api.polygon.io"
@@ -43,31 +32,29 @@ class MassiveDataSource(BaseDataSource):
     rate_limit_period = 1
 
     def __init__(self, api_key: Optional[str] = None):
-        """
-        Initialize Massive data source.
-
-        Args:
-            api_key: Massive.com API key (required)
-        """
         if api_key is None:
             api_key = getattr(settings, "MASSIVE_API_KEY", None)
 
         if not api_key:
-            raise DataSourceError("Massive.com API key is required. Set MASSIVE_API_KEY in settings.")
+            raise DataSourceError("MASSIVE_API_KEY is required. Set in environment variables or settings.")
 
         super().__init__(api_key=api_key)
 
+    @staticmethod
+    def _validate_ticker(ticker: str) -> None:
+        if not ticker or not isinstance(ticker, str):
+            raise DataSourceError("Ticker must be a non-empty string")
+        if not re.match(r"^[A-Z0-9.^-]+$", ticker.upper()):
+            raise DataSourceError(f"Invalid ticker format: {ticker}")
+
+    @staticmethod
+    def _validate_date_range(start_date: date, end_date: date) -> None:
+        if start_date > end_date:
+            raise DataSourceError(f"Start date ({start_date}) must be before end date ({end_date})")
+        if (end_date - start_date).days > MAX_FREE_TIER_DAYS:
+            raise DataSourceError(f"Date range exceeds free tier limit of {MAX_FREE_TIER_DAYS} days")
+
     def _make_massive_request(self, endpoint: str, params: dict = None) -> dict:
-        """
-        Make a request to Massive.com API.
-
-        Args:
-            endpoint: API endpoint (e.g., '/v3/reference/tickers/AAPL')
-            params: Query parameters
-
-        Returns:
-            Response JSON as dictionary
-        """
         url = f"{self.base_url}{endpoint}"
         params = params or {}
         params["apiKey"] = self.api_key
@@ -75,17 +62,8 @@ class MassiveDataSource(BaseDataSource):
         return self._make_request(url, params=params)
 
     def fetch_fund_info(self, ticker: str) -> FundDataDTO:
-        """
-        Fetch basic fund/stock information from Massive.com.
+        self._validate_ticker(ticker)
 
-        Uses the ticker details endpoint to get basic info.
-
-        Args:
-            ticker: Stock/ETF ticker symbol
-
-        Returns:
-            FundDataDTO with fund information
-        """
         try:
             ticker_data = self._make_massive_request(f"/v3/reference/tickers/{ticker}")
 
@@ -93,7 +71,6 @@ class MassiveDataSource(BaseDataSource):
                 raise DataNotFoundError(f"No data found for ticker {ticker}")
 
             results = ticker_data.get("results", {})
-
             prev_close_data = self._make_massive_request(f"/v2/aggs/ticker/{ticker}/prev")
 
             prev_close = None
@@ -121,21 +98,9 @@ class MassiveDataSource(BaseDataSource):
     def fetch_historical_prices(
         self, ticker: str, start_date: date, end_date: date, interval: str = "1D"
     ) -> List[PerformanceDataDTO]:
-        """
-        Fetch historical price data from Massive.com.
+        self._validate_ticker(ticker)
+        self._validate_date_range(start_date, end_date)
 
-        Uses the aggregate bars endpoint to get OHLCV data.
-        Free tier provides 2 years of historical data.
-
-        Args:
-            ticker: Stock/ETF ticker symbol
-            start_date: Start date for historical data
-            end_date: End date for historical data
-            interval: Data interval (1D=daily, 1W=weekly, 1M=monthly)
-
-        Returns:
-            List of PerformanceDataDTO objects
-        """
         try:
             timespan_map = {
                 "D": "day",
@@ -187,70 +152,24 @@ class MassiveDataSource(BaseDataSource):
             raise DataSourceError(f"Failed to fetch historical prices for {ticker}: {str(e)}")
 
     def fetch_holdings(self, ticker: str) -> List[HoldingDataDTO]:
-        """
-        Fetch fund holdings data.
-
-        Note: Massive.com free tier does not provide holdings data for ETFs/funds.
-        This is a placeholder that raises DataNotFoundError.
-
-        Args:
-            ticker: Fund ticker symbol
-
-        Returns:
-            List of HoldingDataDTO objects
-
-        Raises:
-            DataNotFoundError: Holdings not available on free tier
-        """
         raise DataNotFoundError(f"Holdings data not available for {ticker} on Massive.com free tier")
 
     def fetch_previous_close(self, ticker: str) -> dict:
-        """
-        Fetch previous close data for a ticker.
-
-        Returns the previous trading day's OHLCV data.
-
-        Args:
-            ticker: Stock/ETF ticker symbol
-
-        Returns:
-            Dictionary with previous close data
-        """
+        self._validate_ticker(ticker)
         try:
             return self._make_massive_request(f"/v2/aggs/ticker/{ticker}/prev")
         except Exception as e:
             raise DataSourceError(f"Failed to fetch previous close for {ticker}: {str(e)}")
 
-    def fetch_recent_days(self, ticker: str, days: int = 730) -> List[PerformanceDataDTO]:
-        """
-        Convenience method to fetch recent historical data.
-
-        Free tier supports up to 2 years (730 days) of data.
-
-        Args:
-            ticker: Stock/ETF ticker symbol
-            days: Number of days to fetch (default: 730, max: 730 for free tier)
-
-        Returns:
-            List of PerformanceDataDTO objects
-        """
-        days = min(days, 730)
+    def fetch_recent_days(self, ticker: str, days: int = MAX_FREE_TIER_DAYS) -> List[PerformanceDataDTO]:
+        days = min(days, MAX_FREE_TIER_DAYS)
         end_date = date.today()
         start_date = end_date - timedelta(days=days)
 
         return self.fetch_historical_prices(ticker, start_date, end_date)
 
     def fetch_daily_open_close(self, ticker: str, target_date: date) -> dict:
-        """
-        Fetch open/close data for a specific date.
-
-        Args:
-            ticker: Stock/ETF ticker symbol
-            target_date: Date to fetch data for
-
-        Returns:
-            Dictionary with open/close data
-        """
+        self._validate_ticker(ticker)
         try:
             date_str = target_date.strftime("%Y-%m-%d")
             return self._make_massive_request(f"/v1/open-close/{ticker}/{date_str}")

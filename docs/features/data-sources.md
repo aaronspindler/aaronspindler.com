@@ -2,7 +2,18 @@
 
 ## Overview
 
-The Data Sources system provides a standardized framework for integrating external financial data APIs (Yahoo Finance, Alpha Vantage, Finnhub, etc.) into the FeeFiFoFunds application. It includes rate limiting, error handling, caching, monitoring, and data validation to ensure reliable and cost-effective data acquisition.
+The Data Sources system provides a standardized framework for integrating external financial data APIs (Yahoo Finance, Alpha Vantage, Finnhub, Massive.com, etc.) into the FeeFiFoFunds application. It includes rate limiting, error handling, caching, monitoring, and data validation to ensure reliable and cost-effective data acquisition.
+
+## Available Data Sources
+
+| Source | Free Tier | Historical Data | Real-Time | Best For |
+|--------|-----------|-----------------|-----------|----------|
+| **Massive.com** | 100 req/sec | 2 years | No | Historical backloads |
+| Yahoo Finance | Unlimited | Years | 15-min delay | General purpose |
+| Finnhub | 60 calls/min | Limited | Yes | Real-time updates |
+| Alpha Vantage | 5 calls/min | 20+ years | Yes | Research/analysis |
+
+See [Massive.com Integration](massive-integration.md) for detailed documentation on the Massive.com data source.
 
 ## Features
 

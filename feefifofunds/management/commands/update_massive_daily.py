@@ -1,28 +1,19 @@
-"""
-Management command to fetch daily price updates from Massive.com.
-
-This command should be run daily (via cron or Celery Beat) to keep fund data up-to-date.
-
-Usage:
-    python manage.py update_massive_daily
-    python manage.py update_massive_daily SPY QQQ VOO
-    python manage.py update_massive_daily --days 5  # Fetch last 5 days
-"""
-
-from datetime import date, timedelta
+from datetime import date
 
 from django.core.management.base import BaseCommand
+from django.db import transaction
 from django.utils import timezone
 
 from feefifofunds.models import DataSync, Fund
 from feefifofunds.models.performance import FundPerformance
-from feefifofunds.services.data_sources.massive import MassiveDataSource
+
+from .massive_utils import get_date_range, handle_sync_error, initialize_data_source
 
 
 class Command(BaseCommand):
     help = "Fetch daily price updates from Massive.com for all active funds"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser) -> None:
         parser.add_argument(
             "tickers",
             nargs="*",
@@ -43,16 +34,13 @@ class Command(BaseCommand):
             help="Force update even if data already exists for today",
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args, **options) -> None:
         tickers = options["tickers"]
         days = options["days"]
         force = options["force"]
 
-        try:
-            data_source = MassiveDataSource()
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f"❌ Failed to initialize Massive.com: {e}"))
-            self.stdout.write("\n💡 Make sure MASSIVE_API_KEY is set in your environment")
+        data_source = initialize_data_source(self.stdout, self.style)
+        if data_source is None:
             return
 
         if tickers:
@@ -66,14 +54,15 @@ class Command(BaseCommand):
 
         self.stdout.write(f"📊 Updating {funds.count()} funds with last {days} day(s) of data\n")
 
-        end_date = date.today()
-        start_date = end_date - timedelta(days=days)
+        start_date, end_date = get_date_range(days)
 
         success_count = 0
         error_count = 0
         skipped_count = 0
 
         for fund in funds:
+            sync_record = None
+
             try:
                 if not force:
                     latest_perf = FundPerformance.objects.filter(asset=fund, is_active=True).order_by("-date").first()
@@ -98,40 +87,11 @@ class Command(BaseCommand):
                     skipped_count += 1
                     continue
 
-                created_count = 0
-                updated_count = 0
-
-                for perf_dto in performance_data:
-                    performance, created = FundPerformance.objects.update_or_create(
-                        asset=fund,
-                        date=perf_dto.date,
-                        defaults={
-                            "open_price": perf_dto.open_price,
-                            "high_price": perf_dto.high_price,
-                            "low_price": perf_dto.low_price,
-                            "close_price": perf_dto.close_price,
-                            "adjusted_close": perf_dto.adjusted_close,
-                            "volume": perf_dto.volume,
-                            "dividend": perf_dto.dividend,
-                            "split_ratio": perf_dto.split_ratio,
-                        },
-                    )
-
-                    if created:
-                        created_count += 1
-                    else:
-                        updated_count += 1
-
-                latest_price = performance_data[-1].close_price
-                fund.previous_value = fund.current_value
-                fund.current_value = latest_price
-                fund.last_price_update = timezone.now()
-                fund.save(update_fields=["previous_value", "current_value", "last_price_update"])
-
-                sync_record.records_fetched = len(performance_data)
-                sync_record.records_created = created_count
-                sync_record.records_updated = updated_count
-                sync_record.mark_complete(success=True)
+                created_count, updated_count = self._save_performance_data(
+                    fund=fund,
+                    performance_data=performance_data,
+                    sync_record=sync_record,
+                )
 
                 self.stdout.write(self.style.SUCCESS(f"✅ {fund.ticker}: {created_count} new, {updated_count} updated"))
                 success_count += 1
@@ -139,8 +99,7 @@ class Command(BaseCommand):
             except Exception as e:
                 self.stdout.write(self.style.ERROR(f"❌ {fund.ticker}: {e}"))
                 error_count += 1
-                if "sync_record" in locals():
-                    sync_record.mark_complete(success=False, error_message=str(e))
+                handle_sync_error(sync_record, str(e))
 
         self.stdout.write(f"\n{'='*60}")
         self.stdout.write(f"✅ Successfully updated: {success_count}")
@@ -149,3 +108,42 @@ class Command(BaseCommand):
         if error_count > 0:
             self.stdout.write(self.style.ERROR(f"❌ Failed: {error_count}"))
         self.stdout.write(f"{'='*60}\n")
+
+    @transaction.atomic
+    def _save_performance_data(self, fund: Fund, performance_data: list, sync_record: DataSync) -> tuple[int, int]:
+        created_count = 0
+        updated_count = 0
+
+        for perf_dto in performance_data:
+            performance, created = FundPerformance.objects.update_or_create(
+                asset=fund,
+                date=perf_dto.date,
+                defaults={
+                    "open_price": perf_dto.open_price,
+                    "high_price": perf_dto.high_price,
+                    "low_price": perf_dto.low_price,
+                    "close_price": perf_dto.close_price,
+                    "adjusted_close": perf_dto.adjusted_close,
+                    "volume": perf_dto.volume,
+                    "dividend": perf_dto.dividend,
+                    "split_ratio": perf_dto.split_ratio,
+                },
+            )
+
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+
+        latest_price = performance_data[-1].close_price
+        fund.previous_value = fund.current_value
+        fund.current_value = latest_price
+        fund.last_price_update = timezone.now()
+        fund.save(update_fields=["previous_value", "current_value", "last_price_update"])
+
+        sync_record.records_fetched = len(performance_data)
+        sync_record.records_created = created_count
+        sync_record.records_updated = updated_count
+        sync_record.mark_complete(success=True)
+
+        return created_count, updated_count
