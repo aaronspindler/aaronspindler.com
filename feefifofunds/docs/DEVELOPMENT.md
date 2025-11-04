@@ -59,7 +59,7 @@ FeeFiFoFunds is a Django-based fund analysis platform for tracking, comparing, a
 
 ### Planned
 
-- **Additional Data Sources** - Alpha Vantage, Finnhub, Polygon.io
+- **Additional Data Sources** - Alpha Vantage, Finnhub, massive.com
 - **Advanced Analytics** - Risk metrics, technical indicators
 - **ML Recommendations** - Fund similarity, performance prediction
 - **Real-time Updates** - WebSocket integration

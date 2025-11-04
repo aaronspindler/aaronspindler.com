@@ -53,6 +53,6 @@ class Command(BaseCommand):
         self.stdout.write("  4. Or use: python manage.py add_sample_funds\n")
         self.stdout.write("\n🔮 Future data sources (planned):")
         self.stdout.write("  - Alpha Vantage (official API, free tier)")
-        self.stdout.write("  - Polygon.io (official API, free tier)")
+        self.stdout.write("  - massive.com (official API, free tier)")
         self.stdout.write("  - Finnhub (official API, free tier)")
         self.stdout.write("  - CSV import for bulk data\n")

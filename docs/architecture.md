@@ -286,7 +286,7 @@ aaronspindler.com/
 - Yahoo Finance integration
 - Alpha Vantage integration (planned)
 - Finnhub integration (planned)
-- Polygon.io integration (planned)
+- massive.com integration (planned)
 
 **Features**:
 - Standardized data acquisition from multiple sources

@@ -246,7 +246,7 @@ def delete(soft=True):
 ### 1. Data Ingestion Flow
 
 ```
-External API (Alpha Vantage, Polygon.io, etc.)
+External API (Alpha Vantage, massive.com, etc.)
        ↓
 BaseDataSource (with rate limiting & caching)
        ↓

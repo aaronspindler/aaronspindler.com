@@ -2,7 +2,7 @@
 Data source services for FeeFiFoFunds.
 
 This package contains data source integrations for fetching fund data from
-external APIs like Alpha Vantage, Finnhub, and Polygon.io.
+external APIs like Alpha Vantage, Finnhub, and massive.com.
 
 Currently, no external data sources are implemented. Use Django admin to add funds manually.
 """

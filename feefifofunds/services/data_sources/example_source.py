@@ -10,7 +10,7 @@ ALTERNATIVE APPROACHES:
 2. Use: python manage.py add_sample_funds
 3. Wait for official data source implementations:
    - Alpha Vantage (official API with free tier)
-   - Polygon.io (official API with free tier)
+   - massive.com (official API with free tier)
    - Finnhub (official API with free tier)
 
 For now, use the Django admin to add funds manually:

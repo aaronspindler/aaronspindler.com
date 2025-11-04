@@ -48,7 +48,7 @@ For detailed setup instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ### 📋 Planned
 
-- 📋 **Additional Data Sources** - Alpha Vantage, Finnhub, Polygon.io
+- 📋 **Additional Data Sources** - Alpha Vantage, Finnhub, massive.com
 - 📋 **Advanced Analytics** - Full suite of risk metrics and technical indicators
 - 📋 **Machine Learning** - Fund similarity and performance prediction models
 - 📋 **Real-time Updates** - WebSocket integration for live price data
@@ -110,7 +110,7 @@ feefifofunds/
 ### Short-term Goals (Next 3-6 Months)
 
 1. Complete metrics calculation algorithms
-2. Implement official data source (Alpha Vantage, Polygon.io, or Finnhub)
+2. Implement official data source (Alpha Vantage, massive.com, or Finnhub)
 3. Build interactive frontend with charts
 4. Add user authentication and watchlists
 5. Implement basic recommendations
@@ -206,7 +206,7 @@ To extract as standalone, see deployment documentation.
 - No external data sources currently implemented
 - All fund data must be added manually via Django admin
 - Use `python manage.py add_sample_funds` for testing
-- Official data sources (Alpha Vantage, Polygon.io, Finnhub) planned
+- Official data sources (Alpha Vantage, massive.com, Finnhub) planned
 
 **Metrics**:
 - Basic returns calculated by database properties
