@@ -366,3 +366,5 @@ CELERY_TASK_SEND_SENT_EVENT = True
 
 RESUME_ENABLED = env("RESUME_ENABLED", default=True)
 RESUME_FILENAME = env("RESUME_FILENAME", default="Aaron_Spindler_Resume_2025.pdf")
+
+MASSIVE_API_KEY = env("MASSIVE_API_KEY", default="")
