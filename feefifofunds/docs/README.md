@@ -29,7 +29,7 @@ For detailed setup instructions, see [DEVELOPMENT.md](DEVELOPMENT.md).
 ### ✅ Implemented (Ready to Use)
 
 - ✅ **Database Models** - Complete data models with proper relationships and indexes
-- ✅ **TimescaleDB Integration** - Time-series optimization for performance data
+- ✅ **Optimized Time-Series Storage** - Efficient storage and querying of performance data
 - ✅ **Django Admin** - Full-featured admin interface for all models
 - ✅ **Data Source Framework** - BaseDataSource with rate limiting, caching, and error handling
 - ✅ **DTOs** - Standardized data transfer objects for external APIs
@@ -87,7 +87,7 @@ feefifofunds/
 ### Technology Stack
 
 - **Backend**: Django 5.0+
-- **Database**: PostgreSQL 16+ with TimescaleDB
+- **Database**: PostgreSQL 16+
 - **Cache**: Redis 7+
 - **Task Queue**: Celery (planned)
 - **Frontend**: Django templates + Vanilla JS (no framework)
@@ -97,7 +97,7 @@ feefifofunds/
 1. **Portability** - All code self-contained in `feefifofunds/` directory
 2. **No DRF** - Simple JsonResponse for API endpoints (can add later if needed)
 3. **Service Layer** - Business logic separated from views for reusability
-4. **TimescaleDB** - Optimized time-series storage for performance data
+4. **Optimized Storage** - Proper indexing and unique constraints for performance data
 5. **Redis Caching** - Aggressive caching with 20-min to 1-hour TTLs
 
 ## 📚 Documentation
@@ -142,9 +142,6 @@ Create a comprehensive fund analysis platform that:
 ## 🛠️ Management Commands
 
 ```bash
-# Check TimescaleDB status
-python manage.py check_timescaledb
-
 # Calculate metrics (stub - needs implementation)
 python manage.py calculate_metrics SPY
 python manage.py calculate_metrics --all --timeframe 1Y

@@ -19,13 +19,13 @@ FeeFiFoFunds follows a classic Django layered architecture with additional servi
 1. **Portability** - All code self-contained in `feefifofunds/` directory
 2. **Separation of Concerns** - Clear boundaries between layers
 3. **Data Source Agnostic** - Pluggable data source implementations
-4. **Performance First** - Caching, indexing, and TimescaleDB for time-series data
+4. **Performance First** - Caching and database indexing for time-series data
 5. **Test-Driven** - Comprehensive test coverage for critical paths
 
 ### Technology Stack
 
 - **Framework**: Django 5.0+
-- **Database**: PostgreSQL 16+ with TimescaleDB extension
+- **Database**: PostgreSQL 16+
 - **Cache**: Redis 7+
 - **Task Queue**: Celery with Redis broker
 - **Frontend**: Django templates + Vanilla JS (no framework dependency)
@@ -72,11 +72,6 @@ Time-series OHLCV (Open, High, Low, Close, Volume) data.
 - `close_price` (DecimalField) - Closing price/NAV
 - `volume` (BigIntegerField) - Trading volume
 - `daily_return` (DecimalField) - Calculated return
-
-**TimescaleDB Integration**:
-- Converted to hypertable partitioned by date
-- Compression enabled for data older than 7 days
-- Continuous aggregates for hourly/daily rollups
 
 **Indexes**:
 ```sql
@@ -260,7 +255,7 @@ DataValidator (sanity checks & normalization)
        ↓
 Django Model (Fund, FundPerformance, etc.)
        ↓
-PostgreSQL Database (with TimescaleDB for time-series)
+PostgreSQL Database (with optimized indexes for time-series)
        ↓
 Cache (Redis) for frequently accessed data
 ```
@@ -411,12 +406,6 @@ for fund in funds:
 funds = Fund.objects.all().prefetch_related('metrics')
 ```
 
-**TimescaleDB**:
-- Hypertables for time-series data (FundPerformance)
-- Automatic partitioning by date
-- Compression for old data (7+ days)
-- Continuous aggregates for rollups
-
 ### 2. Caching Strategy
 
 **Cache Levels**:
@@ -461,19 +450,6 @@ rate_limit_period = 60
 ```
 
 ### 4. Data Compression
-
-**TimescaleDB Compression**:
-```sql
--- Enable compression on hypertable
-ALTER TABLE feefifofunds_performance SET (
-    timescaledb.compress,
-    timescaledb.compress_segmentby = 'fund_id',
-    timescaledb.compress_orderby = 'date DESC'
-);
-
--- Auto-compress data older than 7 days
-SELECT add_compression_policy('feefifofunds_performance', INTERVAL '7 days');
-```
 
 **Redis Compression**:
 - Gzip compression enabled in cache backend
@@ -569,6 +545,5 @@ If load increases significantly:
 
 - [Django Documentation](https://docs.djangoproject.com/)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- [TimescaleDB Documentation](https://docs.timescale.com/)
 - [Redis Documentation](https://redis.io/documentation)
 - [Celery Documentation](https://docs.celeryproject.org/)

@@ -25,7 +25,7 @@ FeeFiFoFunds is a Django-based fund analysis platform for tracking, comparing, a
 
 #### 🗄️ Database Models (100%)
 - **Fund** - Complete with all fields, properties, and methods
-- **FundPerformance** - OHLCV data with TimescaleDB support
+- **FundPerformance** - OHLCV data with optimized indexing
 - **FundHolding** - Portfolio holdings tracking
 - **FundMetrics** - Calculated financial metrics
 - **DataSource** - External API provider tracking
@@ -69,7 +69,7 @@ FeeFiFoFunds is a Django-based fund analysis platform for tracking, comparing, a
 ### Prerequisites
 
 - Python 3.11+
-- PostgreSQL 16+ with TimescaleDB extension
+- PostgreSQL 16+
 - Redis 7+
 - Node.js 18+ (for frontend assets)
 - uv (for fast dependency management)
@@ -131,9 +131,6 @@ POLYGON_API_KEY=
 # Run migrations
 python manage.py migrate
 
-# Check TimescaleDB setup
-python manage.py check_timescaledb
-
 # Create superuser for admin access
 python manage.py createsuperuser
 ```
@@ -194,8 +191,7 @@ feefifofunds/
 │
 ├── management/commands/ # Django management commands
 │   ├── calculate_metrics.py
-│   ├── fetch_fund.py
-│   └── check_timescaledb.py
+│   └── fetch_fund.py
 │
 ├── migrations/          # Database migrations
 ├── templates/           # HTML templates
@@ -516,7 +512,7 @@ refactor: Simplify rate limiting logic
 ## 📖 Additional Resources
 
 - [Django Documentation](https://docs.djangoproject.com/)
-- [TimescaleDB Documentation](https://docs.timescale.com/)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
 - [Alpha Vantage Documentation](https://www.alphavantage.co/documentation/)
 - [Project README](../README.md)
 - [Architecture Documentation](ARCHITECTURE.md)

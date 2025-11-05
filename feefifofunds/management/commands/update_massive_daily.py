@@ -134,55 +134,25 @@ class Command(BaseCommand):
                 )
             )
 
-        # Use raw SQL for TimescaleDB hypertable compatibility
-        # bulk_create tries to RETURNING id which fails on tables without id column
+        # Use bulk_create with update_conflicts for efficient upsert
         if performance_records:
-            from django.db import connection
-
-            with connection.cursor() as cursor:
-                for record in performance_records:
-                    cursor.execute(
-                        """
-                        INSERT INTO feefifofunds_performance (
-                            created_at, updated_at, is_active, deleted_at,
-                            date, interval, value, data_source, data_quality_score,
-                            open_price, high_price, low_price, close_price, adjusted_close,
-                            volume, dollar_volume, dividend, split_ratio,
-                            daily_return, log_return, asset_id
-                        ) VALUES (
-                            NOW(), NOW(), TRUE, NULL,
-                            %s, %s, NULL, %s, NULL,
-                            %s, %s, %s, %s, %s,
-                            %s, NULL, %s, %s,
-                            NULL, NULL, %s
-                        )
-                        ON CONFLICT (asset_id, date, interval) DO UPDATE SET
-                            updated_at = NOW(),
-                            open_price = EXCLUDED.open_price,
-                            high_price = EXCLUDED.high_price,
-                            low_price = EXCLUDED.low_price,
-                            close_price = EXCLUDED.close_price,
-                            adjusted_close = EXCLUDED.adjusted_close,
-                            volume = EXCLUDED.volume,
-                            dividend = EXCLUDED.dividend,
-                            split_ratio = EXCLUDED.split_ratio,
-                            data_source = EXCLUDED.data_source
-                        """,
-                        [
-                            record.date,
-                            record.interval,
-                            record.data_source,
-                            record.open_price,
-                            record.high_price,
-                            record.low_price,
-                            record.close_price,
-                            record.adjusted_close,
-                            record.volume,
-                            record.dividend,
-                            record.split_ratio,
-                            record.asset.id,
-                        ],
-                    )
+            FundPerformance.objects.bulk_create(
+                performance_records,
+                update_conflicts=True,
+                update_fields=[
+                    "open_price",
+                    "high_price",
+                    "low_price",
+                    "close_price",
+                    "adjusted_close",
+                    "volume",
+                    "dividend",
+                    "split_ratio",
+                    "data_source",
+                    "updated_at",
+                ],
+                unique_fields=["asset", "date", "interval"],
+            )
             created_count = len(performance_records)
 
         latest_price = performance_data[-1].close_price
