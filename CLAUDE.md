@@ -367,18 +367,17 @@ Asset                     ← Universal model for all asset types
 ├── category             ← STOCK, CRYPTO, COMMODITY, or CURRENCY
 ├── quote_currency       ← Currency for pricing (USD, EUR, BTC, etc.)
 ├── description          ← Optional details
-├── data_source          ← Optional source identifier
 └── active               ← Whether actively tracked
 
 AssetPrice               ← OHLCV price records
 ├── asset                ← ForeignKey to Asset
-├── timestamp            ← Date/time of price record
+├── timestamp            ← Date/time of price record (timezone-aware UTC)
 ├── open                 ← Opening price
 ├── high                 ← Highest price
 ├── low                  ← Lowest price
 ├── close                ← Closing price
 ├── volume               ← Trading volume (optional)
-└── source               ← Data source (required, e.g., 'finnhub', 'massive', 'yahoo')
+└── source               ← Data source (required, e.g., 'finnhub', 'massive')
     Unique constraint: (asset, timestamp, source)
 ```
 

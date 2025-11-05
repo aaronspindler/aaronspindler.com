@@ -71,11 +71,28 @@ class Command(BaseCommand):
         if options["days"]:
             end_date = date.today()
             start_date = end_date - timedelta(days=options["days"])
+            requested_days = options["days"]
         elif options["start"]:
             start_date = datetime.strptime(options["start"], "%Y-%m-%d").date()
             end_date = datetime.strptime(options["end"], "%Y-%m-%d").date() if options["end"] else date.today()
+            requested_days = (end_date - start_date).days
         else:
             raise CommandError("Must provide either --days or --start")
+
+        if source == "massive" and requested_days > MassiveDataSource.max_free_tier_days:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"⚠️  Warning: Massive.com free tier limit is {MassiveDataSource.max_free_tier_days} days.\n"
+                    f"   You requested {requested_days} days. You may get partial data or errors."
+                )
+            )
+        elif source == "finnhub" and requested_days > FinnhubDataSource.max_free_tier_days:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"⚠️  Warning: Finnhub free tier estimated limit is {FinnhubDataSource.max_free_tier_days} days.\n"
+                    f"   You requested {requested_days} days. You may get partial data or errors."
+                )
+            )
 
         if backfill_all:
             assets = Asset.objects.filter(active=True)

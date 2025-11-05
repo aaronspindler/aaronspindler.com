@@ -3,14 +3,14 @@ Massive.com (Polygon.io) Data Source Implementation.
 
 Provides free financial market data:
 - Rate Limit: ~100 requests/second (soft limit)
-- Historical Data: 2 years at minute-level granularity
+- Historical Data: 2 years (730 days) on free tier
 - Real-time Data: End-of-day only on free tier
 
 API Documentation: https://polygon.io/docs
 Client Library: https://github.com/massive-com/client-python
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import List
 
@@ -19,11 +19,14 @@ from polygon import RESTClient
 
 from .base import DataNotFoundError, DataSourceError
 
+MAX_FREE_TIER_DAYS = 730
+
 
 class MassiveDataSource:
     name = "massive"
     display_name = "Massive.com"
     requires_api_key = True
+    max_free_tier_days = MAX_FREE_TIER_DAYS
 
     def __init__(self, api_key: str = None):
         if api_key is None:
@@ -76,7 +79,7 @@ class MassiveDataSource:
         if not hasattr(agg, "timestamp"):
             raise DataSourceError("Missing timestamp in response")
 
-        timestamp = datetime.fromtimestamp(agg.timestamp / 1000)
+        timestamp = datetime.fromtimestamp(agg.timestamp / 1000, tz=timezone.utc)
 
         return {
             "ticker": ticker,

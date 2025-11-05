@@ -3,7 +3,7 @@ Finnhub Data Source Implementation.
 
 Provides financial market data including stocks and crypto:
 - Rate Limit: 60 calls/minute (free tier)
-- Historical Data: Available with OHLC endpoint
+- Historical Data: ~1 year estimated on free tier (not explicitly documented)
 - Real-time Data: WebSocket available
 - Crypto Support: Yes
 
@@ -11,7 +11,7 @@ API Documentation: https://finnhub.io/docs/api
 Client Library: https://github.com/Finnhub-Stock-API/finnhub-python
 """
 
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from typing import List
 
@@ -20,11 +20,14 @@ from django.conf import settings
 
 from .base import DataNotFoundError, DataSourceError
 
+MAX_FREE_TIER_DAYS = 365
+
 
 class FinnhubDataSource:
     name = "finnhub"
     display_name = "Finnhub"
     requires_api_key = True
+    max_free_tier_days = MAX_FREE_TIER_DAYS
 
     def __init__(self, api_key: str = None):
         if api_key is None:
@@ -81,7 +84,7 @@ class FinnhubDataSource:
 
         results = []
         for i in range(len(timestamps)):
-            timestamp = datetime.fromtimestamp(timestamps[i])
+            timestamp = datetime.fromtimestamp(timestamps[i], tz=timezone.utc)
 
             results.append(
                 {

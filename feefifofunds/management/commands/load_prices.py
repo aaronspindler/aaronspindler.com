@@ -58,6 +58,21 @@ class Command(BaseCommand):
         end_date = date.today()
         start_date = end_date - timedelta(days=days)
 
+        if source == "massive" and days > MassiveDataSource.max_free_tier_days:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"⚠️  Warning: Massive.com free tier limit is {MassiveDataSource.max_free_tier_days} days.\n"
+                    f"   You requested {days} days. You may get partial data or errors."
+                )
+            )
+        elif source == "finnhub" and days > FinnhubDataSource.max_free_tier_days:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"⚠️  Warning: Finnhub free tier estimated limit is {FinnhubDataSource.max_free_tier_days} days.\n"
+                    f"   You requested {days} days. You may get partial data or errors."
+                )
+            )
+
         self.stdout.write(
             f"Loading prices for {asset.name} ({ticker}) from {source}...\n" f"Date range: {start_date} to {end_date}"
         )

@@ -1,7 +1,7 @@
 """
-Base model classes for FeeFiFoFunds application.
+Base model mixins for common functionality.
 
-Provides common fields and functionality for all models.
+Provides reusable abstract models for timestamp tracking and soft deletion.
 """
 
 from django.db import models

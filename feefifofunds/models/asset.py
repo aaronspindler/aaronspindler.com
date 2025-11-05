@@ -1,6 +1,6 @@
 from django.db import models
 
-from .base import TimestampedModel
+from utils.models import TimestampedModel
 
 
 class Asset(TimestampedModel):
@@ -35,11 +35,6 @@ class Asset(TimestampedModel):
     description = models.TextField(
         blank=True,
         help_text="Detailed description of the asset",
-    )
-    data_source = models.CharField(
-        max_length=50,
-        blank=True,
-        help_text="Primary data source for this asset",
     )
     active = models.BooleanField(
         default=True,

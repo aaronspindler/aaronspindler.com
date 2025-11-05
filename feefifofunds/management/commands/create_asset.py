@@ -46,12 +46,6 @@ class Command(BaseCommand):
             default="",
             help="Optional asset description",
         )
-        parser.add_argument(
-            "--data-source",
-            type=str,
-            default="",
-            help="Primary data source for this asset",
-        )
 
     def handle(self, *args, **options):
         ticker = options["ticker"].upper()
@@ -59,7 +53,6 @@ class Command(BaseCommand):
         category = options["category"]
         quote_currency = options["quote_currency"].upper()
         description = options["description"]
-        data_source = options["data_source"]
 
         if Asset.objects.filter(ticker=ticker).exists():
             raise CommandError(f"Asset with ticker '{ticker}' already exists")
@@ -70,12 +63,9 @@ class Command(BaseCommand):
             category=category,
             quote_currency=quote_currency,
             description=description,
-            data_source=data_source,
             active=True,
         )
 
         self.stdout.write(self.style.SUCCESS(f"✓ Created asset: {asset.ticker} - {asset.name}"))
         self.stdout.write(f"  Category: {asset.get_category_display()}")
         self.stdout.write(f"  Quote Currency: {asset.quote_currency}")
-        if data_source:
-            self.stdout.write(f"  Data Source: {data_source}")

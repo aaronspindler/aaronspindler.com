@@ -2,14 +2,17 @@
 Utils models package.
 
 Models are organized into logical groups:
+- mixins: Base model mixins for common functionality
 - notification: Email and SMS notification models
 - security: Request fingerprinting and security models
 - lighthouse: Performance monitoring models
 - search: Full-text search models
 """
 
+# Import base model mixins
 # Import lighthouse models
 from .lighthouse import LighthouseAudit
+from .mixins import SoftDeleteModel, TimestampedModel
 
 # Import all notification models
 from .notification import Email, NotificationConfig, NotificationEmail, NotificationPhoneNumber, TextMessage
@@ -21,6 +24,9 @@ from .search import SearchableContent
 from .security import HTTPStatusCode, IPAddress, RequestFingerprint
 
 __all__ = [
+    # Base model mixins
+    "TimestampedModel",
+    "SoftDeleteModel",
     # Notification models
     "NotificationConfig",
     "NotificationEmail",

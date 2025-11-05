@@ -22,7 +22,7 @@ class AssetAdmin(admin.ModelAdmin):
         (
             "Details",
             {
-                "fields": ("description", "data_source", "active"),
+                "fields": ("description", "active"),
             },
         ),
         (
