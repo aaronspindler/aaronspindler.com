@@ -185,7 +185,7 @@ def lighthouse_history_page(request):
 
     # Prepare data for Chart.js
     chart_data = {
-        "labels": [audit.audit_date.strftime("%Y-%m-%d %H:%M") for audit in audits],
+        "labels": [audit.audit_date.strftime("%Y-%m-%d") for audit in audits],
         "performance": [audit.performance_score for audit in audits],
         "accessibility": [audit.accessibility_score for audit in audits],
         "best_practices": [audit.best_practices_score for audit in audits],

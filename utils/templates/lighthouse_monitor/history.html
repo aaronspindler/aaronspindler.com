@@ -56,7 +56,7 @@
             <tbody>
                 {% for audit in audits %}
                 <tr>
-                    <td>{{ audit.audit_date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ audit.audit_date|date:"Y-m-d" }}</td>
                     <td>{{ audit.performance_score }}</td>
                     <td>{{ audit.accessibility_score }}</td>
                     <td>{{ audit.best_practices_score }}</td>
