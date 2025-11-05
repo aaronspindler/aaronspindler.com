@@ -170,6 +170,7 @@ certifi==2025.10.5 \
     --hash=sha256:0f212c2744a9bb6de0c56639a6f68afe01ecd92d91f14ae897c4fe7bbeeef0de \
     --hash=sha256:47c09d31ccf2acf0be3f701ea53595ee7e0b8fa08801c6624be771df09ae7b43
     # via
+    #   polygon-api-client
     #   pyppeteer
     #   requests
 charset-normalizer==3.4.4 \
@@ -439,6 +440,10 @@ django-timezone-field==7.1 \
     --hash=sha256:93914713ed882f5bccda080eda388f7006349f25930b6122e9b07bf8db49c4b4 \
     --hash=sha256:b3ef409d88a2718b566fabe10ea996f2838bc72b22d3a2900c0aa905c761380c
     # via django-celery-beat
+finnhub-python==2.4.20 \
+    --hash=sha256:1c944e7d59d3f9cc8dcdc86c08b19a7a2c77b3d1f57d3c5df49f4d1469e9d0b4 \
+    --hash=sha256:b207fa936080d489b5045caae2e602ba34d0e26313310ff3d8d505942f24bbce
+    # via -r requirements/base.in
 flower==2.0.1 \
     --hash=sha256:5ab717b979530770c16afb48b50d2a98d23c3e9fe39851dcf6bc4d01845a02a0 \
     --hash=sha256:9db2c621eeefbc844c8dd88be64aef61e84e2deb29b271e02ab2b5b9f01068e2
@@ -755,6 +760,10 @@ pillow==12.0.0 \
     # via
     #   -r requirements/base.in
     #   imagehash
+polygon-api-client==1.14.3 \
+    --hash=sha256:c1e68b6590a10c16e8e6ad09a36b5ce01c48c538b743fbeba0c8dfd15b27c5d0 \
+    --hash=sha256:f35ad69c7bf06c5711cbc93f7ce84368a149b9f2c7ac0033fc3cf4d5bfc80462
+    # via -r requirements/base.in
 prometheus-client==0.23.1 \
     --hash=sha256:6ae8f9081eaaaf153a2e959d2e6c4f4fb57b12ef76c8c7980202f1e57b48b2ce \
     --hash=sha256:dd1913e6e76b59cfe44e7a4b83e01afc9873c1bdfd2ed8739f1e76aeca115f99
@@ -913,7 +922,9 @@ redis==7.0.1 \
 requests==2.32.5 \
     --hash=sha256:2462f94637a34fd532264295e186976db0f5d453d1cdd31473c85a6a161affb6 \
     --hash=sha256:dbba0bac56e100853db0ea71b82b4dfd5fe2bf6d3754a8893c3af500cec7d7cf
-    # via -r requirements/base.in
+    # via
+    #   -r requirements/base.in
+    #   finnhub-python
 s3transfer==0.14.0 \
     --hash=sha256:ea3b790c7077558ed1f02a3072fb3cb992bbbd253392f4b6e9e8976941c7d456 \
     --hash=sha256:eff12264e7c8b4985074ccce27a3b38a485bb7f7422cc8046fee9be4983e4125
@@ -1037,6 +1048,7 @@ urllib3==1.26.20 \
     --hash=sha256:40c2dc0c681e47eb8f90e7e27bf6ff7df2e677421fd46756da1161c39ca70d32
     # via
     #   botocore
+    #   polygon-api-client
     #   pyppeteer
     #   requests
 vine==5.1.0 \
@@ -1120,7 +1132,9 @@ websockets==10.4 \
     --hash=sha256:f5fc088b7a32f244c519a048c170f14cf2251b849ef0e20cbbb0fdf0fdaf556f \
     --hash=sha256:fe10ddc59b304cb19a1bdf5bd0a7719cbbc9fbdd57ac80ed436b709fcf889106 \
     --hash=sha256:ff64a1d38d156d429404aaa84b27305e957fd10c30e5880d1765c9480bea490f
-    # via pyppeteer
+    # via
+    #   polygon-api-client
+    #   pyppeteer
 whitenoise==6.11.0 \
     --hash=sha256:0f5bfce6061ae6611cd9396a8231e088722e4fc67bc13a111be74c738d99375f \
     --hash=sha256:b2aeb45950597236f53b5342b3121c5de69c8da0109362aee506ce88e022d258
