@@ -11,7 +11,7 @@
 
     {% if latest_audit %}
     <section class="lighthouse-summary">
-        <h2>Latest Audit ({{ latest_audit.audit_date|date:"F d, Y H:i" }} UTC)</h2>
+        <h2>Latest Audit ({{ latest_audit.audit_date|date:"F d, Y" }})</h2>
         <div class="lighthouse-scores">
             <div class="score-card">
                 <div class="score-value {% if latest_audit.performance_score >= 90 %}score-good{% elif latest_audit.performance_score >= 50 %}score-average{% else %}score-poor{% endif %}">{{ latest_audit.performance_score }}</div>
