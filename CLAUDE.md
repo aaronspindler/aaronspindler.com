@@ -341,14 +341,12 @@ python manage.py remove_local_fingerprints --limit 100
   - Custom user model
   - Registration disabled by default (NoSignupAccountAdapter)
 
-- **feefifofunds/**: Multi-asset tracking and analysis (FeeFiFoFunds project)
-  - **Polymorphic asset architecture** using django-polymorphic
-  - **7 asset types**: Fund, Crypto, Currency, Commodity, InflationIndex, SavingsAccount, RealEstate
-  - **Asset-specific performance models**: Track prices, rates, indices with type-appropriate fields
-  - **Asset-specific metrics models**: Calculate returns, volatility, and asset-specific analytics
-  - **Holdings tracking**: Fund holdings with sector/country allocation
-  - **Data source integrations**: Extensible framework for fetching data from external APIs
-  - Django admin with polymorphic parent/child interfaces for all asset types
+- **feefifofunds/**: Multi-asset tracking and analysis (FeeFiFoFunds project - MVP)
+  - **Simple asset tracking**: Universal Asset model with category field
+  - **4 asset categories**: STOCK, CRYPTO, COMMODITY, CURRENCY
+  - **OHLCV price tracking**: AssetPrice model stores open/high/low/close/volume data
+  - **Timestamp-based history**: Track price changes over time for any asset
+  - Django admin interfaces for Asset and AssetPrice management
 
 - **omas/**: Omas Coffee website (omas.coffee)
   - Separate website served via domain routing middleware
@@ -356,51 +354,48 @@ python manage.py remove_local_fingerprints --limit 100
   - Coffee-themed design and branding
   - Homepage with feature showcase
 
-### FeeFiFoFunds Multi-Asset Architecture
+### FeeFiFoFunds MVP Architecture
 
-The **feefifofunds** app uses **django-polymorphic** for flexible multi-asset tracking. This allows tracking of diverse financial instruments with asset-specific fields and behaviors.
+The **feefifofunds** app provides a simplified MVP for tracking financial asset prices over time.
 
 **Model Structure:**
 
 ```
-Asset (PolymorphicModel)  ← Base model with common fields
-├── Fund                  ← Mutual funds, ETFs, index funds
-├── Crypto                ← Cryptocurrencies and tokens
-├── Currency              ← Forex pairs and exchange rates
-├── Commodity             ← Gold, oil, agricultural products
-├── InflationIndex        ← CPI, PPI, PCE indices
-├── SavingsAccount        ← Savings accounts, CDs, money market
-└── RealEstate            ← Properties, REITs, housing indices
+Asset                     ← Universal model for all asset types
+├── ticker               ← Unique identifier (e.g., "BTC", "AAPL", "GLD")
+├── name                 ← Full asset name
+├── category             ← STOCK, CRYPTO, COMMODITY, or CURRENCY
+├── quote_currency       ← Currency for pricing (USD, EUR, BTC, etc.)
+├── description          ← Optional details
+├── data_source          ← Optional source identifier
+└── active               ← Whether actively tracked
+
+AssetPrice               ← OHLCV price records
+├── asset                ← ForeignKey to Asset
+├── timestamp            ← Date/time of price record
+├── open                 ← Opening price
+├── high                 ← Highest price
+├── low                  ← Lowest price
+├── close                ← Closing price
+├── volume               ← Trading volume (optional)
+└── source               ← Data source (required, e.g., 'finnhub', 'massive', 'yahoo')
+    Unique constraint: (asset, timestamp, source)
 ```
 
-**Performance Models** (asset-specific):
-- `FundPerformance` - OHLCV data, dividends, splits
-- `CryptoPerformance` - OHLCV, market cap, TVL (DeFi)
-- `CurrencyPerformance` - Exchange rates, bid/ask spreads
-- `CommodityPerformance` - Spot/futures prices, open interest
-- `InflationData` - Index values, annual/monthly rates
-- `SavingsRateHistory` - APY, interest rates, compounding
-- `PropertyValuation` - Market/assessed values, rental income
-
-**Metrics Models** (asset-specific analytics):
-- `FundMetrics` - Comprehensive: Sharpe, Sortino, alpha, beta, VaR, drawdowns
-- `CryptoMetrics` - Volatility, Sharpe, correlation to BTC
-- `CurrencyMetrics` - Returns, volatility, Sharpe
-- `CommodityMetrics` - Returns, volatility, Sharpe, Sortino
-- `InflationMetrics` - Average rates, cumulative inflation, purchasing power
-- `SavingsMetrics` - Effective rates, real returns, stability scores
-- `RealEstateMetrics` - Cap rates, rental yields, appreciation, total returns
-
 **Key Features:**
-- **Polymorphic queries**: `Asset.objects.filter(ticker='BTC')` works across all types
-- **Type-specific fields**: Each asset has relevant fields (e.g., blockchain for crypto, APY for savings)
-- **Flexible tracking**: Easy to add new asset types without breaking existing code
-- **Semantic clarity**: Performance and metrics models match asset semantics
+- **Universal model**: Single Asset table handles all asset types via category field
+- **Multi-source support**: Track prices from multiple data sources for the same asset/timestamp
+- **Unique constraint**: `(asset, timestamp, source)` allows comparing data from different sources
+- **Simple queries**: `Asset.objects.filter(category='CRYPTO')` or `Asset.objects.get(ticker='BTC')`
+- **Time-series data**: Track price history with OHLCV data points
+- **Optimized indexes**: Composite indexes on `(asset, timestamp, source)`, `(asset, source)`, and individual fields
+- **Extensible**: Easy to add new fields or categories as needed
+- **Admin-ready**: Full Django admin interfaces for managing assets and prices
 
-**Field Naming:**
-- `current_value` - Generic value field (price/rate/index)
-- `quote_currency` - Currency for quotes/prices (renamed from `currency` to avoid conflict with Currency model)
-- `asset` - ForeignKey in performance/metrics models (polymorphic relationship)
+**Design Philosophy:**
+- Start simple with MVP, add complexity only when needed
+- Use category field instead of polymorphic inheritance
+- Focus on core functionality: storing ticker prices over time
 
 ### Multi-Domain Support
 
