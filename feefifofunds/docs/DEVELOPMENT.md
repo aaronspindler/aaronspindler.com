@@ -5,78 +5,75 @@
 - [Project Overview](#project-overview)
 - [Current Implementation Status](#current-implementation-status)
 - [Development Setup](#development-setup)
-- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Common Development Tasks](#common-development-tasks)
 - [Testing](#testing)
+- [Debugging](#debugging)
 - [Contribution Guidelines](#contribution-guidelines)
 
 ## 🎯 Project Overview
 
-FeeFiFoFunds is a Django-based fund analysis platform for tracking, comparing, and analyzing ETFs and mutual funds. The project is currently in active development with core infrastructure in place and data source integrations in progress.
+FeeFiFoFunds is a Django-based multi-asset price tracking platform. The project is currently in MVP stage with focus on data ingestion infrastructure for stocks, cryptocurrencies, commodities, and currencies.
 
 ### Goals
 
-- **Primary**: Provide comprehensive fund data aggregation from multiple sources
-- **Secondary**: Enable detailed fund comparison and analysis
-- **Future**: AI-powered recommendations and portfolio optimization
+- **Primary**: Build reliable data ingestion pipeline for multi-asset price tracking
+- **Secondary**: Enable asset comparison and basic analytics
+- **Future**: Advanced analytics and machine learning predictions
 
 ## ✅ Current Implementation Status
 
-### Completed Components
+### Completed Components (MVP Phase 1)
 
 #### 🗄️ Database Models (100%)
-- **Fund** - Complete with all fields, properties, and methods
-- **FundPerformance** - OHLCV data with optimized indexing
-- **FundHolding** - Portfolio holdings tracking
-- **FundMetrics** - Calculated financial metrics
-- **DataSource** - External API provider tracking
-- **DataSync** - Synchronization history and monitoring
+- **Asset** - Universal model for all asset types (4 categories)
+- **AssetPrice** - OHLCV price data with multi-source support
+- Uses TimestampedModel mixin from `utils/models/mixins.py`
 
-#### 🔌 Data Source Infrastructure (90%)
-- **BaseDataSource** - Abstract base class with rate limiting, caching, and error handling
-- **DTOs** - FundDataDTO, PerformanceDataDTO, HoldingDataDTO
-- **DataValidator** - Comprehensive validation pipeline
+#### 🔌 Data Sources (100%)
+- **FinnhubDataSource** - Stocks and crypto (~1 year historical on free tier)
+- **MassiveDataSource** - Stocks via Polygon.io (2 years historical on free tier)
+- Standardized data transformation pipeline
+- Error handling (DataSourceError, DataNotFoundError)
 
-#### 📊 Services (60%)
-- **ComparisonEngine** - Fund comparison logic (COMPLETE)
-- **DataValidator** - Data quality checks (COMPLETE)
-- **MetricsCalculator** - STUB (needs implementation)
-
-#### 🌐 Views & URLs (80%)
-- HTML views: home, list, detail, compare
-- JSON endpoints: fund data, performance, holdings, comparison
-- URL routing configured
+#### 🛠️ Management Commands (100%)
+- **create_asset** - Create assets manually
+- **load_prices** - Load recent price data
+- **backfill_prices** - Backfill historical prices (single or all assets)
+- **populate_popular_assets** - Seed popular assets
+- Dry-run mode support
+- Free tier warnings
 
 #### 🎨 Admin Interface (100%)
-- All models registered with custom displays
-- Colored status indicators
-- Proper fieldsets and filters
+- Asset admin with filters and search
+- AssetPrice admin with list display
+- Proper field organization and help text
 
 ### In Progress
 
-- **Metrics Calculation** - Stub exists, needs algorithm implementation
-- **Data Source Testing** - Infrastructure ready, needs integration tests
-- **Frontend Templates** - Basic structure exists, needs styling and interactivity
+- **Frontend Views** - Template structure needs implementation
+- **API Endpoints** - JSON endpoints planned
 
-### Planned
+### Planned (Future Phases)
 
-- **Additional Data Sources** - Alpha Vantage, Finnhub, massive.com
-- **Advanced Analytics** - Risk metrics, technical indicators
-- **ML Recommendations** - Fund similarity, performance prediction
+- **Metrics Calculation** - Returns, volatility, Sharpe ratio
+- **Asset Comparison** - Side-by-side comparisons
+- **Additional Data Sources** - Alpha Vantage, CoinGecko, Yahoo Finance
 - **Real-time Updates** - WebSocket integration
+- **Portfolio Tracking** - User portfolios and watchlists
 
 ## 🚀 Development Setup
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.13+
 - PostgreSQL 16+
-- Redis 7+
-- Node.js 18+ (for frontend assets)
+- Redis 7+ (optional, for future caching)
 - uv (for fast dependency management)
 
 ### Installation
 
-1. **Clone the repository**
+1. **Clone and navigate to project**
 
 ```bash
 cd /path/to/aaronspindler.com
@@ -89,7 +86,7 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-3. **Install uv (fast Python package installer)**
+3. **Install uv**
 
 ```bash
 pip install uv
@@ -98,7 +95,7 @@ pip install uv
 4. **Install dependencies**
 
 ```bash
-# Install from lockfile (10-100x faster than pip)
+# Install from lockfiles (10-100x faster than pip)
 uv pip install -r requirements/base.txt
 uv pip install -r requirements/dev.txt
 ```
@@ -111,19 +108,22 @@ Create `.env` file in project root:
 # Database
 DATABASE_URL=postgresql://user:password@localhost:5432/aaronspindler
 
-# Redis
-REDIS_URL=redis://localhost:6379/0
-USE_DEV_CACHE_PREFIX=True
-
 # Django
 DEBUG=True
 SECRET_KEY=your-secret-key-here
 
-# Optional: Data Source API Keys (when implemented)
-ALPHA_VANTAGE_API_KEY=
-FINNHUB_API_KEY=
-POLYGON_API_KEY=
+# Data Source API Keys
+FINNHUB_API_KEY=your-finnhub-key
+MASSIVE_API_KEY=your-polygon-key
+
+# Optional: Redis (for future caching)
+REDIS_URL=redis://localhost:6379/0
+USE_DEV_CACHE_PREFIX=True
 ```
+
+**Get API Keys**:
+- Finnhub: https://finnhub.io/register (free tier: 60 calls/min)
+- Massive.com/Polygon.io: https://polygon.io/dashboard/signup (free tier: 2 years historical)
 
 6. **Set up database**
 
@@ -135,10 +135,15 @@ python manage.py migrate
 python manage.py createsuperuser
 ```
 
-7. **Install frontend dependencies** (if working on frontend)
+7. **Seed data (optional)**
 
 ```bash
-npm install
+# Populate popular assets
+python manage.py populate_popular_assets
+
+# Load price data for specific assets
+python manage.py backfill_prices --ticker AAPL --source massive --days 365
+python manage.py backfill_prices --ticker BTC --source finnhub --days 365
 ```
 
 8. **Run development server**
@@ -147,21 +152,7 @@ npm install
 python manage.py runserver
 ```
 
-Access the app at `http://localhost:8000/feefifofunds/`
-
-### Quick Start with Docker (Alternative)
-
-```bash
-# Build and start all services
-make test-build
-make test-up
-
-# Run migrations
-docker-compose -f deployment/docker-compose.test.yml exec web python manage.py migrate
-
-# Access shell
-make test-shell
-```
+Access Django admin at `http://localhost:8000/admin/`
 
 ## 📁 Project Structure
 
@@ -171,49 +162,132 @@ feefifofunds/
 ├── apps.py
 ├── models/               # Database models
 │   ├── __init__.py
-│   ├── base.py          # Base abstract classes
-│   ├── fund.py          # Fund model
-│   ├── performance.py   # FundPerformance model
-│   ├── holding.py       # FundHolding model
-│   ├── metrics.py       # FundMetrics model
-│   └── data_source.py   # DataSource & DataSync models
+│   ├── asset.py          # Universal Asset model
+│   └── price.py          # AssetPrice model
 │
-├── services/            # Business logic
+├── services/             # Business logic
 │   ├── __init__.py
-│   ├── calculators.py   # Metrics calculation (STUB)
-│   ├── comparison.py    # Fund comparison engine
-│   ├── validators.py    # Data validation
-│   └── data_sources/    # External API integrations
+│   ├── calculators.py    # Metrics calculation (stub for Phase 2)
+│   └── data_sources/     # External API integrations
 │       ├── __init__.py
-│       ├── base.py      # Abstract base class
-│       ├── dto.py       # Data transfer objects
-│       └── example_source.py  # Placeholder for future implementations
+│       ├── base.py       # Error classes
+│       ├── dto.py        # Data transfer objects (deprecated, not used)
+│       ├── finnhub.py    # Finnhub implementation
+│       └── massive.py    # Massive.com/Polygon.io implementation
 │
-├── management/commands/ # Django management commands
-│   ├── calculate_metrics.py
-│   └── fetch_fund.py
-│
-├── migrations/          # Database migrations
-├── templates/           # HTML templates
-│   └── feefifofunds/
-│       ├── base.html
-│       ├── home.html
-│       ├── fund_list.html
-│       ├── fund_detail.html
-│       └── compare.html
-│
-├── static/              # Static files (CSS, JS, images)
-│   └── feefifofunds/
-│
-├── tests/               # Test suite
+├── management/commands/  # Django management commands
 │   ├── __init__.py
-│   └── test_base_data_source.py
+│   ├── create_asset.py
+│   ├── load_prices.py
+│   ├── backfill_prices.py
+│   └── populate_popular_assets.py
 │
-├── admin.py             # Django admin configuration
-├── views.py             # HTML views
-├── views_json.py        # JSON API endpoints
-├── views_comparison.py  # Comparison views
-└── urls.py              # URL routing
+├── migrations/           # Database migrations
+├── docs/                 # Documentation
+│   ├── README.md
+│   ├── ARCHITECTURE.md
+│   └── DEVELOPMENT.md
+│
+├── admin.py              # Django admin configuration
+├── urls.py               # URL routing (minimal, admin only)
+└── tests/                # Test suite (to be added)
+```
+
+## 🔧 Common Development Tasks
+
+### Asset Management
+
+```bash
+# Create a single asset
+python manage.py create_asset --ticker BTC --name Bitcoin --category CRYPTO
+
+# Create a stock
+python manage.py create_asset --ticker AAPL --name "Apple Inc" --category STOCK
+
+# Create a commodity
+python manage.py create_asset --ticker GLD --name "Gold ETF" --category COMMODITY --quote-currency USD
+
+# Populate popular assets (stocks, crypto, commodities, currencies)
+python manage.py populate_popular_assets
+```
+
+### Price Data Loading
+
+```bash
+# Load recent prices (default: 7 days)
+python manage.py load_prices --ticker AAPL --source massive --days 7
+
+# Load 30 days of data
+python manage.py load_prices --ticker BTC --source finnhub --days 30
+
+# Backfill historical data
+python manage.py backfill_prices --ticker AAPL --source massive --days 365
+
+# Backfill all active assets
+python manage.py backfill_prices --source massive --days 730 --all
+
+# Dry-run mode (preview without saving)
+python manage.py load_prices --ticker AAPL --source massive --days 7 --dry-run
+```
+
+**Data Source Considerations**:
+- Finnhub free tier: ~1 year historical, 60 calls/minute, supports stocks + crypto
+- Massive.com free tier: 2 years historical, ~100 requests/second, stocks only
+- Commands warn when exceeding free tier limits
+
+### Database Migrations
+
+When modifying models:
+
+```bash
+# Create migration for feefifofunds app
+python manage.py makemigrations feefifofunds
+
+# Review migration file
+cat feefifofunds/migrations/000X_description.py
+
+# Apply migrations
+python manage.py migrate feefifofunds
+
+# Show migration status
+python manage.py showmigrations feefifofunds
+```
+
+**Important**: Never manually edit or drop migrations after they're committed. Use new migrations for all model changes.
+
+### Django Admin
+
+```bash
+# Create superuser
+python manage.py createsuperuser
+
+# Access admin interface
+open http://localhost:8000/admin/
+
+# Available admin interfaces:
+# - Assets: Browse, filter, search, create assets
+# - Asset Prices: View price history with filters
+```
+
+### Django Shell
+
+```bash
+# Open Django shell
+python manage.py shell
+
+# Example queries:
+>>> from feefifofunds.models import Asset, AssetPrice
+>>>
+>>> # Get all crypto assets
+>>> Asset.objects.filter(category='CRYPTO')
+>>>
+>>> # Get price history for BTC
+>>> btc = Asset.objects.get(ticker='BTC')
+>>> btc.prices.order_by('-timestamp')[:10]
+>>>
+>>> # Compare sources
+>>> AssetPrice.objects.filter(asset=btc, source='finnhub')
+>>> AssetPrice.objects.filter(asset=btc, source='massive')
 ```
 
 ## 🧪 Testing
@@ -221,25 +295,25 @@ feefifofunds/
 ### Running Tests
 
 ```bash
-# Run all tests (locally, no parallel)
+# Run all feefifofunds tests
 python manage.py test feefifofunds
 
-# Run specific test file
-python manage.py test feefifofunds.tests.test_base_data_source
+# Run with verbose output
+python manage.py test feefifofunds --verbosity=2
 
 # Run with coverage
 coverage run --source='feefifofunds' manage.py test feefifofunds --no-input
 coverage report
-coverage html  # Generate HTML report
+coverage html  # Generate HTML report in htmlcov/
 ```
 
 ### Docker Testing
 
 ```bash
-# Full test suite in Docker
-make test
+# Build test environment
+make test-build
 
-# Test specific app
+# Run tests in Docker
 make test-run-app APP=feefifofunds
 
 # Interactive shell for debugging
@@ -248,171 +322,20 @@ make test-shell
 
 ### Writing Tests
 
-- Place tests in `feefifofunds/tests/`
-- Use Django's TestCase for database tests
-- Mock external API calls to avoid rate limits
-- Follow existing test patterns (see `test_base_data_source.py`)
-
-## 🔧 Common Development Tasks
-
-### Adding a New Data Source
-
-1. Create new file in `services/data_sources/`:
-
+**Test Structure** (to be implemented):
 ```python
-# services/data_sources/example_source.py
-from .base import BaseDataSource, DataSourceError
-from .dto import FundDataDTO, PerformanceDataDTO, HoldingDataDTO
+from django.test import TestCase
+from feefifofunds.models import Asset, AssetPrice
 
-class ExampleSource(BaseDataSource):
-    name = "example_source"
-    display_name = "Example Data Source"
-    base_url = "https://api.example.com"
-    requires_api_key = True
-    rate_limit_requests = 60
-    rate_limit_period = 60
-
-    def fetch_fund_info(self, ticker: str) -> FundDataDTO:
-        # Implementation here
-        pass
-
-    def fetch_historical_prices(self, ticker: str, start_date, end_date, interval="1D"):
-        # Implementation here
-        pass
-
-    def fetch_holdings(self, ticker: str):
-        # Implementation here
-        pass
-```
-
-2. Add to `services/data_sources/__init__.py`
-3. Create tests in `tests/test_example_source.py`
-4. Update documentation
-
-### Creating a Management Command
-
-```bash
-python manage.py startcommand command_name feefifofunds
-```
-
-Edit `feefifofunds/management/commands/command_name.py`:
-
-```python
-from django.core.management.base import BaseCommand
-
-class Command(BaseCommand):
-    help = 'Description of command'
-
-    def add_arguments(self, parser):
-        parser.add_argument('--option', type=str, help='Option description')
-
-    def handle(self, *args, **options):
-        self.stdout.write(self.style.SUCCESS('Command executed successfully!'))
-```
-
-### Adding a Model Field
-
-1. Edit the model in `feefifofunds/models/`
-2. Create migration:
-
-```bash
-python manage.py makemigrations feefifofunds
-```
-
-3. Review the migration file
-4. Apply migration:
-
-```bash
-python manage.py migrate feefifofunds
-```
-
-5. Update admin.py if field should be displayed
-6. Update serializers/DTOs if needed
-
-### Adding a New Metric Calculation
-
-Edit `services/calculators.py`:
-
-```python
-def calculate_sharpe_ratio(self, performance_data: list, risk_free_rate: Decimal) -> Optional[Decimal]:
-    """
-    Calculate Sharpe ratio.
-
-    Args:
-        performance_data: List of FundPerformance instances
-        risk_free_rate: Risk-free rate as decimal
-
-    Returns:
-        Sharpe ratio or None if insufficient data
-    """
-    # Implementation here
-    pass
-```
-
-Update `calculate_all_metrics()` to call your new calculation.
-
-## 🎨 Frontend Development
-
-### Building CSS
-
-```bash
-# Build and minify CSS
-npm run build:css
-
-# Development mode (unminified)
-python manage.py build_css --dev
-
-# Watch mode (auto-rebuild on changes)
-npm run watch:css
-```
-
-### Building JavaScript
-
-```bash
-# Build and minify JS
-npm run build:js
-
-# Watch mode
-npm run watch:js
-```
-
-### Build All Assets
-
-```bash
-# Build everything and collect static files
-make static
-```
-
-## 📚 Key Concepts
-
-### Data Flow
-
-```
-External API → BaseDataSource → DTO → Validator → Model → Database
-                    ↓
-              Rate Limiter
-                    ↓
-              Cache (Redis)
-```
-
-### Metrics Calculation Flow
-
-```
-FundPerformance (raw data) → MetricsCalculator → FundMetrics (calculated)
-                                     ↓
-                                Validators
-                                     ↓
-                                  Cache
-```
-
-### Comparison Flow
-
-```
-Multiple Fund objects → ComparisonEngine → Comparison Results → JSON/HTML
-                            ↓
-                    Metrics Calculation
-                            ↓
-                     Holdings Analysis
+class AssetModelTest(TestCase):
+    def test_asset_creation(self):
+        asset = Asset.objects.create(
+            ticker='TEST',
+            name='Test Asset',
+            category='STOCK'
+        )
+        self.assertEqual(asset.ticker, 'TEST')
+        self.assertTrue(asset.active)
 ```
 
 ## 🐛 Debugging
@@ -420,37 +343,58 @@ Multiple Fund objects → ComparisonEngine → Comparison Results → JSON/HTML
 ### Enable Debug Logging
 
 ```python
-# In settings.py or .env
-DEBUG=True
-LOG_LEVEL=DEBUG
+# In settings.py
+DEBUG = True
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'feefifofunds': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    },
+}
 ```
 
 ### Django Debug Toolbar
 
-```python
-# Already configured in dev settings
-# Access at http://localhost:8000/__debug__/
-```
+Already configured in dev settings. Access at `/__debug__/` when DEBUG=True.
 
-### Database Queries
+### Database Query Debugging
 
 ```python
 from django.db import connection
-from django.test.utils import override_settings
 
-# Log all queries
-with override_settings(DEBUG=True):
-    # Your code here
-    print(connection.queries)
+# Enable query logging
+from django.conf import settings
+settings.DEBUG = True
+
+# Run your code
+asset = Asset.objects.get(ticker='BTC')
+
+# View queries
+for query in connection.queries:
+    print(query['sql'])
 ```
 
-### Redis Cache Inspection
+### Data Source Debugging
 
 ```bash
-redis-cli
-> KEYS feefifofunds:*
-> GET feefifofunds:fund:SPY
-> FLUSHALL  # Clear all cache (use with caution!)
+# Use dry-run mode to preview API calls
+python manage.py load_prices --ticker AAPL --source massive --days 7 --dry-run
+
+# Check API keys
+python manage.py shell
+>>> from django.conf import settings
+>>> settings.FINNHUB_API_KEY
+>>> settings.MASSIVE_API_KEY
 ```
 
 ## 🤝 Contribution Guidelines
@@ -459,8 +403,8 @@ redis-cli
 
 - Follow PEP 8 (enforced by Ruff)
 - Use type hints for function parameters and return values
-- Write docstrings for all public methods
-- Keep functions focused and small (<50 lines ideal)
+- Write docstrings for public methods
+- Keep functions small and focused (<50 lines ideal)
 
 ### Pre-commit Hooks
 
@@ -468,26 +412,29 @@ redis-cli
 # Install hooks
 pre-commit install
 
-# Run manually
+# Run manually on all files
 pre-commit run --all-files
+
+# Run on staged files only
+git add .
+pre-commit
 ```
 
 Hooks include:
 - Ruff (linting and formatting)
-- Prettier (CSS formatting)
-- File quality checks
-- Django checks
+- File quality checks (trailing whitespace, end-of-file, etc.)
+- Django system checks
 
 ### Commit Messages
 
 Follow conventional commits format:
 
 ```
-feat: Add Alpha Vantage data source integration
-fix: Correct expense ratio calculation in Fund model
-docs: Update development setup instructions
-test: Add tests for ComparisonEngine
-refactor: Simplify rate limiting logic
+feat: Add CoinGecko data source integration
+fix: Correct timestamp timezone handling in Finnhub source
+docs: Update setup instructions with API key steps
+test: Add tests for Asset model
+refactor: Simplify price data transformation
 ```
 
 ### Pull Request Process
@@ -495,11 +442,10 @@ refactor: Simplify rate limiting logic
 1. Create feature branch: `git checkout -b feature/your-feature-name`
 2. Make changes and test thoroughly
 3. Run pre-commit hooks: `pre-commit run --all-files`
-4. Run full test suite: `python manage.py test feefifofunds`
-5. Update documentation if needed
-6. Commit changes with descriptive messages
-7. Push branch and create PR
-8. Request review from maintainers
+4. Update documentation if needed
+5. Commit changes with descriptive messages
+6. Push branch and create PR
+7. Request review from maintainers
 
 ### Branch Naming
 
@@ -511,23 +457,92 @@ refactor: Simplify rate limiting logic
 
 ## 📖 Additional Resources
 
+### External Documentation
+
 - [Django Documentation](https://docs.djangoproject.com/)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- [Alpha Vantage Documentation](https://www.alphavantage.co/documentation/)
-- [Project README](../README.md)
-- [Architecture Documentation](ARCHITECTURE.md)
+- [Finnhub API Documentation](https://finnhub.io/docs/api)
+- [Polygon.io API Documentation](https://polygon.io/docs)
+
+### Project Documentation
+
+- [README.md](README.md) - Project overview and quick start
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Technical architecture details
 
 ## 🆘 Getting Help
 
 - Check existing documentation
 - Search GitHub issues
-- Ask in project Slack/Discord (if applicable)
-- Create a GitHub issue with details
+- Review error messages and stack traces
+- Use Django shell for debugging queries
+- Create a GitHub issue with:
+  - Clear description of problem
+  - Steps to reproduce
+  - Error messages and stack traces
+  - Environment details (Python version, OS, etc.)
 
-## 📝 Notes
+## 📝 Development Notes
 
-- **Never commit API keys** - Use environment variables
-- **Run tests before committing** - Ensures code quality
-- **Update docs with code changes** - Keep documentation in sync
-- **Use branches for features** - Never commit directly to main
-- **Ask questions early** - Better to clarify than assume
+### API Rate Limits
+
+Be mindful of free tier limits when developing:
+
+**Finnhub**:
+- 60 API calls per minute
+- ~1 year historical data
+- Supports stocks and crypto
+
+**Massive.com (Polygon.io)**:
+- ~100 requests per second (soft limit)
+- 2 years historical data
+- Stocks only
+
+### Environment Variables
+
+Never commit:
+- API keys
+- Secret keys
+- Database passwords
+- Debug settings (DEBUG=True)
+
+Always use `.env` file and django-environ.
+
+### Database Best Practices
+
+- Always use migrations for schema changes
+- Never manually edit the database
+- Use `update_or_create` for upserts
+- Wrap bulk operations in `@transaction.atomic`
+- Index fields used in filters and joins
+
+### Data Quality
+
+When loading price data:
+- Verify timestamps are in UTC
+- Check for missing or null values
+- Compare data from multiple sources when available
+- Use dry-run mode to preview before saving
+
+### Future Phases
+
+**Phase 2**: Basic Analytics
+- Implement MetricsCalculator service
+- Add metrics calculation management command
+- Create AssetMetrics model
+
+**Phase 3**: Frontend & API
+- Build Django template views
+- Implement JSON API endpoints
+- Add chart visualization
+
+**Phase 4**: Advanced Features
+- Add more data sources
+- Implement Celery for scheduled updates
+- Add user authentication
+- Build portfolio tracking
+
+## 🔗 Related Resources
+
+- **Parent Project**: [aaronspindler.com](https://aaronspindler.com)
+- **Main CLAUDE.md**: Development guidelines and commands
+- **Utils Models**: Shared model mixins in `utils/models/mixins.py`
