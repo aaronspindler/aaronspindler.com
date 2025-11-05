@@ -67,14 +67,14 @@ class MassiveDataSource(BaseDataSource):
         try:
             ticker_data = self._make_massive_request(f"/v3/reference/tickers/{ticker}")
 
-            if not ticker_data or ticker_data.get("status") != "OK":
+            if not ticker_data or ticker_data.get("status") not in ("OK", "DELAYED"):
                 raise DataNotFoundError(f"No data found for ticker {ticker}")
 
             results = ticker_data.get("results", {})
             prev_close_data = self._make_massive_request(f"/v2/aggs/ticker/{ticker}/prev")
 
             prev_close = None
-            if prev_close_data.get("status") == "OK" and prev_close_data.get("results"):
+            if prev_close_data.get("status") in ("OK", "DELAYED") and prev_close_data.get("results"):
                 prev_close = Decimal(str(prev_close_data["results"][0].get("c", 0)))
 
             return FundDataDTO(
@@ -122,7 +122,7 @@ class MassiveDataSource(BaseDataSource):
                 params={"adjusted": "true", "sort": "asc", "limit": 50000},
             )
 
-            if aggs_data.get("status") != "OK" or not aggs_data.get("results"):
+            if aggs_data.get("status") not in ("OK", "DELAYED") or not aggs_data.get("results"):
                 raise DataNotFoundError(f"No historical data found for ticker {ticker}")
 
             performance_data = []

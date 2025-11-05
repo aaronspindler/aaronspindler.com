@@ -33,6 +33,7 @@ class BasePerformance(TimestampedModel, SoftDeleteModel):
         YEARLY = "1Y", "Yearly"
 
     # Disable Django's auto-incrementing id for TimescaleDB compatibility
+    # Use bulk_create with update_conflicts instead of update_or_create
     id = None
 
     # Foreign key to asset (part of composite PK)
@@ -185,8 +186,7 @@ class FundPerformance(BasePerformance):
         verbose_name = "Fund Performance"
         verbose_name_plural = "Fund Performance Records"
         ordering = ["-date"]
-        # Note: These fields form the composite primary key (set up in migration for TimescaleDB)
-        # The migration converts unique_together to a composite PK including date for partitioning
+        # Unique constraint for composite key (database has this as PK)
         unique_together = [["asset", "date", "interval"]]
         indexes = [
             # Primary time-series query patterns
