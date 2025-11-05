@@ -575,6 +575,131 @@ python manage.py remove_local_fingerprints --limit 100
 
 ---
 
+## FeeFiFoFunds Data Management
+
+### backload_massive
+
+Backload historical price data from Massive.com (formerly Polygon.io) for stocks and ETFs. Free tier provides 2 years (730 days) of historical data.
+
+**Usage**:
+```bash
+python manage.py backload_massive <ticker> [<ticker> ...] [options]
+```
+
+**Options**:
+- `tickers`: One or more ticker symbols (e.g., SPY, QQQ, VOO)
+- `--all`: Backload data for all existing funds in database
+- `--days <N>`: Number of days to fetch (default: 730, max: 730)
+- `--create-fund`: Create fund if it doesn't exist
+- `--skip-existing`: Skip performance data that already exists
+
+**Examples**:
+```bash
+# Backload 2 years of data for SPY
+python manage.py backload_massive SPY --days 730
+
+# Backload multiple tickers with fund creation
+python manage.py backload_massive SPY QQQ VOO --days 365 --create-fund
+
+# Backload all existing funds
+python manage.py backload_massive --all --days 730
+
+# Backload without overwriting existing data
+python manage.py backload_massive AAPL --skip-existing
+```
+
+**When to Run**:
+- Initial setup for new funds
+- Historical data recovery
+- After adding new funds to track
+- To fill gaps in existing data
+
+**What It Does**:
+1. Validates ticker symbols format
+2. Fetches fund information (if --create-fund)
+3. Retrieves historical OHLCV data from Massive.com
+4. Stores data in FundPerformance model
+5. Updates fund current/previous values
+6. Creates DataSync records for tracking
+7. Wraps all operations in transactions for consistency
+
+**Performance**:
+- Free tier: ~100 requests/second
+- No hard daily limit
+- 2 years of historical data included
+
+**Requirements**:
+- `MASSIVE_API_KEY` environment variable must be set
+- Get free API key from: https://massive.com
+
+---
+
+### update_massive_daily
+
+Fetch daily price updates from Massive.com for active funds. Should be run daily via cron or Celery Beat.
+
+**Usage**:
+```bash
+python manage.py update_massive_daily [<ticker> ...] [options]
+```
+
+**Options**:
+- `tickers`: Optional specific ticker symbols (default: all active funds)
+- `--days <N>`: Number of days to fetch (default: 1)
+- `--force`: Force update even if data exists for today
+
+**Examples**:
+```bash
+# Update all active funds with today's data
+python manage.py update_massive_daily
+
+# Update specific tickers
+python manage.py update_massive_daily SPY QQQ
+
+# Catch up after weekend (fetch last 5 days)
+python manage.py update_massive_daily --days 5
+
+# Force update even if data exists
+python manage.py update_massive_daily --force
+```
+
+**When to Run**:
+- Daily (automated via cron/Celery Beat recommended)
+- After weekends/holidays (use --days to catch up)
+- When fund prices need refreshing
+
+**What It Does**:
+1. Checks each fund for up-to-date data
+2. Skips funds that already have today's data (unless --force)
+3. Fetches recent price data from Massive.com
+4. Updates FundPerformance records
+5. Updates fund current/previous values
+6. Creates DataSync records
+7. All operations in transactions
+
+**Automation**:
+```bash
+# Add to crontab for daily 6 PM updates
+0 18 * * 1-5 /path/to/venv/bin/python /path/to/manage.py update_massive_daily
+
+# Or configure Celery Beat task
+from celery import shared_task
+@shared_task
+def update_fund_prices():
+    call_command('update_massive_daily')
+```
+
+**Requirements**:
+- `MASSIVE_API_KEY` environment variable must be set
+- Free tier provides end-of-day data only
+
+**Recommended Workflow**:
+1. Use `backload_massive` for initial 2-year data load
+2. Use `update_massive_daily` for ongoing daily updates
+3. Consider switching to Finnhub for real-time data after backload
+
+---
+
 ## Common Workflows
 
 ### Complete Production Build

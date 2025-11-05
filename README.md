@@ -83,6 +83,7 @@ See [Deployment Guide](docs/deployment.md) for production setup.
 - [Performance Monitoring](docs/features/performance-monitoring.md) - Lighthouse audits, badges
 - [Request Tracking](docs/features/request-tracking.md) - Fingerprinting, geolocation, security
 - [Data Sources](docs/features/data-sources.md) - External API integration framework for fund data
+- [Massive.com Integration](docs/features/massive-integration.md) - Historical stock/ETF data fetching (2 years free)
 
 ## Common Commands
 
@@ -106,6 +107,10 @@ coverage run --source='.' manage.py test --no-input && coverage report
 python manage.py clear_cache
 python manage.py run_lighthouse_audit
 python manage.py geolocate_fingerprints
+
+# Financial data (requires MASSIVE_API_KEY)
+python manage.py backload_massive SPY --create-fund --days 730
+python manage.py update_massive_daily
 ```
 
 See [Management Commands](docs/commands.md) for complete reference.
