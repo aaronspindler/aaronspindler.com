@@ -45,6 +45,8 @@ class Command(BaseCommand):
         "240": 240,
         "720": 720,
         "1440": 1440,
+        "Daily_OHLC": 1440,
+        "Hourly_OHLC": 60,
     }
 
     def add_arguments(self, parser):
