@@ -192,6 +192,7 @@ certifi==2025.10.5 \
     # via
     #   httpcore
     #   httpx
+    #   polygon-api-client
     #   pyppeteer
     #   requests
 cffi==2.0.0 \
@@ -588,14 +589,13 @@ distlib==0.4.0 \
     --hash=sha256:9659f7d87e46584a30b5780e43ac7a2143098441670ff0a49d5f9034c54a6c16 \
     --hash=sha256:feec40075be03a04501a973d81f633735b4b69f98b05450592310c0f401a4e0d
     # via virtualenv
-django==5.2.7 \
-    --hash=sha256:59a13a6515f787dec9d97a0438cd2efac78c8aca1c80025244b0fe507fe0754b \
-    --hash=sha256:e0f6f12e2551b1716a95a63a1366ca91bbcd7be059862c1b18f989b1da356cdd
+django==5.2.8 \
+    --hash=sha256:23254866a5bb9a2cfa6004e8b809ec6246eba4b58a7589bc2772f1bcc8456c7f \
+    --hash=sha256:37e687f7bd73ddf043e2b6b97cfe02fcbb11f2dbb3adccc6a2b18c6daa054d7f
     # via
     #   -r requirements/base.in
     #   django-allauth
     #   django-celery-beat
-    #   django-polymorphic
     #   django-redis
     #   django-storages
     #   django-timezone-field
@@ -610,10 +610,6 @@ django-celery-beat==2.8.1 \
 django-environ==0.12.0 \
     --hash=sha256:227dc891453dd5bde769c3449cf4a74b6f2ee8f7ab2361c93a07068f4179041a \
     --hash=sha256:92fb346a158abda07ffe6eb23135ce92843af06ecf8753f43adf9d2366dcc0ca
-    # via -r requirements/base.in
-django-polymorphic==4.1.0 \
-    --hash=sha256:0ce3984999e103a0d1a434a5c5617f2c7f990dc3d5fb3585ce0fadadf9ff90ea \
-    --hash=sha256:4438d95a0aef6c4307cd6c83ead387e1142ce80b65188a931ec2f0dbdd9bfc51
     # via -r requirements/base.in
 django-redis==6.0.0 \
     --hash=sha256:20bf0063a8abee567eb5f77f375143c32810c8700c0674ced34737f8de4e36c0 \
@@ -640,6 +636,10 @@ filelock==3.20.0 \
     #   cachecontrol
     #   safety
     #   virtualenv
+finnhub-python==2.4.20 \
+    --hash=sha256:1c944e7d59d3f9cc8dcdc86c08b19a7a2c77b3d1f57d3c5df49f4d1469e9d0b4 \
+    --hash=sha256:b207fa936080d489b5045caae2e602ba34d0e26313310ff3d8d505942f24bbce
+    # via -r requirements/base.in
 flower==2.0.1 \
     --hash=sha256:5ab717b979530770c16afb48b50d2a98d23c3e9fe39851dcf6bc4d01845a02a0 \
     --hash=sha256:9db2c621eeefbc844c8dd88be64aef61e84e2deb29b271e02ab2b5b9f01068e2
@@ -1193,6 +1193,10 @@ platformdirs==4.5.0 \
     # via
     #   pip-audit
     #   virtualenv
+polygon-api-client==1.14.3 \
+    --hash=sha256:c1e68b6590a10c16e8e6ad09a36b5ce01c48c538b743fbeba0c8dfd15b27c5d0 \
+    --hash=sha256:f35ad69c7bf06c5711cbc93f7ce84368a149b9f2c7ac0033fc3cf4d5bfc80462
+    # via -r requirements/base.in
 pre-commit==4.3.0 \
     --hash=sha256:2b0747ad7e6e967169136edffee14c16e148a778a54e4f967921aa1ebf2308d8 \
     --hash=sha256:499fe450cc9d42e9d58e606262795ecb64dd05438943c62b66f6a8673da30b16
@@ -1702,6 +1706,7 @@ requests==2.32.5 \
     # via
     #   -r requirements/base.in
     #   cachecontrol
+    #   finnhub-python
     #   pip-audit
     #   safety
 rich==14.2.0 \
@@ -1967,6 +1972,7 @@ urllib3==1.26.20 \
     --hash=sha256:40c2dc0c681e47eb8f90e7e27bf6ff7df2e677421fd46756da1161c39ca70d32
     # via
     #   botocore
+    #   polygon-api-client
     #   pyppeteer
     #   requests
 vine==5.1.0 \
@@ -2054,7 +2060,9 @@ websockets==10.4 \
     --hash=sha256:f5fc088b7a32f244c519a048c170f14cf2251b849ef0e20cbbb0fdf0fdaf556f \
     --hash=sha256:fe10ddc59b304cb19a1bdf5bd0a7719cbbc9fbdd57ac80ed436b709fcf889106 \
     --hash=sha256:ff64a1d38d156d429404aaa84b27305e957fd10c30e5880d1765c9480bea490f
-    # via pyppeteer
+    # via
+    #   polygon-api-client
+    #   pyppeteer
 whitenoise==6.11.0 \
     --hash=sha256:0f5bfce6061ae6611cd9396a8231e088722e4fc67bc13a111be74c738d99375f \
     --hash=sha256:b2aeb45950597236f53b5342b3121c5de69c8da0109362aee506ce88e022d258
