@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Asset, AssetPrice
+from .models import Asset, AssetPrice, Trade
 
 
 @admin.register(Asset)
@@ -37,8 +37,8 @@ class AssetAdmin(admin.ModelAdmin):
 
 @admin.register(AssetPrice)
 class AssetPriceAdmin(admin.ModelAdmin):
-    list_display = ["asset", "timestamp", "open", "high", "low", "close", "volume", "source"]
-    list_filter = ["source", "timestamp"]
+    list_display = ["asset", "timestamp", "interval_minutes", "open", "high", "low", "close", "volume", "source"]
+    list_filter = ["source", "interval_minutes", "timestamp"]
     search_fields = ["asset__ticker", "asset__name"]
     readonly_fields = ["created_at"]
     ordering = ["-timestamp"]
@@ -49,7 +49,7 @@ class AssetPriceAdmin(admin.ModelAdmin):
         (
             "Asset & Time",
             {
-                "fields": ("asset", "timestamp", "source"),
+                "fields": ("asset", "timestamp", "source", "interval_minutes"),
             },
         ),
         (
@@ -59,9 +59,36 @@ class AssetPriceAdmin(admin.ModelAdmin):
             },
         ),
         (
-            "Volume",
+            "Volume & Trades",
             {
-                "fields": ("volume",),
+                "fields": ("volume", "trade_count"),
+            },
+        ),
+        (
+            "Metadata",
+            {
+                "fields": ("created_at",),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+
+@admin.register(Trade)
+class TradeAdmin(admin.ModelAdmin):
+    list_display = ["asset", "timestamp", "price", "volume", "source"]
+    list_filter = ["source", "timestamp"]
+    search_fields = ["asset__ticker", "asset__name"]
+    readonly_fields = ["created_at"]
+    ordering = ["-timestamp"]
+    date_hierarchy = "timestamp"
+    raw_id_fields = ["asset"]
+
+    fieldsets = (
+        (
+            "Trade Details",
+            {
+                "fields": ("asset", "timestamp", "price", "volume", "source"),
             },
         ),
         (
