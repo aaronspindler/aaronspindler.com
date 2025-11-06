@@ -295,6 +295,46 @@ python manage.py remove_local_fingerprints --limit 100
 - Use `--dry-run` to preview deletions before committing
 - Useful for one-time cleanup after deploying local IP filtering
 
+### Kraken Data Ingestion (FeeFiFoFunds)
+```bash
+# Ingest Kraken OHLCV (candle) data - daily only (most efficient)
+python manage.py ingest_kraken_ohlcv --intervals 1440
+
+# Ingest hourly and daily data
+python manage.py ingest_kraken_ohlcv --intervals 60,1440
+
+# Ingest all intervals (1, 5, 15, 30, 60, 240, 720, 1440 minutes)
+python manage.py ingest_kraken_ohlcv --intervals 1,5,15,30,60,240,720,1440
+
+# Ingest specific trading pair
+python manage.py ingest_kraken_ohlcv --pair BTCUSD --intervals 1440
+
+# Dry run to preview what would be imported
+python manage.py ingest_kraken_ohlcv --intervals 1440 --dry-run
+
+# Skip files where asset already has data for this interval
+python manage.py ingest_kraken_ohlcv --intervals 1440 --skip-existing
+
+# Drop indexes before import, recreate after (much faster for large imports)
+python manage.py ingest_kraken_ohlcv --intervals 1440 --drop-indexes
+
+# Ingest Kraken trade history (tick data)
+python manage.py ingest_kraken_trades
+
+# Ingest specific pair with limit for testing
+python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
+
+# Full trade import with index optimization
+python manage.py ingest_kraken_trades --drop-indexes
+```
+
+**Note**: Comprehensive documentation available at `docs/features/kraken-ingestion.md`
+- OHLCVT data: ~8,656 files with aggregated candle data at 8 intervals
+- Trade data: ~1,119 files with ~200M+ individual trade records
+- Auto-creates Asset records during import
+- Performance: 50k-100k records/sec with `--drop-indexes`
+- Supports dry-run, skip-existing, and progress tracking with ETA
+
 ## Architecture Overview
 
 ### Django Apps Structure
@@ -344,9 +384,12 @@ python manage.py remove_local_fingerprints --limit 100
 - **feefifofunds/**: Multi-asset tracking and analysis (FeeFiFoFunds project - MVP)
   - **Simple asset tracking**: Universal Asset model with category field
   - **4 asset categories**: STOCK, CRYPTO, COMMODITY, CURRENCY
-  - **OHLCV price tracking**: AssetPrice model stores open/high/low/close/volume data
+  - **OHLCV price tracking**: AssetPrice model stores open/high/low/close/volume data with interval support
+  - **Trade tracking**: Trade model for individual trade records (tick data)
+  - **Kraken data ingestion**: Commands for importing historical OHLCV and trade data from Kraken CSV files
+  - **Multi-interval support**: Track prices at different timeframes (1m, 5m, 15m, 60m, daily, etc.)
   - **Timestamp-based history**: Track price changes over time for any asset
-  - Django admin interfaces for Asset and AssetPrice management
+  - Django admin interfaces for Asset, AssetPrice, and Trade management
 
 - **omas/**: Omas Coffee website (omas.coffee)
   - Separate website served via domain routing middleware
@@ -369,7 +412,7 @@ Asset                     ← Universal model for all asset types
 ├── description          ← Optional details
 └── active               ← Whether actively tracked
 
-AssetPrice               ← OHLCV price records
+AssetPrice               ← OHLCV price records (candles)
 ├── asset                ← ForeignKey to Asset
 ├── timestamp            ← Date/time of price record (timezone-aware UTC)
 ├── open                 ← Opening price
@@ -377,24 +420,47 @@ AssetPrice               ← OHLCV price records
 ├── low                  ← Lowest price
 ├── close                ← Closing price
 ├── volume               ← Trading volume (optional)
-└── source               ← Data source (required, e.g., 'finnhub', 'massive')
+├── interval_minutes     ← Time interval in minutes (1, 5, 15, 60, 1440, etc.) - NEW
+├── trade_count          ← Number of trades during interval (for OHLCV data) - NEW
+└── source               ← Data source (required, e.g., 'finnhub', 'massive', 'kraken')
+    Unique constraint: (asset, timestamp, source, interval_minutes)
+
+Trade                    ← Individual trade records (tick data) - NEW MODEL
+├── asset                ← ForeignKey to Asset
+├── timestamp            ← Exact time of trade (timezone-aware UTC)
+├── price                ← Trade execution price
+├── volume               ← Trade volume/quantity
+└── source               ← Data source (default: 'kraken')
     Unique constraint: (asset, timestamp, source)
 ```
 
 **Key Features:**
 - **Universal model**: Single Asset table handles all asset types via category field
-- **Multi-source support**: Track prices from multiple data sources for the same asset/timestamp
-- **Unique constraint**: `(asset, timestamp, source)` allows comparing data from different sources
+- **Multi-interval support**: Store OHLCV data at different timeframes (1m, 5m, 15m, 60m, daily, etc.)
+- **Tick data support**: Trade model for individual trade records with microsecond precision
+- **Multi-source support**: Track prices from multiple data sources for the same asset/timestamp/interval
+- **Unique constraints**:
+  - AssetPrice: `(asset, timestamp, source, interval_minutes)` allows multiple intervals
+  - Trade: `(asset, timestamp, source)` prevents duplicate trades
 - **Simple queries**: `Asset.objects.filter(category='CRYPTO')` or `Asset.objects.get(ticker='BTC')`
-- **Time-series data**: Track price history with OHLCV data points
-- **Optimized indexes**: Composite indexes on `(asset, timestamp, source)`, `(asset, source)`, and individual fields
-- **Extensible**: Easy to add new fields or categories as needed
-- **Admin-ready**: Full Django admin interfaces for managing assets and prices
+- **Time-series data**: Track price history with OHLCV data points and individual trades
+- **Optimized indexes**: Composite indexes on `(asset, timestamp, interval_minutes)`, `(asset, interval_minutes)`, and more
+- **Kraken data ingestion**: Automated commands for importing historical data from Kraken CSV files
+- **Extensible**: Easy to add new fields, categories, or data sources
+- **Admin-ready**: Full Django admin interfaces for managing assets, prices, and trades
+
+**Kraken Data Ingestion:**
+- **ingest_kraken_ohlcv**: Import OHLCV candle data (8 intervals: 1, 5, 15, 30, 60, 240, 720, 1440 minutes)
+- **ingest_kraken_trades**: Import individual trade records (tick data)
+- **Auto-asset creation**: Automatically creates Asset records during import
+- **Performance optimized**: Batch processing, index dropping, skip-existing flags
+- **Progress tracking**: Real-time progress with ETA calculation
+- See `docs/features/kraken-ingestion.md` for comprehensive documentation
 
 **Design Philosophy:**
 - Start simple with MVP, add complexity only when needed
 - Use category field instead of polymorphic inheritance
-- Focus on core functionality: storing ticker prices over time
+- Focus on core functionality: storing ticker prices over time at multiple timeframes
 
 ### Multi-Domain Support
 

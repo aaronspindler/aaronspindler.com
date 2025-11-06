@@ -39,10 +39,21 @@ class AssetPrice(models.Model):
         blank=True,
         help_text="Trading volume (if applicable)",
     )
+    interval_minutes = models.SmallIntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Time interval in minutes (e.g., 1, 5, 15, 60, 1440 for daily). NULL for non-OHLCV data.",
+    )
+    trade_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of trades during this interval (for OHLCV data)",
+    )
     source = models.CharField(
         max_length=50,
         db_index=True,
-        help_text="Data source for this price record (e.g., 'finnhub', 'massive', 'yahoo')",
+        help_text="Data source for this price record (e.g., 'finnhub', 'massive', 'kraken')",
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -55,13 +66,13 @@ class AssetPrice(models.Model):
         verbose_name_plural = "Asset Prices"
         constraints = [
             models.UniqueConstraint(
-                fields=["asset", "timestamp", "source"],
-                name="unique_asset_timestamp_source",
+                fields=["asset", "timestamp", "source", "interval_minutes"],
+                name="unique_asset_timestamp_source_interval",
             ),
         ]
         indexes = [
-            models.Index(fields=["asset", "timestamp", "source"]),
-            models.Index(fields=["asset", "source"]),
+            models.Index(fields=["asset", "timestamp", "interval_minutes"]),
+            models.Index(fields=["asset", "interval_minutes"]),
             models.Index(fields=["timestamp"]),
             models.Index(fields=["source"]),
         ]
