@@ -40,6 +40,38 @@ This project includes AI context rules in `.cursor/rules/` to guide development:
 **CRITICAL**: When adding dependencies, only add packages that are directly imported/used in the codebase (see `.cursor/rules/dependencies.mdc`).
 **CRITICAL**: Never commit or push changes without explicit user permission (see `.cursor/rules/git-operations.mdc`).
 
+## Development Guidelines
+
+### Management Command Output
+
+When writing Django management commands, ensure output is:
+- **Readable**: Use clear formatting with emojis, progress indicators, and visual separators
+- **Helpful**: Include progress tracking (percentage, ETA), status indicators (✓, ✗, ⊘), and summary reports
+- **Concise**: Balance detail with brevity - don't overwhelm with unnecessary information
+
+**Good Examples:**
+```
+📂 Found 8656 files to process
+⚙️  Intervals: 1440 minutes
+✓ [1/8656] BTCUSD    1440m - +1,800 | 0.0% | ⏱️  1.2s | ETA 2h 45m
+────────────────────────────────────────────────────────────────────────────────
+✅ Complete: 8656/8656 files | +2,456,789 records | ⏱️  2h 38m
+```
+
+**Key Elements:**
+- 📊 Summary statistics at start (files found, configuration)
+- ⏱️ Real-time progress with percentage and ETA
+- ✓/✗/⊘ Status indicators for success/failure/skip
+- ─── Visual separators for sections
+- 📈 Final summary with totals and elapsed time
+- 🎯 Aligned columns for easy scanning
+
+**Avoid:**
+- Walls of text without structure
+- Missing progress indication for long-running operations
+- Unclear success/failure states
+- Excessive verbosity that obscures important information
+
 ## Common Development Commands
 
 ### Local Development
