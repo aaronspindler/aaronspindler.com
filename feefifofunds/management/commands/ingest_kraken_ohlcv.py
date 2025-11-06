@@ -24,16 +24,18 @@ Example usage:
     python manage.py ingest_kraken_ohlcv --intervals 1440 --yes
 """
 
+import io
 import os
 import shutil
 import time
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
-from django.db import connection, transaction
+from django.db import connection
+from django.utils import timezone
 
 from feefifofunds.models import Asset, AssetPrice
-from feefifofunds.services.kraken import BulkInsertHelper, KrakenAssetCreator, KrakenPairParser, parse_ohlcv_csv
+from feefifofunds.services.kraken import KrakenAssetCreator, KrakenPairParser, parse_ohlcv_csv
 from utils.time import format_time
 
 
@@ -74,8 +76,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--batch-size",
             type=int,
-            default=25000,
-            help="Number of records per batch (default: 25000)",
+            default=50000,
+            help="Number of records per batch (default: 50000)",
         )
         parser.add_argument(
             "--dry-run",
@@ -127,9 +129,11 @@ class Command(BaseCommand):
         if dry_run:
             self.stdout.write(self.style.WARNING("🔍 DRY RUN MODE - No data will be saved"))
 
-        self.stdout.write("\n📊 Counting lines in files...")
+        self.stdout.write("\n📊 Counting lines and caching results...")
+        line_count_cache = self._cache_line_counts(csv_files)
+
         self.stdout.write("📋 Files to be ingested:")
-        self._display_file_list(csv_files)
+        self._display_file_list(csv_files, line_count_cache)
 
         if not auto_approve:
             self.stdout.write(self.style.WARNING("\n⚠️  This will ingest the files listed above."))
@@ -145,6 +149,17 @@ class Command(BaseCommand):
             self._drop_indexes()
 
         asset_creator = KrakenAssetCreator()
+
+        if not dry_run:
+            self.stdout.write("🏗️  Pre-creating assets...")
+            unique_pairs = {pair_name for _, pair_name, _ in csv_files}
+            asset_creator.bulk_create_assets(list(unique_pairs))
+            self.stdout.write(f"✓ Pre-created {len(unique_pairs)} assets")
+
+        if skip_existing:
+            self.stdout.write("🔍 Building skip-existing index...")
+            skip_set = self._build_skip_set(csv_files)
+            self.stdout.write(f"✓ Found {len(skip_set)} existing asset-interval combinations to skip")
 
         total_created = 0
         total_skipped = 0
@@ -164,21 +179,16 @@ class Command(BaseCommand):
             estimated_remaining = avg_time_per_file * remaining_files
 
             try:
-                line_count = self._count_file_lines(file_path)
+                line_count = line_count_cache.get(file_path, 0)
                 base_ticker, quote_currency = KrakenPairParser.parse_pair(pair_name)
 
-                if skip_existing:
-                    asset = Asset.objects.filter(ticker=base_ticker).first()
-                    if (
-                        asset
-                        and AssetPrice.objects.filter(asset=asset, interval_minutes=interval, source="kraken").exists()
-                    ):
-                        total_skipped += 1
-                        self.stdout.write(
-                            f"⊘ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - Skipped (exists) | "
-                            f"{line_count:>7,} lines | {progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
-                        )
-                        continue
+                if skip_existing and (base_ticker, interval) in skip_set:
+                    total_skipped += 1
+                    self.stdout.write(
+                        f"⊘ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - Skipped (exists) | "
+                        f"{line_count:>7,} lines | {progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
+                    )
+                    continue
 
                 asset = asset_creator.get_or_create_asset(base_ticker, quote_currency)
 
@@ -199,11 +209,8 @@ class Command(BaseCommand):
 
             except Exception as e:
                 failed_files.append((file_path, str(e)))
-                try:
-                    line_count = self._count_file_lines(file_path)
-                    line_info = f"{line_count:>7,} lines | "
-                except Exception:
-                    line_info = ""
+                line_count = line_count_cache.get(file_path, 0)
+                line_info = f"{line_count:>7,} lines | " if line_count else ""
                 self.stdout.write(
                     self.style.ERROR(
                         f"✗ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - {str(e)[:30]} | "
@@ -235,7 +242,41 @@ class Command(BaseCommand):
             for file_path, error in failed_files[:10]:
                 self.stdout.write(f"  • {Path(file_path).name}: {error[:60]}")
 
-    def _display_file_list(self, csv_files):
+    def _cache_line_counts(self, csv_files):
+        line_count_cache = {}
+        total_files = len(csv_files)
+        for idx, (file_path, pair_name, interval) in enumerate(csv_files, start=1):
+            self.stdout.write(f"  [{idx}/{total_files}] Counting {pair_name} {interval}m...", ending="\r")
+            self.stdout.flush()
+            line_count_cache[file_path] = self._count_file_lines(file_path)
+        self.stdout.write(f"✓ Counted {len(line_count_cache)} files{' ' * 50}")
+        return line_count_cache
+
+    def _build_skip_set(self, csv_files):
+        pairs_to_check = {}
+        for _, pair_name, interval in csv_files:
+            try:
+                base_ticker, _ = KrakenPairParser.parse_pair(pair_name)
+                pairs_to_check[(base_ticker, interval)] = True
+            except ValueError:
+                continue
+
+        tickers = {ticker for ticker, _ in pairs_to_check.keys()}
+        assets = {asset.ticker: asset.id for asset in Asset.objects.filter(ticker__in=tickers)}
+
+        skip_set = set()
+        for (ticker, interval), _ in pairs_to_check.items():
+            if ticker in assets:
+                asset_id = assets[ticker]
+                exists = AssetPrice.objects.filter(
+                    asset_id=asset_id, interval_minutes=interval, source="kraken"
+                ).exists()
+                if exists:
+                    skip_set.add((ticker, interval))
+
+        return skip_set
+
+    def _display_file_list(self, csv_files, line_count_cache):
         by_pair = {}
         for file_path, pair_name, interval in csv_files:
             if pair_name not in by_pair:
@@ -244,16 +285,11 @@ class Command(BaseCommand):
             by_pair[pair_name]["files"].append(file_path)
 
         sorted_pairs = sorted(by_pair.keys())
-        total_pairs = len(sorted_pairs)
-        for idx, pair_name in enumerate(sorted_pairs, start=1):
-            self.stdout.write(f"  [{idx}/{total_pairs}] Counting {pair_name}...", ending="\r")
-            self.stdout.flush()
+        for pair_name in sorted_pairs:
             intervals = sorted(by_pair[pair_name]["intervals"])
             interval_str = ", ".join(f"{i}m" for i in intervals)
-            total_lines = sum(self._count_file_lines(f) for f in by_pair[pair_name]["files"])
-            self.stdout.write(
-                f"  • {pair_name:12} → {interval_str:30} ({total_lines:>10,} lines){' ' * 20}\n", ending=""
-            )
+            total_lines = sum(line_count_cache.get(f, 0) for f in by_pair[pair_name]["files"])
+            self.stdout.write(f"  • {pair_name:12} → {interval_str:30} ({total_lines:>10,} lines)")
             self.stdout.flush()
 
     def _count_file_lines(self, file_path):
@@ -295,40 +331,62 @@ class Command(BaseCommand):
 
         return csv_files
 
-    @transaction.atomic
     def _import_file(self, file_path, asset, interval, batch_size, dry_run):
-        records_to_create = []
         created_count = 0
+
+        if dry_run:
+            for _ in parse_ohlcv_csv(file_path, interval):
+                created_count += 1
+            return created_count
+
+        return self._import_file_with_copy(file_path, asset, interval, batch_size)
+
+    def _import_file_with_copy(self, file_path, asset, interval, batch_size):
+        buffer = io.StringIO()
+        created_count = 0
+        now = timezone.now()
 
         for data in parse_ohlcv_csv(file_path, interval):
             created_count += 1
-
-            if dry_run:
-                continue
-
-            records_to_create.append(
-                AssetPrice(
-                    asset=asset,
-                    timestamp=data["timestamp"],
-                    open=data["open"],
-                    high=data["high"],
-                    low=data["low"],
-                    close=data["close"],
-                    volume=data["volume"],
-                    interval_minutes=data["interval_minutes"],
-                    trade_count=data["trade_count"],
-                    source="kraken",
-                )
+            buffer.write(
+                f"{asset.id}\t{data['timestamp'].isoformat()}\t{data['open']}\t{data['high']}\t"
+                f"{data['low']}\t{data['close']}\t{data['volume'] or ''}\t"
+                f"{data['interval_minutes'] or ''}\t{data['trade_count'] or ''}\tkraken\t{now.isoformat()}\n"
             )
 
-            if len(records_to_create) >= batch_size:
-                BulkInsertHelper.bulk_create_prices(records_to_create, batch_size)
-                records_to_create = []
+            if created_count % batch_size == 0:
+                self._execute_copy(buffer)
+                buffer = io.StringIO()
 
-        if records_to_create and not dry_run:
-            BulkInsertHelper.bulk_create_prices(records_to_create, batch_size)
+        if buffer.tell() > 0:
+            self._execute_copy(buffer)
 
         return created_count
+
+    def _execute_copy(self, buffer):
+        buffer.seek(0)
+        columns = (
+            "asset_id",
+            "timestamp",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "interval_minutes",
+            "trade_count",
+            "source",
+            "created_at",
+        )
+        copy_sql = f"COPY feefifofunds_assetprice ({', '.join(columns)}) FROM STDIN"
+
+        with connection.cursor() as cursor:
+            with cursor.cursor.copy(copy_sql) as copy:
+                while True:
+                    data = buffer.read(8192)
+                    if not data:
+                        break
+                    copy.write(data)
 
     def _drop_indexes(self):
         with connection.cursor() as cursor:
