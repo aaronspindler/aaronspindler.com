@@ -22,6 +22,7 @@ Example usage:
 """
 
 import os
+import shutil
 import time
 from pathlib import Path
 
@@ -125,8 +126,13 @@ class Command(BaseCommand):
 
         total_created = 0
         total_skipped = 0
+        total_moved = 0
         failed_files = []
         start_time = time.time()
+
+        ingested_dir = os.path.join(os.path.dirname(data_dir), "ingested", "Kraken_OHLCVT")
+        if not dry_run:
+            os.makedirs(ingested_dir, exist_ok=True)
 
         for index, (file_path, pair_name, interval) in enumerate(csv_files, start=1):
             elapsed = time.time() - start_time
@@ -156,6 +162,11 @@ class Command(BaseCommand):
                 created = self._import_file(file_path, asset, interval, batch_size, dry_run)
                 total_created += created
 
+                if not dry_run:
+                    dest_path = os.path.join(ingested_dir, os.path.basename(file_path))
+                    shutil.move(file_path, dest_path)
+                    total_moved += 1
+
                 self.stdout.write(
                     self.style.SUCCESS(
                         f"✓ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - +{created:6,} | "
@@ -180,6 +191,8 @@ class Command(BaseCommand):
         success_count = len(csv_files) - len(failed_files) - total_skipped
 
         self.stdout.write(f"\n{'─' * 80}")
+        if not dry_run and total_moved > 0:
+            self.stdout.write(f"📁 Moved {total_moved} file(s) to {ingested_dir}")
         self.stdout.write(
             self.style.SUCCESS(
                 f"✅ Complete: {success_count}/{len(csv_files)} files | "
