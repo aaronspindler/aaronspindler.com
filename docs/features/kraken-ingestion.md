@@ -79,6 +79,12 @@ python manage.py ingest_kraken_ohlcv --pair BTCUSD --intervals 1440
 - `--skip-existing`: Skip files where asset already has data for this interval
 - `--drop-indexes`: Drop indexes before import, recreate after (faster for large imports)
 
+**File Management:**
+- After successful ingestion, files are automatically moved from `data/kraken/Kraken_OHLCVT/` to `data/ingested/Kraken_OHLCVT/`
+- This prevents accidental re-ingestion and helps track processed files
+- Files are only moved after complete success (not moved on failure or in dry-run mode)
+- Original directory structure is preserved in the ingested folder
+
 **Performance Tips:**
 - Use `--intervals 1440` for daily-only (fastest, most space-efficient)
 - Use `--skip-existing` to avoid re-importing existing data
@@ -93,6 +99,8 @@ python manage.py ingest_kraken_ohlcv --pair BTCUSD --intervals 1440
 ✓ [1/8656] BTCUSD      1440m - +  1,800 | 0.0% | ⏱️  1.2s | ETA 2h 45m
 ✓ [2/8656] ETHUSD      1440m - +  1,600 | 0.0% | ⏱️  2.5s | ETA 2h 42m
 ...
+────────────────────────────────────────────────────────────────────────────────
+📁 Moved 8656 file(s) to feefifofunds/data/ingested/Kraken_OHLCVT
 ✅ Complete: 8656/8656 files | +2,456,789 records created | ⊘ 0 skipped | ⏱️  2h 38m
 ```
 
@@ -121,6 +129,12 @@ python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
 - `--drop-indexes`: Drop indexes before import, recreate after (faster for large imports)
 - `--limit-per-file`: Max records per file (useful for testing)
 
+**File Management:**
+- After successful ingestion, files are automatically moved from `data/kraken/Kraken_Trading_History/` to `data/ingested/Kraken_Trading_History/`
+- This prevents accidental re-ingestion and helps track processed files
+- Files are only moved after complete success (not moved on failure or in dry-run mode)
+- Original directory structure is preserved in the ingested folder
+
 **Performance Tips:**
 - Trades have higher volume (~200M records) than OHLCV (~millions)
 - Always use `--drop-indexes` for full imports (major speed improvement)
@@ -134,6 +148,8 @@ python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
 ✓ [1/1119] BTCUSD      - +  245,678 | 0.1% | ⏱️  15.3s | ETA 4h 45m
 ✓ [2/1119] ETHUSD      - +  198,432 | 0.2% | ⏱️  28.1s | ETA 4h 32m
 ...
+────────────────────────────────────────────────────────────────────────────────
+📁 Moved 1119 file(s) to feefifofunds/data/ingested/Kraken_Trading_History
 ✅ Complete: 1119/1119 files | +203,456,789 records created | ⊘ 0 skipped | ⏱️  4h 28m
 ```
 
