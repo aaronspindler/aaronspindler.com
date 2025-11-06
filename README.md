@@ -19,17 +19,14 @@
 
 ## TECH STACK
 
-**Backend**: Django 5.2.5, Python 3.13, PostgreSQL 15+, Celery, Redis. See [Architecture documentation](docs/architecture.md) for system design details.
-
-**Frontend**: D3.js, Vanilla JavaScript, PostCSS, Prism.js
-
-**Infrastructure**: Docker, Gunicorn, WhiteNoise (static), AWS S3 (media). See [Deployment documentation](docs/deployment.md) for infrastructure setup.
-
-**Search**: PostgreSQL FTS with pg_trgm for typo tolerance. See [Search documentation](docs/features/search.md) for implementation details.
-
-**Monitoring**: Lighthouse, Pyppeteer, Flower. See [Performance Monitoring documentation](docs/features/performance-monitoring.md) for details.
-
-**Testing**: Django test framework with factory-based test data. See [Testing documentation](docs/testing.md) for test framework details.
+| Category | Technologies | Documentation |
+|----------|--------------|--------------|
+| Backend | Django 5.2.5, Python 3.13, PostgreSQL 15+, Celery, Redis | [Architecture](docs/architecture.md) |
+| Frontend | D3.js, Vanilla JavaScript, PostCSS, Prism.js | - |
+| Infrastructure | Docker, Gunicorn, WhiteNoise (static), AWS S3 (media) | [Deployment](docs/deployment.md) |
+| Search | PostgreSQL FTS with pg_trgm for typo tolerance | [Search](docs/features/search.md) |
+| Monitoring | Lighthouse, Pyppeteer, Flower | [Performance Monitoring](docs/features/performance-monitoring.md) |
+| Testing | Django test framework with factory-based test data | [Testing](docs/testing.md) |
 
 ## QUICK START
 
@@ -80,25 +77,29 @@ See [Deployment Guide](docs/deployment.md) for production setup.
 
 ### Core Documentation
 
-- [Architecture & Project Structure](docs/architecture.md) - System design and Django apps overview
-- [Testing Guide](docs/testing.md) - Test framework, factories, and Docker test environment
-- [Management Commands](docs/commands.md) - Complete command reference
-- [API Reference](docs/api.md) - REST API endpoints
-- [Deployment Guide](docs/deployment.md) - Production deployment with Docker
-- [Maintenance Guide](docs/maintenance.md) - Monitoring, backups, and troubleshooting
+| Document | Description |
+|----------|-------------|
+| [Architecture & Project Structure](docs/architecture.md) | System design and Django apps overview |
+| [Testing Guide](docs/testing.md) | Test framework, factories, and Docker test environment |
+| [Management Commands](docs/commands.md) | Complete command reference |
+| [API Reference](docs/api.md) | REST API endpoints |
+| [Deployment Guide](docs/deployment.md) | Production deployment with Docker |
+| [Maintenance Guide](docs/maintenance.md) | Monitoring, backups, and troubleshooting |
 
 ### Feature Documentation
 
-- [Blog System](docs/features/blog-system.md) - Template-based posts, comments, syntax highlighting
-- [Knowledge Graph](docs/features/knowledge-graph.md) - Visualization, screenshots, API
-- [Photo Management](docs/features/photo-management.md) - Multi-resolution, EXIF, albums
-- [Full-Text Search](docs/features/search.md) - PostgreSQL FTS, autocomplete, indexing
-- [Performance Monitoring](docs/features/performance-monitoring.md) - Lighthouse audits, badges
-- [Request Tracking](docs/features/request-tracking.md) - Fingerprinting, geolocation, security
-- [Data Sources](docs/features/data-sources.md) - External API integration framework for fund data
-- [Massive.com Integration](docs/features/massive-integration.md) - Historical stock/ETF data fetching (2 years free)
-- [Kraken Ingestion](docs/features/kraken-ingestion.md) - Historical OHLCV and trade data import
-- [Omas Coffee](docs/features/omas-coffee.md) - Multi-domain website implementation
+| Document | Description |
+|----------|-------------|
+| [Blog System](docs/features/blog-system.md) | Template-based posts, comments, syntax highlighting |
+| [Knowledge Graph](docs/features/knowledge-graph.md) | Visualization, screenshots, API |
+| [Photo Management](docs/features/photo-management.md) | Multi-resolution, EXIF, albums |
+| [Full-Text Search](docs/features/search.md) | PostgreSQL FTS, autocomplete, indexing |
+| [Performance Monitoring](docs/features/performance-monitoring.md) | Lighthouse audits, badges |
+| [Request Tracking](docs/features/request-tracking.md) | Fingerprinting, geolocation, security |
+| [Data Sources](docs/features/data-sources.md) | External API integration framework for fund data |
+| [Massive.com Integration](docs/features/massive-integration.md) | Historical stock/ETF data fetching (2 years free) |
+| [Kraken Ingestion](docs/features/kraken-ingestion.md) | Historical OHLCV and trade data import |
+| [Omas Coffee](docs/features/omas-coffee.md) | Multi-domain website implementation |
 
 ## COMMON COMMANDS
 
@@ -193,11 +194,13 @@ For available management commands, see [Management Commands documentation](docs/
 
 ### Code Quality
 
-- **Ruff**: Python linting and formatting (Black-compatible)
-- **Prettier**: CSS formatting for source files
-- **Pre-commit**: Automatic checks on commit/push
-- **Safety**: Security vulnerability scanning
-- **Coverage**: Maintain 80%+ test coverage
+| Tool | Purpose |
+|------|---------|
+| Ruff | Python linting and formatting (Black-compatible) |
+| Prettier | CSS formatting for source files |
+| Pre-commit | Automatic checks on commit/push |
+| Safety | Security vulnerability scanning |
+| Coverage | Maintain 80%+ test coverage |
 
 Run `pre-commit run --all-files` before pushing.
 
@@ -217,11 +220,13 @@ For code organization, see [Architecture documentation](docs/architecture.md). F
 
 ## SECURITY
 
-- **CodeQL Analysis**: Automated security scanning on push, PR, and daily
-- **GitHub Copilot Autofix**: AI-powered fix suggestions for security alerts
-- **Pre-commit Hooks**: Local code quality enforcement
-- **Dependency Scanning**: Safety checks for vulnerabilities
-- **Request Fingerprinting**: Suspicious request detection. See [Request Tracking documentation](docs/features/request-tracking.md) for details.
+| Security Feature | Description | Documentation |
+|-----------------|--------------|--------------|
+| CodeQL Analysis | Automated security scanning on push, PR, and daily | - |
+| GitHub Copilot Autofix | AI-powered fix suggestions for security alerts | - |
+| Pre-commit Hooks | Local code quality enforcement | - |
+| Dependency Scanning | Safety checks for vulnerabilities | - |
+| Request Fingerprinting | Suspicious request detection | [Request Tracking](docs/features/request-tracking.md) |
 
 For security monitoring procedures, see [Maintenance documentation](docs/maintenance.md).
 
