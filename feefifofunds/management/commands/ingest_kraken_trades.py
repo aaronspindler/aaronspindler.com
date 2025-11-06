@@ -1,24 +1,24 @@
 """
-Ingest Kraken OHLCV (candle) data from CSV files.
+Ingest Kraken trade history (tick data) from CSV files.
 
 Example usage:
-    # Ingest daily data only
-    python manage.py ingest_kraken_ohlcv --intervals 1440
+    # Ingest all trading pairs
+    python manage.py ingest_kraken_trades
 
-    # Ingest hourly and daily data
-    python manage.py ingest_kraken_ohlcv --intervals 60,1440
-
-    # Ingest all intervals for a specific pair
-    python manage.py ingest_kraken_ohlcv --pair BTCUSD
+    # Ingest specific trading pair
+    python manage.py ingest_kraken_trades --pair BTCUSD
 
     # Dry run to preview what would be imported
-    python manage.py ingest_kraken_ohlcv --intervals 1440 --dry-run
+    python manage.py ingest_kraken_trades --pair BTCUSD --dry-run
 
-    # Skip files where asset already has data for this interval
-    python manage.py ingest_kraken_ohlcv --intervals 1440 --skip-existing
+    # Skip files where asset already has trade data
+    python manage.py ingest_kraken_trades --skip-existing
 
     # Drop indexes before import, recreate after (faster for large imports)
-    python manage.py ingest_kraken_ohlcv --intervals 1440 --drop-indexes
+    python manage.py ingest_kraken_trades --drop-indexes
+
+    # Limit records per file (useful for testing)
+    python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
 """
 
 import os
@@ -28,32 +28,15 @@ from pathlib import Path
 from django.core.management.base import BaseCommand
 from django.db import connection, transaction
 
-from feefifofunds.models import Asset, AssetPrice
-from feefifofunds.services.kraken import BulkInsertHelper, KrakenAssetCreator, KrakenPairParser, parse_ohlcv_csv
+from feefifofunds.models import Asset, Trade
+from feefifofunds.services.kraken import BulkInsertHelper, KrakenAssetCreator, KrakenPairParser, parse_trade_csv
 from utils.time import format_time
 
 
 class Command(BaseCommand):
-    help = "Ingest Kraken OHLCV (candle) data from CSV files"
-
-    INTERVAL_MAP = {
-        "1": 1,
-        "5": 5,
-        "15": 15,
-        "30": 30,
-        "60": 60,
-        "240": 240,
-        "720": 720,
-        "1440": 1440,
-    }
+    help = "Ingest Kraken trade history (tick data) from CSV files"
 
     def add_arguments(self, parser):
-        parser.add_argument(
-            "--intervals",
-            type=str,
-            default="1,5,15,30,60,240,720,1440",
-            help="Comma-separated list of intervals to import (1,5,15,30,60,240,720,1440)",
-        )
         parser.add_argument(
             "--pair",
             type=str,
@@ -62,14 +45,14 @@ class Command(BaseCommand):
         parser.add_argument(
             "--directory",
             type=str,
-            default="feefifofunds/data/kraken/Kraken_OHLCVT",
-            help="Directory containing Kraken OHLCVT CSV files",
+            default="feefifofunds/data/kraken/Kraken_Trading_History",
+            help="Directory containing Kraken Trading History CSV files",
         )
         parser.add_argument(
             "--batch-size",
             type=int,
-            default=25000,
-            help="Number of records per batch (default: 25000)",
+            default=50000,
+            help="Number of records per batch (default: 50000)",
         )
         parser.add_argument(
             "--dry-run",
@@ -79,38 +62,43 @@ class Command(BaseCommand):
         parser.add_argument(
             "--skip-existing",
             action="store_true",
-            help="Skip files for assets that already have data for this interval",
+            help="Skip files for assets that already have trade data",
         )
         parser.add_argument(
             "--drop-indexes",
             action="store_true",
             help="Drop indexes before import and recreate after (faster for large imports)",
         )
+        parser.add_argument(
+            "--limit-per-file",
+            type=int,
+            help="Maximum number of records to import per file (for testing)",
+        )
 
     def handle(self, *args, **options):
-        intervals_str = options["intervals"]
         pair_filter = options["pair"]
         data_dir = options["directory"]
         batch_size = options["batch_size"]
         dry_run = options["dry_run"]
         skip_existing = options["skip_existing"]
         drop_indexes = options["drop_indexes"]
-
-        intervals = [self.INTERVAL_MAP[i.strip()] for i in intervals_str.split(",")]
+        limit_per_file = options["limit_per_file"]
 
         if not os.path.exists(data_dir):
             self.stdout.write(self.style.ERROR(f"Directory not found: {data_dir}"))
             return
 
-        csv_files = self._discover_files(data_dir, intervals, pair_filter)
+        csv_files = self._discover_files(data_dir, pair_filter)
 
         if not csv_files:
             self.stdout.write(self.style.WARNING("No CSV files found matching criteria"))
             return
 
         self.stdout.write(f"📂 Found {len(csv_files)} files to process")
-        self.stdout.write(f"⚙️  Intervals: {', '.join(map(str, intervals))} minutes")
         self.stdout.write(f"📦 Batch size: {batch_size:,} records")
+
+        if limit_per_file:
+            self.stdout.write(f"⚠️  Limit: {limit_per_file:,} records per file")
 
         if dry_run:
             self.stdout.write(self.style.WARNING("🔍 DRY RUN MODE - No data will be saved\n"))
@@ -126,7 +114,7 @@ class Command(BaseCommand):
         failed_files = []
         start_time = time.time()
 
-        for index, (file_path, pair_name, interval) in enumerate(csv_files, start=1):
+        for index, (file_path, pair_name) in enumerate(csv_files, start=1):
             elapsed = time.time() - start_time
             progress_pct = index / len(csv_files) * 100
             avg_time_per_file = elapsed / index
@@ -138,25 +126,22 @@ class Command(BaseCommand):
 
                 if skip_existing:
                     asset = Asset.objects.filter(ticker=base_ticker).first()
-                    if (
-                        asset
-                        and AssetPrice.objects.filter(asset=asset, interval_minutes=interval, source="kraken").exists()
-                    ):
+                    if asset and Trade.objects.filter(asset=asset, source="kraken").exists():
                         total_skipped += 1
                         self.stdout.write(
-                            f"⊘ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - Skipped (exists) | "
+                            f"⊘ [{index}/{len(csv_files)}] {pair_name:12} - Skipped (exists) | "
                             f"{progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
                         )
                         continue
 
                 asset = asset_creator.get_or_create_asset(base_ticker, quote_currency)
 
-                created = self._import_file(file_path, asset, interval, batch_size, dry_run)
+                created = self._import_file(file_path, asset, batch_size, dry_run, limit_per_file)
                 total_created += created
 
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f"✓ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - +{created:6,} | "
+                        f"✓ [{index}/{len(csv_files)}] {pair_name:12} - +{created:8,} | "
                         f"{progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
                     )
                 )
@@ -165,7 +150,7 @@ class Command(BaseCommand):
                 failed_files.append((file_path, str(e)))
                 self.stdout.write(
                     self.style.ERROR(
-                        f"✗ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - {str(e)[:30]} | "
+                        f"✗ [{index}/{len(csv_files)}] {pair_name:12} - {str(e)[:30]} | "
                         f"{progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
                     )
                 )
@@ -192,69 +177,58 @@ class Command(BaseCommand):
             for file_path, error in failed_files[:10]:
                 self.stdout.write(f"  • {Path(file_path).name}: {error[:60]}")
 
-    def _discover_files(self, data_dir, intervals, pair_filter):
+    def _discover_files(self, data_dir, pair_filter):
         csv_files = []
         for file_name in os.listdir(data_dir):
             if not file_name.endswith(".csv"):
                 continue
 
-            parts = file_name.rsplit("_", 1)
-            if len(parts) != 2:
-                continue
-
-            pair_name = parts[0]
-            interval_str = parts[1].replace(".csv", "")
-
-            if interval_str not in self.INTERVAL_MAP:
-                continue
-
-            interval = self.INTERVAL_MAP[interval_str]
-
-            if interval not in intervals:
-                continue
+            pair_name = file_name.replace(".csv", "")
 
             if pair_filter and pair_name.upper() != pair_filter.upper():
                 continue
 
             file_path = os.path.join(data_dir, file_name)
-            csv_files.append((file_path, pair_name, interval))
+            csv_files.append((file_path, pair_name))
 
         csv_files.sort(key=lambda x: os.path.getsize(x[0]))
 
         return csv_files
 
     @transaction.atomic
-    def _import_file(self, file_path, asset, interval, batch_size, dry_run):
+    def _import_file(self, file_path, asset, batch_size, dry_run, limit_per_file):
         records_to_create = []
         created_count = 0
+        processed_count = 0
 
-        for data in parse_ohlcv_csv(file_path, interval):
-            created_count += 1
+        for data in parse_trade_csv(file_path):
+            if limit_per_file and processed_count >= limit_per_file:
+                break
+
+            processed_count += 1
 
             if dry_run:
+                created_count += 1
                 continue
 
             records_to_create.append(
-                AssetPrice(
+                Trade(
                     asset=asset,
                     timestamp=data["timestamp"],
-                    open=data["open"],
-                    high=data["high"],
-                    low=data["low"],
-                    close=data["close"],
+                    price=data["price"],
                     volume=data["volume"],
-                    interval_minutes=data["interval_minutes"],
-                    trade_count=data["trade_count"],
                     source="kraken",
                 )
             )
 
             if len(records_to_create) >= batch_size:
-                BulkInsertHelper.bulk_create_prices(records_to_create, batch_size)
+                BulkInsertHelper.bulk_create_trades(records_to_create, batch_size)
+                created_count += len(records_to_create)
                 records_to_create = []
 
         if records_to_create and not dry_run:
-            BulkInsertHelper.bulk_create_prices(records_to_create, batch_size)
+            BulkInsertHelper.bulk_create_trades(records_to_create, batch_size)
+            created_count += len(records_to_create)
 
         return created_count
 
@@ -262,7 +236,7 @@ class Command(BaseCommand):
         with connection.cursor() as cursor:
             cursor.execute("""
                 SELECT indexname FROM pg_indexes
-                WHERE tablename = 'feefifofunds_assetprice'
+                WHERE tablename = 'feefifofunds_trade'
                 AND indexname LIKE 'feefifofund_%_idx'
             """)
             indexes = [row[0] for row in cursor.fetchall()]
@@ -273,32 +247,26 @@ class Command(BaseCommand):
 
     def _recreate_indexes(self):
         with connection.cursor() as cursor:
-            self.stdout.write("  Creating index on (asset, timestamp, interval_minutes)...")
+            self.stdout.write("  Creating index on (asset, timestamp)...")
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_asset_i_b862eb_idx
-                ON feefifofunds_assetprice (asset_id, timestamp, interval_minutes)
-            """)
-
-            self.stdout.write("  Creating index on (asset, interval_minutes)...")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_asset_i_48d942_idx
-                ON feefifofunds_assetprice (asset_id, interval_minutes)
+                CREATE INDEX IF NOT EXISTS feefifofund_asset_i_542a46_idx
+                ON feefifofunds_trade (asset_id, timestamp)
             """)
 
             self.stdout.write("  Creating index on timestamp...")
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_timesta_ee2a80_idx
-                ON feefifofunds_assetprice (timestamp)
+                CREATE INDEX IF NOT EXISTS feefifofund_timesta_6dc787_idx
+                ON feefifofunds_trade (timestamp)
+            """)
+
+            self.stdout.write("  Creating index on asset...")
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS feefifofund_asset_i_b2d2eb_idx
+                ON feefifofunds_trade (asset_id)
             """)
 
             self.stdout.write("  Creating index on source...")
             cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_source_9e1b18_idx
-                ON feefifofunds_assetprice (source)
-            """)
-
-            self.stdout.write("  Creating index on interval_minutes...")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_interva_d09301_idx
-                ON feefifofunds_assetprice (interval_minutes)
+                CREATE INDEX IF NOT EXISTS feefifofund_source_1e2f3a_idx
+                ON feefifofunds_trade (source)
             """)
