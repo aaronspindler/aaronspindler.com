@@ -3,17 +3,19 @@
 
 ## FEATURES
 
-- **Interactive Knowledge Graph** - D3.js-powered visualization mapping relationships between blog posts. See [Knowledge Graph documentation](docs/features/knowledge-graph.md) for details.
-- **Smart Photo Management** - Automatic multi-resolution generation with EXIF extraction. See [Photo Management documentation](docs/features/photo-management.md) for details.
-- **Template-Based Blog** - Blog posts as HTML templates with rich metadata. See [Blog System documentation](docs/features/blog-system.md) for details.
-- **Full-Text Search** - PostgreSQL FTS with trigram similarity, sub-100ms autocomplete. See [Search documentation](docs/features/search.md) for details.
-- **Performance Monitoring** - Automated Lighthouse audits with historical trends. See [Performance Monitoring documentation](docs/features/performance-monitoring.md) for details.
-- **Request Tracking** - Privacy-focused analytics with IP geolocation. See [Request Tracking documentation](docs/features/request-tracking.md) for details.
-- **Financial Data Integration** - Standardized framework for fund data from external APIs with rate limiting, caching, and monitoring. See [Data Sources documentation](docs/features/data-sources.md) for details.
-- **Kraken Data Ingestion** - Historical OHLCV and trade data import system. See [Kraken Ingestion documentation](docs/features/kraken-ingestion.md) for details.
-- **Massive.com Integration** - Historical stock/ETF data fetching (2 years free). See [Massive Integration documentation](docs/features/massive-integration.md) for details.
-- **Omas Coffee Website** - Multi-domain website serving omas.coffee. See [Omas Coffee documentation](docs/features/omas-coffee.md) for details.
-- **Optimized Assets** - Static file compression, multi-stage Docker builds, intelligent caching. See [Architecture documentation](docs/architecture.md) for system design details.
+| Feature | Description | Documentation |
+|---------|-------------|--------------|
+| Interactive Knowledge Graph | D3.js-powered visualization mapping relationships between blog posts | [Knowledge Graph](docs/features/knowledge-graph.md) |
+| Smart Photo Management | Automatic multi-resolution generation with EXIF extraction | [Photo Management](docs/features/photo-management.md) |
+| Template-Based Blog | Blog posts as HTML templates with rich metadata | [Blog System](docs/features/blog-system.md) |
+| Full-Text Search | PostgreSQL FTS with trigram similarity, sub-100ms autocomplete | [Search](docs/features/search.md) |
+| Performance Monitoring | Automated Lighthouse audits with historical trends | [Performance Monitoring](docs/features/performance-monitoring.md) |
+| Request Tracking | Privacy-focused analytics with IP geolocation | [Request Tracking](docs/features/request-tracking.md) |
+| Financial Data Integration | Standardized framework for fund data from external APIs with rate limiting, caching, and monitoring | [Data Sources](docs/features/data-sources.md) |
+| Kraken Data Ingestion | Historical OHLCV and trade data import system | [Kraken Ingestion](docs/features/kraken-ingestion.md) |
+| Massive.com Integration | Historical stock/ETF data fetching (2 years free) | [Massive Integration](docs/features/massive-integration.md) |
+| Omas Coffee Website | Multi-domain website serving omas.coffee | [Omas Coffee](docs/features/omas-coffee.md) |
+| Optimized Assets | Static file compression, multi-stage Docker builds, intelligent caching | [Architecture](docs/architecture.md) |
 
 ## TECH STACK
 
