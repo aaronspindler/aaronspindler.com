@@ -127,7 +127,8 @@ class Command(BaseCommand):
         if dry_run:
             self.stdout.write(self.style.WARNING("🔍 DRY RUN MODE - No data will be saved"))
 
-        self.stdout.write("\n📋 Files to be ingested:")
+        self.stdout.write("\n📊 Counting lines in files...")
+        self.stdout.write("📋 Files to be ingested:")
         self._display_file_list(csv_files)
 
         if not auto_approve:
@@ -163,6 +164,7 @@ class Command(BaseCommand):
             estimated_remaining = avg_time_per_file * remaining_files
 
             try:
+                line_count = self._count_file_lines(file_path)
                 base_ticker, quote_currency = KrakenPairParser.parse_pair(pair_name)
 
                 if skip_existing:
@@ -174,7 +176,7 @@ class Command(BaseCommand):
                         total_skipped += 1
                         self.stdout.write(
                             f"⊘ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - Skipped (exists) | "
-                            f"{progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
+                            f"{line_count:>7,} lines | {progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
                         )
                         continue
 
@@ -191,16 +193,21 @@ class Command(BaseCommand):
                 self.stdout.write(
                     self.style.SUCCESS(
                         f"✓ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - +{created:6,} | "
-                        f"{progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
+                        f"{line_count:>7,} lines | {progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
                     )
                 )
 
             except Exception as e:
                 failed_files.append((file_path, str(e)))
+                try:
+                    line_count = self._count_file_lines(file_path)
+                    line_info = f"{line_count:>7,} lines | "
+                except Exception:
+                    line_info = ""
                 self.stdout.write(
                     self.style.ERROR(
                         f"✗ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - {str(e)[:30]} | "
-                        f"{progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
+                        f"{line_info}{progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
                     )
                 )
 
@@ -230,15 +237,28 @@ class Command(BaseCommand):
 
     def _display_file_list(self, csv_files):
         by_pair = {}
-        for _, pair_name, interval in csv_files:
+        for file_path, pair_name, interval in csv_files:
             if pair_name not in by_pair:
-                by_pair[pair_name] = []
-            by_pair[pair_name].append(interval)
+                by_pair[pair_name] = {"intervals": [], "files": []}
+            by_pair[pair_name]["intervals"].append(interval)
+            by_pair[pair_name]["files"].append(file_path)
 
-        for pair_name in sorted(by_pair.keys()):
-            intervals = sorted(by_pair[pair_name])
+        sorted_pairs = sorted(by_pair.keys())
+        total_pairs = len(sorted_pairs)
+        for idx, pair_name in enumerate(sorted_pairs, start=1):
+            self.stdout.write(f"  [{idx}/{total_pairs}] Counting {pair_name}...", ending="\r")
+            self.stdout.flush()
+            intervals = sorted(by_pair[pair_name]["intervals"])
             interval_str = ", ".join(f"{i}m" for i in intervals)
-            self.stdout.write(f"  • {pair_name:12} → {interval_str}")
+            total_lines = sum(self._count_file_lines(f) for f in by_pair[pair_name]["files"])
+            self.stdout.write(
+                f"  • {pair_name:12} → {interval_str:30} ({total_lines:>10,} lines){' ' * 20}\n", ending=""
+            )
+            self.stdout.flush()
+
+    def _count_file_lines(self, file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            return sum(1 for _ in f) - 1
 
     def _discover_files(self, data_dir, intervals, pair_filter):
         csv_files = []
