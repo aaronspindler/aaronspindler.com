@@ -19,6 +19,9 @@ Example usage:
 
     # Drop indexes before import, recreate after (faster for large imports)
     python manage.py ingest_kraken_ohlcv --intervals 1440 --drop-indexes
+
+    # Skip confirmation prompt for automated runs
+    python manage.py ingest_kraken_ohlcv --intervals 1440 --yes
 """
 
 import os
@@ -89,6 +92,11 @@ class Command(BaseCommand):
             action="store_true",
             help="Drop indexes before import and recreate after (faster for large imports)",
         )
+        parser.add_argument(
+            "--yes",
+            action="store_true",
+            help="Skip confirmation prompt and proceed with ingestion",
+        )
 
     def handle(self, *args, **options):
         intervals_str = options["intervals"]
@@ -98,6 +106,7 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         skip_existing = options["skip_existing"]
         drop_indexes = options["drop_indexes"]
+        auto_approve = options["yes"]
 
         intervals = [self.INTERVAL_MAP[i.strip()] for i in intervals_str.split(",")]
 
@@ -116,7 +125,19 @@ class Command(BaseCommand):
         self.stdout.write(f"📦 Batch size: {batch_size:,} records")
 
         if dry_run:
-            self.stdout.write(self.style.WARNING("🔍 DRY RUN MODE - No data will be saved\n"))
+            self.stdout.write(self.style.WARNING("🔍 DRY RUN MODE - No data will be saved"))
+
+        self.stdout.write("\n📋 Files to be ingested:")
+        self._display_file_list(csv_files)
+
+        if not auto_approve:
+            self.stdout.write(self.style.WARNING("\n⚠️  This will ingest the files listed above."))
+            response = input("Continue with ingestion? [y/N]: ").strip().lower()
+            if response not in ["y", "yes"]:
+                self.stdout.write(self.style.WARNING("❌ Ingestion cancelled by user"))
+                return
+
+        self.stdout.write("")
 
         if drop_indexes and not dry_run:
             self.stdout.write("🗑️  Dropping indexes...")
@@ -207,20 +228,36 @@ class Command(BaseCommand):
             for file_path, error in failed_files[:10]:
                 self.stdout.write(f"  • {Path(file_path).name}: {error[:60]}")
 
+    def _display_file_list(self, csv_files):
+        by_pair = {}
+        for _, pair_name, interval in csv_files:
+            if pair_name not in by_pair:
+                by_pair[pair_name] = []
+            by_pair[pair_name].append(interval)
+
+        for pair_name in sorted(by_pair.keys()):
+            intervals = sorted(by_pair[pair_name])
+            interval_str = ", ".join(f"{i}m" for i in intervals)
+            self.stdout.write(f"  • {pair_name:12} → {interval_str}")
+
     def _discover_files(self, data_dir, intervals, pair_filter):
         csv_files = []
         for file_name in os.listdir(data_dir):
             if not file_name.endswith(".csv"):
                 continue
 
-            parts = file_name.rsplit("_", 1)
-            if len(parts) != 2:
-                continue
+            base_name = file_name.replace(".csv", "")
 
-            pair_name = parts[0]
-            interval_str = parts[1].replace(".csv", "")
+            pair_name = None
+            interval_str = None
 
-            if interval_str not in self.INTERVAL_MAP:
+            for known_interval in self.INTERVAL_MAP.keys():
+                if base_name.endswith(f"_{known_interval}"):
+                    pair_name = base_name[: -len(known_interval) - 1]
+                    interval_str = known_interval
+                    break
+
+            if not pair_name or not interval_str:
                 continue
 
             interval = self.INTERVAL_MAP[interval_str]

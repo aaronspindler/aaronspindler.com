@@ -350,6 +350,9 @@ python manage.py ingest_kraken_ohlcv --intervals 1440 --skip-existing
 # Drop indexes before import, recreate after (much faster for large imports)
 python manage.py ingest_kraken_ohlcv --intervals 1440 --drop-indexes
 
+# Skip confirmation prompt for automated runs
+python manage.py ingest_kraken_ohlcv --intervals 1440 --yes
+
 # Ingest Kraken trade history (tick data)
 python manage.py ingest_kraken_trades
 
@@ -358,6 +361,9 @@ python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
 
 # Full trade import with index optimization
 python manage.py ingest_kraken_trades --drop-indexes
+
+# Skip confirmation prompt for automated runs
+python manage.py ingest_kraken_trades --yes
 ```
 
 **Note**: Comprehensive documentation available at `docs/features/kraken-ingestion.md`
@@ -365,6 +371,7 @@ python manage.py ingest_kraken_trades --drop-indexes
 - Trade data: ~1,119 files with ~200M+ individual trade records
 - Auto-creates Asset records during import
 - Performance: 50k-100k records/sec with `--drop-indexes`
+- **File approval workflow**: Commands display files to ingest and wait for user approval (use --yes to skip)
 - Supports dry-run, skip-existing, and progress tracking with ETA
 
 ## Architecture Overview

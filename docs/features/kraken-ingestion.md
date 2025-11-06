@@ -78,6 +78,7 @@ python manage.py ingest_kraken_ohlcv --pair BTCUSD --intervals 1440
 - `--dry-run`: Preview without saving to database
 - `--skip-existing`: Skip files where asset already has data for this interval
 - `--drop-indexes`: Drop indexes before import, recreate after (faster for large imports)
+- `--yes`: Skip confirmation prompt and proceed with ingestion (for automated runs)
 
 **File Management:**
 - After successful ingestion, files are automatically moved from `data/kraken/Kraken_OHLCVT/` to `data/ingested/Kraken_OHLCVT/`
@@ -91,11 +92,32 @@ python manage.py ingest_kraken_ohlcv --pair BTCUSD --intervals 1440
 - Use `--drop-indexes` for initial large imports (significantly faster)
 - Smaller intervals (1, 5 minutes) have the most data and take longest
 
-**Example Output:**
+**Confirmation Workflow:**
+
+The command displays a list of files to be ingested and waits for user approval:
+
 ```
 📂 Found 8656 files to process
 ⚙️  Intervals: 1440 minutes
 📦 Batch size: 25,000 records
+
+📋 Files to be ingested:
+  • 1INCHEUR      → 1440m
+  • 1INCHUSD      → 1440m
+  • AAVEEUR       → 1440m
+  • AAVEUSD       → 1440m
+  • BTCEUR        → 1440m
+  • BTCUSD        → 1440m
+  ...
+
+⚠️  This will ingest the files listed above.
+Continue with ingestion? [y/N]:
+```
+
+Use `--yes` to skip this prompt for automated runs.
+
+**Example Output:**
+```
 ✓ [1/8656] BTCUSD      1440m - +  1,800 | 0.0% | ⏱️  1.2s | ETA 2h 45m
 ✓ [2/8656] ETHUSD      1440m - +  1,600 | 0.0% | ⏱️  2.5s | ETA 2h 42m
 ...
@@ -128,6 +150,7 @@ python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
 - `--skip-existing`: Skip files where asset already has trade data
 - `--drop-indexes`: Drop indexes before import, recreate after (faster for large imports)
 - `--limit-per-file`: Max records per file (useful for testing)
+- `--yes`: Skip confirmation prompt and proceed with ingestion (for automated runs)
 
 **File Management:**
 - After successful ingestion, files are automatically moved from `data/kraken/Kraken_Trading_History/` to `data/ingested/Kraken_Trading_History/`
@@ -141,10 +164,31 @@ python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
 - Consider importing trades only for specific pairs you need
 - Use `--limit-per-file` for testing before full import
 
-**Example Output:**
+**Confirmation Workflow:**
+
+The command displays a list of files to be ingested and waits for user approval:
+
 ```
 📂 Found 1119 files to process
 📦 Batch size: 50,000 records
+
+📋 Files to be ingested:
+  • 1INCHEUR
+  • 1INCHUSD
+  • AAVEEUR
+  • AAVEUSD
+  • BTCEUR
+  • BTCUSD
+  ...
+
+⚠️  This will ingest the files listed above.
+Continue with ingestion? [y/N]:
+```
+
+Use `--yes` to skip this prompt for automated runs.
+
+**Example Output:**
+```
 ✓ [1/1119] BTCUSD      - +  245,678 | 0.1% | ⏱️  15.3s | ETA 4h 45m
 ✓ [2/1119] ETHUSD      - +  198,432 | 0.2% | ⏱️  28.1s | ETA 4h 32m
 ...
@@ -158,11 +202,15 @@ python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
 ### Kraken CSV Format
 
 **OHLCVT Files** (`feefifofunds/data/kraken/Kraken_OHLCVT/`):
-- Filename format: `{PAIR}_{INTERVAL}.csv` (e.g., `BTCUSD_1440.csv`)
+- Filename formats:
+  - Standard: `{PAIR}_{INTERVAL}.csv` (e.g., `1INCHEUR_1440.csv`)
+  - Alternate: `{PAIR}_Daily_OHLC.csv` or `{PAIR}_Hourly_OHLC.csv` (e.g., `BTCUSD_Daily_OHLC.csv`)
 - Intervals: 1, 5, 15, 30, 60, 240, 720, 1440 minutes
 - Columns: `timestamp,open,high,low,close,volume,trade_count`
 - Timestamp: Unix epoch (seconds)
 - 8,656 total files
+
+**Note:** Some pairs (like BTCUSD) use alternate naming patterns where `Daily_OHLC` maps to 1440-minute intervals and `Hourly_OHLC` maps to 60-minute intervals. The ingestion command automatically handles both naming patterns.
 
 **Trading History Files** (`feefifofunds/data/kraken/Kraken_Trading_History/`):
 - Filename format: `{PAIR}.csv` (e.g., `BTCUSD.csv`)

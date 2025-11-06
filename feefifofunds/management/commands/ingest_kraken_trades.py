@@ -19,6 +19,9 @@ Example usage:
 
     # Limit records per file (useful for testing)
     python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
+
+    # Skip confirmation prompt for automated runs
+    python manage.py ingest_kraken_trades --yes
 """
 
 import os
@@ -75,6 +78,11 @@ class Command(BaseCommand):
             type=int,
             help="Maximum number of records to import per file (for testing)",
         )
+        parser.add_argument(
+            "--yes",
+            action="store_true",
+            help="Skip confirmation prompt and proceed with ingestion",
+        )
 
     def handle(self, *args, **options):
         pair_filter = options["pair"]
@@ -84,6 +92,7 @@ class Command(BaseCommand):
         skip_existing = options["skip_existing"]
         drop_indexes = options["drop_indexes"]
         limit_per_file = options["limit_per_file"]
+        auto_approve = options["yes"]
 
         if not os.path.exists(data_dir):
             self.stdout.write(self.style.ERROR(f"Directory not found: {data_dir}"))
@@ -102,7 +111,19 @@ class Command(BaseCommand):
             self.stdout.write(f"⚠️  Limit: {limit_per_file:,} records per file")
 
         if dry_run:
-            self.stdout.write(self.style.WARNING("🔍 DRY RUN MODE - No data will be saved\n"))
+            self.stdout.write(self.style.WARNING("🔍 DRY RUN MODE - No data will be saved"))
+
+        self.stdout.write("\n📋 Files to be ingested:")
+        self._display_file_list(csv_files)
+
+        if not auto_approve:
+            self.stdout.write(self.style.WARNING("\n⚠️  This will ingest the files listed above."))
+            response = input("Continue with ingestion? [y/N]: ").strip().lower()
+            if response not in ["y", "yes"]:
+                self.stdout.write(self.style.WARNING("❌ Ingestion cancelled by user"))
+                return
+
+        self.stdout.write("")
 
         if drop_indexes and not dry_run:
             self.stdout.write("🗑️  Dropping indexes...")
@@ -189,6 +210,10 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"\n⚠️  {len(failed_files)} files failed:"))
             for file_path, error in failed_files[:10]:
                 self.stdout.write(f"  • {Path(file_path).name}: {error[:60]}")
+
+    def _display_file_list(self, csv_files):
+        for _, pair_name in csv_files:
+            self.stdout.write(f"  • {pair_name}")
 
     def _discover_files(self, data_dir, pair_filter):
         csv_files = []
