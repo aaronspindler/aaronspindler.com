@@ -1,11 +1,3 @@
-"""
-Create a new asset in the database.
-
-Example usage:
-    python manage.py create_asset --ticker BTC --name Bitcoin --category CRYPTO
-    python manage.py create_asset --ticker AAPL --name "Apple Inc" --category STOCK --quote-currency USD
-"""
-
 from django.core.management.base import BaseCommand, CommandError
 
 from feefifofunds.models import Asset
