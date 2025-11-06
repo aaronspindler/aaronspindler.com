@@ -1,26 +1,35 @@
-# aaronspindler.com
+# AARONSPINDLER.COM
 [![codecov](https://codecov.io/gh/aaronspindler/aaronspindler.com/graph/badge.svg?token=AO200M56SH)](https://codecov.io/gh/aaronspindler/aaronspindler.com)
 
-## Features
+## FEATURES
 
-- **📊 Interactive Knowledge Graph** - D3.js-powered visualization mapping relationships between blog posts • [📚 Docs](docs/features/knowledge-graph.md)
-- **📸 Smart Photo Management** - Automatic multi-resolution generation with EXIF extraction • [📚 Docs](docs/features/photo-management.md)
-- **📝 Template-Based Blog** - Blog posts as HTML templates with rich metadata • [📚 Docs](docs/features/blog-system.md)
-- **🔍 Full-Text Search** - PostgreSQL FTS with trigram similarity, sub-100ms autocomplete • [📚 Docs](docs/features/search.md)
-- **⚡ Performance Monitoring** - Automated Lighthouse audits with historical trends • [📚 Docs](docs/features/performance-monitoring.md)
-- **🔒 Request Tracking** - Privacy-focused analytics with IP geolocation • [📚 Docs](docs/features/request-tracking.md)
-- **💰 Financial Data Integration** - Standardized framework for fund data from external APIs with rate limiting, caching, and monitoring • [📚 Docs](docs/features/data-sources.md)
-- **🎨 Optimized Assets** - Static file compression, multi-stage Docker builds, intelligent caching
+- **Interactive Knowledge Graph** - D3.js-powered visualization mapping relationships between blog posts. See [Knowledge Graph documentation](docs/features/knowledge-graph.md) for details.
+- **Smart Photo Management** - Automatic multi-resolution generation with EXIF extraction. See [Photo Management documentation](docs/features/photo-management.md) for details.
+- **Template-Based Blog** - Blog posts as HTML templates with rich metadata. See [Blog System documentation](docs/features/blog-system.md) for details.
+- **Full-Text Search** - PostgreSQL FTS with trigram similarity, sub-100ms autocomplete. See [Search documentation](docs/features/search.md) for details.
+- **Performance Monitoring** - Automated Lighthouse audits with historical trends. See [Performance Monitoring documentation](docs/features/performance-monitoring.md) for details.
+- **Request Tracking** - Privacy-focused analytics with IP geolocation. See [Request Tracking documentation](docs/features/request-tracking.md) for details.
+- **Financial Data Integration** - Standardized framework for fund data from external APIs with rate limiting, caching, and monitoring. See [Data Sources documentation](docs/features/data-sources.md) for details.
+- **Kraken Data Ingestion** - Historical OHLCV and trade data import system. See [Kraken Ingestion documentation](docs/features/kraken-ingestion.md) for details.
+- **Massive.com Integration** - Historical stock/ETF data fetching (2 years free). See [Massive Integration documentation](docs/features/massive-integration.md) for details.
+- **Omas Coffee Website** - Multi-domain website serving omas.coffee. See [Omas Coffee documentation](docs/features/omas-coffee.md) for details.
+- **Optimized Assets** - Static file compression, multi-stage Docker builds, intelligent caching. See [Architecture documentation](docs/architecture.md) for system design details.
 
-## Tech Stack
+## TECH STACK
 
-**Backend**: Django 5.2.5, Python 3.13, PostgreSQL 15+, Celery, Redis
+**Backend**: Django 5.2.5, Python 3.13, PostgreSQL 15+, Celery, Redis. See [Architecture documentation](docs/architecture.md) for system design details.
+
 **Frontend**: D3.js, Vanilla JavaScript, PostCSS, Prism.js
-**Infrastructure**: Docker, Gunicorn, WhiteNoise (static), AWS S3 (media)
-**Search**: PostgreSQL FTS with pg_trgm for typo tolerance
-**Monitoring**: Lighthouse, Pyppeteer, Flower
 
-## Quick Start
+**Infrastructure**: Docker, Gunicorn, WhiteNoise (static), AWS S3 (media). See [Deployment documentation](docs/deployment.md) for infrastructure setup.
+
+**Search**: PostgreSQL FTS with pg_trgm for typo tolerance. See [Search documentation](docs/features/search.md) for implementation details.
+
+**Monitoring**: Lighthouse, Pyppeteer, Flower. See [Performance Monitoring documentation](docs/features/performance-monitoring.md) for details.
+
+**Testing**: Django test framework with factory-based test data. See [Testing documentation](docs/testing.md) for test framework details.
+
+## QUICK START
 
 ```bash
 # Clone and setup
@@ -54,6 +63,8 @@ python manage.py runserver
 
 Visit `http://localhost:8000`
 
+For Docker setup, see [Deployment documentation](docs/deployment.md). For project structure details, see [Architecture documentation](docs/architecture.md). For available management commands, see [Management Commands documentation](docs/commands.md).
+
 ### Docker Setup
 
 ```bash
@@ -63,9 +74,9 @@ docker run -p 80:80 --env-file .env.production aaronspindler.com
 
 See [Deployment Guide](docs/deployment.md) for production setup.
 
-## Documentation
+## DOCUMENTATION
 
-### 📘 Core Documentation
+### Core Documentation
 
 - [Architecture & Project Structure](docs/architecture.md) - System design and Django apps overview
 - [Testing Guide](docs/testing.md) - Test framework, factories, and Docker test environment
@@ -74,7 +85,7 @@ See [Deployment Guide](docs/deployment.md) for production setup.
 - [Deployment Guide](docs/deployment.md) - Production deployment with Docker
 - [Maintenance Guide](docs/maintenance.md) - Monitoring, backups, and troubleshooting
 
-### 🎯 Feature Documentation
+### Feature Documentation
 
 - [Blog System](docs/features/blog-system.md) - Template-based posts, comments, syntax highlighting
 - [Knowledge Graph](docs/features/knowledge-graph.md) - Visualization, screenshots, API
@@ -84,8 +95,10 @@ See [Deployment Guide](docs/deployment.md) for production setup.
 - [Request Tracking](docs/features/request-tracking.md) - Fingerprinting, geolocation, security
 - [Data Sources](docs/features/data-sources.md) - External API integration framework for fund data
 - [Massive.com Integration](docs/features/massive-integration.md) - Historical stock/ETF data fetching (2 years free)
+- [Kraken Ingestion](docs/features/kraken-ingestion.md) - Historical OHLCV and trade data import
+- [Omas Coffee](docs/features/omas-coffee.md) - Multi-domain website implementation
 
-## Common Commands
+## COMMON COMMANDS
 
 ```bash
 # Development
@@ -94,28 +107,39 @@ python manage.py build_css --dev
 make static  # Build all assets + pre-commit
 
 # Blog management
+# See Blog System documentation: docs/features/blog-system.md
+# See Knowledge Graph documentation: docs/features/knowledge-graph.md
 python manage.py create_blog_post --title "Post Title" --category tech
 python manage.py rebuild_knowledge_graph
 python manage.py rebuild_search_index
 
 # Testing
+# See Testing documentation: docs/testing.md
 python manage.py test
 make test  # Docker test environment
 coverage run --source='.' manage.py test --no-input && coverage report
 
 # Maintenance
+# See Maintenance documentation: docs/maintenance.md
+# See Performance Monitoring documentation: docs/features/performance-monitoring.md
+# See Request Tracking documentation: docs/features/request-tracking.md
 python manage.py clear_cache
 python manage.py run_lighthouse_audit
 python manage.py geolocate_fingerprints
 
-# Financial data (requires MASSIVE_API_KEY)
+# Financial data
+# See Kraken Ingestion documentation: docs/features/kraken-ingestion.md
+# See Data Sources documentation: docs/features/data-sources.md
+# See Massive Integration documentation: docs/features/massive-integration.md
+python manage.py ingest_kraken_ohlcv --intervals 1440
+python manage.py ingest_kraken_trades
 python manage.py backload_massive SPY --create-fund --days 730
 python manage.py update_massive_daily
 ```
 
 See [Management Commands](docs/commands.md) for complete reference.
 
-## Project Structure
+## PROJECT STRUCTURE
 
 ```
 aaronspindler.com/
@@ -126,18 +150,18 @@ aaronspindler.com/
 ├── utils/             # Search, notifications, monitoring
 ├── feefifofunds/      # Financial data integration
 ├── config/            # Django configuration
-├── deployment/        # 🐳 Docker and deployment files
+├── deployment/        # Docker and deployment files
 │   ├── Dockerfile
 │   ├── docker-compose.test.yml
 │   └── *.Dockerfile   # Service-specific images
-├── .config/           # 🔧 Tool configurations
+├── .config/           # Tool configurations
 │   ├── postcss.config.js
 │   ├── purgecss.config.js
 │   └── .prettierrc    # CSS formatter
-├── requirements/      # 📦 Python dependencies
+├── requirements/      # Python dependencies
 │   ├── base.txt       # Core dependencies
 │   └── dev.txt        # Development dependencies
-├── docs/              # 📚 Documentation
+├── docs/              # Documentation
 │   ├── features/      # Feature-specific guides
 │   ├── architecture.md
 │   ├── testing.md
@@ -151,17 +175,19 @@ aaronspindler.com/
 └── tests/             # Test factories
 ```
 
-See [Architecture Guide](docs/architecture.md) for detailed structure.
+See [Architecture Guide](docs/architecture.md) for detailed structure. For Docker configuration, see [Deployment documentation](docs/deployment.md). For test structure, see [Testing documentation](docs/testing.md).
 
-## Development Workflow
+## DEVELOPMENT WORKFLOW
 
 1. **Create feature branch**: `git checkout -b feature/amazing-feature`
 2. **Make changes**: Edit code, write tests
-3. **Run tests**: `make test`
+3. **Run tests**: `make test` (see [Testing documentation](docs/testing.md) for test requirements)
 4. **Pre-commit checks**: Automatic via git hooks (Ruff, Prettier, etc.)
 5. **Commit**: `git commit -m 'feat: Add amazing feature'`
 6. **Push**: `git push origin feature/amazing-feature`
 7. **Open PR**: Create pull request on GitHub
+
+For available management commands, see [Management Commands documentation](docs/commands.md). For project organization, see [Architecture documentation](docs/architecture.md).
 
 ### Code Quality
 
@@ -173,7 +199,7 @@ See [Architecture Guide](docs/architecture.md) for detailed structure.
 
 Run `pre-commit run --all-files` before pushing.
 
-## Contributing
+## CONTRIBUTING
 
 Contributions welcome! Please:
 
@@ -183,14 +209,18 @@ Contributions welcome! Please:
 4. Update documentation in `docs/` for significant changes
 5. Follow [conventional commits](https://www.conventionalcommits.org/) format
 
+For code organization, see [Architecture documentation](docs/architecture.md). For development commands, see [Management Commands documentation](docs/commands.md).
+
 **Commit Conventions**: `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:`
 
-## Security
+## SECURITY
 
 - **CodeQL Analysis**: Automated security scanning on push, PR, and daily
 - **GitHub Copilot Autofix**: AI-powered fix suggestions for security alerts
 - **Pre-commit Hooks**: Local code quality enforcement
 - **Dependency Scanning**: Safety checks for vulnerabilities
-- **Request Fingerprinting**: Suspicious request detection
+- **Request Fingerprinting**: Suspicious request detection. See [Request Tracking documentation](docs/features/request-tracking.md) for details.
+
+For security monitoring procedures, see [Maintenance documentation](docs/maintenance.md).
 
 Report security issues via GitHub Issues or directly to the maintainer.
