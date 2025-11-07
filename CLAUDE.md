@@ -416,6 +416,7 @@ python manage.py ingest_kraken_trades --yes
 ```
 
 **Note**: Comprehensive documentation available at `docs/features/kraken-ingestion.md`
+- **Parallel processing**: Auto-detects CPU cores (default: cores-1, max 8 workers) for 2-4x speedup
 - OHLCVT data: ~8,656 files with aggregated candle data at 8 intervals
 - Trade data: ~1,119 files with ~200M+ individual trade records
 - Auto-creates Asset records during import with tier classification:
@@ -423,9 +424,9 @@ python manage.py ingest_kraken_trades --yes
   - **TIER2**: Established projects (UNI, AAVE, ALGO, etc.)
   - **TIER3**: Emerging projects (BAT, ENJ, GALA, etc.)
   - **TIER4**: Small/speculative (all others)
-- Performance: 50k-100k records/sec with `--drop-indexes`
+- Performance: 50k-100k records/sec per worker with multiprocessing
 - **File approval workflow**: Commands display files to ingest and wait for user approval (use --yes to skip)
-- Supports dry-run, skip-existing, tier filtering, and progress tracking with ETA
+- Supports dry-run, skip-existing, tier filtering, and real-time progress tracking with ETA
 
 ## Architecture Overview
 

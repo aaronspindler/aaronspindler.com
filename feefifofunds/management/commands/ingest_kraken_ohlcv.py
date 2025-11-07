@@ -2,58 +2,249 @@
 Ingest Kraken OHLCV (candle) data from CSV files.
 
 Example usage:
-    # Ingest daily data only
-    python manage.py ingest_kraken_ohlcv --intervals 1440
+    # Ingest daily data only (parallel processing auto-enabled)
+    python manage.py ingest_kraken_ohlcv --intervals 1440 --database timescaledb
 
-    # Ingest hourly and daily data
-    python manage.py ingest_kraken_ohlcv --intervals 60,1440
+    # Ingest only Tier 1 assets (major cryptos)
+    python manage.py ingest_kraken_ohlcv --intervals 1440 --only-tier TIER1 --database timescaledb
 
-    # Ingest all intervals for a specific pair
-    python manage.py ingest_kraken_ohlcv --pair BTCUSD
-
-    # Dry run to preview what would be imported
-    python manage.py ingest_kraken_ohlcv --intervals 1440 --dry-run
-
-    # Skip files where asset already has data for this interval
-    python manage.py ingest_kraken_ohlcv --intervals 1440 --skip-existing
+    # Ingest hourly and daily data with custom worker count
+    python manage.py ingest_kraken_ohlcv --intervals 60,1440 --workers 4 --database timescaledb
 
     # Skip confirmation prompt for automated runs
-    python manage.py ingest_kraken_ohlcv --intervals 1440 --yes
+    python manage.py ingest_kraken_ohlcv --intervals 1440 --yes --database timescaledb
 
     # Update existing records instead of skipping duplicates
-    python manage.py ingest_kraken_ohlcv --intervals 1440 --update-existing
+    python manage.py ingest_kraken_ohlcv --intervals 1440 --update-existing --database timescaledb
 
-    # Re-ingest files to update data (safe, won't create duplicates)
-    python manage.py ingest_kraken_ohlcv --intervals 1440 --update-existing --yes
+    # Dry run to preview what would be imported (no parallelization)
+    python manage.py ingest_kraken_ohlcv --intervals 1440 --dry-run
+
+Notes:
+    - Parallel processing is automatic (uses CPU cores - 1, max 8)
+    - Workers can be controlled with --workers flag if needed
+    - Tier auto-detection is enabled by default
+    - Currency tracking: Each price record tracks its quote currency (USD, EUR, etc.)
 """
 
 import io
 import os
 import shutil
 import time
+from multiprocessing import Manager, Pool, cpu_count
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
-from django.db import connections
-from django.utils import timezone
 
-from feefifofunds.models import Asset, AssetPrice
-from feefifofunds.services.kraken import KrakenAssetCreator, KrakenPairParser, parse_ohlcv_csv
-from utils.time import format_time
+
+def _worker_import_file(args):
+    """
+    Worker function for parallel file processing.
+    Must be at module level for pickling.
+    """
+    import os
+
+    import django
+
+    # Ensure Django is set up in this worker process BEFORE any model imports
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+    # Always setup Django in worker processes - each worker is a fresh process
+    try:
+        django.setup()
+    except RuntimeError:
+        # Django might already be configured in some cases, that's ok
+        pass
+
+    # Now safe to import Django models and related modules
+    from django.utils import timezone
+
+    from feefifofunds.services.kraken import KrakenAssetCreator, parse_ohlcv_csv
+
+    (
+        file_path,
+        pair_name,
+        interval,
+        base_ticker,
+        quote_currency,
+        asset_tier,
+        batch_size,
+        update_existing,
+        database,
+        ingested_dir,
+        progress_queue,
+    ) = args
+
+    try:
+        # Reconstruct asset creator and get/create asset
+        asset_creator = KrakenAssetCreator(database=database)
+        asset = asset_creator.get_or_create_asset(base_ticker, tier=asset_tier)
+
+        # Import the file
+        buffer = io.StringIO()
+        created_count = 0
+        now = timezone.now()
+        now_iso = now.isoformat()
+        asset_id = asset.id
+
+        for data in parse_ohlcv_csv(file_path, interval):
+            created_count += 1
+            time_iso = data["timestamp"].isoformat()
+            buffer.write(
+                f"{asset_id}\t{time_iso}\t{data['open']}\t{data['high']}\t"
+                f"{data['low']}\t{data['close']}\t{data['volume'] or ''}\t"
+                f"{data['interval_minutes'] or ''}\t{data['trade_count'] or ''}\t{quote_currency}\tkraken\t{now_iso}\n"
+            )
+
+            if created_count % batch_size == 0:
+                _execute_copy_with_staging(buffer, update_existing, database)
+                buffer = io.StringIO()
+
+        if buffer.tell() > 0:
+            _execute_copy_with_staging(buffer, update_existing, database)
+
+        # Move file to ingested directory
+        dest_path = os.path.join(ingested_dir, os.path.basename(file_path))
+        shutil.move(file_path, dest_path)
+
+        # Report success
+        progress_queue.put({"success": True, "file": pair_name, "created": created_count})
+        return {"success": True, "created": created_count}
+
+    except Exception as e:
+        # Report error
+        progress_queue.put({"success": False, "file": pair_name, "error": str(e)})
+        return {"success": False, "error": str(e)}
+
+
+def _execute_copy_with_staging(buffer, update_existing, database):
+    """Helper function for COPY operation."""
+    import os
+
+    import django
+
+    # Ensure Django is configured before importing connections
+    if not os.environ.get("DJANGO_SETTINGS_MODULE"):
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+    if not django.apps.apps.ready:
+        try:
+            django.setup()
+        except RuntimeError:
+            pass
+
+    from django.db import connections
+
+    buffer.seek(0)
+    columns = (
+        "asset_id",
+        "time",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "interval_minutes",
+        "trade_count",
+        "quote_currency",
+        "source",
+        "created_at",
+    )
+
+    with connections[database].cursor() as cursor:
+        cursor.execute("""
+            CREATE TEMP TABLE IF NOT EXISTS staging_assetprice (
+                asset_id BIGINT NOT NULL,
+                time TIMESTAMPTZ NOT NULL,
+                open NUMERIC NOT NULL,
+                high NUMERIC NOT NULL,
+                low NUMERIC NOT NULL,
+                close NUMERIC NOT NULL,
+                volume NUMERIC,
+                interval_minutes SMALLINT,
+                trade_count INTEGER,
+                quote_currency VARCHAR(10) NOT NULL,
+                source VARCHAR(50) NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL
+            )
+        """)
+
+        cursor.execute("TRUNCATE TABLE staging_assetprice")
+
+        copy_sql = f"COPY staging_assetprice ({', '.join(columns)}) FROM STDIN"
+        with cursor.cursor.copy(copy_sql) as copy:
+            while True:
+                data = buffer.read(65536)
+                if not data:
+                    break
+                copy.write(data)
+
+        if update_existing:
+            cursor.execute("""
+                INSERT INTO feefifofunds_assetprice
+                    (asset_id, time, open, high, low, close, volume,
+                     interval_minutes, trade_count, quote_currency, source, created_at)
+                SELECT asset_id, time, open, high, low, close, volume,
+                       interval_minutes, trade_count, quote_currency, source, created_at
+                FROM staging_assetprice
+                ON CONFLICT (asset_id, time, source, interval_minutes, quote_currency)
+                DO UPDATE SET
+                    open = EXCLUDED.open,
+                    high = EXCLUDED.high,
+                    low = EXCLUDED.low,
+                    close = EXCLUDED.close,
+                    volume = EXCLUDED.volume,
+                    trade_count = EXCLUDED.trade_count,
+                    created_at = EXCLUDED.created_at
+            """)
+        else:
+            cursor.execute("""
+                INSERT INTO feefifofunds_assetprice
+                    (asset_id, time, open, high, low, close, volume,
+                     interval_minutes, trade_count, quote_currency, source, created_at)
+                SELECT asset_id, time, open, high, low, close, volume,
+                       interval_minutes, trade_count, quote_currency, source, created_at
+                FROM staging_assetprice
+                ON CONFLICT (asset_id, time, source, interval_minutes, quote_currency)
+                DO NOTHING
+            """)
+
+        cursor.execute("DROP TABLE IF EXISTS staging_assetprice")
 
 
 class Command(BaseCommand):
     help = """Ingest Kraken OHLCV (candle) data from CSV files.
 
     Features:
+    - Parallel processing with multiprocessing (auto-detects CPU cores, max 8 workers)
     - Uses PostgreSQL COPY with staging table for optimal performance (50k-100k records/sec)
     - Supports upsert/update mode for re-ingestion (--update-existing)
     - Handles duplicates gracefully with ON CONFLICT DO NOTHING/UPDATE
-    - Optimized skip-existing check with single query
-    - Progress tracking with ETAs
+    - Automatic tier classification based on asset ticker
+    - Tier-based filtering for selective ingestion (--only-tier)
+    - Real-time progress tracking with accurate ETA based on data volume
     - Automatic file moving to ingested/ directory after success
     - TimescaleDB hypertable support with automatic chunk management
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Import Django dependencies only in main process
+        from django.db import connections
+        from django.utils import timezone
+
+        from feefifofunds.models import Asset, AssetPrice
+        from feefifofunds.services.kraken import KrakenAssetCreator, KrakenPairParser, parse_ohlcv_csv
+        from utils.time import format_time
+
+        self.connections = connections
+        self.timezone = timezone
+        self.Asset = Asset
+        self.AssetPrice = AssetPrice
+        self.KrakenAssetCreator = KrakenAssetCreator
+        self.KrakenPairParser = KrakenPairParser
+        self.parse_ohlcv_csv = parse_ohlcv_csv
+        self.format_time = format_time
 
     INTERVAL_MAP = {
         "1": 1,
@@ -132,6 +323,12 @@ class Command(BaseCommand):
             choices=["TIER1", "TIER2", "TIER3", "TIER4", "UNCLASSIFIED"],
             help="Only ingest assets matching specified tier(s). Can be used multiple times.",
         )
+        parser.add_argument(
+            "--workers",
+            type=int,
+            default=None,
+            help="Number of parallel workers (default: auto-detect based on CPU cores, max 8)",
+        )
 
     def handle(self, *args, **options):
         intervals_str = options["intervals"]
@@ -145,6 +342,12 @@ class Command(BaseCommand):
         database = options["database"]
         tier_option = options["tier"]
         only_tiers = options["only_tier"]
+        workers = options["workers"]
+
+        # Smart worker count determination
+        if workers is None:
+            # Auto-detect: use all cores minus 1, but cap at 8 to avoid overwhelming DB
+            workers = min(max(cpu_count() - 1, 1), 8)
 
         intervals = [self.INTERVAL_MAP[i.strip()] for i in intervals_str.split(",")]
 
@@ -168,6 +371,12 @@ class Command(BaseCommand):
         self.stdout.write(f"📂 Found {len(csv_files)} files to process")
         self.stdout.write(f"⚙️  Intervals: {', '.join(map(str, intervals))} minutes")
         self.stdout.write(f"📦 Batch size: {batch_size:,} records")
+
+        # Display parallel processing mode
+        if workers > 1:
+            self.stdout.write(self.style.SUCCESS(f"🚀 Parallel mode: {workers} workers"))
+        else:
+            self.stdout.write("🔄 Sequential mode: 1 worker")
 
         if tier_option:
             tier_msg = "auto-determine based on ticker" if tier_option == "auto" else tier_option
@@ -201,7 +410,7 @@ class Command(BaseCommand):
 
         # Determine default tier for asset creator
         default_tier = None if tier_option == "auto" else tier_option
-        asset_creator = KrakenAssetCreator(database=database, default_tier=default_tier)
+        asset_creator = self.KrakenAssetCreator(database=database, default_tier=default_tier)
 
         if not dry_run:
             self.stdout.write("🏗️  Pre-creating assets...")
@@ -213,94 +422,41 @@ class Command(BaseCommand):
             self.stdout.write("🔍 Building skip-existing index...")
             skip_set = self._build_skip_set(csv_files, database)
             self.stdout.write(f"✓ Found {len(skip_set)} existing asset-interval combinations to skip")
-
-        total_created = 0
-        total_skipped = 0
-        total_moved = 0
-        failed_files = []
-        start_time = time.time()
-
-        # Calculate total lines for better ETA estimation
-        total_lines = sum(line_count_cache.values())
-        processed_lines = 0
+            # Filter out files that should be skipped
+            csv_files = [
+                (fp, pn, iv)
+                for fp, pn, iv in csv_files
+                if (self.KrakenPairParser.parse_pair(pn)[0], iv) not in skip_set
+            ]
+            self.stdout.write(f"✓ {len(csv_files)} files remaining after skip-existing filter")
 
         ingested_dir = os.path.join(os.path.dirname(data_dir), "ingested", "Kraken_OHLCVT")
         if not dry_run:
             os.makedirs(ingested_dir, exist_ok=True)
 
-        for index, (file_path, pair_name, interval) in enumerate(csv_files, start=1):
-            file_start_time = time.time()
-            line_count = line_count_cache.get(file_path, 0)
+        # Process files
+        if dry_run:
+            # Dry-run uses simplified sequential processing
+            result = self._process_dry_run(csv_files, line_count_cache)
+        else:
+            # Production mode always uses parallel processing
+            result = self._process_files_parallel(
+                csv_files,
+                line_count_cache,
+                tier_option,
+                batch_size,
+                update_existing,
+                database,
+                ingested_dir,
+                workers,
+            )
 
-            elapsed = time.time() - start_time
-            progress_pct = (processed_lines / total_lines * 100) if total_lines > 0 else (index / len(csv_files) * 100)
+        total_created = result["total_created"]
+        total_moved = result["total_moved"]
+        failed_files = result["failed_files"]
+        elapsed_total = result["elapsed_total"]
 
-            # Calculate ETA based on lines processed (more accurate than file count)
-            if processed_lines > 0 and elapsed > 0:
-                lines_per_sec = processed_lines / elapsed
-                remaining_lines = total_lines - processed_lines
-                estimated_remaining = remaining_lines / lines_per_sec if lines_per_sec > 0 else 0
-            else:
-                estimated_remaining = 0
-
-            try:
-                base_ticker, quote_currency = KrakenPairParser.parse_pair(pair_name)
-
-                if skip_existing and (base_ticker, interval) in skip_set:
-                    total_skipped += 1
-                    processed_lines += line_count
-                    self.stdout.write(
-                        f"⊘ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - Skipped (exists) | "
-                        f"{line_count:>7,} lines | {progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
-                    )
-                    continue
-
-                # Determine tier for this specific asset if in auto mode
-                asset_tier = None
-                if tier_option == "auto":
-                    asset_tier = KrakenAssetCreator.determine_tier(base_ticker)
-
-                asset = asset_creator.get_or_create_asset(base_ticker, tier=asset_tier)
-
-                created = self._import_file(
-                    file_path, asset, quote_currency, interval, batch_size, dry_run, update_existing, database
-                )
-                total_created += created
-                processed_lines += line_count
-
-                if not dry_run:
-                    dest_path = os.path.join(ingested_dir, os.path.basename(file_path))
-                    shutil.move(file_path, dest_path)
-                    total_moved += 1
-
-                # Calculate file processing time
-                file_elapsed = time.time() - file_start_time
-
-                self.stdout.write(
-                    self.style.SUCCESS(
-                        f"✓ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - +{created:6,} | "
-                        f"{line_count:>7,} lines | {progress_pct:5.1f}% | ⏱️  {format_time(file_elapsed)} | Total: {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
-                    )
-                )
-
-            except Exception as e:
-                error_msg = str(e)
-                if len(error_msg) > 60:
-                    short_error = error_msg[:60]
-                else:
-                    short_error = error_msg
-                failed_files.append((file_path, error_msg))
-                processed_lines += line_count
-                line_info = f"{line_count:>7,} lines | " if line_count else ""
-                self.stdout.write(
-                    self.style.ERROR(
-                        f"✗ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - {short_error} | "
-                        f"{line_info}{progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
-                    )
-                )
-
-        elapsed_total = time.time() - start_time
-        success_count = len(csv_files) - len(failed_files) - total_skipped
+        success_count = len(csv_files) - len(failed_files)
 
         self.stdout.write(f"\n{'─' * 80}")
         if not dry_run and total_moved > 0:
@@ -309,8 +465,7 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f"✅ Complete: {success_count}/{len(csv_files)} files | "
                 f"+{total_created:,} records created | "
-                f"⊘ {total_skipped} skipped | "
-                f"⏱️  {format_time(elapsed_total)}"
+                f"⏱️  {self.format_time(elapsed_total)}"
             )
         )
 
@@ -318,6 +473,187 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"\n⚠️  {len(failed_files)} files failed:"))
             for file_path, error in failed_files[:10]:
                 self.stdout.write(f"  • {Path(file_path).name}: {error[:60]}")
+
+    def _process_dry_run(self, csv_files, line_count_cache):
+        """Process dry-run mode - just count lines without database operations."""
+        total_created = 0
+        failed_files = []
+        start_time = time.time()
+
+        for index, (file_path, pair_name, interval) in enumerate(csv_files, start=1):
+            try:
+                for _ in self.parse_ohlcv_csv(file_path, interval):
+                    total_created += 1
+
+                line_count = line_count_cache.get(file_path, 0)
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"✓ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - {line_count:>7,} lines (dry-run)"
+                    )
+                )
+
+            except Exception as e:
+                failed_files.append((file_path, str(e)))
+                self.stdout.write(
+                    self.style.ERROR(f"✗ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - {str(e)[:60]}")
+                )
+
+        elapsed_total = time.time() - start_time
+        return {
+            "total_created": total_created,
+            "total_moved": 0,
+            "failed_files": failed_files,
+            "elapsed_total": elapsed_total,
+        }
+
+    def _process_files_parallel(
+        self, csv_files, line_count_cache, tier_option, batch_size, update_existing, database, ingested_dir, workers
+    ):
+        """Process files in parallel using multiprocessing."""
+        total_created = 0
+        total_moved = 0
+        failed_files = []
+        start_time = time.time()
+
+        total_lines = sum(line_count_cache.values())
+        processed_lines = 0
+        completed_files = 0
+
+        # Prepare worker arguments
+        worker_args = []
+        for file_path, pair_name, interval in csv_files:
+            try:
+                base_ticker, quote_currency = self.KrakenPairParser.parse_pair(pair_name)
+
+                asset_tier = None
+                if tier_option == "auto":
+                    asset_tier = self.KrakenAssetCreator.determine_tier(base_ticker)
+                elif tier_option and tier_option != "auto":
+                    asset_tier = tier_option
+
+                worker_args.append(
+                    (
+                        file_path,
+                        pair_name,
+                        interval,
+                        base_ticker,
+                        quote_currency,
+                        asset_tier,
+                        batch_size,
+                        update_existing,
+                        database,
+                        ingested_dir,
+                        None,  # Progress queue placeholder
+                    )
+                )
+            except ValueError as e:
+                failed_files.append((file_path, str(e)))
+
+        # Create manager and queue for progress reporting
+        manager = Manager()
+        progress_queue = manager.Queue()
+
+        # Update worker args with the queue
+        worker_args = [
+            (
+                file_path,
+                pair_name,
+                interval,
+                base_ticker,
+                quote_currency,
+                asset_tier,
+                batch_size,
+                update_existing,
+                database,
+                ingested_dir,
+                progress_queue,
+            )
+            for (
+                file_path,
+                pair_name,
+                interval,
+                base_ticker,
+                quote_currency,
+                asset_tier,
+                batch_size,
+                update_existing,
+                database,
+                ingested_dir,
+                _,
+            ) in worker_args
+        ]
+
+        self.stdout.write("")
+
+        # Start worker pool
+        with Pool(processes=workers) as pool:
+            # Submit all tasks
+            async_result = pool.map_async(_worker_import_file, worker_args, chunksize=1)
+
+            # Monitor progress from queue
+            while not async_result.ready() or not progress_queue.empty():
+                try:
+                    # Non-blocking queue get with timeout
+                    result = progress_queue.get(timeout=0.1)
+                    completed_files += 1
+
+                    # Get line count for this file
+                    file_info = next(
+                        ((fp, pn, iv) for fp, pn, iv in csv_files if pn == result["file"]),
+                        None,
+                    )
+                    if file_info:
+                        line_count = line_count_cache.get(file_info[0], 0)
+                        processed_lines += line_count
+
+                    elapsed = time.time() - start_time
+                    progress_pct = (
+                        (processed_lines / total_lines * 100)
+                        if total_lines > 0
+                        else (completed_files / len(csv_files) * 100)
+                    )
+
+                    if processed_lines > 0 and elapsed > 0:
+                        lines_per_sec = processed_lines / elapsed
+                        remaining_lines = total_lines - processed_lines
+                        estimated_remaining = remaining_lines / lines_per_sec if lines_per_sec > 0 else 0
+                    else:
+                        estimated_remaining = 0
+
+                    if result["success"]:
+                        total_created += result["created"]
+                        total_moved += 1
+                        self.stdout.write(
+                            self.style.SUCCESS(
+                                f"✓ [{completed_files}/{len(csv_files)}] {result['file']:12} - "
+                                f"+{result['created']:6,} | {progress_pct:5.1f}% | "
+                                f"⏱️  {self.format_time(elapsed)} | ETA {self.format_time(estimated_remaining)}"
+                            )
+                        )
+                    else:
+                        failed_files.append((result["file"], result["error"]))
+                        short_error = result["error"][:40] if len(result["error"]) > 40 else result["error"]
+                        self.stdout.write(
+                            self.style.ERROR(
+                                f"✗ [{completed_files}/{len(csv_files)}] {result['file']:12} - "
+                                f"{short_error} | {progress_pct:5.1f}% | "
+                                f"⏱️  {self.format_time(elapsed)} | ETA {self.format_time(estimated_remaining)}"
+                            )
+                        )
+
+                except Exception:
+                    # Queue empty or timeout, continue
+                    if async_result.ready():
+                        break
+                    time.sleep(0.1)
+
+        elapsed_total = time.time() - start_time
+        return {
+            "total_created": total_created,
+            "total_moved": total_moved,
+            "failed_files": failed_files,
+            "elapsed_total": elapsed_total,
+        }
 
     def _cache_line_counts(self, csv_files):
         line_count_cache = {}
@@ -334,14 +670,14 @@ class Command(BaseCommand):
         intervals_set = set()
         for _, pair_name, interval in csv_files:
             try:
-                base_ticker, _ = KrakenPairParser.parse_pair(pair_name)
+                base_ticker, _ = self.KrakenPairParser.parse_pair(pair_name)
                 pairs_to_check[(base_ticker, interval)] = True
                 intervals_set.add(interval)
             except ValueError:
                 continue
 
         tickers = {ticker for ticker, _ in pairs_to_check.keys()}
-        assets = {asset.ticker: asset.id for asset in Asset.objects.using(database).filter(ticker__in=tickers)}
+        assets = {asset.ticker: asset.id for asset in self.Asset.objects.using(database).filter(ticker__in=tickers)}
 
         if not assets:
             return set()
@@ -350,7 +686,7 @@ class Command(BaseCommand):
         intervals_list = list(intervals_set)
 
         existing_combinations = (
-            AssetPrice.objects.using(database)
+            self.AssetPrice.objects.using(database)
             .filter(asset_id__in=asset_ids, interval_minutes__in=intervals_list, source="kraken")
             .values_list("asset_id", "interval_minutes")
             .distinct()
@@ -421,128 +757,14 @@ class Command(BaseCommand):
 
         return csv_files
 
-    def _import_file(self, file_path, asset, quote_currency, interval, batch_size, dry_run, update_existing, database):
-        created_count = 0
-
-        if dry_run:
-            for _ in parse_ohlcv_csv(file_path, interval):
-                created_count += 1
-            return created_count
-
-        return self._import_file_with_copy(
-            file_path, asset, quote_currency, interval, batch_size, update_existing, database
-        )
-
-    def _import_file_with_copy(self, file_path, asset, quote_currency, interval, batch_size, update_existing, database):
-        buffer = io.StringIO()
-        created_count = 0
-        now = timezone.now()
-        now_iso = now.isoformat()
-        asset_id = asset.id
-
-        for data in parse_ohlcv_csv(file_path, interval):
-            created_count += 1
-            time_iso = data["timestamp"].isoformat()
-            buffer.write(
-                f"{asset_id}\t{time_iso}\t{data['open']}\t{data['high']}\t"
-                f"{data['low']}\t{data['close']}\t{data['volume'] or ''}\t"
-                f"{data['interval_minutes'] or ''}\t{data['trade_count'] or ''}\t{quote_currency}\tkraken\t{now_iso}\n"
-            )
-
-            if created_count % batch_size == 0:
-                self._execute_copy_with_staging(buffer, update_existing, database)
-                buffer = io.StringIO()
-
-        if buffer.tell() > 0:
-            self._execute_copy_with_staging(buffer, update_existing, database)
-
-        return created_count
-
-    def _execute_copy_with_staging(self, buffer, update_existing, database):
-        buffer.seek(0)
-        columns = (
-            "asset_id",
-            "time",
-            "open",
-            "high",
-            "low",
-            "close",
-            "volume",
-            "interval_minutes",
-            "trade_count",
-            "quote_currency",
-            "source",
-            "created_at",
-        )
-
-        with connections[database].cursor() as cursor:
-            cursor.execute("""
-                CREATE TEMP TABLE IF NOT EXISTS staging_assetprice (
-                    asset_id BIGINT NOT NULL,
-                    time TIMESTAMPTZ NOT NULL,
-                    open NUMERIC NOT NULL,
-                    high NUMERIC NOT NULL,
-                    low NUMERIC NOT NULL,
-                    close NUMERIC NOT NULL,
-                    volume NUMERIC,
-                    interval_minutes SMALLINT,
-                    trade_count INTEGER,
-                    quote_currency VARCHAR(10) NOT NULL,
-                    source VARCHAR(50) NOT NULL,
-                    created_at TIMESTAMPTZ NOT NULL
-                )
-            """)
-
-            cursor.execute("TRUNCATE TABLE staging_assetprice")
-
-            copy_sql = f"COPY staging_assetprice ({', '.join(columns)}) FROM STDIN"
-            with cursor.cursor.copy(copy_sql) as copy:
-                while True:
-                    data = buffer.read(65536)
-                    if not data:
-                        break
-                    copy.write(data)
-
-            if update_existing:
-                cursor.execute("""
-                    INSERT INTO feefifofunds_assetprice
-                        (asset_id, time, open, high, low, close, volume,
-                         interval_minutes, trade_count, quote_currency, source, created_at)
-                    SELECT asset_id, time, open, high, low, close, volume,
-                           interval_minutes, trade_count, quote_currency, source, created_at
-                    FROM staging_assetprice
-                    ON CONFLICT (asset_id, time, source, interval_minutes, quote_currency)
-                    DO UPDATE SET
-                        open = EXCLUDED.open,
-                        high = EXCLUDED.high,
-                        low = EXCLUDED.low,
-                        close = EXCLUDED.close,
-                        volume = EXCLUDED.volume,
-                        trade_count = EXCLUDED.trade_count,
-                        created_at = EXCLUDED.created_at
-                """)
-            else:
-                cursor.execute("""
-                    INSERT INTO feefifofunds_assetprice
-                        (asset_id, time, open, high, low, close, volume,
-                         interval_minutes, trade_count, quote_currency, source, created_at)
-                    SELECT asset_id, time, open, high, low, close, volume,
-                           interval_minutes, trade_count, quote_currency, source, created_at
-                    FROM staging_assetprice
-                    ON CONFLICT (asset_id, time, source, interval_minutes, quote_currency)
-                    DO NOTHING
-                """)
-
-            cursor.execute("DROP TABLE IF EXISTS staging_assetprice")
-
     def _filter_by_tier(self, csv_files, target_tiers):
         """Filter CSV files to only include assets matching specified tiers."""
         filtered = []
         for file_path, pair_name, interval in csv_files:
             try:
-                base_ticker, _ = KrakenPairParser.parse_pair(pair_name)
+                base_ticker, _ = self.KrakenPairParser.parse_pair(pair_name)
                 # Determine the tier this asset would be assigned
-                asset_tier = KrakenAssetCreator.determine_tier(base_ticker)
+                asset_tier = self.KrakenAssetCreator.determine_tier(base_ticker)
 
                 # Check if the determined tier matches any of the target tiers
                 if asset_tier in target_tiers:
