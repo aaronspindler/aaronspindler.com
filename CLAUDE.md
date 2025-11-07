@@ -351,6 +351,18 @@ python manage.py migrate                         # For all other models
 # will raise an error to prevent accidental migrations to the wrong database
 ```
 
+#### Data Management Commands
+```bash
+# Clear all asset data (CAREFUL - this deletes all data!)
+python manage.py clear_asset_data                    # Prompts for confirmation
+python manage.py clear_asset_data --yes             # Skip confirmation (for scripts)
+python manage.py clear_asset_data --tables prices   # Clear only prices and trades
+python manage.py clear_asset_data --dry-run         # Preview what would be deleted
+
+# Quick reset for testing
+python manage.py clear_asset_data --yes --database timescaledb
+```
+
 #### Data Ingestion Commands
 ```bash
 # Ingest Kraken OHLCV (candle) data - daily only (most efficient)
@@ -378,13 +390,13 @@ python manage.py ingest_kraken_ohlcv --intervals 1440 --drop-indexes
 python manage.py ingest_kraken_ohlcv --intervals 1440 --yes
 
 # Ingest with tier filtering (NEW!)
-# Only ingest Tier 1 (major) crypto assets with auto tier assignment
-python manage.py ingest_kraken_ohlcv --intervals 1440 --only-tier TIER1 --tier auto
+# Only ingest Tier 1 (major) crypto assets (auto tier assignment is default)
+python manage.py ingest_kraken_ohlcv --intervals 1440 --only-tier TIER1
 
-# Ingest Tier 2 and Tier 3 assets
+# Ingest Tier 2 and Tier 3 assets (auto-determines tier for each asset)
 python manage.py ingest_kraken_ohlcv --intervals 60,1440 --only-tier TIER2 --only-tier TIER3
 
-# Force all new assets to be Tier 2
+# Force all new assets to be Tier 2 (override auto-detection)
 python manage.py ingest_kraken_ohlcv --intervals 1440 --tier TIER2
 
 # Ingest Kraken trade history (tick data)
@@ -396,8 +408,8 @@ python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
 # Full trade import with index optimization
 python manage.py ingest_kraken_trades --drop-indexes
 
-# Ingest trades with tier filtering
-python manage.py ingest_kraken_trades --only-tier TIER1 --tier auto
+# Ingest trades with tier filtering (auto tier assignment is default)
+python manage.py ingest_kraken_trades --only-tier TIER1
 
 # Skip confirmation prompt for automated runs
 python manage.py ingest_kraken_trades --yes

@@ -52,6 +52,12 @@ class AssetPrice(TimescaleModel):
         blank=True,
         help_text="Number of trades during this interval (for OHLCV data)",
     )
+    quote_currency = models.CharField(
+        max_length=10,
+        default="USD",
+        db_index=True,
+        help_text="Currency in which the price is quoted (USD, EUR, BTC, etc.)",
+    )
     source = models.CharField(
         max_length=50,
         db_index=True,
@@ -68,8 +74,8 @@ class AssetPrice(TimescaleModel):
         verbose_name_plural = "Asset Prices"
         constraints = [
             models.UniqueConstraint(
-                fields=["asset", "time", "source", "interval_minutes"],
-                name="unique_asset_time_source_interval",
+                fields=["asset", "time", "source", "interval_minutes", "quote_currency"],
+                name="unique_asset_time_source_interval_currency",
             ),
         ]
         indexes = [

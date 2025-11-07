@@ -41,11 +41,6 @@ class Asset(TimestampedModel):
         db_index=True,
         help_text="Asset tier classification based on market cap/importance",
     )
-    quote_currency = models.CharField(
-        max_length=10,
-        default="USD",
-        help_text="Currency in which the asset is quoted (USD, EUR, BTC, etc.)",
-    )
     description = models.TextField(
         blank=True,
         help_text="Detailed description of the asset",

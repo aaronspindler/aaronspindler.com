@@ -137,7 +137,7 @@ class KrakenAssetCreator:
     def __init__(self, database: str = "timescaledb", default_tier: str = None):
         self._asset_cache = {}
         self._database = database
-        self._default_tier = default_tier or Asset.Tier.UNCLASSIFIED
+        self._default_tier = default_tier  # Keep None for auto-detection
 
     @classmethod
     def determine_tier(cls, ticker: str) -> str:
@@ -154,21 +154,28 @@ class KrakenAssetCreator:
             # Default to TIER4 for all other cryptos (small/speculative)
             return Asset.Tier.TIER4
 
-    def get_or_create_asset(self, ticker: str, quote_currency: str, tier: str = None) -> Asset:
-        cache_key = (ticker, quote_currency)
+    def get_or_create_asset(self, ticker: str, tier: str = None) -> Asset:
+        cache_key = ticker
 
         if cache_key in self._asset_cache:
             return self._asset_cache[cache_key]
 
-        asset_tier = tier or self._default_tier
+        # Determine tier: use provided tier, or default_tier, or auto-detect
+        if tier is not None:
+            asset_tier = tier
+        elif self._default_tier is not None:
+            asset_tier = self._default_tier
+        else:
+            # Auto-detect tier based on ticker
+            asset_tier = self.determine_tier(ticker)
+
         asset, created = Asset.objects.using(self._database).get_or_create(
             ticker=ticker,
             defaults={
                 "name": ticker,
                 "category": Asset.Category.CRYPTO,
                 "tier": asset_tier,
-                "quote_currency": quote_currency,
-                "description": f"Kraken trading pair: {ticker}/{quote_currency}",
+                "description": f"Cryptocurrency: {ticker}",
                 "active": True,
             },
         )
@@ -182,51 +189,45 @@ class KrakenAssetCreator:
         return asset
 
     @transaction.atomic
-    def bulk_create_assets(self, pair_names: list[str], tier: str = None) -> dict[str, Asset]:
-        parsed_pairs = {}
+    def bulk_create_assets(self, pair_names: list[str]) -> int:
+        """Pre-create unique assets from trading pairs. Returns count of unique tickers."""
+        unique_tickers = set()
         for pair_name in pair_names:
             try:
-                base, quote = KrakenPairParser.parse_pair(pair_name)
-                parsed_pairs[pair_name] = (base, quote)
+                base, _ = KrakenPairParser.parse_pair(pair_name)
+                unique_tickers.add(base)
             except ValueError:
                 continue
 
         existing_tickers = set(
-            Asset.objects.using(self._database)
-            .filter(ticker__in=[p[0] for p in parsed_pairs.values()])
-            .values_list("ticker", flat=True)
+            Asset.objects.using(self._database).filter(ticker__in=unique_tickers).values_list("ticker", flat=True)
         )
 
-        asset_tier = tier or self._default_tier
         assets_to_create = []
-        for pair_name, (base, quote) in parsed_pairs.items():
-            if base not in existing_tickers:
+        for ticker in unique_tickers:
+            if ticker not in existing_tickers:
+                # Use auto-tier determination for each asset
+                asset_tier = self.determine_tier(ticker) if self._default_tier is None else self._default_tier
                 assets_to_create.append(
                     Asset(
-                        ticker=base,
-                        name=base,
+                        ticker=ticker,
+                        name=ticker,
                         category=Asset.Category.CRYPTO,
                         tier=asset_tier,
-                        quote_currency=quote,
-                        description=f"Kraken trading pair: {base}/{quote}",
+                        description=f"Cryptocurrency: {ticker}",
                         active=True,
                     )
                 )
-                existing_tickers.add(base)
 
         if assets_to_create:
             Asset.objects.using(self._database).bulk_create(assets_to_create, ignore_conflicts=True)
 
-        all_assets = Asset.objects.using(self._database).filter(ticker__in=[p[0] for p in parsed_pairs.values()])
-        asset_map = {asset.ticker: asset for asset in all_assets}
+        # Pre-populate cache for faster individual lookups
+        all_assets = Asset.objects.using(self._database).filter(ticker__in=unique_tickers)
+        for asset in all_assets:
+            self._asset_cache[asset.ticker] = asset
 
-        result = {}
-        for pair_name, (base, quote) in parsed_pairs.items():
-            if base in asset_map:
-                result[pair_name] = asset_map[base]
-                self._asset_cache[(base, quote)] = asset_map[base]
-
-        return result
+        return len(unique_tickers)
 
 
 def parse_ohlcv_csv(file_path: str, interval_minutes: int) -> Iterator[dict]:

@@ -24,6 +24,12 @@ class Trade(TimescaleModel):
         decimal_places=8,
         help_text="Trade volume/quantity",
     )
+    quote_currency = models.CharField(
+        max_length=10,
+        default="USD",
+        db_index=True,
+        help_text="Currency in which the price is quoted (USD, EUR, BTC, etc.)",
+    )
     source = models.CharField(
         max_length=50,
         default="kraken",
@@ -41,8 +47,8 @@ class Trade(TimescaleModel):
         verbose_name_plural = "Trades"
         constraints = [
             models.UniqueConstraint(
-                fields=["asset", "time", "source"],
-                name="unique_trade_asset_time_source",
+                fields=["asset", "time", "source", "quote_currency"],
+                name="unique_trade_asset_time_source_currency",
             ),
         ]
         indexes = [

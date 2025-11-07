@@ -83,8 +83,9 @@ class Command(BaseCommand):
         parser.add_argument(
             "--tier",
             type=str,
+            default="auto",
             choices=["TIER1", "TIER2", "TIER3", "TIER4", "UNCLASSIFIED", "auto"],
-            help="Tier to assign to new assets (TIER1-4, UNCLASSIFIED, or 'auto' to determine based on ticker)",
+            help="Tier to assign to new assets (default: 'auto' to determine based on ticker)",
         )
         parser.add_argument(
             "--only-tier",
@@ -192,9 +193,11 @@ class Command(BaseCommand):
                 if tier_option == "auto":
                     asset_tier = KrakenAssetCreator.determine_tier(base_ticker)
 
-                asset = asset_creator.get_or_create_asset(base_ticker, quote_currency, tier=asset_tier)
+                asset = asset_creator.get_or_create_asset(base_ticker, tier=asset_tier)
 
-                created = self._import_file(file_path, asset, batch_size, dry_run, limit_per_file, database)
+                created = self._import_file(
+                    file_path, asset, quote_currency, batch_size, dry_run, limit_per_file, database
+                )
                 total_created += created
 
                 if not dry_run:
@@ -274,7 +277,7 @@ class Command(BaseCommand):
 
         return csv_files
 
-    def _import_file(self, file_path, asset, batch_size, dry_run, limit_per_file, database):
+    def _import_file(self, file_path, asset, quote_currency, batch_size, dry_run, limit_per_file, database):
         records_to_create = []
         created_count = 0
         processed_count = 0
@@ -295,6 +298,7 @@ class Command(BaseCommand):
                     time=data["timestamp"],
                     price=data["price"],
                     volume=data["volume"],
+                    quote_currency=quote_currency,
                     source="kraken",
                 )
             )

@@ -121,8 +121,9 @@ class Command(BaseCommand):
         parser.add_argument(
             "--tier",
             type=str,
+            default="auto",
             choices=["TIER1", "TIER2", "TIER3", "TIER4", "UNCLASSIFIED", "auto"],
-            help="Tier to assign to new assets (TIER1-4, UNCLASSIFIED, or 'auto' to determine based on ticker)",
+            help="Tier to assign to new assets (default: 'auto' to determine based on ticker)",
         )
         parser.add_argument(
             "--only-tier",
@@ -205,10 +206,8 @@ class Command(BaseCommand):
         if not dry_run:
             self.stdout.write("🏗️  Pre-creating assets...")
             unique_pairs = {pair_name for _, pair_name, _ in csv_files}
-            # Pass tier if not auto mode
-            bulk_tier = None if tier_option == "auto" else tier_option
-            asset_creator.bulk_create_assets(list(unique_pairs), tier=bulk_tier)
-            self.stdout.write(f"✓ Pre-created {len(unique_pairs)} assets")
+            unique_count = asset_creator.bulk_create_assets(list(unique_pairs))
+            self.stdout.write(f"✓ Pre-created {unique_count} unique assets from {len(unique_pairs)} trading pairs")
 
         if skip_existing:
             self.stdout.write("🔍 Building skip-existing index...")
@@ -221,23 +220,35 @@ class Command(BaseCommand):
         failed_files = []
         start_time = time.time()
 
+        # Calculate total lines for better ETA estimation
+        total_lines = sum(line_count_cache.values())
+        processed_lines = 0
+
         ingested_dir = os.path.join(os.path.dirname(data_dir), "ingested", "Kraken_OHLCVT")
         if not dry_run:
             os.makedirs(ingested_dir, exist_ok=True)
 
         for index, (file_path, pair_name, interval) in enumerate(csv_files, start=1):
+            file_start_time = time.time()
+            line_count = line_count_cache.get(file_path, 0)
+
             elapsed = time.time() - start_time
-            progress_pct = index / len(csv_files) * 100
-            avg_time_per_file = elapsed / index
-            remaining_files = len(csv_files) - index
-            estimated_remaining = avg_time_per_file * remaining_files
+            progress_pct = (processed_lines / total_lines * 100) if total_lines > 0 else (index / len(csv_files) * 100)
+
+            # Calculate ETA based on lines processed (more accurate than file count)
+            if processed_lines > 0 and elapsed > 0:
+                lines_per_sec = processed_lines / elapsed
+                remaining_lines = total_lines - processed_lines
+                estimated_remaining = remaining_lines / lines_per_sec if lines_per_sec > 0 else 0
+            else:
+                estimated_remaining = 0
 
             try:
-                line_count = line_count_cache.get(file_path, 0)
                 base_ticker, quote_currency = KrakenPairParser.parse_pair(pair_name)
 
                 if skip_existing and (base_ticker, interval) in skip_set:
                     total_skipped += 1
+                    processed_lines += line_count
                     self.stdout.write(
                         f"⊘ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - Skipped (exists) | "
                         f"{line_count:>7,} lines | {progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
@@ -249,20 +260,26 @@ class Command(BaseCommand):
                 if tier_option == "auto":
                     asset_tier = KrakenAssetCreator.determine_tier(base_ticker)
 
-                asset = asset_creator.get_or_create_asset(base_ticker, quote_currency, tier=asset_tier)
+                asset = asset_creator.get_or_create_asset(base_ticker, tier=asset_tier)
 
-                created = self._import_file(file_path, asset, interval, batch_size, dry_run, update_existing, database)
+                created = self._import_file(
+                    file_path, asset, quote_currency, interval, batch_size, dry_run, update_existing, database
+                )
                 total_created += created
+                processed_lines += line_count
 
                 if not dry_run:
                     dest_path = os.path.join(ingested_dir, os.path.basename(file_path))
                     shutil.move(file_path, dest_path)
                     total_moved += 1
 
+                # Calculate file processing time
+                file_elapsed = time.time() - file_start_time
+
                 self.stdout.write(
                     self.style.SUCCESS(
                         f"✓ [{index}/{len(csv_files)}] {pair_name:12} {interval:4}m - +{created:6,} | "
-                        f"{line_count:>7,} lines | {progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
+                        f"{line_count:>7,} lines | {progress_pct:5.1f}% | ⏱️  {format_time(file_elapsed)} | Total: {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
                     )
                 )
 
@@ -273,7 +290,7 @@ class Command(BaseCommand):
                 else:
                     short_error = error_msg
                 failed_files.append((file_path, error_msg))
-                line_count = line_count_cache.get(file_path, 0)
+                processed_lines += line_count
                 line_info = f"{line_count:>7,} lines | " if line_count else ""
                 self.stdout.write(
                     self.style.ERROR(
@@ -404,7 +421,7 @@ class Command(BaseCommand):
 
         return csv_files
 
-    def _import_file(self, file_path, asset, interval, batch_size, dry_run, update_existing, database):
+    def _import_file(self, file_path, asset, quote_currency, interval, batch_size, dry_run, update_existing, database):
         created_count = 0
 
         if dry_run:
@@ -412,9 +429,11 @@ class Command(BaseCommand):
                 created_count += 1
             return created_count
 
-        return self._import_file_with_copy(file_path, asset, interval, batch_size, update_existing, database)
+        return self._import_file_with_copy(
+            file_path, asset, quote_currency, interval, batch_size, update_existing, database
+        )
 
-    def _import_file_with_copy(self, file_path, asset, interval, batch_size, update_existing, database):
+    def _import_file_with_copy(self, file_path, asset, quote_currency, interval, batch_size, update_existing, database):
         buffer = io.StringIO()
         created_count = 0
         now = timezone.now()
@@ -427,7 +446,7 @@ class Command(BaseCommand):
             buffer.write(
                 f"{asset_id}\t{time_iso}\t{data['open']}\t{data['high']}\t"
                 f"{data['low']}\t{data['close']}\t{data['volume'] or ''}\t"
-                f"{data['interval_minutes'] or ''}\t{data['trade_count'] or ''}\tkraken\t{now_iso}\n"
+                f"{data['interval_minutes'] or ''}\t{data['trade_count'] or ''}\t{quote_currency}\tkraken\t{now_iso}\n"
             )
 
             if created_count % batch_size == 0:
@@ -451,6 +470,7 @@ class Command(BaseCommand):
             "volume",
             "interval_minutes",
             "trade_count",
+            "quote_currency",
             "source",
             "created_at",
         )
@@ -467,6 +487,7 @@ class Command(BaseCommand):
                     volume NUMERIC,
                     interval_minutes SMALLINT,
                     trade_count INTEGER,
+                    quote_currency VARCHAR(10) NOT NULL,
                     source VARCHAR(50) NOT NULL,
                     created_at TIMESTAMPTZ NOT NULL
                 )
@@ -486,11 +507,11 @@ class Command(BaseCommand):
                 cursor.execute("""
                     INSERT INTO feefifofunds_assetprice
                         (asset_id, time, open, high, low, close, volume,
-                         interval_minutes, trade_count, source, created_at)
+                         interval_minutes, trade_count, quote_currency, source, created_at)
                     SELECT asset_id, time, open, high, low, close, volume,
-                           interval_minutes, trade_count, source, created_at
+                           interval_minutes, trade_count, quote_currency, source, created_at
                     FROM staging_assetprice
-                    ON CONFLICT (asset_id, time, source, interval_minutes)
+                    ON CONFLICT (asset_id, time, source, interval_minutes, quote_currency)
                     DO UPDATE SET
                         open = EXCLUDED.open,
                         high = EXCLUDED.high,
@@ -504,11 +525,11 @@ class Command(BaseCommand):
                 cursor.execute("""
                     INSERT INTO feefifofunds_assetprice
                         (asset_id, time, open, high, low, close, volume,
-                         interval_minutes, trade_count, source, created_at)
+                         interval_minutes, trade_count, quote_currency, source, created_at)
                     SELECT asset_id, time, open, high, low, close, volume,
-                           interval_minutes, trade_count, source, created_at
+                           interval_minutes, trade_count, quote_currency, source, created_at
                     FROM staging_assetprice
-                    ON CONFLICT (asset_id, time, source, interval_minutes)
+                    ON CONFLICT (asset_id, time, source, interval_minutes, quote_currency)
                     DO NOTHING
                 """)
 

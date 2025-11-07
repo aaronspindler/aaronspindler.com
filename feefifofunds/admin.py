@@ -5,8 +5,8 @@ from .models import Asset, AssetPrice, Trade
 
 @admin.register(Asset)
 class AssetAdmin(admin.ModelAdmin):
-    list_display = ["ticker", "name", "category", "quote_currency", "active", "created_at"]
-    list_filter = ["category", "quote_currency", "active"]
+    list_display = ["ticker", "name", "category", "tier", "active", "created_at"]
+    list_filter = ["category", "tier", "active"]
     search_fields = ["ticker", "name", "description"]
     readonly_fields = ["created_at", "updated_at"]
     ordering = ["ticker"]
@@ -16,7 +16,7 @@ class AssetAdmin(admin.ModelAdmin):
         (
             "Basic Information",
             {
-                "fields": ("ticker", "name", "category", "quote_currency"),
+                "fields": ("ticker", "name", "category", "tier"),
             },
         ),
         (
@@ -37,8 +37,19 @@ class AssetAdmin(admin.ModelAdmin):
 
 @admin.register(AssetPrice)
 class AssetPriceAdmin(admin.ModelAdmin):
-    list_display = ["asset", "time", "interval_minutes", "open", "high", "low", "close", "volume", "source"]
-    list_filter = ["source", "interval_minutes", "time"]
+    list_display = [
+        "asset",
+        "time",
+        "quote_currency",
+        "interval_minutes",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "source",
+    ]
+    list_filter = ["source", "quote_currency", "interval_minutes", "time"]
     search_fields = ["asset__ticker", "asset__name"]
     readonly_fields = ["created_at"]
     ordering = ["-time"]
@@ -49,7 +60,7 @@ class AssetPriceAdmin(admin.ModelAdmin):
         (
             "Asset & Time",
             {
-                "fields": ("asset", "time", "source", "interval_minutes"),
+                "fields": ("asset", "time", "quote_currency", "source", "interval_minutes"),
             },
         ),
         (
@@ -76,8 +87,8 @@ class AssetPriceAdmin(admin.ModelAdmin):
 
 @admin.register(Trade)
 class TradeAdmin(admin.ModelAdmin):
-    list_display = ["asset", "time", "price", "volume", "source"]
-    list_filter = ["source", "time"]
+    list_display = ["asset", "time", "quote_currency", "price", "volume", "source"]
+    list_filter = ["source", "quote_currency", "time"]
     search_fields = ["asset__ticker", "asset__name"]
     readonly_fields = ["created_at"]
     ordering = ["-time"]
@@ -88,7 +99,7 @@ class TradeAdmin(admin.ModelAdmin):
         (
             "Trade Details",
             {
-                "fields": ("asset", "time", "price", "volume", "source"),
+                "fields": ("asset", "time", "quote_currency", "price", "volume", "source"),
             },
         ),
         (
