@@ -104,6 +104,11 @@ def _worker_import_file(args):
             with connections[database].cursor() as cursor:
                 cursor.execute("SET LOCAL synchronous_commit TO OFF")
                 cursor.execute("SET LOCAL work_mem TO '256MB'")  # More memory for sorting
+                # Set generous statement timeout - UPDATE operations take longer than INSERT
+                # Allow 2 seconds per 1000 records for UPDATE, 1 second for INSERT
+                timeout_factor = 2000 if update_existing else 1000
+                timeout_ms = max(600000, batch_size // 1000 * timeout_factor)  # Min 10 minutes
+                cursor.execute(f"SET LOCAL statement_timeout TO {timeout_ms}")
 
             # Reconstruct asset creator and get/create asset
             asset_creator = KrakenAssetCreator(database=database)
@@ -303,8 +308,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--batch-size",
             type=int,
-            default=500000,
-            help="Number of records per batch for PostgreSQL COPY (default: 500000)",
+            default=100000,
+            help="Number of records per batch for PostgreSQL COPY (default: 100000, increase for faster imports but may timeout)",
         )
         parser.add_argument(
             "--dry-run",

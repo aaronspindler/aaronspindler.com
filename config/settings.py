@@ -101,7 +101,6 @@ if env("TIMESCALEDB_URL", default=None):
     DATABASES["timescaledb"]["CONN_HEALTH_CHECKS"] = True  # Check connection health
     DATABASES["timescaledb"]["OPTIONS"] = {
         "connect_timeout": 10,
-        "options": "-c statement_timeout=300000",  # 5 minute statement timeout
         "prepare_threshold": 5,  # Cache prepared statements after 5 uses
         "server_side_binding": True,  # Use server-side parameter binding
     }
