@@ -10,6 +10,13 @@ class Asset(TimestampedModel):
         COMMODITY = "COMMODITY", "Commodity"
         CURRENCY = "CURRENCY", "Currency"
 
+    class Tier(models.TextChoices):
+        TIER1 = "TIER1", "Tier 1 - Major/Blue-chip"
+        TIER2 = "TIER2", "Tier 2 - Mid-cap/Established"
+        TIER3 = "TIER3", "Tier 3 - Small-cap/Emerging"
+        TIER4 = "TIER4", "Tier 4 - Micro-cap/Speculative"
+        UNCLASSIFIED = "UNCLASSIFIED", "Unclassified"
+
     ticker = models.CharField(
         max_length=20,
         unique=True,
@@ -26,6 +33,13 @@ class Asset(TimestampedModel):
         choices=Category.choices,
         db_index=True,
         help_text="Asset category",
+    )
+    tier = models.CharField(
+        max_length=20,
+        choices=Tier.choices,
+        default=Tier.UNCLASSIFIED,
+        db_index=True,
+        help_text="Asset tier classification based on market cap/importance",
     )
     quote_currency = models.CharField(
         max_length=10,

@@ -44,31 +44,145 @@ class KrakenPairParser:
 
 
 class KrakenAssetCreator:
-    def __init__(self):
-        self._asset_cache = {}
+    # Tier classification based on market cap/importance
+    TIER1_ASSETS = {
+        "BTC",
+        "ETH",
+        "USDT",
+        "USDC",
+        "BNB",
+        "XRP",
+        "ADA",
+        "DOGE",
+        "AVAX",
+        "SOL",
+        "MATIC",
+        "DOT",
+        "TRX",
+        "DAI",
+        "WBTC",
+        "SHIB",
+        "LTC",
+        "LINK",
+        "BCH",
+        "ATOM",
+    }
 
-    def get_or_create_asset(self, ticker: str, quote_currency: str) -> Asset:
+    TIER2_ASSETS = {
+        "UNI",
+        "XLM",
+        "ETC",
+        "ALGO",
+        "AAVE",
+        "FIL",
+        "VET",
+        "ICP",
+        "NEAR",
+        "APT",
+        "GRT",
+        "FTM",
+        "SAND",
+        "MANA",
+        "AXS",
+        "EGLD",
+        "XTZ",
+        "THETA",
+        "CRO",
+        "FLOW",
+        "CHZ",
+        "KSM",
+        "CAKE",
+        "ENS",
+        "ZEC",
+        "MKR",
+        "COMP",
+        "SNX",
+        "SUSHI",
+        "YFI",
+    }
+
+    TIER3_ASSETS = {
+        "1INCH",
+        "CRV",
+        "BAT",
+        "ENJ",
+        "GALA",
+        "LRC",
+        "REN",
+        "ZRX",
+        "BAL",
+        "KNC",
+        "QTUM",
+        "OMG",
+        "ANKR",
+        "STORJ",
+        "BNT",
+        "CELO",
+        "OCEAN",
+        "SKL",
+        "NMR",
+        "BAND",
+        "ALPHA",
+        "BADGER",
+        "FARM",
+        "PERP",
+        "RUNE",
+        "SRM",
+        "TRB",
+        "UMA",
+        "XVS",
+        "YFII",
+    }
+
+    def __init__(self, database: str = "timescaledb", default_tier: str = None):
+        self._asset_cache = {}
+        self._database = database
+        self._default_tier = default_tier or Asset.Tier.UNCLASSIFIED
+
+    @classmethod
+    def determine_tier(cls, ticker: str) -> str:
+        """Determine the appropriate tier for an asset based on its ticker."""
+        ticker_upper = ticker.upper()
+
+        if ticker_upper in cls.TIER1_ASSETS:
+            return Asset.Tier.TIER1
+        elif ticker_upper in cls.TIER2_ASSETS:
+            return Asset.Tier.TIER2
+        elif ticker_upper in cls.TIER3_ASSETS:
+            return Asset.Tier.TIER3
+        else:
+            # Default to TIER4 for all other cryptos (small/speculative)
+            return Asset.Tier.TIER4
+
+    def get_or_create_asset(self, ticker: str, quote_currency: str, tier: str = None) -> Asset:
         cache_key = (ticker, quote_currency)
 
         if cache_key in self._asset_cache:
             return self._asset_cache[cache_key]
 
-        asset, created = Asset.objects.get_or_create(
+        asset_tier = tier or self._default_tier
+        asset, created = Asset.objects.using(self._database).get_or_create(
             ticker=ticker,
             defaults={
                 "name": ticker,
                 "category": Asset.Category.CRYPTO,
+                "tier": asset_tier,
                 "quote_currency": quote_currency,
                 "description": f"Kraken trading pair: {ticker}/{quote_currency}",
                 "active": True,
             },
         )
 
+        # Update tier if it was unclassified but now we have a specific tier
+        if not created and asset.tier == Asset.Tier.UNCLASSIFIED and asset_tier != Asset.Tier.UNCLASSIFIED:
+            asset.tier = asset_tier
+            asset.save(update_fields=["tier"])
+
         self._asset_cache[cache_key] = asset
         return asset
 
     @transaction.atomic
-    def bulk_create_assets(self, pair_names: list[str]) -> dict[str, Asset]:
+    def bulk_create_assets(self, pair_names: list[str], tier: str = None) -> dict[str, Asset]:
         parsed_pairs = {}
         for pair_name in pair_names:
             try:
@@ -78,9 +192,12 @@ class KrakenAssetCreator:
                 continue
 
         existing_tickers = set(
-            Asset.objects.filter(ticker__in=[p[0] for p in parsed_pairs.values()]).values_list("ticker", flat=True)
+            Asset.objects.using(self._database)
+            .filter(ticker__in=[p[0] for p in parsed_pairs.values()])
+            .values_list("ticker", flat=True)
         )
 
+        asset_tier = tier or self._default_tier
         assets_to_create = []
         for pair_name, (base, quote) in parsed_pairs.items():
             if base not in existing_tickers:
@@ -89,6 +206,7 @@ class KrakenAssetCreator:
                         ticker=base,
                         name=base,
                         category=Asset.Category.CRYPTO,
+                        tier=asset_tier,
                         quote_currency=quote,
                         description=f"Kraken trading pair: {base}/{quote}",
                         active=True,
@@ -97,9 +215,9 @@ class KrakenAssetCreator:
                 existing_tickers.add(base)
 
         if assets_to_create:
-            Asset.objects.bulk_create(assets_to_create, ignore_conflicts=True)
+            Asset.objects.using(self._database).bulk_create(assets_to_create, ignore_conflicts=True)
 
-        all_assets = Asset.objects.filter(ticker__in=[p[0] for p in parsed_pairs.values()])
+        all_assets = Asset.objects.using(self._database).filter(ticker__in=[p[0] for p in parsed_pairs.values()])
         asset_map = {asset.ticker: asset for asset in all_assets}
 
         result = {}
@@ -154,17 +272,17 @@ def parse_trade_csv(file_path: str) -> Iterator[dict]:
 
 class BulkInsertHelper:
     @staticmethod
-    def bulk_create_prices(prices: list, batch_size: int = 25000):
+    def bulk_create_prices(prices: list, batch_size: int = 25000, database: str = "timescaledb"):
         from feefifofunds.models import AssetPrice
 
         for i in range(0, len(prices), batch_size):
             batch = prices[i : i + batch_size]
-            AssetPrice.objects.bulk_create(batch, ignore_conflicts=True)
+            AssetPrice.objects.using(database).bulk_create(batch, ignore_conflicts=True)
 
     @staticmethod
-    def bulk_create_trades(trades: list, batch_size: int = 50000):
+    def bulk_create_trades(trades: list, batch_size: int = 50000, database: str = "timescaledb"):
         from feefifofunds.models import Trade
 
         for i in range(0, len(trades), batch_size):
             batch = trades[i : i + batch_size]
-            Trade.objects.bulk_create(batch, ignore_conflicts=True)
+            Trade.objects.using(database).bulk_create(batch, ignore_conflicts=True)

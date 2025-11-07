@@ -14,9 +14,6 @@ Example usage:
     # Skip files where asset already has trade data
     python manage.py ingest_kraken_trades --skip-existing
 
-    # Drop indexes before import, recreate after (faster for large imports)
-    python manage.py ingest_kraken_trades --drop-indexes
-
     # Limit records per file (useful for testing)
     python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
 
@@ -30,7 +27,6 @@ import time
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
-from django.db import connection, transaction
 
 from feefifofunds.models import Asset, Trade
 from feefifofunds.services.kraken import BulkInsertHelper, KrakenAssetCreator, KrakenPairParser, parse_trade_csv
@@ -69,11 +65,6 @@ class Command(BaseCommand):
             help="Skip files for assets that already have trade data",
         )
         parser.add_argument(
-            "--drop-indexes",
-            action="store_true",
-            help="Drop indexes before import and recreate after (faster for large imports)",
-        )
-        parser.add_argument(
             "--limit-per-file",
             type=int,
             help="Maximum number of records to import per file (for testing)",
@@ -83,6 +74,25 @@ class Command(BaseCommand):
             action="store_true",
             help="Skip confirmation prompt and proceed with ingestion",
         )
+        parser.add_argument(
+            "--database",
+            type=str,
+            default="timescaledb",
+            help="Database to use (default: timescaledb)",
+        )
+        parser.add_argument(
+            "--tier",
+            type=str,
+            choices=["TIER1", "TIER2", "TIER3", "TIER4", "UNCLASSIFIED", "auto"],
+            help="Tier to assign to new assets (TIER1-4, UNCLASSIFIED, or 'auto' to determine based on ticker)",
+        )
+        parser.add_argument(
+            "--only-tier",
+            type=str,
+            action="append",
+            choices=["TIER1", "TIER2", "TIER3", "TIER4", "UNCLASSIFIED"],
+            help="Only ingest assets matching specified tier(s). Can be used multiple times.",
+        )
 
     def handle(self, *args, **options):
         pair_filter = options["pair"]
@@ -90,9 +100,11 @@ class Command(BaseCommand):
         batch_size = options["batch_size"]
         dry_run = options["dry_run"]
         skip_existing = options["skip_existing"]
-        drop_indexes = options["drop_indexes"]
         limit_per_file = options["limit_per_file"]
         auto_approve = options["yes"]
+        database = options["database"]
+        tier_option = options["tier"]
+        only_tiers = options["only_tier"]
 
         if not os.path.exists(data_dir):
             self.stdout.write(self.style.ERROR(f"Directory not found: {data_dir}"))
@@ -104,8 +116,22 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("No CSV files found matching criteria"))
             return
 
+        # Filter files based on --only-tier if specified
+        if only_tiers:
+            csv_files = self._filter_by_tier(csv_files, only_tiers)
+            if not csv_files:
+                self.stdout.write(self.style.WARNING(f"No CSV files found for tiers: {', '.join(only_tiers)}"))
+                return
+
         self.stdout.write(f"📂 Found {len(csv_files)} files to process")
         self.stdout.write(f"📦 Batch size: {batch_size:,} records")
+
+        if tier_option:
+            tier_msg = "auto-determine based on ticker" if tier_option == "auto" else tier_option
+            self.stdout.write(f"🏷️  Tier assignment: {tier_msg}")
+
+        if only_tiers:
+            self.stdout.write(f"🔍 Filtering for tiers: {', '.join(only_tiers)}")
 
         if limit_per_file:
             self.stdout.write(f"⚠️  Limit: {limit_per_file:,} records per file")
@@ -126,11 +152,9 @@ class Command(BaseCommand):
 
         self.stdout.write("")
 
-        if drop_indexes and not dry_run:
-            self.stdout.write("🗑️  Dropping indexes...")
-            self._drop_indexes()
-
-        asset_creator = KrakenAssetCreator()
+        # Determine default tier for asset creator
+        default_tier = None if tier_option == "auto" else tier_option
+        asset_creator = KrakenAssetCreator(database=database, default_tier=default_tier)
 
         total_created = 0
         total_skipped = 0
@@ -154,8 +178,8 @@ class Command(BaseCommand):
                 base_ticker, quote_currency = KrakenPairParser.parse_pair(pair_name)
 
                 if skip_existing:
-                    asset = Asset.objects.filter(ticker=base_ticker).first()
-                    if asset and Trade.objects.filter(asset=asset, source="kraken").exists():
+                    asset = Asset.objects.using(database).filter(ticker=base_ticker).first()
+                    if asset and Trade.objects.using(database).filter(asset=asset, source="kraken").exists():
                         total_skipped += 1
                         self.stdout.write(
                             f"⊘ [{index}/{len(csv_files)}] {pair_name:12} - Skipped (exists) | "
@@ -163,9 +187,14 @@ class Command(BaseCommand):
                         )
                         continue
 
-                asset = asset_creator.get_or_create_asset(base_ticker, quote_currency)
+                # Determine tier for this specific asset if in auto mode
+                asset_tier = None
+                if tier_option == "auto":
+                    asset_tier = KrakenAssetCreator.determine_tier(base_ticker)
 
-                created = self._import_file(file_path, asset, batch_size, dry_run, limit_per_file)
+                asset = asset_creator.get_or_create_asset(base_ticker, quote_currency, tier=asset_tier)
+
+                created = self._import_file(file_path, asset, batch_size, dry_run, limit_per_file, database)
                 total_created += created
 
                 if not dry_run:
@@ -193,10 +222,6 @@ class Command(BaseCommand):
                         f"{line_info}{progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
                     )
                 )
-
-        if drop_indexes and not dry_run:
-            self.stdout.write("\n🔧 Recreating indexes...")
-            self._recreate_indexes()
 
         elapsed_total = time.time() - start_time
         success_count = len(csv_files) - len(failed_files) - total_skipped
@@ -249,8 +274,7 @@ class Command(BaseCommand):
 
         return csv_files
 
-    @transaction.atomic
-    def _import_file(self, file_path, asset, batch_size, dry_run, limit_per_file):
+    def _import_file(self, file_path, asset, batch_size, dry_run, limit_per_file, database):
         records_to_create = []
         created_count = 0
         processed_count = 0
@@ -268,7 +292,7 @@ class Command(BaseCommand):
             records_to_create.append(
                 Trade(
                     asset=asset,
-                    timestamp=data["timestamp"],
+                    time=data["timestamp"],
                     price=data["price"],
                     volume=data["volume"],
                     source="kraken",
@@ -276,51 +300,30 @@ class Command(BaseCommand):
             )
 
             if len(records_to_create) >= batch_size:
-                BulkInsertHelper.bulk_create_trades(records_to_create, batch_size)
+                BulkInsertHelper.bulk_create_trades(records_to_create, batch_size, database)
                 created_count += len(records_to_create)
                 records_to_create = []
 
         if records_to_create and not dry_run:
-            BulkInsertHelper.bulk_create_trades(records_to_create, batch_size)
+            BulkInsertHelper.bulk_create_trades(records_to_create, batch_size, database)
             created_count += len(records_to_create)
 
         return created_count
 
-    def _drop_indexes(self):
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT indexname FROM pg_indexes
-                WHERE tablename = 'feefifofunds_trade'
-                AND indexname LIKE 'feefifofund_%_idx'
-            """)
-            indexes = [row[0] for row in cursor.fetchall()]
+    def _filter_by_tier(self, csv_files, target_tiers):
+        """Filter CSV files to only include assets matching specified tiers."""
+        filtered = []
+        for file_path, pair_name in csv_files:
+            try:
+                base_ticker, _ = KrakenPairParser.parse_pair(pair_name)
+                # Determine the tier this asset would be assigned
+                asset_tier = KrakenAssetCreator.determine_tier(base_ticker)
 
-            for index_name in indexes:
-                self.stdout.write(f"  Dropping {index_name}")
-                cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
+                # Check if the determined tier matches any of the target tiers
+                if asset_tier in target_tiers:
+                    filtered.append((file_path, pair_name))
+            except ValueError:
+                # Skip files we can't parse
+                continue
 
-    def _recreate_indexes(self):
-        with connection.cursor() as cursor:
-            self.stdout.write("  Creating index on (asset, timestamp)...")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_asset_i_542a46_idx
-                ON feefifofunds_trade (asset_id, timestamp)
-            """)
-
-            self.stdout.write("  Creating index on timestamp...")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_timesta_6dc787_idx
-                ON feefifofunds_trade (timestamp)
-            """)
-
-            self.stdout.write("  Creating index on asset...")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_asset_i_b2d2eb_idx
-                ON feefifofunds_trade (asset_id)
-            """)
-
-            self.stdout.write("  Creating index on source...")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_source_1e2f3a_idx
-                ON feefifofunds_trade (source)
-            """)
+        return filtered

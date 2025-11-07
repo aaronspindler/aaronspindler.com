@@ -31,7 +31,24 @@ class FeeFiFoFundsRouter:
         """
         Ensure feefifofunds models are only migrated to timescaledb database,
         and other models are not migrated to timescaledb.
+
+        Raises an error if someone attempts to migrate feefifofunds to the wrong database
+        to prevent silent failures.
         """
         if app_label in self.route_app_labels:
-            return db == "timescaledb"
+            if db == "timescaledb":
+                return True
+            elif db == "default":
+                # Raise an explicit error instead of silently returning False
+                from django.core.management.base import CommandError
+
+                raise CommandError(
+                    f"\n❌ ERROR: Cannot migrate '{app_label}' to the '{db}' database!\n"
+                    f"   The '{app_label}' app uses TimescaleDB and must be migrated to the 'timescaledb' database.\n\n"
+                    f"   Please use one of these commands instead:\n"
+                    f"   • python manage.py migrate {app_label} --database=timescaledb\n"
+                    f"   • python manage.py migrate --database=timescaledb  (for all apps)\n"
+                )
+            return False
+        # For non-feefifofunds apps, don't allow them on timescaledb
         return db != "timescaledb"

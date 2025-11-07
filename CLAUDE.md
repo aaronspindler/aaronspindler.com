@@ -328,6 +328,30 @@ python manage.py remove_local_fingerprints --limit 100
 - Useful for one-time cleanup after deploying local IP filtering
 
 ### Kraken Data Ingestion (FeeFiFoFunds)
+
+#### Database Migration Commands
+```bash
+# IMPORTANT: FeeFiFoFunds uses TimescaleDB, not the default database
+# The database router will prevent migrations to the wrong database with a clear error
+
+# Create new migrations for feefifofunds (standard Django command)
+python manage.py makemigrations feefifofunds
+python manage.py makemigrations feefifofunds --name add_tier_field
+
+# Apply migrations to TimescaleDB (MUST specify database)
+python manage.py migrate feefifofunds --database=timescaledb
+python manage.py migrate feefifofunds --database=timescaledb --fake  # Mark as applied
+python manage.py migrate feefifofunds 0002 --database=timescaledb    # Specific migration
+
+# Apply all migrations to their correct databases
+python manage.py migrate --database=timescaledb  # For feefifofunds models
+python manage.py migrate                         # For all other models
+
+# Note: Running 'python manage.py migrate feefifofunds' without --database flag
+# will raise an error to prevent accidental migrations to the wrong database
+```
+
+#### Data Ingestion Commands
 ```bash
 # Ingest Kraken OHLCV (candle) data - daily only (most efficient)
 python manage.py ingest_kraken_ohlcv --intervals 1440
@@ -353,6 +377,16 @@ python manage.py ingest_kraken_ohlcv --intervals 1440 --drop-indexes
 # Skip confirmation prompt for automated runs
 python manage.py ingest_kraken_ohlcv --intervals 1440 --yes
 
+# Ingest with tier filtering (NEW!)
+# Only ingest Tier 1 (major) crypto assets with auto tier assignment
+python manage.py ingest_kraken_ohlcv --intervals 1440 --only-tier TIER1 --tier auto
+
+# Ingest Tier 2 and Tier 3 assets
+python manage.py ingest_kraken_ohlcv --intervals 60,1440 --only-tier TIER2 --only-tier TIER3
+
+# Force all new assets to be Tier 2
+python manage.py ingest_kraken_ohlcv --intervals 1440 --tier TIER2
+
 # Ingest Kraken trade history (tick data)
 python manage.py ingest_kraken_trades
 
@@ -362,6 +396,9 @@ python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
 # Full trade import with index optimization
 python manage.py ingest_kraken_trades --drop-indexes
 
+# Ingest trades with tier filtering
+python manage.py ingest_kraken_trades --only-tier TIER1 --tier auto
+
 # Skip confirmation prompt for automated runs
 python manage.py ingest_kraken_trades --yes
 ```
@@ -369,10 +406,14 @@ python manage.py ingest_kraken_trades --yes
 **Note**: Comprehensive documentation available at `docs/features/kraken-ingestion.md`
 - OHLCVT data: ~8,656 files with aggregated candle data at 8 intervals
 - Trade data: ~1,119 files with ~200M+ individual trade records
-- Auto-creates Asset records during import
+- Auto-creates Asset records during import with tier classification:
+  - **TIER1**: Major cryptos (BTC, ETH, USDT, etc.)
+  - **TIER2**: Established projects (UNI, AAVE, ALGO, etc.)
+  - **TIER3**: Emerging projects (BAT, ENJ, GALA, etc.)
+  - **TIER4**: Small/speculative (all others)
 - Performance: 50k-100k records/sec with `--drop-indexes`
 - **File approval workflow**: Commands display files to ingest and wait for user approval (use --yes to skip)
-- Supports dry-run, skip-existing, and progress tracking with ETA
+- Supports dry-run, skip-existing, tier filtering, and progress tracking with ETA
 
 ## Architecture Overview
 

@@ -17,9 +17,6 @@ Example usage:
     # Skip files where asset already has data for this interval
     python manage.py ingest_kraken_ohlcv --intervals 1440 --skip-existing
 
-    # Drop indexes before import, recreate after (faster for large imports)
-    python manage.py ingest_kraken_ohlcv --intervals 1440 --drop-indexes
-
     # Skip confirmation prompt for automated runs
     python manage.py ingest_kraken_ohlcv --intervals 1440 --yes
 
@@ -37,7 +34,7 @@ import time
 from pathlib import Path
 
 from django.core.management.base import BaseCommand
-from django.db import connection
+from django.db import connections
 from django.utils import timezone
 
 from feefifofunds.models import Asset, AssetPrice
@@ -53,9 +50,9 @@ class Command(BaseCommand):
     - Supports upsert/update mode for re-ingestion (--update-existing)
     - Handles duplicates gracefully with ON CONFLICT DO NOTHING/UPDATE
     - Optimized skip-existing check with single query
-    - Optional index dropping for large imports (--drop-indexes)
     - Progress tracking with ETAs
     - Automatic file moving to ingested/ directory after success
+    - TimescaleDB hypertable support with automatic chunk management
     """
 
     INTERVAL_MAP = {
@@ -106,11 +103,6 @@ class Command(BaseCommand):
             help="Skip files for assets that already have data for this interval",
         )
         parser.add_argument(
-            "--drop-indexes",
-            action="store_true",
-            help="Drop indexes before import and recreate after (faster for large imports)",
-        )
-        parser.add_argument(
             "--yes",
             action="store_true",
             help="Skip confirmation prompt and proceed with ingestion",
@@ -120,6 +112,25 @@ class Command(BaseCommand):
             action="store_true",
             help="Update existing records instead of skipping duplicates",
         )
+        parser.add_argument(
+            "--database",
+            type=str,
+            default="timescaledb",
+            help="Database to use (default: timescaledb)",
+        )
+        parser.add_argument(
+            "--tier",
+            type=str,
+            choices=["TIER1", "TIER2", "TIER3", "TIER4", "UNCLASSIFIED", "auto"],
+            help="Tier to assign to new assets (TIER1-4, UNCLASSIFIED, or 'auto' to determine based on ticker)",
+        )
+        parser.add_argument(
+            "--only-tier",
+            type=str,
+            action="append",
+            choices=["TIER1", "TIER2", "TIER3", "TIER4", "UNCLASSIFIED"],
+            help="Only ingest assets matching specified tier(s). Can be used multiple times.",
+        )
 
     def handle(self, *args, **options):
         intervals_str = options["intervals"]
@@ -128,9 +139,11 @@ class Command(BaseCommand):
         batch_size = options["batch_size"]
         dry_run = options["dry_run"]
         skip_existing = options["skip_existing"]
-        drop_indexes = options["drop_indexes"]
         auto_approve = options["yes"]
         update_existing = options["update_existing"]
+        database = options["database"]
+        tier_option = options["tier"]
+        only_tiers = options["only_tier"]
 
         intervals = [self.INTERVAL_MAP[i.strip()] for i in intervals_str.split(",")]
 
@@ -144,9 +157,23 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("No CSV files found matching criteria"))
             return
 
+        # Filter files based on --only-tier if specified
+        if only_tiers:
+            csv_files = self._filter_by_tier(csv_files, only_tiers)
+            if not csv_files:
+                self.stdout.write(self.style.WARNING(f"No CSV files found for tiers: {', '.join(only_tiers)}"))
+                return
+
         self.stdout.write(f"📂 Found {len(csv_files)} files to process")
         self.stdout.write(f"⚙️  Intervals: {', '.join(map(str, intervals))} minutes")
         self.stdout.write(f"📦 Batch size: {batch_size:,} records")
+
+        if tier_option:
+            tier_msg = "auto-determine based on ticker" if tier_option == "auto" else tier_option
+            self.stdout.write(f"🏷️  Tier assignment: {tier_msg}")
+
+        if only_tiers:
+            self.stdout.write(f"🔍 Filtering for tiers: {', '.join(only_tiers)}")
 
         if update_existing:
             self.stdout.write(self.style.SUCCESS("🔄 UPDATE MODE - Existing records will be updated"))
@@ -171,21 +198,21 @@ class Command(BaseCommand):
 
         self.stdout.write("")
 
-        if drop_indexes and not dry_run:
-            self.stdout.write("🗑️  Dropping indexes...")
-            self._drop_indexes()
-
-        asset_creator = KrakenAssetCreator()
+        # Determine default tier for asset creator
+        default_tier = None if tier_option == "auto" else tier_option
+        asset_creator = KrakenAssetCreator(database=database, default_tier=default_tier)
 
         if not dry_run:
             self.stdout.write("🏗️  Pre-creating assets...")
             unique_pairs = {pair_name for _, pair_name, _ in csv_files}
-            asset_creator.bulk_create_assets(list(unique_pairs))
+            # Pass tier if not auto mode
+            bulk_tier = None if tier_option == "auto" else tier_option
+            asset_creator.bulk_create_assets(list(unique_pairs), tier=bulk_tier)
             self.stdout.write(f"✓ Pre-created {len(unique_pairs)} assets")
 
         if skip_existing:
             self.stdout.write("🔍 Building skip-existing index...")
-            skip_set = self._build_skip_set(csv_files)
+            skip_set = self._build_skip_set(csv_files, database)
             self.stdout.write(f"✓ Found {len(skip_set)} existing asset-interval combinations to skip")
 
         total_created = 0
@@ -217,9 +244,14 @@ class Command(BaseCommand):
                     )
                     continue
 
-                asset = asset_creator.get_or_create_asset(base_ticker, quote_currency)
+                # Determine tier for this specific asset if in auto mode
+                asset_tier = None
+                if tier_option == "auto":
+                    asset_tier = KrakenAssetCreator.determine_tier(base_ticker)
 
-                created = self._import_file(file_path, asset, interval, batch_size, dry_run, update_existing)
+                asset = asset_creator.get_or_create_asset(base_ticker, quote_currency, tier=asset_tier)
+
+                created = self._import_file(file_path, asset, interval, batch_size, dry_run, update_existing, database)
                 total_created += created
 
                 if not dry_run:
@@ -249,10 +281,6 @@ class Command(BaseCommand):
                         f"{line_info}{progress_pct:5.1f}% | ⏱️  {format_time(elapsed)} | ETA {format_time(estimated_remaining)}"
                     )
                 )
-
-        if drop_indexes and not dry_run:
-            self.stdout.write("\n🔧 Recreating indexes...")
-            self._recreate_indexes()
 
         elapsed_total = time.time() - start_time
         success_count = len(csv_files) - len(failed_files) - total_skipped
@@ -284,7 +312,7 @@ class Command(BaseCommand):
         self.stdout.write(f"✓ Counted {len(line_count_cache)} files{' ' * 50}")
         return line_count_cache
 
-    def _build_skip_set(self, csv_files):
+    def _build_skip_set(self, csv_files, database):
         pairs_to_check = {}
         intervals_set = set()
         for _, pair_name, interval in csv_files:
@@ -296,7 +324,7 @@ class Command(BaseCommand):
                 continue
 
         tickers = {ticker for ticker, _ in pairs_to_check.keys()}
-        assets = {asset.ticker: asset.id for asset in Asset.objects.filter(ticker__in=tickers)}
+        assets = {asset.ticker: asset.id for asset in Asset.objects.using(database).filter(ticker__in=tickers)}
 
         if not assets:
             return set()
@@ -305,7 +333,8 @@ class Command(BaseCommand):
         intervals_list = list(intervals_set)
 
         existing_combinations = (
-            AssetPrice.objects.filter(asset_id__in=asset_ids, interval_minutes__in=intervals_list, source="kraken")
+            AssetPrice.objects.using(database)
+            .filter(asset_id__in=asset_ids, interval_minutes__in=intervals_list, source="kraken")
             .values_list("asset_id", "interval_minutes")
             .distinct()
         )
@@ -375,7 +404,7 @@ class Command(BaseCommand):
 
         return csv_files
 
-    def _import_file(self, file_path, asset, interval, batch_size, dry_run, update_existing):
+    def _import_file(self, file_path, asset, interval, batch_size, dry_run, update_existing, database):
         created_count = 0
 
         if dry_run:
@@ -383,9 +412,9 @@ class Command(BaseCommand):
                 created_count += 1
             return created_count
 
-        return self._import_file_with_copy(file_path, asset, interval, batch_size, update_existing)
+        return self._import_file_with_copy(file_path, asset, interval, batch_size, update_existing, database)
 
-    def _import_file_with_copy(self, file_path, asset, interval, batch_size, update_existing):
+    def _import_file_with_copy(self, file_path, asset, interval, batch_size, update_existing, database):
         buffer = io.StringIO()
         created_count = 0
         now = timezone.now()
@@ -394,27 +423,27 @@ class Command(BaseCommand):
 
         for data in parse_ohlcv_csv(file_path, interval):
             created_count += 1
-            timestamp_iso = data["timestamp"].isoformat()
+            time_iso = data["timestamp"].isoformat()
             buffer.write(
-                f"{asset_id}\t{timestamp_iso}\t{data['open']}\t{data['high']}\t"
+                f"{asset_id}\t{time_iso}\t{data['open']}\t{data['high']}\t"
                 f"{data['low']}\t{data['close']}\t{data['volume'] or ''}\t"
                 f"{data['interval_minutes'] or ''}\t{data['trade_count'] or ''}\tkraken\t{now_iso}\n"
             )
 
             if created_count % batch_size == 0:
-                self._execute_copy_with_staging(buffer, update_existing)
+                self._execute_copy_with_staging(buffer, update_existing, database)
                 buffer = io.StringIO()
 
         if buffer.tell() > 0:
-            self._execute_copy_with_staging(buffer, update_existing)
+            self._execute_copy_with_staging(buffer, update_existing, database)
 
         return created_count
 
-    def _execute_copy_with_staging(self, buffer, update_existing):
+    def _execute_copy_with_staging(self, buffer, update_existing, database):
         buffer.seek(0)
         columns = (
             "asset_id",
-            "timestamp",
+            "time",
             "open",
             "high",
             "low",
@@ -426,11 +455,11 @@ class Command(BaseCommand):
             "created_at",
         )
 
-        with connection.cursor() as cursor:
+        with connections[database].cursor() as cursor:
             cursor.execute("""
                 CREATE TEMP TABLE IF NOT EXISTS staging_assetprice (
                     asset_id BIGINT NOT NULL,
-                    timestamp TIMESTAMPTZ NOT NULL,
+                    time TIMESTAMPTZ NOT NULL,
                     open NUMERIC NOT NULL,
                     high NUMERIC NOT NULL,
                     low NUMERIC NOT NULL,
@@ -456,12 +485,12 @@ class Command(BaseCommand):
             if update_existing:
                 cursor.execute("""
                     INSERT INTO feefifofunds_assetprice
-                        (asset_id, timestamp, open, high, low, close, volume,
+                        (asset_id, time, open, high, low, close, volume,
                          interval_minutes, trade_count, source, created_at)
-                    SELECT asset_id, timestamp, open, high, low, close, volume,
+                    SELECT asset_id, time, open, high, low, close, volume,
                            interval_minutes, trade_count, source, created_at
                     FROM staging_assetprice
-                    ON CONFLICT (asset_id, timestamp, source, interval_minutes)
+                    ON CONFLICT (asset_id, time, source, interval_minutes)
                     DO UPDATE SET
                         open = EXCLUDED.open,
                         high = EXCLUDED.high,
@@ -474,58 +503,31 @@ class Command(BaseCommand):
             else:
                 cursor.execute("""
                     INSERT INTO feefifofunds_assetprice
-                        (asset_id, timestamp, open, high, low, close, volume,
+                        (asset_id, time, open, high, low, close, volume,
                          interval_minutes, trade_count, source, created_at)
-                    SELECT asset_id, timestamp, open, high, low, close, volume,
+                    SELECT asset_id, time, open, high, low, close, volume,
                            interval_minutes, trade_count, source, created_at
                     FROM staging_assetprice
-                    ON CONFLICT (asset_id, timestamp, source, interval_minutes)
+                    ON CONFLICT (asset_id, time, source, interval_minutes)
                     DO NOTHING
                 """)
 
             cursor.execute("DROP TABLE IF EXISTS staging_assetprice")
 
-    def _drop_indexes(self):
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT indexname FROM pg_indexes
-                WHERE tablename = 'feefifofunds_assetprice'
-                AND indexname LIKE 'feefifofund_%_idx'
-            """)
-            indexes = [row[0] for row in cursor.fetchall()]
+    def _filter_by_tier(self, csv_files, target_tiers):
+        """Filter CSV files to only include assets matching specified tiers."""
+        filtered = []
+        for file_path, pair_name, interval in csv_files:
+            try:
+                base_ticker, _ = KrakenPairParser.parse_pair(pair_name)
+                # Determine the tier this asset would be assigned
+                asset_tier = KrakenAssetCreator.determine_tier(base_ticker)
 
-            for index_name in indexes:
-                self.stdout.write(f"  Dropping {index_name}")
-                cursor.execute(f"DROP INDEX IF EXISTS {index_name}")
+                # Check if the determined tier matches any of the target tiers
+                if asset_tier in target_tiers:
+                    filtered.append((file_path, pair_name, interval))
+            except ValueError:
+                # Skip files we can't parse
+                continue
 
-    def _recreate_indexes(self):
-        with connection.cursor() as cursor:
-            self.stdout.write("  Creating index on (asset, timestamp, interval_minutes)...")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_asset_i_b862eb_idx
-                ON feefifofunds_assetprice (asset_id, timestamp, interval_minutes)
-            """)
-
-            self.stdout.write("  Creating index on (asset, interval_minutes)...")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_asset_i_48d942_idx
-                ON feefifofunds_assetprice (asset_id, interval_minutes)
-            """)
-
-            self.stdout.write("  Creating index on timestamp...")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_timesta_ee2a80_idx
-                ON feefifofunds_assetprice (timestamp)
-            """)
-
-            self.stdout.write("  Creating index on source...")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_source_9e1b18_idx
-                ON feefifofunds_assetprice (source)
-            """)
-
-            self.stdout.write("  Creating index on interval_minutes...")
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS feefifofund_interva_d09301_idx
-                ON feefifofunds_assetprice (interval_minutes)
-            """)
+        return filtered
