@@ -36,14 +36,14 @@ beautifulsoup4==4.14.2
 pyppeteer==2.0.0
 
 # AWS SDK
-boto3==1.40.66
+boto3==1.40.68
 
 # HTTP Client
 requests==2.32.5
 
 # Financial Data APIs
-finnhub-python==2.4.20
-polygon-api-client==1.14.3
+finnhub-python==2.4.25
+polygon-api-client==1.15.4
 
 # Testing & Coverage
 coverage==7.11.0
