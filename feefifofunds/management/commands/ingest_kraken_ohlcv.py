@@ -37,26 +37,42 @@ from pathlib import Path
 from django.core.management.base import BaseCommand
 
 
-def _worker_import_file(args):
+def _init_worker():
     """
-    Worker function for parallel file processing.
-    Must be at module level for pickling.
+    Initialize worker process with Django setup.
+    This runs once per worker when the pool starts.
     """
     import os
 
     import django
 
-    # Ensure Django is set up in this worker process BEFORE any model imports
+    # Set Django settings module
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
-    # Always setup Django in worker processes - each worker is a fresh process
-    try:
-        django.setup()
-    except RuntimeError:
-        # Django might already be configured in some cases, that's ok
-        pass
+    # Close any existing database connections from parent process
+    # This prevents connection sharing issues
+    from django.db import connections
 
-    # Now safe to import Django models and related modules
+    for conn in connections.all():
+        conn.close()
+
+    # Setup Django in this worker process
+    django.setup()
+
+    # Verify Django is ready
+    from django.apps import apps
+
+    if not apps.ready:
+        raise RuntimeError("Django apps not ready after setup")
+
+
+def _worker_import_file(args):
+    """
+    Worker function for parallel file processing.
+    Must be at module level for pickling.
+    Django is already initialized via _init_worker.
+    """
+    # Import Django modules - Django is already set up by _init_worker
     from django.utils import timezone
 
     from feefifofunds.services.kraken import KrakenAssetCreator, parse_ohlcv_csv
@@ -118,21 +134,9 @@ def _worker_import_file(args):
 
 
 def _execute_copy_with_staging(buffer, update_existing, database):
-    """Helper function for COPY operation."""
-    import os
-
-    import django
-
-    # Ensure Django is configured before importing connections
-    if not os.environ.get("DJANGO_SETTINGS_MODULE"):
-        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
-
-    if not django.apps.apps.ready:
-        try:
-            django.setup()
-        except RuntimeError:
-            pass
-
+    """Helper function for COPY operation.
+    Django is already initialized via _init_worker.
+    """
     from django.db import connections
 
     buffer.seek(0)
@@ -585,8 +589,12 @@ class Command(BaseCommand):
 
         self.stdout.write("")
 
-        # Start worker pool
-        with Pool(processes=workers) as pool:
+        # Close database connections before creating pool to prevent sharing
+        for conn in self.connections.all():
+            conn.close()
+
+        # Start worker pool with proper Django initialization
+        with Pool(processes=workers, initializer=_init_worker) as pool:
             # Submit all tasks
             async_result = pool.map_async(_worker_import_file, worker_args, chunksize=1)
 
