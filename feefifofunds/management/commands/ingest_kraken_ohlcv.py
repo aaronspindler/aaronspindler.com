@@ -72,11 +72,6 @@ def _worker_import_file(args):
     Must be at module level for pickling.
     Django is already initialized via _init_worker.
     """
-    # Import Django modules - Django is already set up by _init_worker
-    from django.utils import timezone
-
-    from feefifofunds.services.kraken import KrakenAssetCreator, parse_ohlcv_csv
-
     (
         file_path,
         pair_name,
@@ -91,35 +86,55 @@ def _worker_import_file(args):
         progress_queue,
     ) = args
 
+    # Set database for this worker (used by _init_worker for staging table)
+    import os
+
+    os.environ["KRAKEN_DB"] = database
+
+    # Import Django modules AFTER unpacking args - Django is already set up by _init_worker
+    from django.db import connections, transaction
+    from django.utils import timezone
+
+    from feefifofunds.services.kraken import KrakenAssetCreator, parse_ohlcv_csv
+
     try:
-        # Reconstruct asset creator and get/create asset
-        asset_creator = KrakenAssetCreator(database=database)
-        asset = asset_creator.get_or_create_asset(base_ticker, tier=asset_tier)
+        # Wrap entire file processing in a single transaction for better performance
+        with transaction.atomic(using=database):
+            # Set async commit for this transaction (much faster, slight durability risk)
+            with connections[database].cursor() as cursor:
+                cursor.execute("SET LOCAL synchronous_commit TO OFF")
+                cursor.execute("SET LOCAL work_mem TO '256MB'")  # More memory for sorting
 
-        # Import the file
-        buffer = io.StringIO()
-        created_count = 0
-        now = timezone.now()
-        now_iso = now.isoformat()
-        asset_id = asset.id
+            # Reconstruct asset creator and get/create asset
+            asset_creator = KrakenAssetCreator(database=database)
+            asset = asset_creator.get_or_create_asset(base_ticker, tier=asset_tier)
 
-        for data in parse_ohlcv_csv(file_path, interval):
-            created_count += 1
-            time_iso = data["timestamp"].isoformat()
-            buffer.write(
-                f"{asset_id}\t{time_iso}\t{data['open']}\t{data['high']}\t"
-                f"{data['low']}\t{data['close']}\t{data['volume'] or ''}\t"
-                f"{data['interval_minutes'] or ''}\t{data['trade_count'] or ''}\t{quote_currency}\tkraken\t{now_iso}\n"
-            )
+            # Import the file
+            buffer = io.StringIO()
+            created_count = 0
+            now = timezone.now()
+            now_iso = now.isoformat()
+            asset_id = asset.id
 
-            if created_count % batch_size == 0:
+            for data in parse_ohlcv_csv(file_path, interval):
+                created_count += 1
+                time_iso = data["timestamp"].isoformat()
+                buffer.write(
+                    f"{asset_id}\t{time_iso}\t{data['open']}\t{data['high']}\t"
+                    f"{data['low']}\t{data['close']}\t{data['volume'] or ''}\t"
+                    f"{data['interval_minutes'] or ''}\t{data['trade_count'] or ''}\t{quote_currency}\tkraken\t{now_iso}\n"
+                )
+
+                if created_count % batch_size == 0:
+                    _execute_copy_with_staging(buffer, update_existing, database)
+                    buffer = io.StringIO()
+
+            if buffer.tell() > 0:
                 _execute_copy_with_staging(buffer, update_existing, database)
-                buffer = io.StringIO()
 
-        if buffer.tell() > 0:
-            _execute_copy_with_staging(buffer, update_existing, database)
+            # Transaction will commit here automatically
 
-        # Move file to ingested directory
+        # Move file to ingested directory AFTER successful commit
         dest_path = os.path.join(ingested_dir, os.path.basename(file_path))
         shutil.move(file_path, dest_path)
 
@@ -136,6 +151,7 @@ def _worker_import_file(args):
 def _execute_copy_with_staging(buffer, update_existing, database):
     """Helper function for COPY operation.
     Django is already initialized via _init_worker.
+    Staging table is pre-created in _init_worker.
     """
     from django.db import connections
 
@@ -156,6 +172,7 @@ def _execute_copy_with_staging(buffer, update_existing, database):
     )
 
     with connections[database].cursor() as cursor:
+        # Create staging table if it doesn't exist (once per connection)
         cursor.execute("""
             CREATE TEMP TABLE IF NOT EXISTS staging_assetprice (
                 asset_id BIGINT NOT NULL,
@@ -170,15 +187,17 @@ def _execute_copy_with_staging(buffer, update_existing, database):
                 quote_currency VARCHAR(10) NOT NULL,
                 source VARCHAR(50) NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL
-            )
+            ) ON COMMIT PRESERVE ROWS
         """)
 
+        # Clear the table for this batch
         cursor.execute("TRUNCATE TABLE staging_assetprice")
 
         copy_sql = f"COPY staging_assetprice ({', '.join(columns)}) FROM STDIN"
         with cursor.cursor.copy(copy_sql) as copy:
+            # Read in larger chunks (8MB instead of 64KB) for better performance
             while True:
-                data = buffer.read(65536)
+                data = buffer.read(8388608)  # 8MB chunks
                 if not data:
                     break
                 copy.write(data)
@@ -284,8 +303,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--batch-size",
             type=int,
-            default=50000,
-            help="Number of records per batch (default: 50000)",
+            default=500000,
+            help="Number of records per batch for PostgreSQL COPY (default: 500000)",
         )
         parser.add_argument(
             "--dry-run",
@@ -328,6 +347,11 @@ class Command(BaseCommand):
             help="Only ingest assets matching specified tier(s). Can be used multiple times.",
         )
         parser.add_argument(
+            "--unlogged",
+            action="store_true",
+            help="Use UNLOGGED tables for faster import (WARNING: data loss risk if crash occurs)",
+        )
+        parser.add_argument(
             "--workers",
             type=int,
             default=None,
@@ -335,6 +359,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        from django.db import connections
+
         intervals_str = options["intervals"]
         pair_filter = options["pair"]
         data_dir = options["directory"]
@@ -347,6 +373,7 @@ class Command(BaseCommand):
         tier_option = options["tier"]
         only_tiers = options["only_tier"]
         workers = options["workers"]
+        unlogged = options["unlogged"]
 
         # Smart worker count determination
         if workers is None:
@@ -438,6 +465,16 @@ class Command(BaseCommand):
         if not dry_run:
             os.makedirs(ingested_dir, exist_ok=True)
 
+        # Convert to UNLOGGED table for faster imports if requested
+        if unlogged and not dry_run:
+            self.stdout.write(self.style.WARNING("⚠️  Converting table to UNLOGGED for faster import..."))
+            self.stdout.write(
+                self.style.WARNING("    WARNING: Data will be lost if the database crashes during import!")
+            )
+            with connections[database].cursor() as cursor:
+                cursor.execute("ALTER TABLE feefifofunds_assetprice SET UNLOGGED")
+            self.stdout.write("✓ Table converted to UNLOGGED mode")
+
         # Process files
         if dry_run:
             # Dry-run uses simplified sequential processing
@@ -465,6 +502,14 @@ class Command(BaseCommand):
         self.stdout.write(f"\n{'─' * 80}")
         if not dry_run and total_moved > 0:
             self.stdout.write(f"📁 Moved {total_moved} file(s) to {ingested_dir}")
+
+        # Convert table back to LOGGED if it was set to UNLOGGED
+        if unlogged and not dry_run:
+            self.stdout.write("\n🔒 Converting table back to LOGGED mode for durability...")
+            with connections[database].cursor() as cursor:
+                cursor.execute("ALTER TABLE feefifofunds_assetprice SET LOGGED")
+            self.stdout.write("✓ Table restored to LOGGED mode")
+
         self.stdout.write(
             self.style.SUCCESS(
                 f"✅ Complete: {success_count}/{len(csv_files)} files | "
