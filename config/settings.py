@@ -91,12 +91,9 @@ DATABASES = {
     "default": env.db(default="sqlite:///db.sqlite3"),
 }
 
-# Only configure TimescaleDB if TIMESCALEDB_URL is set
 if env("TIMESCALEDB_URL", default=None):
     DATABASES["timescaledb"] = env.db(var="TIMESCALEDB_URL")
-    # TimescaleDB uses the standard PostgreSQL backend
     DATABASES["timescaledb"]["ENGINE"] = "django.db.backends.postgresql"
-    # Connection pooling and performance settings
     DATABASES["timescaledb"]["CONN_MAX_AGE"] = 600  # Keep connections alive for 10 minutes
     DATABASES["timescaledb"]["CONN_HEALTH_CHECKS"] = True  # Check connection health
     DATABASES["timescaledb"]["OPTIONS"] = {
