@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "django.contrib.sitemaps",
     "django.contrib.postgres",  # PostgreSQL full-text search
     # Third-party apps
+    "timescale",  # TimescaleDB support
     "polymorphic",  # Django polymorphic models
     "allauth",
     "allauth.account",
@@ -86,7 +87,18 @@ MESSAGE_TAGS = {
     messages.ERROR: "error danger",  # Include both 'error' and 'danger' for compatibility
 }
 
-DATABASES = {"default": env.db(default="sqlite:///db.sqlite3")}
+DATABASES = {
+    "default": env.db(default="sqlite:///db.sqlite3"),
+}
+
+# Only configure TimescaleDB if TIMESCALEDB_URL is set
+if env("TIMESCALEDB_URL", default=None):
+    DATABASES["timescaledb"] = env.db(var="TIMESCALEDB_URL")
+    DATABASES["timescaledb"]["ENGINE"] = "timescale.db.backends.postgresql"
+else:
+    DATABASES["timescaledb"] = DATABASES["default"]
+
+DATABASE_ROUTERS = ["config.db_routers.FeeFiFoFundsRouter"]
 
 ROOT_URLCONF = "config.urls"
 

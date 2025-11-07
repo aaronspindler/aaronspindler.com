@@ -1,15 +1,17 @@
 from django.db import models
+from timescale.db.models.fields import TimescaleDateTimeField
+from timescale.db.models.models import TimescaleModel
 
 
-class Trade(models.Model):
+class Trade(TimescaleModel):
     asset = models.ForeignKey(
         "Asset",
         on_delete=models.CASCADE,
         related_name="trades",
         help_text="Asset this trade belongs to",
     )
-    timestamp = models.DateTimeField(
-        db_index=True,
+    time = TimescaleDateTimeField(
+        interval="1 day",
         help_text="Exact time of the trade",
     )
     price = models.DecimalField(
@@ -34,22 +36,18 @@ class Trade(models.Model):
     )
 
     class Meta:
-        ordering = ["-timestamp"]
+        ordering = ["-time"]
         verbose_name = "Trade"
         verbose_name_plural = "Trades"
         constraints = [
             models.UniqueConstraint(
-                fields=["asset", "timestamp", "source"],
-                name="unique_trade_asset_timestamp_source",
+                fields=["asset", "time", "source"],
+                name="unique_trade_asset_time_source",
             ),
         ]
         indexes = [
-            models.Index(fields=["asset", "timestamp"]),
-            models.Index(fields=["timestamp"]),
             models.Index(fields=["asset"]),
         ]
 
     def __str__(self):
-        return (
-            f"{self.asset.ticker} @ {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}: ${self.price} (Vol: {self.volume})"
-        )
+        return f"{self.asset.ticker} @ {self.time.strftime('%Y-%m-%d %H:%M:%S')}: ${self.price} (Vol: {self.volume})"

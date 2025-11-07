@@ -37,19 +37,19 @@ class AssetAdmin(admin.ModelAdmin):
 
 @admin.register(AssetPrice)
 class AssetPriceAdmin(admin.ModelAdmin):
-    list_display = ["asset", "timestamp", "interval_minutes", "open", "high", "low", "close", "volume", "source"]
-    list_filter = ["source", "interval_minutes", "timestamp"]
+    list_display = ["asset", "time", "interval_minutes", "open", "high", "low", "close", "volume", "source"]
+    list_filter = ["source", "interval_minutes", "time"]
     search_fields = ["asset__ticker", "asset__name"]
     readonly_fields = ["created_at"]
-    ordering = ["-timestamp"]
-    date_hierarchy = "timestamp"
+    ordering = ["-time"]
+    date_hierarchy = "time"
     raw_id_fields = ["asset"]
 
     fieldsets = (
         (
             "Asset & Time",
             {
-                "fields": ("asset", "timestamp", "source", "interval_minutes"),
+                "fields": ("asset", "time", "source", "interval_minutes"),
             },
         ),
         (
@@ -76,19 +76,19 @@ class AssetPriceAdmin(admin.ModelAdmin):
 
 @admin.register(Trade)
 class TradeAdmin(admin.ModelAdmin):
-    list_display = ["asset", "timestamp", "price", "volume", "source"]
-    list_filter = ["source", "timestamp"]
+    list_display = ["asset", "time", "price", "volume", "source"]
+    list_filter = ["source", "time"]
     search_fields = ["asset__ticker", "asset__name"]
     readonly_fields = ["created_at"]
-    ordering = ["-timestamp"]
-    date_hierarchy = "timestamp"
+    ordering = ["-time"]
+    date_hierarchy = "time"
     raw_id_fields = ["asset"]
 
     fieldsets = (
         (
             "Trade Details",
             {
-                "fields": ("asset", "timestamp", "price", "volume", "source"),
+                "fields": ("asset", "time", "price", "volume", "source"),
             },
         ),
         (

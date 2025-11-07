@@ -1,15 +1,17 @@
 from django.db import models
+from timescale.db.models.fields import TimescaleDateTimeField
+from timescale.db.models.models import TimescaleModel
 
 
-class AssetPrice(models.Model):
+class AssetPrice(TimescaleModel):
     asset = models.ForeignKey(
         "Asset",
         on_delete=models.CASCADE,
         related_name="prices",
         help_text="Asset this price record belongs to",
     )
-    timestamp = models.DateTimeField(
-        db_index=True,
+    time = TimescaleDateTimeField(
+        interval="1 week",
         help_text="Date and time of this price record",
     )
     open = models.DecimalField(
@@ -61,21 +63,19 @@ class AssetPrice(models.Model):
     )
 
     class Meta:
-        ordering = ["-timestamp"]
+        ordering = ["-time"]
         verbose_name = "Asset Price"
         verbose_name_plural = "Asset Prices"
         constraints = [
             models.UniqueConstraint(
-                fields=["asset", "timestamp", "source", "interval_minutes"],
-                name="unique_asset_timestamp_source_interval",
+                fields=["asset", "time", "source", "interval_minutes"],
+                name="unique_asset_time_source_interval",
             ),
         ]
         indexes = [
-            models.Index(fields=["asset", "timestamp", "interval_minutes"]),
             models.Index(fields=["asset", "interval_minutes"]),
-            models.Index(fields=["timestamp"]),
             models.Index(fields=["source"]),
         ]
 
     def __str__(self):
-        return f"{self.asset.ticker} @ {self.timestamp.strftime('%Y-%m-%d %H:%M')} ({self.source}): ${self.close}"
+        return f"{self.asset.ticker} @ {self.time.strftime('%Y-%m-%d %H:%M')} ({self.source}): ${self.close}"
