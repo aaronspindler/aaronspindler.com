@@ -4,9 +4,13 @@
 .idea/
 venv/
 env/
+# Python bytecode
 *.pyc
-*.swp
-__pycache__
+*.pyo
+*.pyd
+__pycache__/
+*.py[cod]
+*$py.class
 *nohup.out*
 myvenv
 db.sqlite3
