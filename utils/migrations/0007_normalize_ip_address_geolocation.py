@@ -245,9 +245,9 @@ class Migration(migrations.Migration):
                 to="utils.ipaddress",
             ),
         ),
-        # Step 3: Migrate data from old ip_address to IPAddress model
+        # Step 3: Migrate data from ip_address to IPAddress model
         migrations.RunPython(migrate_ip_addresses_forward, reverse_code=migrate_ip_addresses_backward),
-        # Step 4: Remove old fields
+        # Step 4: Remove fields
         migrations.RemoveField(
             model_name="requestfingerprint",
             name="ip_address",

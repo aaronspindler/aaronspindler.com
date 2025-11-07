@@ -22,8 +22,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Remove the old index from Django's migration state only
-        # (it was already removed from the database in migration 0007)
         migrations.SeparateDatabaseAndState(
             state_operations=[
                 migrations.RemoveIndex(

@@ -27,10 +27,9 @@ def remove_index_if_exists(apps, schema_editor):
 
 def reverse_remove_index(apps, schema_editor):
     """
-    Reverse operation - recreate the old index.
+    Reverse operation - recreate the index.
     Note: This is mainly for completeness, unlikely to be needed.
     """
-    # We don't need to recreate this index as it was replaced by the new one
     pass
 
 

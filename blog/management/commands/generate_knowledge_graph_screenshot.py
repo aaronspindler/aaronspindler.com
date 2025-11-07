@@ -43,7 +43,6 @@ class Command(BaseCommand):
             try:
                 screenshot_obj = KnowledgeGraphScreenshot.objects.get(graph_data_hash=graph_hash)
                 self.stdout.write(f"Found existing screenshot with hash {graph_hash[:8]}, updating image...")
-                # Delete the old image file if it exists
                 if screenshot_obj.image:
                     screenshot_obj.image.delete(save=False)
             except KnowledgeGraphScreenshot.DoesNotExist:
