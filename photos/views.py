@@ -57,6 +57,3 @@ def download_photo(request, slug, photo_id):
             raise Http404("Error accessing photo file from S3")
 
     raise Http404("Photo has no image file")
-
-
-# Album ZIP download views removed

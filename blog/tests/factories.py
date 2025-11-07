@@ -82,9 +82,6 @@ class BlogCommentFactory:
         )
 
 
-# PageVisitFactory removed - request tracking now handled by RequestFingerprint in utils app
-
-
 class MockDataFactory:
     """Factory for creating mock blog data."""
 

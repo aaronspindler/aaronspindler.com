@@ -50,10 +50,6 @@ def check_action_status_api(action_id):
         previous_status=previous_status,
         error=error
     )
-    # We don't want to notify for API status' yet
-    # if previous_status != None:
-    #     if current_workflow_status != previous_status.status:
-    #         action.send_notification(new_status)
 
 @shared_task
 def check_all_actions_status_interval(interval):

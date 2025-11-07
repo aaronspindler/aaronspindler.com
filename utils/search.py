@@ -61,10 +61,7 @@ def search_blog_posts(query=None, category=None):
         combined_score=F("rank") * Value(0.7) + F("similarity") * Value(0.3),
     )
 
-    # Filter by relevance threshold
     queryset = queryset.filter(Q(rank__gt=0.01) | Q(similarity__gt=0.2))
-
-    # Order by combined score
     queryset = queryset.order_by("-combined_score", "-created_at")
 
     # Convert to dict format
@@ -130,10 +127,7 @@ def search_projects(query=None):
         combined_score=F("rank") * Value(0.7) + F("similarity") * Value(0.3),
     )
 
-    # Filter by relevance threshold
     queryset = queryset.filter(Q(rank__gt=0.01) | Q(similarity__gt=0.2))
-
-    # Order by combined score
     queryset = queryset.order_by("-combined_score", "title")
 
     # Convert to dict format
@@ -195,10 +189,7 @@ def search_books(query=None):
         combined_score=F("rank") * Value(0.7) + F("similarity") * Value(0.3),
     )
 
-    # Filter by relevance threshold
     queryset = queryset.filter(Q(rank__gt=0.01) | Q(similarity__gt=0.2))
-
-    # Order by combined score
     queryset = queryset.order_by("-combined_score", "title")
 
     # Convert to dict format
@@ -250,10 +241,7 @@ def search_photos(query=None):
         combined_score=F("rank") * Value(0.7) + F("similarity") * Value(0.3),
     )
 
-    # Filter by relevance threshold
     queryset = queryset.filter(Q(rank__gt=0.01) | Q(similarity__gt=0.2))
-
-    # Order by combined score
     return queryset.order_by("-combined_score", "-created_at")
 
 
@@ -292,8 +280,5 @@ def search_photo_albums(query=None):
         combined_score=F("rank") * Value(0.7) + F("similarity") * Value(0.3),
     )
 
-    # Filter by relevance threshold
     queryset = queryset.filter(Q(rank__gt=0.01) | Q(similarity__gt=0.2))
-
-    # Order by combined score
     return queryset.order_by("-combined_score", "-created_at")

@@ -26,7 +26,6 @@ def endpoint_status_webhook(request, key):
     if request.method == 'POST':
         endpoint_status_check_request = EndpointStatusCheckRequest.objects.filter(key=key, received_response=False)
         if not endpoint_status_check_request.exists():
-            # If the request doesn't exist, it means it's an old request that was processed already and we don't need to process it again
             return HttpResponse('success') 
         endpoint_status_check_request = endpoint_status_check_request.first()
         response = request.body

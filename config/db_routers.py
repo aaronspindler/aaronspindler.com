@@ -39,7 +39,6 @@ class FeeFiFoFundsRouter:
             if db == "timescaledb":
                 return True
             elif db == "default":
-                # Raise an explicit error instead of silently returning False
                 from django.core.management.base import CommandError
 
                 raise CommandError(

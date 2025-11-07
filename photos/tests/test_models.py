@@ -365,8 +365,6 @@ class PhotoAlbumModelTestCase(TestCase):
         self.assertIn(album, photo1.albums.all())
         self.assertIn(album, photo2.albums.all())
 
-    # ZIP-related album methods removed; corresponding tests deleted
-
     def test_album_privacy_settings(self):
         """Test album privacy settings."""
         # Public album
@@ -386,5 +384,3 @@ class PhotoAlbumModelTestCase(TestCase):
         # Downloads enabled
         album2 = PhotoAlbum.objects.create(title="Album 2", allow_downloads=True)
         self.assertTrue(album2.allow_downloads)
-
-    # ZIP-related fields removed; storage/upload path tests deleted

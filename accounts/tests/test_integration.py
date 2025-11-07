@@ -170,8 +170,6 @@ class AccountsIntegrationTest(TransactionTestCase):
         # Adapter should report signup is open
         self.assertTrue(adapter.is_open_for_signup(request))
 
-        # Note: The view still redirects because we've overridden it,
-        # but the adapter reports correctly
         response = self.client.get(reverse("account_signup"))
         self.assertEqual(response.status_code, 302)  # Our custom view always redirects
 

@@ -61,11 +61,8 @@ class SignupDisabledViewTest(TestCase):
 
     def test_signup_disabled_preserves_next_parameter(self):
         """Test that next parameter is preserved during redirect."""
-        # Note: The current implementation doesn't preserve the next parameter,
-        # but this test documents the current behavior
         response = self.client.get("/accounts/signup/?next=/dashboard/")
         self.assertEqual(response.status_code, 302)
-        # Current implementation just redirects to login without preserving next
         self.assertTrue(response.url.endswith("/login/"))
 
     def test_message_level(self):

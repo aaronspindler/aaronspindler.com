@@ -355,8 +355,6 @@ def delete_comment(request, comment_id):
     if not can_delete:
         messages.error(request, "You do not have permission to delete this comment.")
         return redirect(f"/b/{comment.blog_category}/{comment.blog_template_name}/#comments")
-
-    # Store blog info before deletion
     template_name = comment.blog_template_name
     category = comment.blog_category
 
