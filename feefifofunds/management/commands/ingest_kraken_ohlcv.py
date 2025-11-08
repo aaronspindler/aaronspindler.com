@@ -34,7 +34,6 @@ import os
 import shutil
 import time
 from multiprocessing import Manager, Pool, cpu_count
-from pathlib import Path
 
 from django.core.management.base import BaseCommand
 
@@ -86,6 +85,7 @@ def _worker_import_file(args):
         database,
         ingested_dir,
         progress_queue,
+        worker_id,
     ) = args
 
     # Set database for this worker (used by _init_worker for staging table)
@@ -109,12 +109,15 @@ def _worker_import_file(args):
                 # Set generous statement timeout - UPDATE operations take longer than INSERT
                 # Allow 2 seconds per 1000 records for UPDATE, 1 second for INSERT
                 timeout_factor = 2000 if update_existing else 1000
-                timeout_ms = max(600000, batch_size // 1000 * timeout_factor)  # Min 10 minutes
+                timeout_ms = max(1800000, batch_size // 1000 * timeout_factor)  # Min 30 minutes
                 cursor.execute(f"SET LOCAL statement_timeout TO {timeout_ms}")
 
             # Reconstruct asset creator and get/create asset
             asset_creator = KrakenAssetCreator(database=database)
             asset = asset_creator.get_or_create_asset(base_ticker, tier=asset_tier)
+
+            # Report starting work on this file
+            progress_queue.put({"type": "starting", "worker_id": worker_id, "file": pair_name, "rows": 0})
 
             # Import the file
             buffer = io.StringIO()
@@ -132,6 +135,18 @@ def _worker_import_file(args):
                     f"{data['interval_minutes'] or ''}\t{data['trade_count'] or ''}\t{quote_currency}\tkraken\t{now_iso}\n"
                 )
 
+                # Report progress every 1000 rows
+                if created_count % 1000 == 0:
+                    progress_queue.put(
+                        {
+                            "type": "partial",
+                            "worker_id": worker_id,
+                            "file": pair_name,
+                            "rows": created_count,
+                            "total_rows": batch_size,  # Estimate for progress tracking
+                        }
+                    )
+
                 if created_count % batch_size == 0:
                     _execute_copy_with_staging(buffer, update_existing, database)
                     buffer = io.StringIO()
@@ -146,12 +161,12 @@ def _worker_import_file(args):
         shutil.move(file_path, dest_path)
 
         # Report success
-        progress_queue.put({"success": True, "file": pair_name, "created": created_count})
+        progress_queue.put({"success": True, "worker_id": worker_id, "file": pair_name, "created": created_count})
         return {"success": True, "created": created_count}
 
     except Exception as e:
         # Report error
-        progress_queue.put({"success": False, "file": pair_name, "error": str(e)})
+        progress_queue.put({"success": False, "worker_id": worker_id, "file": pair_name, "error": str(e)})
         return {"success": False, "error": str(e)}
 
 
@@ -365,8 +380,8 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING(f"No CSV files found for tiers: {', '.join(only_tiers)}"))
                 return
 
-        # Calculate total lines and tier breakdown for enhanced summary
-        self.stdout.write("\n📊 Analyzing files and calculating estimates...")
+        # Calculate total lines for enhanced summary
+        self.stdout.write("\n📊 Analyzing files...")
         line_count_cache = self._cache_line_counts(csv_files)
 
         # Display enhanced ingestion summary
@@ -376,8 +391,6 @@ class Command(BaseCommand):
             intervals=intervals,
             only_tiers=only_tiers,
             workers=workers,
-            batch_size=batch_size,
-            update_existing=update_existing,
         )
 
         if not auto_approve:
@@ -386,8 +399,6 @@ class Command(BaseCommand):
             if response not in ["y", "yes"]:
                 self.stdout.write(self.style.WARNING("❌ Ingestion cancelled by user"))
                 return
-
-        self.stdout.write("")
 
         # Determine default tier for asset creator (always auto)
         asset_creator = self.KrakenAssetCreator(database=database, default_tier=None)
@@ -425,28 +436,53 @@ class Command(BaseCommand):
         )
 
         total_created = result["total_created"]
-        total_moved = result["total_moved"]
         failed_files = result["failed_files"]
         elapsed_total = result["elapsed_total"]
 
         success_count = len(csv_files) - len(failed_files)
 
-        self.stdout.write(f"\n{'─' * 80}")
-        if total_moved > 0:
-            self.stdout.write(f"📁 Moved {total_moved} file(s) to {ingested_dir}")
-
+        # Simple completion summary
+        self.stdout.write("\n" + "─" * 60)
         self.stdout.write(
             self.style.SUCCESS(
-                f"✅ Complete: {success_count}/{len(csv_files)} files | "
-                f"+{total_created:,} records created | "
-                f"⏱️  {self.format_time(elapsed_total)}"
+                f"✅ Complete: {success_count}/{len(csv_files)} files | +{total_created:,} records | {self.format_time(elapsed_total)}"
             )
         )
 
         if failed_files:
-            self.stdout.write(self.style.WARNING(f"\n⚠️  {len(failed_files)} files failed:"))
-            for file_path, error in failed_files[:10]:
-                self.stdout.write(f"  • {Path(file_path).name}: {error[:60]}")
+            self.stdout.write(self.style.WARNING(f"⚠️  {len(failed_files)} files failed"))
+
+    def _display_worker_progress(
+        self, worker_states, total_created, completed_files, total_files, elapsed, estimated_remaining
+    ):
+        """Display aggregate progress on a single line."""
+        # Count workers by status
+        active_workers = sum(1 for s in worker_states.values() if s["status"] == "processing")
+
+        # Calculate cumulative rows in progress
+        in_progress_rows = sum(s["rows"] for s in worker_states.values() if s["status"] == "processing")
+
+        # Format total (including in-progress)
+        display_total = total_created + in_progress_rows
+        if display_total < 1000:
+            total_str = f"+{display_total}"
+        elif display_total < 1000000:
+            total_str = f"+{display_total/1000:.1f}K"
+        else:
+            total_str = f"+{display_total/1e6:.1f}M"
+
+        progress_pct = (completed_files / total_files * 100) if total_files > 0 else 0
+        eta_str = f"ETA {self.format_time(estimated_remaining)}" if estimated_remaining > 0 else "Processing..."
+
+        # Build status line
+        status_line = (
+            f"\r[{progress_pct:5.1f}%] {completed_files}/{total_files} files | "
+            f"{active_workers} active workers | "
+            f"{total_str:>8} rows | {eta_str}          "
+        )
+
+        self.stdout.write(status_line)
+        self.stdout.flush()
 
     def _process_files_parallel(
         self, csv_files, line_count_cache, tier_option, batch_size, update_existing, database, ingested_dir, workers
@@ -461,9 +497,12 @@ class Command(BaseCommand):
         processed_lines = 0
         completed_files = 0
 
+        # Track state for each worker
+        worker_states = {i: {"status": "idle", "file": "", "rows": 0} for i in range(workers)}
+
         # Prepare worker arguments
         worker_args = []
-        for file_path, pair_name, interval in csv_files:
+        for idx, (file_path, pair_name, interval) in enumerate(csv_files):
             try:
                 base_ticker, quote_currency = self.KrakenPairParser.parse_pair(pair_name)
 
@@ -486,6 +525,7 @@ class Command(BaseCommand):
                         database,
                         ingested_dir,
                         None,  # Progress queue placeholder
+                        idx % workers,  # Worker ID (round-robin assignment)
                     )
                 )
             except ValueError as e:
@@ -509,6 +549,7 @@ class Command(BaseCommand):
                 database,
                 ingested_dir,
                 progress_queue,
+                worker_id,
             )
             for (
                 file_path,
@@ -522,14 +563,15 @@ class Command(BaseCommand):
                 database,
                 ingested_dir,
                 _,
+                worker_id,
             ) in worker_args
         ]
-
-        self.stdout.write("")
 
         # Close database connections before creating pool to prevent sharing
         for conn in self.connections.all():
             conn.close()
+
+        self.stdout.write("\n🔄 Processing files...")
 
         # Start worker pool with proper Django initialization
         with Pool(processes=workers, initializer=_init_worker) as pool:
@@ -541,24 +583,50 @@ class Command(BaseCommand):
                 try:
                     # Non-blocking queue get with timeout
                     result = progress_queue.get(timeout=0.1)
-                    completed_files += 1
+                    worker_id = result.get("worker_id", 0)
 
-                    # Get line count for this file
-                    file_info = next(
-                        ((fp, pn, iv) for fp, pn, iv in csv_files if pn == result["file"]),
-                        None,
-                    )
-                    if file_info:
-                        line_count = line_count_cache.get(file_info[0], 0)
-                        processed_lines += line_count
+                    # Handle different message types
+                    msg_type = result.get("type")
 
+                    if msg_type == "starting":
+                        # Worker starting on a new file
+                        worker_states[worker_id]["status"] = "processing"
+                        worker_states[worker_id]["file"] = result["file"]
+                        worker_states[worker_id]["rows"] = 0
+                    elif msg_type == "partial":
+                        # Progress update every 1000 rows
+                        worker_states[worker_id]["status"] = "processing"
+                        worker_states[worker_id]["file"] = result["file"]
+                        worker_states[worker_id]["rows"] = result["rows"]
+                    else:
+                        # Handle file completion
+                        completed_files += 1
+
+                        # Get line count for this file
+                        file_info = next(
+                            ((fp, pn, iv) for fp, pn, iv in csv_files if pn == result["file"]),
+                            None,
+                        )
+                        if file_info:
+                            line_count = line_count_cache.get(file_info[0], 0)
+                            processed_lines += line_count
+
+                        if result.get("success"):
+                            total_created += result["created"]
+                            total_moved += 1
+                            # Show completed status briefly, then back to idle
+                            worker_states[worker_id] = {
+                                "status": "completed",
+                                "file": result["file"],
+                                "rows": result["created"],
+                            }
+                        else:
+                            failed_files.append((result["file"], result.get("error", "Unknown error")))
+                            # Show failed status briefly, then back to idle
+                            worker_states[worker_id] = {"status": "failed", "file": result["file"], "rows": 0}
+
+                    # Calculate ETA
                     elapsed = time.time() - start_time
-                    progress_pct = (
-                        (processed_lines / total_lines * 100)
-                        if total_lines > 0
-                        else (completed_files / len(csv_files) * 100)
-                    )
-
                     if processed_lines > 0 and elapsed > 0:
                         lines_per_sec = processed_lines / elapsed
                         remaining_lines = total_lines - processed_lines
@@ -566,53 +634,32 @@ class Command(BaseCommand):
                     else:
                         estimated_remaining = 0
 
-                    # Calculate progress bar
-                    bar_width = 40
-                    filled = int(bar_width * progress_pct / 100)
-                    bar = "█" * filled + "░" * (bar_width - filled)
-
-                    if result["success"]:
-                        total_created += result["created"]
-                        total_moved += 1
-
-                        # Enhanced progress display with bar
-                        self.stdout.write(
-                            f"\r🔄 INGESTION PROGRESS\n"
-                            f"[{bar}] {progress_pct:5.1f}% | {completed_files:,}/{len(csv_files):,}\n"
-                            f"\n"
-                            + self.style.SUCCESS(
-                                f"✓ [{completed_files}/{len(csv_files)}] {result['file']:12} "
-                                f"+{result['created']:,} | ⏱️ {self.format_time(elapsed)} | "
-                                f"ETA {self.format_time(estimated_remaining)}"
-                            )
-                        )
-
-                        # Show current processing rate
-                        if elapsed > 0:
-                            current_rate = int(total_created / elapsed * 60)
-                            self.stdout.write(
-                                f"Current: {current_rate:,} records/min | "
-                                f"Files: {completed_files:,}/{len(csv_files):,} | "
-                                f"Records: {total_created/1e6:.1f}M/{total_lines/1e6:.1f}M"
-                            )
-                    else:
-                        failed_files.append((result["file"], result["error"]))
-                        short_error = result["error"][:40] if len(result["error"]) > 40 else result["error"]
-
-                        self.stdout.write(
-                            f"\r🔄 INGESTION PROGRESS\n"
-                            f"[{bar}] {progress_pct:5.1f}% | {completed_files:,}/{len(csv_files):,}\n"
-                            f"\n"
-                            + self.style.ERROR(
-                                f"✗ [{completed_files}/{len(csv_files)}] {result['file']:12} " f"ERROR: {short_error}"
-                            )
-                        )
+                    # Update display
+                    self._display_worker_progress(
+                        worker_states, total_created, completed_files, len(csv_files), elapsed, estimated_remaining
+                    )
 
                 except Exception:
-                    # Queue empty or timeout, continue
+                    # Queue empty or timeout
                     if async_result.ready():
                         break
+
+                    # Update display periodically even without new messages
+                    elapsed = time.time() - start_time
+                    if processed_lines > 0:
+                        lines_per_sec = processed_lines / elapsed
+                        remaining_lines = total_lines - processed_lines
+                        estimated_remaining = remaining_lines / lines_per_sec if lines_per_sec > 0 else 0
+                    else:
+                        estimated_remaining = 0
+
+                    self._display_worker_progress(
+                        worker_states, total_created, completed_files, len(csv_files), elapsed, estimated_remaining
+                    )
                     time.sleep(0.1)
+
+        # Move to new line after progress display
+        self.stdout.write("\n")
 
         elapsed_total = time.time() - start_time
         return {
@@ -625,11 +672,11 @@ class Command(BaseCommand):
     def _cache_line_counts(self, csv_files):
         line_count_cache = {}
         total_files = len(csv_files)
-        for idx, (file_path, pair_name, interval) in enumerate(csv_files, start=1):
-            self.stdout.write(f"  [{idx}/{total_files}] Counting {pair_name} {interval}m...", ending="\r")
+        for idx, (file_path, _, _) in enumerate(csv_files, start=1):
+            self.stdout.write(f"\r  Analyzing... {idx}/{total_files}", ending="")
             self.stdout.flush()
             line_count_cache[file_path] = self._count_file_lines(file_path)
-        self.stdout.write(f"✓ Counted {len(line_count_cache)} files{' ' * 50}")
+        self.stdout.write(f"\r✓ Analyzed {len(line_count_cache)} files{' ' * 20}")
         return line_count_cache
 
     def _build_skip_set(self, csv_files, database):
@@ -685,101 +732,26 @@ class Command(BaseCommand):
             self.stdout.write(f"  • {pair_name:12} → {interval_str:30} ({total_lines:>10,} lines)")
             self.stdout.flush()
 
-    def _display_enhanced_summary(
-        self, csv_files, line_count_cache, intervals, only_tiers, workers, batch_size, update_existing
-    ):
-        """Display comprehensive ingestion summary with tier breakdown and time estimates."""
+    def _display_enhanced_summary(self, csv_files, line_count_cache, intervals, only_tiers, workers):
+        """Display concise ingestion summary."""
 
         # Calculate statistics
         total_lines = sum(line_count_cache.values())
         total_files = len(csv_files)
 
-        # Group by tier for breakdown
-        tier_stats = {}
-        for file_path, pair_name, interval in csv_files:
+        # Group by tier
+        tier_counts = {}
+        for _, pair_name, _ in csv_files:
             try:
                 base_ticker, _ = self.KrakenPairParser.parse_pair(pair_name)
                 tier = self.KrakenAssetCreator.determine_tier(base_ticker)
-
-                if tier not in tier_stats:
-                    tier_stats[tier] = {"files": 0, "lines": 0, "tickers": set(), "largest_files": []}
-
-                lines = line_count_cache.get(file_path, 0)
-                tier_stats[tier]["files"] += 1
-                tier_stats[tier]["lines"] += lines
-                tier_stats[tier]["tickers"].add(base_ticker)
-                tier_stats[tier]["largest_files"].append((pair_name, interval, lines))
-
+                tier_counts[tier] = tier_counts.get(tier, 0) + 1
             except ValueError:
                 continue
 
-        # Sort largest files in each tier
-        for tier in tier_stats:
-            tier_stats[tier]["largest_files"].sort(key=lambda x: x[2], reverse=True)
-
-        # Display header
-        self.stdout.write("\n" + "═" * 80)
-        self.stdout.write("                    KRAKEN OHLCV DATA INGESTION".center(80))
-        self.stdout.write("═" * 80)
-
-        # Ingestion summary
-        self.stdout.write("\n📊 INGESTION SUMMARY")
-        self.stdout.write("─" * 40)
-        self.stdout.write(f"  Files Found:     {total_files:,} files")
-        self.stdout.write(f"  Intervals:       {', '.join(map(str, intervals))} minutes")
-        if only_tiers:
-            self.stdout.write(f"  Tiers:          {', '.join(only_tiers)} only")
-        else:
-            self.stdout.write("  Tiers:          All tiers")
-        self.stdout.write(f"  Total Lines:     {total_lines:,} (~{total_lines/1e6:.1f}M records)")
-
-        # Performance settings
-        self.stdout.write("\n🚀 PERFORMANCE SETTINGS")
-        self.stdout.write("─" * 40)
-        self.stdout.write(f"  Mode:           Parallel ({workers} workers)")
-        self.stdout.write(f"  Batch Size:     {batch_size:,} records")
-        self.stdout.write("  Database:       TimescaleDB")
-        if update_existing:
-            self.stdout.write("  Duplicates:     Update existing")
-        else:
-            self.stdout.write("  Duplicates:     Skip existing")
-
-        # Tier breakdown
-        if tier_stats:
-            self.stdout.write("\n📈 TIER BREAKDOWN")
-            self.stdout.write("─" * 40)
-
-            tier_descriptions = {
-                "TIER1": "Major",
-                "TIER2": "Established",
-                "TIER3": "Emerging",
-                "TIER4": "Small/Speculative",
-                "UNCLASSIFIED": "Unclassified",
-            }
-
-            for tier in ["TIER1", "TIER2", "TIER3", "TIER4", "UNCLASSIFIED"]:
-                if tier in tier_stats:
-                    stats = tier_stats[tier]
-                    desc = tier_descriptions.get(tier, tier)
-                    self.stdout.write(
-                        f"  {tier} ({desc}): {stats['files']:>4} files | " f"{stats['lines']/1e6:.1f}M lines"
-                    )
-
-                    # Show sample tickers for this tier
-                    sample_tickers = sorted(list(stats["tickers"]))[:8]
-                    if sample_tickers:
-                        ticker_str = ", ".join(sample_tickers)
-                        if len(stats["tickers"]) > 8:
-                            ticker_str += f" (+{len(stats['tickers']) - 8} more)"
-                        self.stdout.write(f"    • {ticker_str}")
-
         # Time estimate
-        self.stdout.write("\n⏱️  ESTIMATED TIME")
-        self.stdout.write("─" * 40)
-        # Estimate based on ~350k records/minute with parallel processing
         processing_rate = 350000
         estimated_minutes = total_lines / processing_rate
-
         if estimated_minutes < 60:
             time_str = f"~{int(estimated_minutes)} minutes"
         else:
@@ -787,24 +759,20 @@ class Command(BaseCommand):
             minutes = int(estimated_minutes % 60)
             time_str = f"~{hours}h {minutes}m"
 
-        self.stdout.write(f"  Processing Rate: ~{processing_rate:,} records/minute")
-        self.stdout.write(f"  Estimated Time:  {time_str}")
+        # Display concise summary
+        self.stdout.write("\n" + "─" * 60)
+        self.stdout.write(f"📊 Ready to ingest {total_files:,} files | ~{total_lines/1e6:.1f}M records | {time_str}")
+        self.stdout.write(f"   Intervals: {', '.join(map(str, intervals))} min | Workers: {workers}")
 
-        # Top files by size
-        self.stdout.write("\n📋 FILES TO PROCESS (Top 10 by size)")
-        self.stdout.write("─" * 40)
+        # Show tier breakdown if applicable
+        if tier_counts:
+            tier_str = " | ".join(f"{tier}: {tier_counts[tier]}" for tier in sorted(tier_counts.keys()))
+            self.stdout.write(f"   Tiers: {tier_str}")
 
-        # Get top 10 largest files
-        files_with_sizes = [(fp, pn, iv, line_count_cache.get(fp, 0)) for fp, pn, iv in csv_files]
-        files_with_sizes.sort(key=lambda x: x[3], reverse=True)
+        if only_tiers:
+            self.stdout.write(f"   Filter: {', '.join(only_tiers)} only")
 
-        for i, (_, pair_name, interval, lines) in enumerate(files_with_sizes[:10], 1):
-            self.stdout.write(f"  {i:2}. {pair_name}_{interval}.csv".ljust(30) + f"{lines:>10,} lines")
-
-        if len(files_with_sizes) > 10:
-            self.stdout.write(f"  ... and {len(files_with_sizes) - 10:,} more files")
-
-        self.stdout.write("")
+        self.stdout.write("─" * 60)
 
     def _count_file_lines(self, file_path):
         with open(file_path, "r", encoding="utf-8") as f:
