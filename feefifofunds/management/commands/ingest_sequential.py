@@ -137,8 +137,8 @@ class Command(BaseCommand):
 
         # Confirm before proceeding
         if not skip_confirmation and len(all_files) > 0:
-            self.stdout.write(f"\n⚠️  This will process {len(all_files):,} files")
-            self.stdout.write("   Note: Any existing data will be skipped via ON CONFLICT DO NOTHING")
+            self.stdout.write(f"\n⚠️  This will process {len(all_files):,} files via QuestDB ILP")
+            self.stdout.write("   Note: QuestDB automatically handles duplicate timestamps")
             response = input("Continue? [y/N]: ")
             if response.lower() != "y":
                 self.stdout.write(self.style.WARNING("Aborted"))
@@ -148,8 +148,9 @@ class Command(BaseCommand):
         self.stdout.write("\n🔄 Loading asset cache...")
         ingestor.load_asset_cache()
 
-        self.stdout.write("\n⚙️  Preparing for ingestion...")
-        ingestor.optimize_database()
+        # Connect to QuestDB ILP (persistent connection)
+        self.stdout.write("\n⚙️  Connecting to QuestDB ILP...")
+        ingestor.connect_ilp()
 
         # Process files sequentially
         total_records = 0
@@ -164,8 +165,8 @@ class Command(BaseCommand):
                 reporter.start_file(str(filepath), file_size)
 
                 # Process file with progress callback
-                def progress_callback(records, total_in_file):
-                    reporter.update_records(records, total_in_file)
+                def progress_callback(records, total_in_file=0):
+                    reporter.update_records(records, total_in_file if total_in_file > 0 else None)
 
                 # Process the file
                 try:
@@ -194,9 +195,9 @@ class Command(BaseCommand):
             self.stdout.write("\n\n⚠️  Interrupted by user")
 
         finally:
-            # Restore database settings
-            self.stdout.write("\n🔄 Restoring database settings...")
-            ingestor.restore_database()
+            # Close ILP connection
+            self.stdout.write("\n🔄 Closing ILP connection...")
+            ingestor.disconnect_ilp()
 
         # Display final summary
         reporter.display_summary()

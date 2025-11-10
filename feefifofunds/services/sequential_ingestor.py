@@ -25,8 +25,8 @@ class SequentialIngestor:
     Uses QuestDB's native ILP (InfluxDB Line Protocol) for maximum performance.
     """
 
-    # Batch size for ILP flush operations (100k records for optimal performance)
-    BATCH_SIZE = 100_000
+    # Batch size for ILP flush operations (500k for optimal QuestDB performance)
+    BATCH_SIZE = 500_000
 
     # Minimum file size to process (skip empty/header-only files)
     MIN_FILE_SIZE = 100
@@ -37,6 +37,7 @@ class SequentialIngestor:
         self.data_dir = data_dir
         self.asset_cache: Dict[str, Asset] = {}
         self.ilp_host, self.ilp_port = self._get_ilp_connection()
+        self.sender = None
         self.stats = {
             "files_processed": 0,
             "records_inserted": 0,
@@ -53,6 +54,21 @@ class SequentialIngestor:
             host = parsed.hostname or "localhost"
             return host, 9009
         return "localhost", 9009
+
+    def connect_ilp(self):
+        """Create persistent ILP connection for reuse across files."""
+        if self.sender is None:
+            conf = f"tcp::addr={self.ilp_host}:{self.ilp_port};"
+            self.sender = Sender.from_conf(conf)
+
+    def disconnect_ilp(self):
+        """Close ILP connection."""
+        if self.sender is not None:
+            try:
+                self.sender.close()
+            except Exception:
+                pass
+            self.sender = None
 
     def _get_data_directories(self) -> Dict[str, Path]:
         """Get the data directories for OHLCV and Trade files."""
@@ -186,15 +202,6 @@ class SequentialIngestor:
         filepath.unlink()
         self.stats["files_deleted"] += 1
 
-    def _count_file_lines(self, filepath: Path) -> int:
-        """Count total data lines in a CSV file (excluding header)."""
-        with open(filepath, "r") as f:
-            first_line = f.readline()
-            if self._is_header_line(first_line):
-                return sum(1 for _ in f)
-            else:
-                return sum(1 for _ in f) + 1
-
     def load_asset_cache(self) -> None:
         """Load all assets into memory cache for fast lookups."""
         self.asset_cache = {asset.ticker: asset for asset in Asset.objects.all()}
@@ -249,7 +256,11 @@ class SequentialIngestor:
         records_inserted = 0
         batch_count = 0
 
-        with Sender.from_conf(f"tcp::addr={self.ilp_host}:{self.ilp_port};") as sender:
+        sender = self.sender
+        if sender is None:
+            raise RuntimeError("ILP connection not initialized. Call connect_ilp() first.")
+
+        try:
             with open(filepath, "r") as csvfile:
                 first_line = csvfile.readline()
                 if self._is_header_line(first_line):
@@ -297,8 +308,11 @@ class SequentialIngestor:
                     if progress_callback and row_num % 1000 == 0:
                         progress_callback(row_num, total_lines)
 
-                if batch_count > 0:
-                    sender.flush()
+            if batch_count > 0:
+                sender.flush()
+
+        except Exception:
+            raise
 
         return records_inserted
 
@@ -314,7 +328,11 @@ class SequentialIngestor:
         records_inserted = 0
         batch_count = 0
 
-        with Sender.from_conf(f"tcp::addr={self.ilp_host}:{self.ilp_port};") as sender:
+        sender = self.sender
+        if sender is None:
+            raise RuntimeError("ILP connection not initialized. Call connect_ilp() first.")
+
+        try:
             with open(filepath, "r") as csvfile:
                 first_line = csvfile.readline()
                 if self._is_header_line(first_line):
@@ -349,8 +367,11 @@ class SequentialIngestor:
                     if progress_callback and row_num % 1000 == 0:
                         progress_callback(row_num, total_lines)
 
-                if batch_count > 0:
-                    sender.flush()
+            if batch_count > 0:
+                sender.flush()
+
+        except Exception:
+            raise
 
         return records_inserted
 
@@ -388,18 +409,13 @@ class SequentialIngestor:
             # Get or create asset
             asset = self._get_or_create_asset(base_ticker, pair_name)
 
-            # Count total lines for progress tracking
-            total_lines = self._count_file_lines(filepath)
-
-            # Process file based on type
+            # Process file based on type (no line counting for performance)
             if file_type == "ohlcv":
                 records_inserted = self.process_ohlcv_file(
-                    filepath, asset, interval_minutes, quote_currency, total_lines, progress_callback
+                    filepath, asset, interval_minutes, quote_currency, 0, progress_callback
                 )
             else:
-                records_inserted = self.process_trade_file(
-                    filepath, asset, quote_currency, total_lines, progress_callback
-                )
+                records_inserted = self.process_trade_file(filepath, asset, quote_currency, 0, progress_callback)
 
             # Move file to ingested directory
             ingested_dir = self._ensure_ingested_directory()
