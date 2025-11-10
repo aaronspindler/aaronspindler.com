@@ -155,7 +155,7 @@ class Command(BaseCommand):
 
         # Determine default tier for asset creator
         default_tier = None if tier_option == "auto" else tier_option
-        asset_creator = KrakenAssetCreator(database=database, default_tier=default_tier)
+        asset_creator = KrakenAssetCreator(default_tier=default_tier)
 
         total_created = 0
         total_skipped = 0
@@ -294,7 +294,7 @@ class Command(BaseCommand):
 
             records_to_create.append(
                 Trade(
-                    asset=asset,
+                    asset_id=asset.id,
                     time=data["timestamp"],
                     price=data["price"],
                     volume=data["volume"],
@@ -304,12 +304,12 @@ class Command(BaseCommand):
             )
 
             if len(records_to_create) >= batch_size:
-                BulkInsertHelper.bulk_create_trades(records_to_create, batch_size, database)
+                BulkInsertHelper.bulk_create_trades(records_to_create, batch_size)
                 created_count += len(records_to_create)
                 records_to_create = []
 
         if records_to_create and not dry_run:
-            BulkInsertHelper.bulk_create_trades(records_to_create, batch_size, database)
+            BulkInsertHelper.bulk_create_trades(records_to_create, batch_size)
             created_count += len(records_to_create)
 
         return created_count
