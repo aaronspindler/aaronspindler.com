@@ -1,17 +1,13 @@
 from django.db import models
-from timescale.db.models.fields import TimescaleDateTimeField
-from timescale.db.models.models import TimescaleModel
 
 
-class AssetPrice(TimescaleModel):
-    asset = models.ForeignKey(
-        "Asset",
-        on_delete=models.CASCADE,
-        related_name="prices",
-        help_text="Asset this price record belongs to",
+class AssetPrice(models.Model):
+    asset_id = models.IntegerField(
+        db_index=True,
+        help_text="ID of the asset this price record belongs to",
     )
-    time = TimescaleDateTimeField(
-        interval="1 week",
+    time = models.DateTimeField(
+        db_index=True,
         help_text="Date and time of this price record",
     )
     open = models.DecimalField(
@@ -63,25 +59,22 @@ class AssetPrice(TimescaleModel):
         db_index=True,
         help_text="Data source for this price record (e.g., 'finnhub', 'massive', 'kraken')",
     )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="When this record was created",
-    )
 
     class Meta:
+        managed = False
+        db_table = "assetprice"
         ordering = ["-time"]
         verbose_name = "Asset Price"
         verbose_name_plural = "Asset Prices"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["asset", "time", "source", "interval_minutes", "quote_currency"],
-                name="unique_asset_time_source_interval_currency",
-            ),
-        ]
-        indexes = [
-            models.Index(fields=["asset", "interval_minutes"]),
-            models.Index(fields=["source"]),
-        ]
+
+    @property
+    def asset(self):
+        """Lazy load asset from PostgreSQL (default database)."""
+        if not hasattr(self, "_asset"):
+            from .asset import Asset
+
+            self._asset = Asset.objects.get(id=self.asset_id)
+        return self._asset
 
     def __str__(self):
-        return f"{self.asset.ticker} @ {self.time.strftime('%Y-%m-%d %H:%M')} ({self.source}): ${self.close}"
+        return f"Asset {self.asset_id} @ {self.time.strftime('%Y-%m-%d %H:%M')} ({self.source}): ${self.close}"

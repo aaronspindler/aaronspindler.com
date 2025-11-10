@@ -1,19 +1,19 @@
 """
 High-performance sequential file ingestor for OHLCVT data.
-Optimized for speed with direct COPY operations and minimal overhead.
+Uses QuestDB's native ILP (InfluxDB Line Protocol) for maximum performance.
 """
 
 import csv
+import os
 import shutil
 import traceback
 from datetime import datetime, timezone
-from decimal import Decimal
-from io import StringIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 from django.conf import settings
-from django.db import connections
+from questdb.ingress import Sender, TimestampNanos
 
 from feefifofunds.models import Asset
 from feefifofunds.services.kraken import KrakenAssetCreator, KrakenPairParser
@@ -22,22 +22,22 @@ from feefifofunds.services.kraken import KrakenAssetCreator, KrakenPairParser
 class SequentialIngestor:
     """
     Optimized sequential ingestor for OHLCVT files.
-    Uses direct PostgreSQL COPY for maximum performance.
+    Uses QuestDB's native ILP (InfluxDB Line Protocol) for maximum performance.
     """
 
-    # Batch size for COPY operations (1M records for optimal performance)
-    BATCH_SIZE = 1_000_000
+    # Batch size for ILP flush operations (500k for optimal QuestDB performance)
+    BATCH_SIZE = 500_000
 
     # Minimum file size to process (skip empty/header-only files)
-    MIN_FILE_SIZE = 100  # bytes
+    MIN_FILE_SIZE = 100
 
-    def __init__(self, database: str = "timescaledb", data_dir: Optional[str] = None):
+    def __init__(self, database: str = "questdb", data_dir: Optional[str] = None):
         """Initialize the sequential ingestor."""
         self.database = database
-        self.data_dir = data_dir  # For testing with custom data directory
+        self.data_dir = data_dir
         self.asset_cache: Dict[str, Asset] = {}
-        self.staging_tables_created = False
-        self.has_unique_constraints = None  # Will be checked on first use
+        self.ilp_host, self.ilp_port = self._get_ilp_connection()
+        self.sender = None
         self.stats = {
             "files_processed": 0,
             "records_inserted": 0,
@@ -45,6 +45,30 @@ class SequentialIngestor:
             "files_skipped": 0,
             "total_time": 0,
         }
+
+    def _get_ilp_connection(self) -> Tuple[str, int]:
+        """Extract ILP connection details from QUESTDB_URL environment variable."""
+        questdb_url = os.environ.get("QUESTDB_URL", "")
+        if questdb_url:
+            parsed = urlparse(questdb_url)
+            host = parsed.hostname or "localhost"
+            return host, 9009
+        return "localhost", 9009
+
+    def connect_ilp(self):
+        """Create persistent ILP connection for reuse across files."""
+        if self.sender is None:
+            conf = f"tcp::addr={self.ilp_host}:{self.ilp_port};"
+            self.sender = Sender.from_conf(conf)
+
+    def disconnect_ilp(self):
+        """Close ILP connection."""
+        if self.sender is not None:
+            try:
+                self.sender.close()
+            except Exception:
+                pass
+            self.sender = None
 
     def _get_data_directories(self) -> Dict[str, Path]:
         """Get the data directories for OHLCV and Trade files."""
@@ -70,7 +94,7 @@ class SequentialIngestor:
 
         # Create subdirectories for organization
         (ingested_dir / "ohlcv").mkdir(exist_ok=True)
-        (ingested_dir / "trades").mkdir(exist_ok=True)
+        (ingested_dir / "trade").mkdir(exist_ok=True)
 
         return ingested_dir
 
@@ -180,23 +204,14 @@ class SequentialIngestor:
 
     def load_asset_cache(self) -> None:
         """Load all assets into memory cache for fast lookups."""
-        self.asset_cache = {asset.ticker: asset for asset in Asset.objects.using(self.database).all()}
+        self.asset_cache = {asset.ticker: asset for asset in Asset.objects.all()}
 
     def _get_or_create_asset(self, ticker: str, pair_name: str) -> Asset:
-        """Get asset from cache or create if needed."""
+        """Get asset from cache or create if needed. Router handles database selection."""
         if ticker not in self.asset_cache:
-            # Use KrakenAssetCreator to get or create the asset
-            asset_creator = KrakenAssetCreator(database=self.database)
-
-            # First, ensure the asset exists by calling bulk_create_assets
-            # This will create it if it doesn't exist
+            asset_creator = KrakenAssetCreator()
             asset_creator.bulk_create_assets([pair_name])
-
-            # Now get the asset using get_or_create_asset method
-            # which will retrieve it from the database or cache
             asset = asset_creator.get_or_create_asset(ticker)
-
-            # Cache the asset for future use
             self.asset_cache[ticker] = asset
 
         return self.asset_cache[ticker]
@@ -223,326 +238,142 @@ class SequentialIngestor:
         except ValueError:
             return True  # Not a number, likely a header
 
-    def _check_unique_constraints(self):
-        """Check if the required unique constraints exist in the database."""
-        if self.has_unique_constraints is not None:
-            return self.has_unique_constraints
-
-        with connections[self.database].cursor() as cursor:
-            # Check if the unique constraint exists on assetprice table
-            cursor.execute("""
-                SELECT COUNT(*) FROM pg_constraint
-                WHERE conrelid = 'feefifofunds_assetprice'::regclass
-                AND contype = 'u'
-                AND array_length(conkey, 1) = 5
-            """)
-            result = cursor.fetchone()
-            self.has_unique_constraints = result[0] > 0
-
-        return self.has_unique_constraints
-
-    def _create_staging_tables(self):
-        """Create staging tables once for the entire session."""
-        if self.staging_tables_created:
-            return
-
-        with connections[self.database].cursor() as cursor:
-            # Create persistent temporary tables for the session
-            cursor.execute("""
-                CREATE TEMP TABLE IF NOT EXISTS staging_assetprice (
-                    asset_id INTEGER,
-                    time TIMESTAMPTZ,
-                    open NUMERIC(20,8),
-                    high NUMERIC(20,8),
-                    low NUMERIC(20,8),
-                    close NUMERIC(20,8),
-                    volume NUMERIC(20,2),
-                    interval_minutes SMALLINT,
-                    trade_count INTEGER,
-                    quote_currency VARCHAR(10),
-                    source VARCHAR(50),
-                    created_at TIMESTAMPTZ
-                )
-            """)
-
-            cursor.execute("""
-                CREATE TEMP TABLE IF NOT EXISTS staging_trade (
-                    asset_id INTEGER,
-                    time TIMESTAMPTZ,
-                    price NUMERIC(20,8),
-                    volume NUMERIC(20,8),
-                    quote_currency VARCHAR(10),
-                    source VARCHAR(50),
-                    created_at TIMESTAMPTZ
-                )
-            """)
-
-        self.staging_tables_created = True
-
     def process_ohlcv_file(
         self,
         filepath: Path,
         asset: Asset,
         interval_minutes: int,
         quote_currency: str,
+        total_lines: int = 0,
         progress_callback=None,
     ) -> int:
         """
-        Process a single OHLCV file using optimized COPY.
+        Process a single OHLCV file using QuestDB ILP protocol.
 
         Returns:
             Number of records inserted
         """
         records_inserted = 0
-        batch_buffer = StringIO()
         batch_count = 0
 
-        with open(filepath, "r") as csvfile:
-            # Skip header if present
-            first_line = csvfile.readline()
-            if self._is_header_line(first_line):
-                # First line is header, already consumed
-                pass
-            else:
-                # First line is data, seek back
-                csvfile.seek(0)
+        sender = self.sender
+        if sender is None:
+            raise RuntimeError("ILP connection not initialized. Call connect_ilp() first.")
 
-            reader = csv.reader(csvfile)
+        try:
+            with open(filepath, "r") as csvfile:
+                first_line = csvfile.readline()
+                if self._is_header_line(first_line):
+                    pass
+                else:
+                    csvfile.seek(0)
 
-            for row_num, row in enumerate(reader, 1):
-                if len(row) < 6:
-                    continue  # Skip invalid rows
+                reader = csv.reader(csvfile)
 
-                # Parse row: timestamp,open,high,low,close,volume,trade_count
-                # Handle both int and float timestamps
-                timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
-                open_price = Decimal(row[1])
-                high_price = Decimal(row[2])
-                low_price = Decimal(row[3])
-                close_price = Decimal(row[4])
-                volume = Decimal(row[5]) if row[5] else None
-                trade_count = int(row[6]) if len(row) > 6 and row[6] else None
+                for row_num, row in enumerate(reader, 1):
+                    if len(row) < 6:
+                        continue
 
-                # Write to buffer in TSV format for COPY
-                batch_buffer.write(
-                    f"{asset.id}\t{timestamp.isoformat()}\t{open_price}\t{high_price}\t"
-                    f"{low_price}\t{close_price}\t{volume or '\\N'}\t"
-                    f"{interval_minutes}\t{trade_count or '\\N'}\t"
-                    f"{quote_currency}\tkraken\t{datetime.now(timezone.utc).isoformat()}\n"
-                )
-                batch_count += 1
+                    timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
+                    open_price = float(row[1])
+                    high_price = float(row[2])
+                    low_price = float(row[3])
+                    close_price = float(row[4])
+                    volume = float(row[5]) if row[5] else 0.0
+                    trade_count = int(row[6]) if len(row) > 6 and row[6] else 0
 
-                # Execute COPY when batch is full
-                if batch_count >= self.BATCH_SIZE:
-                    records_inserted += self._execute_copy_batch(batch_buffer, "assetprice")
-                    batch_buffer = StringIO()
-                    batch_count = 0
+                    sender.row(
+                        "assetprice",
+                        symbols={"quote_currency": quote_currency, "source": "kraken"},
+                        columns={
+                            "asset_id": asset.id,
+                            "open": open_price,
+                            "high": high_price,
+                            "low": low_price,
+                            "close": close_price,
+                            "volume": volume,
+                            "interval_minutes": interval_minutes,
+                            "trade_count": trade_count,
+                        },
+                        at=TimestampNanos.from_datetime(timestamp),
+                    )
 
-                    if progress_callback and row_num % 10000 == 0:
-                        progress_callback(row_num)
+                    batch_count += 1
+                    records_inserted += 1
 
-            # Process remaining records
+                    if batch_count >= self.BATCH_SIZE:
+                        sender.flush()
+                        batch_count = 0
+
+                    if progress_callback and row_num % 1000 == 0:
+                        progress_callback(row_num, total_lines)
+
             if batch_count > 0:
-                records_inserted += self._execute_copy_batch(batch_buffer, "assetprice")
+                sender.flush()
+
+        except Exception:
+            raise
 
         return records_inserted
 
-    def process_trade_file(self, filepath: Path, asset: Asset, quote_currency: str, progress_callback=None) -> int:
+    def process_trade_file(
+        self, filepath: Path, asset: Asset, quote_currency: str, total_lines: int = 0, progress_callback=None
+    ) -> int:
         """
-        Process a single trade file using optimized COPY.
+        Process a single trade file using QuestDB ILP protocol.
 
         Returns:
             Number of records inserted
         """
         records_inserted = 0
-        batch_buffer = StringIO()
         batch_count = 0
 
-        with open(filepath, "r") as csvfile:
-            # Skip header if present
-            first_line = csvfile.readline()
-            if self._is_header_line(first_line):
-                # First line is header, already consumed
-                pass
-            else:
-                # First line is data, seek back
-                csvfile.seek(0)
+        sender = self.sender
+        if sender is None:
+            raise RuntimeError("ILP connection not initialized. Call connect_ilp() first.")
 
-            reader = csv.reader(csvfile)
+        try:
+            with open(filepath, "r") as csvfile:
+                first_line = csvfile.readline()
+                if self._is_header_line(first_line):
+                    pass
+                else:
+                    csvfile.seek(0)
 
-            for row_num, row in enumerate(reader, 1):
-                if len(row) < 3:
-                    continue  # Skip invalid rows
+                reader = csv.reader(csvfile)
 
-                # Parse row: timestamp,price,volume
-                # Handle both int and float timestamps
-                timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
-                price = Decimal(row[1])
-                volume = Decimal(row[2])
+                for row_num, row in enumerate(reader, 1):
+                    if len(row) < 3:
+                        continue
 
-                # Write to buffer in TSV format for COPY
-                batch_buffer.write(
-                    f"{asset.id}\t{timestamp.isoformat()}\t{price}\t{volume}\t"
-                    f"{quote_currency}\tkraken\t{datetime.now(timezone.utc).isoformat()}\n"
-                )
-                batch_count += 1
+                    timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
+                    price = float(row[1])
+                    volume = float(row[2])
 
-                # Execute COPY when batch is full
-                if batch_count >= self.BATCH_SIZE:
-                    records_inserted += self._execute_copy_batch(batch_buffer, "trade")
-                    batch_buffer = StringIO()
-                    batch_count = 0
+                    sender.row(
+                        "trade",
+                        symbols={"quote_currency": quote_currency, "source": "kraken"},
+                        columns={"asset_id": asset.id, "price": price, "volume": volume},
+                        at=TimestampNanos.from_datetime(timestamp),
+                    )
 
-                    if progress_callback and row_num % 10000 == 0:
-                        progress_callback(row_num)
+                    batch_count += 1
+                    records_inserted += 1
 
-            # Process remaining records
+                    if batch_count >= self.BATCH_SIZE:
+                        sender.flush()
+                        batch_count = 0
+
+                    if progress_callback and row_num % 1000 == 0:
+                        progress_callback(row_num, total_lines)
+
             if batch_count > 0:
-                records_inserted += self._execute_copy_batch(batch_buffer, "trade")
+                sender.flush()
+
+        except Exception:
+            raise
 
         return records_inserted
-
-    def _execute_copy_batch(self, buffer: StringIO, table_type: str) -> int:
-        """
-        Execute PostgreSQL COPY for a batch of records.
-
-        Args:
-            buffer: StringIO containing TSV data
-            table_type: 'assetprice' or 'trade'
-
-        Returns:
-            Number of records inserted
-        """
-        # Ensure staging tables exist
-        self._create_staging_tables()
-
-        buffer.seek(0)
-
-        # Get the database connection
-        db_conn = connections[self.database]
-
-        with db_conn.cursor() as cursor:
-            # Clear staging table first
-            cursor.execute(f"TRUNCATE staging_{table_type}")
-
-            # Set performance options for this transaction
-            cursor.execute("SET LOCAL synchronous_commit = OFF")
-            cursor.execute("SET LOCAL work_mem = '1GB'")
-
-            # Check if unique constraints exist
-            has_constraints = self._check_unique_constraints()
-
-            # Prepare SQL statements based on table type
-            if table_type == "assetprice":
-                table_name = "staging_assetprice"
-                columns = (
-                    "asset_id",
-                    "time",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "volume",
-                    "interval_minutes",
-                    "trade_count",
-                    "quote_currency",
-                    "source",
-                    "created_at",
-                )
-                copy_sql = f"""
-                    COPY {table_name} ({', '.join(columns)})
-                    FROM STDIN WITH (FORMAT text, NULL '\\N')
-                """
-
-                if has_constraints:
-                    # Use fast ON CONFLICT if constraints exist
-                    insert_sql = """
-                        INSERT INTO feefifofunds_assetprice (
-                            asset_id, time, open, high, low, close, volume,
-                            interval_minutes, trade_count, quote_currency, source, created_at
-                        )
-                        SELECT * FROM staging_assetprice
-                        ON CONFLICT (asset_id, time, source, interval_minutes, quote_currency)
-                        DO NOTHING
-                    """
-                else:
-                    # Use WHERE NOT EXISTS as fallback (slower but works without constraints)
-                    insert_sql = """
-                        INSERT INTO feefifofunds_assetprice (
-                            asset_id, time, open, high, low, close, volume,
-                            interval_minutes, trade_count, quote_currency, source, created_at
-                        )
-                        SELECT s.* FROM staging_assetprice s
-                        WHERE NOT EXISTS (
-                            SELECT 1 FROM feefifofunds_assetprice p
-                            WHERE p.asset_id = s.asset_id
-                            AND p.time = s.time
-                            AND p.source = s.source
-                            AND p.interval_minutes = s.interval_minutes
-                            AND p.quote_currency = s.quote_currency
-                        )
-                    """
-            else:  # trade
-                table_name = "staging_trade"
-                columns = ("asset_id", "time", "price", "volume", "quote_currency", "source", "created_at")
-                copy_sql = f"""
-                    COPY {table_name} ({', '.join(columns)})
-                    FROM STDIN WITH (FORMAT text, NULL '\\N')
-                """
-
-                if has_constraints:
-                    # Use fast ON CONFLICT if constraints exist
-                    insert_sql = """
-                        INSERT INTO feefifofunds_trade (
-                            asset_id, time, price, volume, quote_currency, source, created_at
-                        )
-                        SELECT * FROM staging_trade
-                        ON CONFLICT (asset_id, time, source, quote_currency)
-                        DO NOTHING
-                    """
-                else:
-                    # Use WHERE NOT EXISTS as fallback (slower but works without constraints)
-                    insert_sql = """
-                        INSERT INTO feefifofunds_trade (
-                            asset_id, time, price, volume, quote_currency, source, created_at
-                        )
-                        SELECT s.* FROM staging_trade s
-                        WHERE NOT EXISTS (
-                            SELECT 1 FROM feefifofunds_trade t
-                            WHERE t.asset_id = s.asset_id
-                            AND t.time = s.time
-                            AND t.source = s.source
-                            AND t.quote_currency = s.quote_currency
-                        )
-                    """
-
-            # Execute COPY operation
-            # Get the raw database connection to handle COPY
-            raw_conn = db_conn.connection
-
-            # Create a cursor from the raw connection for COPY operation
-            with raw_conn.cursor() as copy_cursor:
-                # Check which COPY method is available (psycopg3 vs psycopg2)
-                if hasattr(copy_cursor, "copy"):
-                    # psycopg3: use copy() context manager
-                    with copy_cursor.copy(copy_sql) as copy:
-                        # Read the buffer content and write to COPY
-                        data = buffer.read()
-                        copy.write(data.encode("utf-8") if isinstance(data, str) else data)
-                elif hasattr(copy_cursor, "copy_expert"):
-                    # psycopg2: use copy_expert
-                    copy_cursor.copy_expert(copy_sql, buffer)
-                else:
-                    # Fallback: use copy_from (psycopg2 alternative)
-                    copy_cursor.copy_from(buffer, table_name, columns=columns, sep="\t", null="\\N")
-
-            # Merge from staging to main table
-            cursor.execute(insert_sql)
-
-            # Get actual insert count
-            inserted = cursor.rowcount
-
-            return inserted
 
     def process_file(self, filepath: Path, file_type: str, progress_callback=None) -> Tuple[bool, int, Optional[str]]:
         """
@@ -578,13 +409,13 @@ class SequentialIngestor:
             # Get or create asset
             asset = self._get_or_create_asset(base_ticker, pair_name)
 
-            # Process file based on type
+            # Process file based on type (no line counting for performance)
             if file_type == "ohlcv":
                 records_inserted = self.process_ohlcv_file(
-                    filepath, asset, interval_minutes, quote_currency, progress_callback
+                    filepath, asset, interval_minutes, quote_currency, 0, progress_callback
                 )
             else:
-                records_inserted = self.process_trade_file(filepath, asset, quote_currency, progress_callback)
+                records_inserted = self.process_trade_file(filepath, asset, quote_currency, 0, progress_callback)
 
             # Move file to ingested directory
             ingested_dir = self._ensure_ingested_directory()
@@ -608,40 +439,19 @@ class SequentialIngestor:
             return False, 0, error_trace
 
     def optimize_database(self):
-        """Run database optimizations before bulk ingestion."""
-        with connections[self.database].cursor() as cursor:
-            # Increase work memory for this session
-            cursor.execute("SET work_mem = '1GB'")
-            cursor.execute("SET maintenance_work_mem = '2GB'")
+        """
+        Run database optimizations before bulk ingestion.
 
-            # Temporarily disable autovacuum (will be re-enabled after)
-            cursor.execute("ALTER TABLE feefifofunds_assetprice SET (autovacuum_enabled = false)")
-            cursor.execute("ALTER TABLE feefifofunds_trade SET (autovacuum_enabled = false)")
+        QuestDB doesn't support PostgreSQL's work_mem or autovacuum settings.
+        QuestDB is optimized for writes by default, so no configuration needed.
+        """
+        pass
 
     def restore_database(self):
-        """Restore database settings after bulk ingestion."""
-        # First, re-enable autovacuum
-        with connections[self.database].cursor() as cursor:
-            cursor.execute("ALTER TABLE feefifofunds_assetprice SET (autovacuum_enabled = true)")
-            cursor.execute("ALTER TABLE feefifofunds_trade SET (autovacuum_enabled = true)")
+        """
+        Restore database settings after bulk ingestion.
 
-            # Run ANALYZE to update statistics
-            cursor.execute("ANALYZE feefifofunds_assetprice")
-            cursor.execute("ANALYZE feefifofunds_trade")
-
-        # VACUUM must be run outside of transaction
-        # Close any existing connections and get a new one with autocommit
-        connection = connections[self.database]
-        connection.ensure_connection()
-
-        # Store the original autocommit setting
-        old_autocommit = connection.autocommit
-        try:
-            # Enable autocommit for VACUUM
-            connection.set_autocommit(True)
-            with connection.cursor() as cursor:
-                cursor.execute("VACUUM ANALYZE feefifofunds_assetprice")
-                cursor.execute("VACUUM ANALYZE feefifofunds_trade")
-        finally:
-            # Restore original autocommit setting
-            connection.set_autocommit(old_autocommit)
+        QuestDB doesn't support VACUUM or ANALYZE commands.
+        QuestDB handles storage optimization automatically.
+        """
+        pass

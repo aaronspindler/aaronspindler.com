@@ -32,7 +32,7 @@ class ProgressReporter:
         self.start_time = time.time()
         self.file_start_time = None
         self.last_update_time = 0
-        self.update_interval = 0.1  # Update every 100ms
+        self.update_interval = 0.05  # Update every 50ms for smoother progress
         self.terminal_width = self._get_terminal_width()
 
         # Performance tracking

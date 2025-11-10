@@ -134,10 +134,9 @@ class KrakenAssetCreator:
         "YFII",
     }
 
-    def __init__(self, database: str = "timescaledb", default_tier: str = None):
+    def __init__(self, default_tier: str = None):
         self._asset_cache = {}
-        self._database = database
-        self._default_tier = default_tier  # Keep None for auto-detection
+        self._default_tier = default_tier
 
     @classmethod
     def determine_tier(cls, ticker: str) -> str:
@@ -169,7 +168,7 @@ class KrakenAssetCreator:
             # Auto-detect tier based on ticker
             asset_tier = self.determine_tier(ticker)
 
-        asset, created = Asset.objects.using(self._database).get_or_create(
+        asset, created = Asset.objects.get_or_create(
             ticker=ticker,
             defaults={
                 "name": ticker,
@@ -199,9 +198,7 @@ class KrakenAssetCreator:
             except ValueError:
                 continue
 
-        existing_tickers = set(
-            Asset.objects.using(self._database).filter(ticker__in=unique_tickers).values_list("ticker", flat=True)
-        )
+        existing_tickers = set(Asset.objects.filter(ticker__in=unique_tickers).values_list("ticker", flat=True))
 
         assets_to_create = []
         for ticker in unique_tickers:
@@ -220,10 +217,10 @@ class KrakenAssetCreator:
                 )
 
         if assets_to_create:
-            Asset.objects.using(self._database).bulk_create(assets_to_create, ignore_conflicts=True)
+            Asset.objects.bulk_create(assets_to_create, ignore_conflicts=True)
 
         # Pre-populate cache for faster individual lookups
-        all_assets = Asset.objects.using(self._database).filter(ticker__in=unique_tickers)
+        all_assets = Asset.objects.filter(ticker__in=unique_tickers)
         for asset in all_assets:
             self._asset_cache[asset.ticker] = asset
 
@@ -273,17 +270,25 @@ def parse_trade_csv(file_path: str) -> Iterator[dict]:
 
 class BulkInsertHelper:
     @staticmethod
-    def bulk_create_prices(prices: list, batch_size: int = 25000, database: str = "timescaledb"):
+    def bulk_create_prices(prices: list, batch_size: int = 25000):
+        """
+        Bulk create AssetPrice records.
+        Database routing handled automatically by FeeFiFoFundsQuestDBRouter.
+        """
         from feefifofunds.models import AssetPrice
 
         for i in range(0, len(prices), batch_size):
             batch = prices[i : i + batch_size]
-            AssetPrice.objects.using(database).bulk_create(batch, ignore_conflicts=True)
+            AssetPrice.objects.bulk_create(batch, ignore_conflicts=True)
 
     @staticmethod
-    def bulk_create_trades(trades: list, batch_size: int = 50000, database: str = "timescaledb"):
+    def bulk_create_trades(trades: list, batch_size: int = 50000):
+        """
+        Bulk create Trade records.
+        Database routing handled automatically by FeeFiFoFundsQuestDBRouter.
+        """
         from feefifofunds.models import Trade
 
         for i in range(0, len(trades), batch_size):
             batch = trades[i : i + batch_size]
-            Trade.objects.using(database).bulk_create(batch, ignore_conflicts=True)
+            Trade.objects.bulk_create(batch, ignore_conflicts=True)

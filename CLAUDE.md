@@ -327,106 +327,114 @@ python manage.py remove_local_fingerprints --limit 100
 - Use `--dry-run` to preview deletions before committing
 - Useful for one-time cleanup after deploying local IP filtering
 
-### Kraken Data Ingestion (FeeFiFoFunds)
+### FeeFiFoFunds Data Management
 
 #### Database Migration Commands
 ```bash
-# IMPORTANT: FeeFiFoFunds uses TimescaleDB, not the default database
-# The database router will prevent migrations to the wrong database with a clear error
+# IMPORTANT: FeeFiFoFunds uses hybrid database approach
+# - Asset model: PostgreSQL (default database)
+# - AssetPrice and Trade models: QuestDB (questdb database, managed=False)
 
-# Create new migrations for feefifofunds (standard Django command)
+# Create new migrations for feefifofunds (Asset model only)
 python manage.py makemigrations feefifofunds
-python manage.py makemigrations feefifofunds --name add_tier_field
 
-# Apply migrations to TimescaleDB (MUST specify database)
-python manage.py migrate feefifofunds --database=timescaledb
-python manage.py migrate feefifofunds --database=timescaledb --fake  # Mark as applied
-python manage.py migrate feefifofunds 0002 --database=timescaledb    # Specific migration
+# Apply migrations to PostgreSQL (Asset model)
+python manage.py migrate feefifofunds
 
-# Apply all migrations to their correct databases
-python manage.py migrate --database=timescaledb  # For feefifofunds models
-python manage.py migrate                         # For all other models
+# Initialize QuestDB schema (AssetPrice and Trade tables)
+python manage.py setup_questdb_schema
 
-# Note: Running 'python manage.py migrate feefifofunds' without --database flag
-# will raise an error to prevent accidental migrations to the wrong database
+# Drop and recreate QuestDB tables (CAREFUL!)
+python manage.py setup_questdb_schema --drop
+
+# Note: AssetPrice and Trade use managed=False and are created manually in QuestDB
+# Django migrations do NOT apply to QuestDB tables
 ```
 
-#### Data Management Commands
+#### Asset Management Commands
 ```bash
-# Clear all asset data (CAREFUL - this deletes all data!)
-python manage.py clear_asset_data                    # Prompts for confirmation
-python manage.py clear_asset_data --yes             # Skip confirmation (for scripts)
-python manage.py clear_asset_data --tables prices   # Clear only prices and trades
-python manage.py clear_asset_data --dry-run         # Preview what would be deleted
+# Create a new asset manually
+python manage.py create_asset --ticker BTC --name Bitcoin --category CRYPTO
 
-# Quick reset for testing
-python manage.py clear_asset_data --yes --database timescaledb
+# Specify quote currency (default: USD)
+python manage.py create_asset --ticker ETHUSD --name Ethereum --category CRYPTO --quote-currency USD
+
+# Add description
+python manage.py create_asset --ticker AAPL --name "Apple Inc." --category STOCK --description "Technology company"
 ```
 
 #### Data Ingestion Commands
+
+**Sequential Ingestion (Recommended):**
 ```bash
-# Ingest Kraken OHLCV (candle) data - daily only (most efficient)
-python manage.py ingest_kraken_ohlcv --intervals 1440
+# Ingest Kraken OHLCV and trade data - fast sequential processing
+python manage.py ingest_sequential --tier TIER1 --file-type both
 
-# Ingest hourly and daily data
-python manage.py ingest_kraken_ohlcv --intervals 60,1440
+# Ingest only OHLCV (candle) data for TIER1 assets
+python manage.py ingest_sequential --tier TIER1 --file-type ohlcv
 
-# Ingest all intervals (1, 5, 15, 30, 60, 240, 720, 1440 minutes)
-python manage.py ingest_kraken_ohlcv --intervals 1,5,15,30,60,240,720,1440
+# Ingest only trade (tick) data for TIER1 assets
+python manage.py ingest_sequential --tier TIER1 --file-type trade
 
-# Ingest specific trading pair
-python manage.py ingest_kraken_ohlcv --pair BTCUSD --intervals 1440
+# Filter by specific intervals (OHLCV only)
+python manage.py ingest_sequential --tier TIER1 --file-type ohlcv --intervals 60,1440
 
-# Dry run to preview what would be imported
-python manage.py ingest_kraken_ohlcv --intervals 1440 --dry-run
-
-# Skip files where asset already has data for this interval
-python manage.py ingest_kraken_ohlcv --intervals 1440 --skip-existing
-
-# Drop indexes before import, recreate after (much faster for large imports)
-python manage.py ingest_kraken_ohlcv --intervals 1440 --drop-indexes
+# Ingest all assets and all file types (default)
+python manage.py ingest_sequential
 
 # Skip confirmation prompt for automated runs
-python manage.py ingest_kraken_ohlcv --intervals 1440 --yes
+python manage.py ingest_sequential --tier TIER1 --yes
 
-# Ingest with tier filtering (NEW!)
-# Only ingest Tier 1 (major) crypto assets (auto tier assignment is default)
-python manage.py ingest_kraken_ohlcv --intervals 1440 --only-tier TIER1
-
-# Ingest Tier 2 and Tier 3 assets (auto-determines tier for each asset)
-python manage.py ingest_kraken_ohlcv --intervals 60,1440 --only-tier TIER2 --only-tier TIER3
-
-# Force all new assets to be Tier 2 (override auto-detection)
-python manage.py ingest_kraken_ohlcv --intervals 1440 --tier TIER2
-
-# Ingest Kraken trade history (tick data)
-python manage.py ingest_kraken_trades
-
-# Ingest specific pair with limit for testing
-python manage.py ingest_kraken_trades --pair BTCUSD --limit-per-file 10000
-
-# Full trade import with index optimization
-python manage.py ingest_kraken_trades --drop-indexes
-
-# Ingest trades with tier filtering (auto tier assignment is default)
-python manage.py ingest_kraken_trades --only-tier TIER1
-
-# Skip confirmation prompt for automated runs
-python manage.py ingest_kraken_trades --yes
+# Stop on first error (default: continue)
+python manage.py ingest_sequential --tier TIER1 --stop-on-error
 ```
 
-**Note**: Comprehensive documentation available at `docs/features/kraken-ingestion.md`
-- **Parallel processing**: Auto-detects CPU cores (default: cores-1, max 8 workers) for 2-4x speedup
-- OHLCVT data: ~8,656 files with aggregated candle data at 8 intervals
-- Trade data: ~1,119 files with ~200M+ individual trade records
-- Auto-creates Asset records during import with tier classification:
-  - **TIER1**: Major cryptos (BTC, ETH, USDT, etc.)
-  - **TIER2**: Established projects (UNI, AAVE, ALGO, etc.)
-  - **TIER3**: Emerging projects (BAT, ENJ, GALA, etc.)
-  - **TIER4**: Small/speculative (all others)
-- Performance: 50k-100k records/sec per worker with multiprocessing
-- **File approval workflow**: Commands display files to ingest and wait for user approval (use --yes to skip)
-- Supports dry-run, skip-existing, tier filtering, and real-time progress tracking with ETA
+**Load Prices from External Sources:**
+```bash
+# Load prices from Massive.com (stocks/ETFs, 2 years free)
+python manage.py load_prices --ticker AAPL --source massive --days 7
+
+# Load prices from Finnhub (stocks, crypto, forex)
+python manage.py load_prices --ticker AAPL --source finnhub --days 30
+
+# Dry run to preview data
+python manage.py load_prices --ticker BTC --source finnhub --days 7 --dry-run
+```
+
+**Backfill Historical Prices:**
+```bash
+# Backfill single asset
+python manage.py backfill_prices --ticker AAPL --source massive --days 730
+
+# Backfill all active assets
+python manage.py backfill_prices --source massive --days 365 --all
+
+# Backfill specific category
+python manage.py backfill_prices --source massive --days 365 --all --category STOCK
+
+# Backfill using grouped endpoint (MUCH faster - 1 API call per day instead of N)
+python manage.py backfill_prices --source massive --days 365 --all --grouped
+
+# Backfill crypto only with grouped endpoint
+python manage.py backfill_prices --source massive --days 365 --all --grouped --category CRYPTO
+
+# Specify date range
+python manage.py backfill_prices --ticker AAPL --source massive --start 2024-01-01 --end 2024-12-31
+
+# Dry run
+python manage.py backfill_prices --ticker AAPL --source massive --days 30 --dry-run
+```
+
+**Note**: See `docs/features/feefifofunds.md` for comprehensive documentation
+- **QuestDB ILP ingestion**: Direct QuestDB Influx Line Protocol for maximum speed
+- **Tier-based filtering**: TIER1 (major), TIER2 (established), TIER3 (emerging), TIER4 (speculative)
+- **File type filtering**: OHLCV (candles), trade (ticks), or both
+- **Interval filtering**: Filter OHLCV data by specific intervals (1, 5, 15, 30, 60, 240, 720, 1440 minutes)
+- **Auto-asset creation**: Automatically creates Asset records with tier classification
+- **Idempotent operations**: Uses ON CONFLICT DO NOTHING, safe to re-run
+- **Progress tracking**: Real-time stats with ETA calculation
+- **File management**: Moves completed files to ingested/ directory
+- **Performance**: ~50K-100K records/second with QuestDB ILP
 
 ## Architecture Overview
 
@@ -475,14 +483,15 @@ python manage.py ingest_kraken_trades --yes
   - Registration disabled by default (NoSignupAccountAdapter)
 
 - **feefifofunds/**: Multi-asset tracking and analysis (FeeFiFoFunds project - MVP)
-  - **Simple asset tracking**: Universal Asset model with category field
-  - **4 asset categories**: STOCK, CRYPTO, COMMODITY, CURRENCY
-  - **OHLCV price tracking**: AssetPrice model stores open/high/low/close/volume data with interval support
-  - **Trade tracking**: Trade model for individual trade records (tick data)
-  - **Kraken data ingestion**: Commands for importing historical OHLCV and trade data from Kraken CSV files
-  - **Multi-interval support**: Track prices at different timeframes (1m, 5m, 15m, 60m, daily, etc.)
-  - **Timestamp-based history**: Track price changes over time for any asset
-  - Django admin interfaces for Asset, AssetPrice, and Trade management
+  - **Hybrid database architecture**: PostgreSQL for Asset metadata, QuestDB for time-series data
+  - **Universal Asset model**: Single model with category (STOCK, CRYPTO, COMMODITY, CURRENCY) and tier (TIER1-4) fields
+  - **QuestDB time-series models**: AssetPrice and Trade models for high-performance OHLCV and tick data
+  - **Multi-interval OHLCV**: Track prices at different timeframes (1m, 5m, 15m, 60m, daily, etc.)
+  - **Trade tick data**: Individual trade records with microsecond precision
+  - **Multiple data sources**: Kraken CSV ingestion, Massive.com API, Finnhub API
+  - **QuestDB ILP ingestion**: Fast sequential ingestion via Influx Line Protocol (50K-100K records/sec)
+  - **Tier-based filtering**: Filter ingestion by asset importance (TIER1-4)
+  - Django admin interfaces for Asset management
 
 - **omas/**: Omas Coffee website (omas.coffee)
   - Separate website served via domain routing middleware
@@ -492,68 +501,78 @@ python manage.py ingest_kraken_trades --yes
 
 ### FeeFiFoFunds MVP Architecture
 
-The **feefifofunds** app provides a simplified MVP for tracking financial asset prices over time.
+The **feefifofunds** app provides a simplified MVP for tracking financial asset prices over time using a hybrid database approach (PostgreSQL + QuestDB).
+
+**Database Architecture:**
+- **PostgreSQL (default database)**: Asset model with metadata (ticker, name, category, tier)
+- **QuestDB (time-series database)**: AssetPrice and Trade models for high-performance OHLCV and trade data storage
 
 **Model Structure:**
 
 ```
-Asset                     ← Universal model for all asset types
+Asset (PostgreSQL)        ← Universal model for all asset types
 ├── ticker               ← Unique identifier (e.g., "BTC", "AAPL", "GLD")
 ├── name                 ← Full asset name
 ├── category             ← STOCK, CRYPTO, COMMODITY, or CURRENCY
-├── quote_currency       ← Currency for pricing (USD, EUR, BTC, etc.)
+├── tier                 ← TIER1-4 or UNCLASSIFIED (market cap/importance)
 ├── description          ← Optional details
 └── active               ← Whether actively tracked
 
-AssetPrice               ← OHLCV price records (candles)
-├── asset                ← ForeignKey to Asset
-├── timestamp            ← Date/time of price record (timezone-aware UTC)
+AssetPrice (QuestDB)     ← OHLCV price records (candles)
+├── asset_id             ← Integer ID reference to Asset
+├── time                 ← Timestamp (QuestDB designated timestamp)
 ├── open                 ← Opening price
 ├── high                 ← Highest price
 ├── low                  ← Lowest price
 ├── close                ← Closing price
 ├── volume               ← Trading volume (optional)
-├── interval_minutes     ← Time interval in minutes (1, 5, 15, 60, 1440, etc.) - NEW
-├── trade_count          ← Number of trades during interval (for OHLCV data) - NEW
-└── source               ← Data source (required, e.g., 'finnhub', 'massive', 'kraken')
-    Unique constraint: (asset, timestamp, source, interval_minutes)
+├── interval_minutes     ← Time interval in minutes (1, 5, 15, 60, 1440, etc.)
+├── trade_count          ← Number of trades during interval (for OHLCV data)
+├── quote_currency       ← Currency for pricing (USD, EUR, BTC, etc.)
+└── source               ← Data source (e.g., 'finnhub', 'massive', 'kraken')
+    PARTITION BY DAY
 
-Trade                    ← Individual trade records (tick data) - NEW MODEL
-├── asset                ← ForeignKey to Asset
-├── timestamp            ← Exact time of trade (timezone-aware UTC)
+Trade (QuestDB)          ← Individual trade records (tick data)
+├── asset_id             ← Integer ID reference to Asset
+├── time                 ← Exact timestamp (QuestDB designated timestamp)
 ├── price                ← Trade execution price
 ├── volume               ← Trade volume/quantity
+├── quote_currency       ← Currency for pricing
 └── source               ← Data source (default: 'kraken')
-    Unique constraint: (asset, timestamp, source)
+    PARTITION BY DAY
 ```
 
 **Key Features:**
-- **Universal model**: Single Asset table handles all asset types via category field
+- **Hybrid database approach**: PostgreSQL for metadata, QuestDB for time-series data
+- **Tier classification**: TIER1 (major), TIER2 (established), TIER3 (emerging), TIER4 (speculative)
 - **Multi-interval support**: Store OHLCV data at different timeframes (1m, 5m, 15m, 60m, daily, etc.)
 - **Tick data support**: Trade model for individual trade records with microsecond precision
-- **Multi-source support**: Track prices from multiple data sources for the same asset/timestamp/interval
-- **Unique constraints**:
-  - AssetPrice: `(asset, timestamp, source, interval_minutes)` allows multiple intervals
-  - Trade: `(asset, timestamp, source)` prevents duplicate trades
-- **Simple queries**: `Asset.objects.filter(category='CRYPTO')` or `Asset.objects.get(ticker='BTC')`
-- **Time-series data**: Track price history with OHLCV data points and individual trades
-- **Optimized indexes**: Composite indexes on `(asset, timestamp, interval_minutes)`, `(asset, interval_minutes)`, and more
-- **Kraken data ingestion**: Automated commands for importing historical data from Kraken CSV files
-- **Extensible**: Easy to add new fields, categories, or data sources
-- **Admin-ready**: Full Django admin interfaces for managing assets, prices, and trades
+- **Multi-source support**: Track prices from multiple data sources (Kraken, Finnhub, Massive.com)
+- **QuestDB optimizations**: SYMBOL types, PARTITION BY DAY, designated timestamps
+- **Simple queries**: `Asset.objects.filter(category='CRYPTO', tier='TIER1')`
+- **Time-series performance**: Sub-second queries on millions of records with QuestDB
+- **Auto-asset creation**: Commands automatically create Asset records during ingestion
+- **Extensible**: Easy to add new fields, categories, tiers, or data sources
+- **Admin-ready**: Full Django admin interfaces for Asset management
 
-**Kraken Data Ingestion:**
-- **ingest_kraken_ohlcv**: Import OHLCV candle data (8 intervals: 1, 5, 15, 30, 60, 240, 720, 1440 minutes)
-- **ingest_kraken_trades**: Import individual trade records (tick data)
-- **Auto-asset creation**: Automatically creates Asset records during import
-- **Performance optimized**: Batch processing, index dropping, skip-existing flags
-- **Progress tracking**: Real-time progress with ETA calculation
-- See `docs/features/kraken-ingestion.md` for comprehensive documentation
+**Data Ingestion:**
+- **ingest_sequential**: Fast sequential QuestDB ILP ingestion for Kraken CSV files
+- **load_prices**: Load prices from external APIs (Massive.com, Finnhub)
+- **backfill_prices**: Backfill historical data with grouped API mode for efficiency
+- **create_asset**: Manually create Asset records
+- **setup_questdb_schema**: Initialize QuestDB tables
+
+**Performance:**
+- **QuestDB ILP**: 50K-100K records/second ingestion via Influx Line Protocol
+- **Partitioning**: Daily partitions for optimal query performance
+- **Symbols**: Optimized storage for repeated strings (source, quote_currency)
+- **Time-series queries**: Sub-100ms for complex aggregations
 
 **Design Philosophy:**
 - Start simple with MVP, add complexity only when needed
-- Use category field instead of polymorphic inheritance
-- Focus on core functionality: storing ticker prices over time at multiple timeframes
+- Use category and tier fields instead of complex inheritance
+- Leverage QuestDB for time-series performance at scale
+- Focus on core functionality: storing asset prices over time at multiple timeframes
 
 ### Multi-Domain Support
 

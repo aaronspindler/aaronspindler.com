@@ -44,8 +44,6 @@ INSTALLED_APPS = [
     "django.contrib.sitemaps",
     "django.contrib.postgres",  # PostgreSQL full-text search
     # Third-party apps
-    "timescale",  # TimescaleDB support
-    "polymorphic",  # Django polymorphic models
     "allauth",
     "allauth.account",
     "storages",  # AWS S3 storage
@@ -91,20 +89,20 @@ DATABASES = {
     "default": env.db(default="sqlite:///db.sqlite3"),
 }
 
-if env("TIMESCALEDB_URL", default=None):
-    DATABASES["timescaledb"] = env.db(var="TIMESCALEDB_URL")
-    DATABASES["timescaledb"]["ENGINE"] = "django.db.backends.postgresql"
-    DATABASES["timescaledb"]["CONN_MAX_AGE"] = 600  # Keep connections alive for 10 minutes
-    DATABASES["timescaledb"]["CONN_HEALTH_CHECKS"] = True  # Check connection health
-    DATABASES["timescaledb"]["OPTIONS"] = {
+if env("QUESTDB_URL", default=None):
+    DATABASES["questdb"] = env.db(var="QUESTDB_URL")
+    DATABASES["questdb"]["ENGINE"] = "config.db_backends.questdb"  # Custom backend that skips version check
+    DATABASES["questdb"]["CONN_MAX_AGE"] = 600  # Keep connections alive for 10 minutes
+    DATABASES["questdb"]["CONN_HEALTH_CHECKS"] = True  # Check connection health
+    DATABASES["questdb"]["OPTIONS"] = {
         "connect_timeout": 10,
         "prepare_threshold": 5,  # Cache prepared statements after 5 uses
         "server_side_binding": True,  # Use server-side parameter binding
     }
 else:
-    DATABASES["timescaledb"] = DATABASES["default"]
+    DATABASES["questdb"] = DATABASES["default"]
 
-DATABASE_ROUTERS = ["config.db_routers.FeeFiFoFundsRouter"]
+DATABASE_ROUTERS = ["config.db_routers.FeeFiFoFundsQuestDBRouter"]
 
 ROOT_URLCONF = "config.urls"
 
