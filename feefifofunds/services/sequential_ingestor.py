@@ -224,20 +224,30 @@ class SequentialIngestor:
             return True  # Not a number, likely a header
 
     def _check_unique_constraints(self):
-        """Check if the required unique constraints exist in the database."""
+        """
+        Check if the required unique constraints exist in the database.
+
+        For QuestDB: Always returns False since QuestDB doesn't support
+        PostgreSQL-style constraints. Uses WHERE NOT EXISTS fallback method.
+        """
         if self.has_unique_constraints is not None:
             return self.has_unique_constraints
 
-        with connections[self.database].cursor() as cursor:
-            # Check if the unique constraint exists on assetprice table
-            cursor.execute("""
-                SELECT COUNT(*) FROM pg_constraint
-                WHERE conrelid = 'feefifofunds_assetprice'::regclass
-                AND contype = 'u'
-                AND array_length(conkey, 1) = 5
-            """)
-            result = cursor.fetchone()
-            self.has_unique_constraints = result[0] > 0
+        try:
+            with connections[self.database].cursor() as cursor:
+                # Check if the unique constraint exists on assetprice table
+                cursor.execute("""
+                    SELECT COUNT(*) FROM pg_constraint
+                    WHERE conrelid = 'feefifofunds_assetprice'::regclass
+                    AND contype = 'u'
+                    AND array_length(conkey, 1) = 5
+                """)
+                result = cursor.fetchone()
+                self.has_unique_constraints = result[0] > 0
+        except Exception:
+            # QuestDB doesn't have pg_constraint or other PostgreSQL system tables
+            # Use WHERE NOT EXISTS fallback method (slower but works)
+            self.has_unique_constraints = False
 
         return self.has_unique_constraints
 
