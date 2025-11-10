@@ -180,7 +180,7 @@ class SequentialIngestor:
 
     def load_asset_cache(self) -> None:
         """Load all assets into memory cache for fast lookups."""
-        self.asset_cache = {asset.ticker: asset for asset in Asset.objects.using(self.database).all()}
+        self.asset_cache = {asset.ticker: asset for asset in Asset.objects.all()}
 
     def _get_or_create_asset(self, ticker: str, pair_name: str) -> Asset:
         """Get asset from cache or create if needed."""

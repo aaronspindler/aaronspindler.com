@@ -179,8 +179,8 @@ class Command(BaseCommand):
                 base_ticker, quote_currency = KrakenPairParser.parse_pair(pair_name)
 
                 if skip_existing:
-                    asset = Asset.objects.using(database).filter(ticker=base_ticker).first()
-                    if asset and Trade.objects.using(database).filter(asset=asset, source="kraken").exists():
+                    asset = Asset.objects.filter(ticker=base_ticker).first()
+                    if asset and Trade.objects.using(database).filter(asset_id=asset.id, source="kraken").exists():
                         total_skipped += 1
                         self.stdout.write(
                             f"⊘ [{index}/{len(csv_files)}] {pair_name:12} - Skipped (exists) | "

@@ -169,7 +169,7 @@ class KrakenAssetCreator:
             # Auto-detect tier based on ticker
             asset_tier = self.determine_tier(ticker)
 
-        asset, created = Asset.objects.using(self._database).get_or_create(
+        asset, created = Asset.objects.get_or_create(
             ticker=ticker,
             defaults={
                 "name": ticker,
@@ -199,9 +199,7 @@ class KrakenAssetCreator:
             except ValueError:
                 continue
 
-        existing_tickers = set(
-            Asset.objects.using(self._database).filter(ticker__in=unique_tickers).values_list("ticker", flat=True)
-        )
+        existing_tickers = set(Asset.objects.filter(ticker__in=unique_tickers).values_list("ticker", flat=True))
 
         assets_to_create = []
         for ticker in unique_tickers:
@@ -220,10 +218,10 @@ class KrakenAssetCreator:
                 )
 
         if assets_to_create:
-            Asset.objects.using(self._database).bulk_create(assets_to_create, ignore_conflicts=True)
+            Asset.objects.bulk_create(assets_to_create, ignore_conflicts=True)
 
         # Pre-populate cache for faster individual lookups
-        all_assets = Asset.objects.using(self._database).filter(ticker__in=unique_tickers)
+        all_assets = Asset.objects.filter(ticker__in=unique_tickers)
         for asset in all_assets:
             self._asset_cache[asset.ticker] = asset
 

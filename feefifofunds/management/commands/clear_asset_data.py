@@ -47,15 +47,15 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         database = options["database"]
 
-        # Count existing data
-        asset_count = Asset.objects.using(database).count()
-        price_count = AssetPrice.objects.using(database).count()
-        trade_count = Trade.objects.using(database).count()
+        # Count existing data (router handles database selection)
+        asset_count = Asset.objects.count()
+        price_count = AssetPrice.objects.count()
+        trade_count = Trade.objects.count()
 
-        self.stdout.write(f"\n📊 Current data in {database} database:")
-        self.stdout.write(f"   Assets:       {asset_count:,}")
-        self.stdout.write(f"   Asset Prices: {price_count:,}")
-        self.stdout.write(f"   Trades:       {trade_count:,}")
+        self.stdout.write("\n📊 Current data:")
+        self.stdout.write(f"   Assets:       {asset_count:,} (PostgreSQL)")
+        self.stdout.write(f"   Asset Prices: {price_count:,} (QuestDB)")
+        self.stdout.write(f"   Trades:       {trade_count:,} (QuestDB)")
 
         if asset_count == 0 and price_count == 0 and trade_count == 0:
             self.stdout.write(self.style.SUCCESS("\n✅ Tables are already empty!"))
@@ -103,25 +103,25 @@ class Command(BaseCommand):
         deleted_counts = {}
 
         try:
-            # Clear prices first (due to foreign key constraints)
+            # Clear prices first (no foreign key constraints with hybrid approach)
             if tables in ["all", "prices"]:
                 if price_count > 0:
-                    self.stdout.write("🔄 Clearing AssetPrice table...")
-                    deleted_prices = AssetPrice.objects.using(database).all().delete()
+                    self.stdout.write("🔄 Clearing AssetPrice table (QuestDB)...")
+                    deleted_prices = AssetPrice.objects.all().delete()
                     deleted_counts["AssetPrice"] = deleted_prices[0]
                     self.stdout.write(f"   ✓ Deleted {deleted_counts['AssetPrice']:,} price records")
 
                 if trade_count > 0:
-                    self.stdout.write("🔄 Clearing Trade table...")
-                    deleted_trades = Trade.objects.using(database).all().delete()
+                    self.stdout.write("🔄 Clearing Trade table (QuestDB)...")
+                    deleted_trades = Trade.objects.all().delete()
                     deleted_counts["Trade"] = deleted_trades[0]
                     self.stdout.write(f"   ✓ Deleted {deleted_counts['Trade']:,} trade records")
 
             # Clear assets
             if tables in ["all", "assets"]:
                 if asset_count > 0:
-                    self.stdout.write("🔄 Clearing Asset table...")
-                    deleted_assets = Asset.objects.using(database).all().delete()
+                    self.stdout.write("🔄 Clearing Asset table (PostgreSQL)...")
+                    deleted_assets = Asset.objects.all().delete()
                     deleted_counts["Asset"] = deleted_assets[0]
                     self.stdout.write(f"   ✓ Deleted {deleted_counts['Asset']:,} asset records")
 
