@@ -26,19 +26,48 @@ The project root has been organized for clarity:
 
 ## Cursor Rules
 
-This project includes AI context rules in `.cursor/rules/` to guide development:
-- **ai-context.mdc**: Guidelines for maintaining CLAUDE.md and README.md
-- **comments.mdc**: Clean comment guidelines - no redundant references to previous implementations
-- **dependencies.mdc**: Dependency management - only add direct dependencies to requirements files
-- **documentation.mdc**: Documentation maintenance and update requirements
-- **git-operations.mdc**: Git commit/push guidelines - always ask before committing or pushing
-- **styling.mdc**: Blog post template styling guidelines
-- **testing.mdc**: Testing guidelines and commands
+This project includes AI context rules in `.cursor/rules/` to guide development. These rules have YAML frontmatter that controls when they apply:
 
-**IMPORTANT**: Always reference these cursor rules along with CLAUDE.md when working on this codebase.
-**CRITICAL**: When updating code or documentation, ensure comments focus on current implementation without references to what was replaced (see `.cursor/rules/comments.mdc`).
-**CRITICAL**: When adding dependencies, only add packages that are directly imported/used in the codebase (see `.cursor/rules/dependencies.mdc`).
-**CRITICAL**: Never commit or push changes without explicit user permission (see `.cursor/rules/git-operations.mdc`).
+### Core Rules (Always Apply)
+
+These rules are always active and must be followed:
+
+- **ai-context.mdc**: Guidelines for maintaining CLAUDE.md and README.md
+  - Update these files when making architectural or feature changes
+  - Keep documentation synchronized with code
+
+- **comments.mdc**: Clean comment guidelines
+  - Focus comments on current implementation
+  - Avoid references to replaced technologies or previous approaches
+  - Explain WHY, not just WHAT
+
+- **documentation.mdc**: Documentation maintenance requirements
+  - Update `docs/` directory for all code changes
+  - Create feature docs in `docs/features/` for major features
+  - Update `docs/commands.md` for new management commands
+  - Code changes without documentation updates will be rejected
+
+- **git-operations.mdc**: Git commit/push guidelines
+  - **NEVER** commit or push without explicit user permission
+  - Always show what will be committed before asking
+  - Even when user says "push", confirm what will be pushed
+
+### Conditional Rules (Apply When Relevant)
+
+These rules apply to specific tasks or file types:
+
+- **dependencies.mdc**: Dependency management (when modifying requirements files)
+  - Only add direct dependencies that are explicitly imported
+  - Never add transitive dependencies
+  - Always regenerate lockfiles after editing `.in` files
+
+- **testing.mdc**: Testing guidelines (when writing or running tests)
+  - **Do NOT write new tests** unless explicitly requested
+  - **Do NOT run tests** unless explicitly requested
+  - **DO update existing tests** when modifying code with test coverage
+  - Use named variables in test assertions for clarity
+
+**IMPORTANT**: All cursor rules are properly formatted with YAML frontmatter. Always reference these rules along with CLAUDE.md when working on this codebase.
 
 ## Development Guidelines
 
@@ -124,6 +153,16 @@ uv pip install -r requirements/base.txt
 - See `.cursor/rules/dependencies.mdc` for complete workflow
 
 ### Testing
+
+**CRITICAL**: Do not write new tests for code in this repository unless explicitly requested by the user.
+
+**When to Update Existing Tests:**
+- DO update existing tests when modifying code that has test coverage
+- DO update tests when changing function signatures or behavior
+- DO update tests when fixing bugs that have test cases
+- DO update tests when refactoring code with existing tests
+
+**Running Tests:**
 ```bash
 # Run tests locally (without parallel execution)
 python manage.py test
@@ -140,7 +179,22 @@ python manage.py test --parallel
 safety check
 ```
 
-**IMPORTANT**: Do not write new tests for code in this repository unless explicitly requested.
+**Test Assertion Guidelines:**
+
+Prefer named variables for each parameter in assertions:
+
+```python
+# DON'T DO THIS:
+self.assertEqual(test_result.get_count(), 10, "Expecting 10")
+
+# DO THIS:
+actual = test_result.get_count()
+expected = 10
+message = f"Found {actual} expected {expected}"
+self.assertEqual(actual, expected, message)
+```
+
+See `.cursor/rules/testing.mdc` for complete testing guidelines.
 
 ### Makefile Commands
 
@@ -231,9 +285,6 @@ python manage.py generate_knowledge_graph_screenshot --url https://staging.examp
 - Runs automatically via Celery Beat daily at 4 AM UTC (screenshots production site)
 - Stores screenshots in the database with hash-based caching to avoid duplicates
 - Defaults to `http://localhost:8000` for local development
-
-### Photo Management
-```
 
 ### Lighthouse Performance Monitoring
 ```bash
@@ -925,9 +976,32 @@ Before completing ANY pull request, verify:
 
 ## Final Notes
 
-- Always reference the cursor rules in `.cursor/rules/` when working on this codebase
-- Keep CLAUDE.md and README.md synchronized with code changes (see `.cursor/rules/ai-context.mdc`)
-- **Update `docs/` directory whenever code changes** (see `.cursor/rules/documentation.mdc`)
-- **Write clean, forward-looking comments** without references to replaced implementations (see `.cursor/rules/comments.mdc`)
-- Run `pre-commit run --all-files` before pushing (or use graphite which auto-runs hooks)
-- Dont run tests locally
+### Always Follow These Guidelines
+
+1. **Cursor Rules**: Always reference the cursor rules in `.cursor/rules/` when working on this codebase
+   - **ai-context.mdc**: Keep CLAUDE.md and README.md synchronized with code changes
+   - **documentation.mdc**: Update `docs/` directory whenever code changes
+   - **comments.mdc**: Write clean, forward-looking comments without references to replaced implementations
+   - **dependencies.mdc**: Only add direct dependencies that are explicitly imported/used
+   - **git-operations.mdc**: Always ask before committing or pushing changes
+   - **testing.mdc**: Do not write new tests unless explicitly requested; do update existing tests when modifying code
+
+2. **Testing**:
+   - **Do NOT run tests** unless explicitly requested by the user
+   - **Do NOT write new tests** unless explicitly requested by the user
+   - **DO update existing tests** when modifying code that has test coverage
+
+3. **Code Quality**:
+   - Run `pre-commit run --all-files` before pushing (or use graphite which auto-runs hooks)
+   - Follow the code style configuration in `pyproject.toml`
+   - Use Ruff for linting and formatting
+
+4. **Documentation**:
+   - Code changes without documentation updates will be rejected
+   - Documentation is not optional—it's a core part of every feature
+   - See `.cursor/rules/documentation.mdc` for complete guidelines
+
+5. **Git Operations**:
+   - **Never commit or push without explicit user permission**
+   - Always show what will be committed before asking for permission
+   - See `.cursor/rules/git-operations.mdc` for complete workflow
