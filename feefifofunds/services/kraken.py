@@ -271,17 +271,25 @@ def parse_trade_csv(file_path: str) -> Iterator[dict]:
 
 class BulkInsertHelper:
     @staticmethod
-    def bulk_create_prices(prices: list, batch_size: int = 25000, database: str = "questdb"):
+    def bulk_create_prices(prices: list, batch_size: int = 25000):
+        """
+        Bulk create AssetPrice records.
+        Database routing handled automatically by FeeFiFoFundsQuestDBRouter.
+        """
         from feefifofunds.models import AssetPrice
 
         for i in range(0, len(prices), batch_size):
             batch = prices[i : i + batch_size]
-            AssetPrice.objects.using(database).bulk_create(batch, ignore_conflicts=True)
+            AssetPrice.objects.bulk_create(batch, ignore_conflicts=True)
 
     @staticmethod
-    def bulk_create_trades(trades: list, batch_size: int = 50000, database: str = "questdb"):
+    def bulk_create_trades(trades: list, batch_size: int = 50000):
+        """
+        Bulk create Trade records.
+        Database routing handled automatically by FeeFiFoFundsQuestDBRouter.
+        """
         from feefifofunds.models import Trade
 
         for i in range(0, len(trades), batch_size):
             batch = trades[i : i + batch_size]
-            Trade.objects.using(database).bulk_create(batch, ignore_conflicts=True)
+            Trade.objects.bulk_create(batch, ignore_conflicts=True)
