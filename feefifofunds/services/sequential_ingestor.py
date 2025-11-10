@@ -186,6 +186,15 @@ class SequentialIngestor:
         filepath.unlink()
         self.stats["files_deleted"] += 1
 
+    def _count_file_lines(self, filepath: Path) -> int:
+        """Count total data lines in a CSV file (excluding header)."""
+        with open(filepath, "r") as f:
+            first_line = f.readline()
+            if self._is_header_line(first_line):
+                return sum(1 for _ in f)
+            else:
+                return sum(1 for _ in f) + 1
+
     def load_asset_cache(self) -> None:
         """Load all assets into memory cache for fast lookups."""
         self.asset_cache = {asset.ticker: asset for asset in Asset.objects.all()}
@@ -228,6 +237,7 @@ class SequentialIngestor:
         asset: Asset,
         interval_minutes: int,
         quote_currency: str,
+        total_lines: int = 0,
         progress_callback=None,
     ) -> int:
         """
@@ -284,15 +294,17 @@ class SequentialIngestor:
                         sender.flush()
                         batch_count = 0
 
-                        if progress_callback and row_num % 10000 == 0:
-                            progress_callback(row_num)
+                    if progress_callback and row_num % 1000 == 0:
+                        progress_callback(row_num, total_lines)
 
                 if batch_count > 0:
                     sender.flush()
 
         return records_inserted
 
-    def process_trade_file(self, filepath: Path, asset: Asset, quote_currency: str, progress_callback=None) -> int:
+    def process_trade_file(
+        self, filepath: Path, asset: Asset, quote_currency: str, total_lines: int = 0, progress_callback=None
+    ) -> int:
         """
         Process a single trade file using QuestDB ILP protocol.
 
@@ -334,8 +346,8 @@ class SequentialIngestor:
                         sender.flush()
                         batch_count = 0
 
-                        if progress_callback and row_num % 10000 == 0:
-                            progress_callback(row_num)
+                    if progress_callback and row_num % 1000 == 0:
+                        progress_callback(row_num, total_lines)
 
                 if batch_count > 0:
                     sender.flush()
@@ -376,13 +388,18 @@ class SequentialIngestor:
             # Get or create asset
             asset = self._get_or_create_asset(base_ticker, pair_name)
 
+            # Count total lines for progress tracking
+            total_lines = self._count_file_lines(filepath)
+
             # Process file based on type
             if file_type == "ohlcv":
                 records_inserted = self.process_ohlcv_file(
-                    filepath, asset, interval_minutes, quote_currency, progress_callback
+                    filepath, asset, interval_minutes, quote_currency, total_lines, progress_callback
                 )
             else:
-                records_inserted = self.process_trade_file(filepath, asset, quote_currency, progress_callback)
+                records_inserted = self.process_trade_file(
+                    filepath, asset, quote_currency, total_lines, progress_callback
+                )
 
             # Move file to ingested directory
             ingested_dir = self._ensure_ingested_directory()

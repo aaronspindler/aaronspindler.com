@@ -164,8 +164,8 @@ class Command(BaseCommand):
                 reporter.start_file(str(filepath), file_size)
 
                 # Process file with progress callback
-                def progress_callback(records):
-                    reporter.update_records(records)
+                def progress_callback(records, total_in_file):
+                    reporter.update_records(records, total_in_file)
 
                 # Process the file
                 try:
