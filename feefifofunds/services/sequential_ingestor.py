@@ -75,14 +75,18 @@ class SequentialIngestor:
         return ingested_dir
 
     def discover_files(
-        self, tier_filter: Optional[str] = None, file_type_filter: str = "both"
+        self,
+        tier_filter: Optional[str] = None,
+        file_type_filter: str = "both",
+        interval_filter: Optional[List[int]] = None,
     ) -> List[Tuple[Path, str, str]]:
         """
-        Discover all files to process, optionally filtered by tier and file type.
+        Discover all files to process, optionally filtered by tier, file type, and intervals.
 
         Args:
             tier_filter: Filter by asset tier (TIER1/2/3/4/ALL)
             file_type_filter: Filter by file type ('ohlcv', 'trade', or 'both')
+            interval_filter: Filter by intervals in minutes (e.g., [60, 1440]). Only applies to OHLCV files.
 
         Returns:
             List of tuples: (filepath, file_type, ticker)
@@ -103,6 +107,17 @@ class SequentialIngestor:
                 parts = filename.split("_")
                 if len(parts) >= 2:
                     pair_name = parts[0]
+                    interval_str = parts[1]
+
+                    # Apply interval filter if specified
+                    if interval_filter:
+                        try:
+                            interval = int(interval_str)
+                            if interval not in interval_filter:
+                                continue
+                        except ValueError:
+                            continue
+
                     try:
                         base_ticker, _ = KrakenPairParser.parse_pair(pair_name)
 

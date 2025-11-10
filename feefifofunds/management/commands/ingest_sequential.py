@@ -20,13 +20,14 @@ class Command(BaseCommand):
     Features:
     - Filter by tier: --tier (TIER1/2/3/4/ALL)
     - Filter by file type: --file-type (ohlcv/trade/both)
+    - Filter by intervals: --intervals (e.g., 60,1440 for 1h and 1d)
     - Automatic file type detection (OHLCV vs Trade)
     - Empty file deletion
     - Progress tracking with ETA
     - Move completed files to ingested/ folder
     """
 
-    help = "Fast sequential ingestion of Kraken OHLCVT files with tier and file type filtering"
+    help = "Fast sequential ingestion of Kraken OHLCVT files with tier, file type, and interval filtering"
 
     def add_arguments(self, parser):
         """Add command arguments."""
@@ -43,6 +44,11 @@ class Command(BaseCommand):
             default="both",
             choices=["ohlcv", "trade", "both"],
             help="Type of files to ingest: ohlcv (candle data), trade (tick data), or both (default: both)",
+        )
+        parser.add_argument(
+            "--intervals",
+            type=str,
+            help="Comma-separated list of intervals in minutes (e.g., '60,1440' for 1h and 1d). Only applies to OHLCV files. Defaults to all intervals.",
         )
         parser.add_argument(
             "--yes",
@@ -71,17 +77,28 @@ class Command(BaseCommand):
         """Main command execution."""
         tier_filter = options["tier"]
         file_type_filter = options["file_type"]
+        intervals_str = options.get("intervals")
         skip_confirmation = options["yes"]
         database = options["database"]
         data_dir = options.get("data_dir")
         stop_on_error = options["stop_on_error"]
+
+        # Parse intervals if provided
+        interval_filter = None
+        if intervals_str:
+            try:
+                interval_filter = [int(x.strip()) for x in intervals_str.split(",")]
+            except ValueError:
+                self.stdout.write(self.style.ERROR(f"Invalid intervals format: {intervals_str}"))
+                self.stdout.write(self.style.ERROR("Expected comma-separated integers, e.g., '60,1440'"))
+                return
 
         # Initialize components
         ingestor = SequentialIngestor(database=database, data_dir=data_dir)
 
         # Discover files to process
         self.stdout.write("🔍 Discovering files...")
-        all_files = ingestor.discover_files(tier_filter, file_type_filter)
+        all_files = ingestor.discover_files(tier_filter, file_type_filter, interval_filter)
 
         if not all_files:
             self.stdout.write(
@@ -109,6 +126,9 @@ class Command(BaseCommand):
         self.stdout.write(f"\n📁 Files to process: {len(all_files):,}")
         self.stdout.write(f"   File type: {file_type_filter}")
         self.stdout.write(f"   Tier filter: {tier_filter}")
+        if interval_filter:
+            intervals_display = ", ".join(str(i) for i in interval_filter)
+            self.stdout.write(f"   Interval filter: {intervals_display} minutes")
 
         if tier_counts:
             self.stdout.write("\n📊 Tier breakdown:")

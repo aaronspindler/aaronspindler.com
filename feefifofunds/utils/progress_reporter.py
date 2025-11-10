@@ -126,7 +126,6 @@ class ProgressReporter:
             return
 
         self.current_records = records_processed
-        self.total_records += records_processed
 
         # Calculate speed
         if self.file_start_time:
@@ -157,6 +156,7 @@ class ProgressReporter:
         """Mark file processing as complete."""
         if success:
             self.completed_files += 1
+            self.total_records += self.current_records
             file_time = time.time() - self.file_start_time if self.file_start_time else 0
 
             self._clear_line()
