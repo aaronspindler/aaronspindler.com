@@ -51,7 +51,6 @@ class AssetPriceAdmin(admin.ModelAdmin):
     ]
     list_filter = ["source", "quote_currency", "interval_minutes", "time"]
     search_fields = ["asset_id"]
-    readonly_fields = ["created_at"]
     ordering = ["-time"]
     date_hierarchy = "time"
 
@@ -74,13 +73,6 @@ class AssetPriceAdmin(admin.ModelAdmin):
                 "fields": ("volume", "trade_count"),
             },
         ),
-        (
-            "Metadata",
-            {
-                "fields": ("created_at",),
-                "classes": ("collapse",),
-            },
-        ),
     )
 
 
@@ -89,7 +81,6 @@ class TradeAdmin(admin.ModelAdmin):
     list_display = ["asset_id", "time", "quote_currency", "price", "volume", "source"]
     list_filter = ["source", "quote_currency", "time"]
     search_fields = ["asset_id"]
-    readonly_fields = ["created_at"]
     ordering = ["-time"]
     date_hierarchy = "time"
 
@@ -98,13 +89,6 @@ class TradeAdmin(admin.ModelAdmin):
             "Trade Details",
             {
                 "fields": ("asset_id", "time", "quote_currency", "price", "volume", "source"),
-            },
-        ),
-        (
-            "Metadata",
-            {
-                "fields": ("created_at",),
-                "classes": ("collapse",),
             },
         ),
     )

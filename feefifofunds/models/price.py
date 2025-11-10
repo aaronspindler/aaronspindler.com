@@ -59,10 +59,6 @@ class AssetPrice(models.Model):
         db_index=True,
         help_text="Data source for this price record (e.g., 'finnhub', 'massive', 'kraken')",
     )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="When this record was created",
-    )
 
     class Meta:
         managed = False

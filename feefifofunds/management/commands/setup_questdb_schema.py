@@ -55,8 +55,7 @@ class Command(BaseCommand):
                         interval_minutes INT,
                         trade_count INT,
                         quote_currency SYMBOL CAPACITY 256 CACHE,
-                        source SYMBOL CAPACITY 256 CACHE,
-                        created_at TIMESTAMP
+                        source SYMBOL CAPACITY 256 CACHE
                     ) timestamp(time) PARTITION BY DAY;
                 """)
                 self.stdout.write(self.style.SUCCESS("✓ assetprice table created"))
@@ -70,8 +69,7 @@ class Command(BaseCommand):
                         price DOUBLE,
                         volume DOUBLE,
                         quote_currency SYMBOL CAPACITY 256 CACHE,
-                        source SYMBOL CAPACITY 256 CACHE,
-                        created_at TIMESTAMP
+                        source SYMBOL CAPACITY 256 CACHE
                     ) timestamp(time) PARTITION BY DAY;
                 """)
                 self.stdout.write(self.style.SUCCESS("✓ trade table created"))

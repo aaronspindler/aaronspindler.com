@@ -32,10 +32,6 @@ class Trade(models.Model):
         db_index=True,
         help_text="Data source for this trade (e.g., 'kraken')",
     )
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        help_text="When this record was created",
-    )
 
     class Meta:
         managed = False
