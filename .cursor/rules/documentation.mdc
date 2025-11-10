@@ -1,3 +1,8 @@
+---
+description: Documentation maintenance and update requirements when making code changes
+alwaysApply: true
+---
+
 # Documentation Guidelines
 
 This file provides guidance for maintaining documentation when making code changes or adding new features.
@@ -318,6 +323,6 @@ When an AI assistant (Claude, Copilot, etc.) is making code changes:
 
 ## Related Documentation
 
-- [AI Context Guidelines](.cursor/rules/ai-context.mdc) - Guidelines for maintaining CLAUDE.md and README.md
-- [Testing Guidelines](.cursor/rules/testing.mdc) - Testing documentation requirements
-- [PR Guidelines](.cursor/rules/prs.mdc) - Pull request documentation requirements
+- [AI Context Guidelines](ai-context.mdc) - Guidelines for maintaining CLAUDE.md and README.md
+- [Testing Guidelines](testing.mdc) - Testing documentation requirements
+- [Comment Guidelines](comments.mdc) - Clean comment practices

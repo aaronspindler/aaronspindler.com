@@ -1,3 +1,8 @@
+---
+description: Git commit/push guidelines - always ask before committing or pushing
+alwaysApply: true
+---
+
 # Git Operations Guidelines
 
 ## Purpose

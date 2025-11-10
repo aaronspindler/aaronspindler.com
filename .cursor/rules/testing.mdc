@@ -1,13 +1,49 @@
 ---
-description: apply this rule to chats that look to create or run tests
+description: Testing guidelines and commands - when to write tests and how to run them
 alwaysApply: false
 ---
 
 # Testing Guidelines
-Do not test frameworks or libraries. Only test the code in this repository.
-Try to be as concise as possible when writing tests.
-Ensure that edge cases are tested.
-Utilize factories to create test data.
+
+## Important: Do NOT Write New Tests
+
+**CRITICAL**: Do not write new tests for code in this repository unless explicitly requested by the user.
+
+This guideline is specified in the project's CLAUDE.md and should be followed strictly.
+
+## When to Update Existing Tests
+
+You SHOULD update existing tests when:
+- Modifying code that has test coverage
+- Changing function signatures or behavior
+- Fixing bugs that have test cases
+- Refactoring code with existing tests
+
+## Test Writing Guidelines
+
+If explicitly asked to write tests:
+- Do not test frameworks or libraries - only test the code in this repository
+- Be as concise as possible when writing tests
+- Ensure edge cases are tested
+- Utilize factories to create test data
+- Follow existing test patterns in the codebase
+
+## Test Assertion Guidelines
+
+Prefer named variables for each parameter in assertions:
+
+**Don't Do:**
+```python
+self.assertEqual(test_result.get_count(), 10, "Expecting 10")
+```
+
+**Do:**
+```python
+actual = test_result.get_count()
+expected = 10
+message = f"Found {actual} expected {expected}"
+self.assertEqual(actual, expected, message)
+```
 
 ## Running Tests
 
@@ -19,5 +55,7 @@ make test
 This command runs the Django test suite without parallel execution (suitable for local development).
 
 ## Important Notes
+
 - **Do NOT run tests** unless explicitly requested by the user
+- **Do NOT write new tests** unless explicitly requested by the user
 - When modifying existing code, always check for corresponding tests and update them to reflect changes
