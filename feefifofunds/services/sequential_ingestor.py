@@ -1,19 +1,19 @@
 """
 High-performance sequential file ingestor for OHLCVT data.
-Optimized for speed with direct COPY operations and minimal overhead.
+Uses QuestDB's native ILP (InfluxDB Line Protocol) for maximum performance.
 """
 
 import csv
+import os
 import shutil
 import traceback
 from datetime import datetime, timezone
-from decimal import Decimal
-from io import StringIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 from django.conf import settings
-from django.db import connections
+from questdb.ingress import Sender, TimestampNanos
 
 from feefifofunds.models import Asset
 from feefifofunds.services.kraken import KrakenAssetCreator, KrakenPairParser
@@ -22,21 +22,21 @@ from feefifofunds.services.kraken import KrakenAssetCreator, KrakenPairParser
 class SequentialIngestor:
     """
     Optimized sequential ingestor for OHLCVT files.
-    Uses direct COPY operations for maximum performance with QuestDB.
+    Uses QuestDB's native ILP (InfluxDB Line Protocol) for maximum performance.
     """
 
-    # Batch size for COPY operations (1M records for optimal performance)
-    BATCH_SIZE = 1_000_000
+    # Batch size for ILP flush operations (100k records for optimal performance)
+    BATCH_SIZE = 100_000
 
     # Minimum file size to process (skip empty/header-only files)
-    MIN_FILE_SIZE = 100  # bytes
+    MIN_FILE_SIZE = 100
 
     def __init__(self, database: str = "questdb", data_dir: Optional[str] = None):
         """Initialize the sequential ingestor."""
         self.database = database
         self.data_dir = data_dir
         self.asset_cache: Dict[str, Asset] = {}
-        self.staging_tables_created = False
+        self.ilp_host, self.ilp_port = self._get_ilp_connection()
         self.stats = {
             "files_processed": 0,
             "records_inserted": 0,
@@ -44,6 +44,15 @@ class SequentialIngestor:
             "files_skipped": 0,
             "total_time": 0,
         }
+
+    def _get_ilp_connection(self) -> Tuple[str, int]:
+        """Extract ILP connection details from QUESTDB_URL environment variable."""
+        questdb_url = os.environ.get("QUESTDB_URL", "")
+        if questdb_url:
+            parsed = urlparse(questdb_url)
+            host = parsed.hostname or "localhost"
+            return host, 9009
+        return "localhost", 9009
 
     def _get_data_directories(self) -> Dict[str, Path]:
         """Get the data directories for OHLCV and Trade files."""
@@ -213,43 +222,6 @@ class SequentialIngestor:
         except ValueError:
             return True  # Not a number, likely a header
 
-    def _create_staging_tables(self):
-        """Create staging tables once for the entire session."""
-        if self.staging_tables_created:
-            return
-
-        with connections[self.database].cursor() as cursor:
-            cursor.execute("""
-                CREATE TEMP TABLE IF NOT EXISTS staging_assetprice (
-                    asset_id INT,
-                    time TIMESTAMP,
-                    open DOUBLE,
-                    high DOUBLE,
-                    low DOUBLE,
-                    close DOUBLE,
-                    volume DOUBLE,
-                    interval_minutes INT,
-                    trade_count INT,
-                    quote_currency SYMBOL,
-                    source SYMBOL,
-                    created_at TIMESTAMP
-                )
-            """)
-
-            cursor.execute("""
-                CREATE TEMP TABLE IF NOT EXISTS staging_trade (
-                    asset_id INT,
-                    time TIMESTAMP,
-                    price DOUBLE,
-                    volume DOUBLE,
-                    quote_currency SYMBOL,
-                    source SYMBOL,
-                    created_at TIMESTAMP
-                )
-            """)
-
-        self.staging_tables_created = True
-
     def process_ohlcv_file(
         self,
         filepath: Path,
@@ -259,231 +231,116 @@ class SequentialIngestor:
         progress_callback=None,
     ) -> int:
         """
-        Process a single OHLCV file using optimized COPY.
+        Process a single OHLCV file using QuestDB ILP protocol.
 
         Returns:
             Number of records inserted
         """
         records_inserted = 0
-        batch_buffer = StringIO()
         batch_count = 0
 
-        with open(filepath, "r") as csvfile:
-            # Skip header if present
-            first_line = csvfile.readline()
-            if self._is_header_line(first_line):
-                # First line is header, already consumed
-                pass
-            else:
-                # First line is data, seek back
-                csvfile.seek(0)
+        with Sender(self.ilp_host, self.ilp_port) as sender:
+            with open(filepath, "r") as csvfile:
+                first_line = csvfile.readline()
+                if self._is_header_line(first_line):
+                    pass
+                else:
+                    csvfile.seek(0)
 
-            reader = csv.reader(csvfile)
+                reader = csv.reader(csvfile)
 
-            for row_num, row in enumerate(reader, 1):
-                if len(row) < 6:
-                    continue  # Skip invalid rows
+                for row_num, row in enumerate(reader, 1):
+                    if len(row) < 6:
+                        continue
 
-                # Parse row: timestamp,open,high,low,close,volume,trade_count
-                # Handle both int and float timestamps
-                timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
-                open_price = Decimal(row[1])
-                high_price = Decimal(row[2])
-                low_price = Decimal(row[3])
-                close_price = Decimal(row[4])
-                volume = Decimal(row[5]) if row[5] else None
-                trade_count = int(row[6]) if len(row) > 6 and row[6] else None
+                    timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
+                    open_price = float(row[1])
+                    high_price = float(row[2])
+                    low_price = float(row[3])
+                    close_price = float(row[4])
+                    volume = float(row[5]) if row[5] else 0.0
+                    trade_count = int(row[6]) if len(row) > 6 and row[6] else 0
 
-                # Write to buffer in TSV format for COPY
-                batch_buffer.write(
-                    f"{asset.id}\t{timestamp.isoformat()}\t{open_price}\t{high_price}\t"
-                    f"{low_price}\t{close_price}\t{volume or '\\N'}\t"
-                    f"{interval_minutes}\t{trade_count or '\\N'}\t"
-                    f"{quote_currency}\tkraken\t{datetime.now(timezone.utc).isoformat()}\n"
-                )
-                batch_count += 1
+                    sender.row(
+                        "assetprice",
+                        symbols={"quote_currency": quote_currency, "source": "kraken"},
+                        columns={
+                            "asset_id": asset.id,
+                            "open": open_price,
+                            "high": high_price,
+                            "low": low_price,
+                            "close": close_price,
+                            "volume": volume,
+                            "interval_minutes": interval_minutes,
+                            "trade_count": trade_count,
+                        },
+                        at=TimestampNanos.from_datetime(timestamp),
+                    )
 
-                # Execute COPY when batch is full
-                if batch_count >= self.BATCH_SIZE:
-                    records_inserted += self._execute_copy_batch(batch_buffer, "assetprice")
-                    batch_buffer = StringIO()
-                    batch_count = 0
+                    batch_count += 1
+                    records_inserted += 1
 
-                    if progress_callback and row_num % 10000 == 0:
-                        progress_callback(row_num)
+                    if batch_count >= self.BATCH_SIZE:
+                        sender.flush()
+                        batch_count = 0
 
-            # Process remaining records
-            if batch_count > 0:
-                records_inserted += self._execute_copy_batch(batch_buffer, "assetprice")
+                        if progress_callback and row_num % 10000 == 0:
+                            progress_callback(row_num)
+
+                if batch_count > 0:
+                    sender.flush()
 
         return records_inserted
 
     def process_trade_file(self, filepath: Path, asset: Asset, quote_currency: str, progress_callback=None) -> int:
         """
-        Process a single trade file using optimized COPY.
+        Process a single trade file using QuestDB ILP protocol.
 
         Returns:
             Number of records inserted
         """
         records_inserted = 0
-        batch_buffer = StringIO()
         batch_count = 0
 
-        with open(filepath, "r") as csvfile:
-            # Skip header if present
-            first_line = csvfile.readline()
-            if self._is_header_line(first_line):
-                # First line is header, already consumed
-                pass
-            else:
-                # First line is data, seek back
-                csvfile.seek(0)
+        with Sender(self.ilp_host, self.ilp_port) as sender:
+            with open(filepath, "r") as csvfile:
+                first_line = csvfile.readline()
+                if self._is_header_line(first_line):
+                    pass
+                else:
+                    csvfile.seek(0)
 
-            reader = csv.reader(csvfile)
+                reader = csv.reader(csvfile)
 
-            for row_num, row in enumerate(reader, 1):
-                if len(row) < 3:
-                    continue  # Skip invalid rows
+                for row_num, row in enumerate(reader, 1):
+                    if len(row) < 3:
+                        continue
 
-                # Parse row: timestamp,price,volume
-                # Handle both int and float timestamps
-                timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
-                price = Decimal(row[1])
-                volume = Decimal(row[2])
+                    timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
+                    price = float(row[1])
+                    volume = float(row[2])
 
-                # Write to buffer in TSV format for COPY
-                batch_buffer.write(
-                    f"{asset.id}\t{timestamp.isoformat()}\t{price}\t{volume}\t"
-                    f"{quote_currency}\tkraken\t{datetime.now(timezone.utc).isoformat()}\n"
-                )
-                batch_count += 1
+                    sender.row(
+                        "trade",
+                        symbols={"quote_currency": quote_currency, "source": "kraken"},
+                        columns={"asset_id": asset.id, "price": price, "volume": volume},
+                        at=TimestampNanos.from_datetime(timestamp),
+                    )
 
-                # Execute COPY when batch is full
-                if batch_count >= self.BATCH_SIZE:
-                    records_inserted += self._execute_copy_batch(batch_buffer, "trade")
-                    batch_buffer = StringIO()
-                    batch_count = 0
+                    batch_count += 1
+                    records_inserted += 1
 
-                    if progress_callback and row_num % 10000 == 0:
-                        progress_callback(row_num)
+                    if batch_count >= self.BATCH_SIZE:
+                        sender.flush()
+                        batch_count = 0
 
-            # Process remaining records
-            if batch_count > 0:
-                records_inserted += self._execute_copy_batch(batch_buffer, "trade")
+                        if progress_callback and row_num % 10000 == 0:
+                            progress_callback(row_num)
+
+                if batch_count > 0:
+                    sender.flush()
 
         return records_inserted
-
-    def _execute_copy_batch(self, buffer: StringIO, table_type: str) -> int:
-        """
-        Execute PostgreSQL COPY for a batch of records.
-
-        Args:
-            buffer: StringIO containing TSV data
-            table_type: 'assetprice' or 'trade'
-
-        Returns:
-            Number of records inserted
-        """
-        # Ensure staging tables exist
-        self._create_staging_tables()
-
-        buffer.seek(0)
-
-        # Get the database connection
-        db_conn = connections[self.database]
-
-        with db_conn.cursor() as cursor:
-            # Clear staging table first
-            cursor.execute(f"TRUNCATE TABLE staging_{table_type}")
-
-            # Prepare SQL statements based on table type
-            if table_type == "assetprice":
-                table_name = "staging_assetprice"
-                columns = (
-                    "asset_id",
-                    "time",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "volume",
-                    "interval_minutes",
-                    "trade_count",
-                    "quote_currency",
-                    "source",
-                    "created_at",
-                )
-                copy_sql = f"""
-                    COPY {table_name} ({', '.join(columns)})
-                    FROM STDIN WITH (FORMAT text, NULL '\\N')
-                """
-
-                # QuestDB doesn't support ON CONFLICT, always use WHERE NOT EXISTS
-                insert_sql = """
-                    INSERT INTO assetprice (
-                        asset_id, time, open, high, low, close, volume,
-                        interval_minutes, trade_count, quote_currency, source, created_at
-                    )
-                    SELECT s.* FROM staging_assetprice s
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM assetprice p
-                        WHERE p.asset_id = s.asset_id
-                        AND p.time = s.time
-                        AND p.source = s.source
-                        AND p.interval_minutes = s.interval_minutes
-                        AND p.quote_currency = s.quote_currency
-                    )
-                """
-            else:  # trade
-                table_name = "staging_trade"
-                columns = ("asset_id", "time", "price", "volume", "quote_currency", "source", "created_at")
-                copy_sql = f"""
-                    COPY {table_name} ({', '.join(columns)})
-                    FROM STDIN WITH (FORMAT text, NULL '\\N')
-                """
-
-                # QuestDB doesn't support ON CONFLICT, always use WHERE NOT EXISTS
-                insert_sql = """
-                    INSERT INTO trade (
-                        asset_id, time, price, volume, quote_currency, source, created_at
-                    )
-                    SELECT s.* FROM staging_trade s
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM trade t
-                        WHERE t.asset_id = s.asset_id
-                        AND t.time = s.time
-                        AND t.source = s.source
-                        AND t.quote_currency = s.quote_currency
-                    )
-                """
-
-            # Execute COPY operation
-            # Get the raw database connection to handle COPY
-            raw_conn = db_conn.connection
-
-            # Create a cursor from the raw connection for COPY operation
-            with raw_conn.cursor() as copy_cursor:
-                # Check which COPY method is available (psycopg3 vs psycopg2)
-                if hasattr(copy_cursor, "copy"):
-                    # psycopg3: use copy() context manager
-                    with copy_cursor.copy(copy_sql) as copy:
-                        # Read the buffer content and write to COPY
-                        data = buffer.read()
-                        copy.write(data.encode("utf-8") if isinstance(data, str) else data)
-                elif hasattr(copy_cursor, "copy_expert"):
-                    # psycopg2: use copy_expert
-                    copy_cursor.copy_expert(copy_sql, buffer)
-                else:
-                    # Fallback: use copy_from (psycopg2 alternative)
-                    copy_cursor.copy_from(buffer, table_name, columns=columns, sep="\t", null="\\N")
-
-            # Merge from staging to main table
-            cursor.execute(insert_sql)
-
-            # Get actual insert count
-            inserted = cursor.rowcount
-
-            return inserted
 
     def process_file(self, filepath: Path, file_type: str, progress_callback=None) -> Tuple[bool, int, Optional[str]]:
         """
