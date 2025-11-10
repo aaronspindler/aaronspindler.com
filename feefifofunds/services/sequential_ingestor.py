@@ -78,7 +78,7 @@ class SequentialIngestor:
 
         # Create subdirectories for organization
         (ingested_dir / "ohlcv").mkdir(exist_ok=True)
-        (ingested_dir / "trades").mkdir(exist_ok=True)
+        (ingested_dir / "trade").mkdir(exist_ok=True)
 
         return ingested_dir
 
