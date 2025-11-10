@@ -148,18 +148,7 @@ class Command(BaseCommand):
         self.stdout.write("\n🔄 Loading asset cache...")
         ingestor.load_asset_cache()
 
-        # Check if database has required constraints
-        if not ingestor._check_unique_constraints():
-            self.stdout.write(
-                self.style.WARNING(
-                    "\n⚠️  Warning: Unique constraints not found in database."
-                    "\n   This will use a slower fallback method."
-                    "\n   For better performance, ensure QuestDB schema is properly created.\n"
-                )
-            )
-
-        # Optimize database for bulk operations
-        self.stdout.write("⚙️  Optimizing database...")
+        self.stdout.write("\n⚙️  Preparing for ingestion...")
         ingestor.optimize_database()
 
         # Process files sequentially

@@ -134,10 +134,9 @@ class KrakenAssetCreator:
         "YFII",
     }
 
-    def __init__(self, database: str = "questdb", default_tier: str = None):
+    def __init__(self, default_tier: str = None):
         self._asset_cache = {}
-        self._database = database
-        self._default_tier = default_tier  # Keep None for auto-detection
+        self._default_tier = default_tier
 
     @classmethod
     def determine_tier(cls, ticker: str) -> str:

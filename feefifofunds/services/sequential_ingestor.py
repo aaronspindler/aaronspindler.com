@@ -22,7 +22,7 @@ from feefifofunds.services.kraken import KrakenAssetCreator, KrakenPairParser
 class SequentialIngestor:
     """
     Optimized sequential ingestor for OHLCVT files.
-    Uses direct PostgreSQL COPY for maximum performance.
+    Uses direct COPY operations for maximum performance with QuestDB.
     """
 
     # Batch size for COPY operations (1M records for optimal performance)
@@ -34,10 +34,9 @@ class SequentialIngestor:
     def __init__(self, database: str = "questdb", data_dir: Optional[str] = None):
         """Initialize the sequential ingestor."""
         self.database = database
-        self.data_dir = data_dir  # For testing with custom data directory
+        self.data_dir = data_dir
         self.asset_cache: Dict[str, Asset] = {}
         self.staging_tables_created = False
-        self.has_unique_constraints = None  # Will be checked on first use
         self.stats = {
             "files_processed": 0,
             "records_inserted": 0,
@@ -183,20 +182,11 @@ class SequentialIngestor:
         self.asset_cache = {asset.ticker: asset for asset in Asset.objects.all()}
 
     def _get_or_create_asset(self, ticker: str, pair_name: str) -> Asset:
-        """Get asset from cache or create if needed."""
+        """Get asset from cache or create if needed. Router handles database selection."""
         if ticker not in self.asset_cache:
-            # Use KrakenAssetCreator to get or create the asset
-            asset_creator = KrakenAssetCreator(database=self.database)
-
-            # First, ensure the asset exists by calling bulk_create_assets
-            # This will create it if it doesn't exist
+            asset_creator = KrakenAssetCreator()
             asset_creator.bulk_create_assets([pair_name])
-
-            # Now get the asset using get_or_create_asset method
-            # which will retrieve it from the database or cache
             asset = asset_creator.get_or_create_asset(ticker)
-
-            # Cache the asset for future use
             self.asset_cache[ticker] = asset
 
         return self.asset_cache[ticker]
@@ -223,67 +213,38 @@ class SequentialIngestor:
         except ValueError:
             return True  # Not a number, likely a header
 
-    def _check_unique_constraints(self):
-        """
-        Check if the required unique constraints exist in the database.
-
-        For QuestDB: Always returns False since QuestDB doesn't support
-        PostgreSQL-style constraints. Uses WHERE NOT EXISTS fallback method.
-        """
-        if self.has_unique_constraints is not None:
-            return self.has_unique_constraints
-
-        try:
-            with connections[self.database].cursor() as cursor:
-                # Check if the unique constraint exists on assetprice table
-                cursor.execute("""
-                    SELECT COUNT(*) FROM pg_constraint
-                    WHERE conrelid = 'feefifofunds_assetprice'::regclass
-                    AND contype = 'u'
-                    AND array_length(conkey, 1) = 5
-                """)
-                result = cursor.fetchone()
-                self.has_unique_constraints = result[0] > 0
-        except Exception:
-            # QuestDB doesn't have pg_constraint or other PostgreSQL system tables
-            # Use WHERE NOT EXISTS fallback method (slower but works)
-            self.has_unique_constraints = False
-
-        return self.has_unique_constraints
-
     def _create_staging_tables(self):
         """Create staging tables once for the entire session."""
         if self.staging_tables_created:
             return
 
         with connections[self.database].cursor() as cursor:
-            # Create persistent temporary tables for the session
             cursor.execute("""
                 CREATE TEMP TABLE IF NOT EXISTS staging_assetprice (
-                    asset_id INTEGER,
-                    time TIMESTAMPTZ,
-                    open NUMERIC(20,8),
-                    high NUMERIC(20,8),
-                    low NUMERIC(20,8),
-                    close NUMERIC(20,8),
-                    volume NUMERIC(20,2),
-                    interval_minutes SMALLINT,
-                    trade_count INTEGER,
-                    quote_currency VARCHAR(10),
-                    source VARCHAR(50),
-                    created_at TIMESTAMPTZ
+                    asset_id INT,
+                    time TIMESTAMP,
+                    open DOUBLE,
+                    high DOUBLE,
+                    low DOUBLE,
+                    close DOUBLE,
+                    volume DOUBLE,
+                    interval_minutes INT,
+                    trade_count INT,
+                    quote_currency SYMBOL,
+                    source SYMBOL,
+                    created_at TIMESTAMP
                 )
             """)
 
             cursor.execute("""
                 CREATE TEMP TABLE IF NOT EXISTS staging_trade (
-                    asset_id INTEGER,
-                    time TIMESTAMPTZ,
-                    price NUMERIC(20,8),
-                    volume NUMERIC(20,8),
-                    quote_currency VARCHAR(10),
-                    source VARCHAR(50),
-                    created_at TIMESTAMPTZ
+                    asset_id INT,
+                    time TIMESTAMP,
+                    price DOUBLE,
+                    volume DOUBLE,
+                    quote_currency SYMBOL,
+                    source SYMBOL,
+                    created_at TIMESTAMP
                 )
             """)
 
@@ -433,14 +394,7 @@ class SequentialIngestor:
 
         with db_conn.cursor() as cursor:
             # Clear staging table first
-            cursor.execute(f"TRUNCATE staging_{table_type}")
-
-            # Set performance options for this transaction
-            cursor.execute("SET LOCAL synchronous_commit = OFF")
-            cursor.execute("SET LOCAL work_mem = '1GB'")
-
-            # Check if unique constraints exist
-            has_constraints = self._check_unique_constraints()
+            cursor.execute(f"TRUNCATE TABLE staging_{table_type}")
 
             # Prepare SQL statements based on table type
             if table_type == "assetprice":
@@ -464,34 +418,22 @@ class SequentialIngestor:
                     FROM STDIN WITH (FORMAT text, NULL '\\N')
                 """
 
-                if has_constraints:
-                    # Use fast ON CONFLICT if constraints exist
-                    insert_sql = """
-                        INSERT INTO feefifofunds_assetprice (
-                            asset_id, time, open, high, low, close, volume,
-                            interval_minutes, trade_count, quote_currency, source, created_at
-                        )
-                        SELECT * FROM staging_assetprice
-                        ON CONFLICT (asset_id, time, source, interval_minutes, quote_currency)
-                        DO NOTHING
-                    """
-                else:
-                    # Use WHERE NOT EXISTS as fallback (slower but works without constraints)
-                    insert_sql = """
-                        INSERT INTO feefifofunds_assetprice (
-                            asset_id, time, open, high, low, close, volume,
-                            interval_minutes, trade_count, quote_currency, source, created_at
-                        )
-                        SELECT s.* FROM staging_assetprice s
-                        WHERE NOT EXISTS (
-                            SELECT 1 FROM feefifofunds_assetprice p
-                            WHERE p.asset_id = s.asset_id
-                            AND p.time = s.time
-                            AND p.source = s.source
-                            AND p.interval_minutes = s.interval_minutes
-                            AND p.quote_currency = s.quote_currency
-                        )
-                    """
+                # QuestDB doesn't support ON CONFLICT, always use WHERE NOT EXISTS
+                insert_sql = """
+                    INSERT INTO assetprice (
+                        asset_id, time, open, high, low, close, volume,
+                        interval_minutes, trade_count, quote_currency, source, created_at
+                    )
+                    SELECT s.* FROM staging_assetprice s
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM assetprice p
+                        WHERE p.asset_id = s.asset_id
+                        AND p.time = s.time
+                        AND p.source = s.source
+                        AND p.interval_minutes = s.interval_minutes
+                        AND p.quote_currency = s.quote_currency
+                    )
+                """
             else:  # trade
                 table_name = "staging_trade"
                 columns = ("asset_id", "time", "price", "volume", "quote_currency", "source", "created_at")
@@ -500,31 +442,20 @@ class SequentialIngestor:
                     FROM STDIN WITH (FORMAT text, NULL '\\N')
                 """
 
-                if has_constraints:
-                    # Use fast ON CONFLICT if constraints exist
-                    insert_sql = """
-                        INSERT INTO feefifofunds_trade (
-                            asset_id, time, price, volume, quote_currency, source, created_at
-                        )
-                        SELECT * FROM staging_trade
-                        ON CONFLICT (asset_id, time, source, quote_currency)
-                        DO NOTHING
-                    """
-                else:
-                    # Use WHERE NOT EXISTS as fallback (slower but works without constraints)
-                    insert_sql = """
-                        INSERT INTO feefifofunds_trade (
-                            asset_id, time, price, volume, quote_currency, source, created_at
-                        )
-                        SELECT s.* FROM staging_trade s
-                        WHERE NOT EXISTS (
-                            SELECT 1 FROM feefifofunds_trade t
-                            WHERE t.asset_id = s.asset_id
-                            AND t.time = s.time
-                            AND t.source = s.source
-                            AND t.quote_currency = s.quote_currency
-                        )
-                    """
+                # QuestDB doesn't support ON CONFLICT, always use WHERE NOT EXISTS
+                insert_sql = """
+                    INSERT INTO trade (
+                        asset_id, time, price, volume, quote_currency, source, created_at
+                    )
+                    SELECT s.* FROM staging_trade s
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM trade t
+                        WHERE t.asset_id = s.asset_id
+                        AND t.time = s.time
+                        AND t.source = s.source
+                        AND t.quote_currency = s.quote_currency
+                    )
+                """
 
             # Execute COPY operation
             # Get the raw database connection to handle COPY
@@ -618,40 +549,19 @@ class SequentialIngestor:
             return False, 0, error_trace
 
     def optimize_database(self):
-        """Run database optimizations before bulk ingestion."""
-        with connections[self.database].cursor() as cursor:
-            # Increase work memory for this session
-            cursor.execute("SET work_mem = '1GB'")
-            cursor.execute("SET maintenance_work_mem = '2GB'")
+        """
+        Run database optimizations before bulk ingestion.
 
-            # Temporarily disable autovacuum (will be re-enabled after)
-            cursor.execute("ALTER TABLE feefifofunds_assetprice SET (autovacuum_enabled = false)")
-            cursor.execute("ALTER TABLE feefifofunds_trade SET (autovacuum_enabled = false)")
+        QuestDB doesn't support PostgreSQL's work_mem or autovacuum settings.
+        QuestDB is optimized for writes by default, so no configuration needed.
+        """
+        pass
 
     def restore_database(self):
-        """Restore database settings after bulk ingestion."""
-        # First, re-enable autovacuum
-        with connections[self.database].cursor() as cursor:
-            cursor.execute("ALTER TABLE feefifofunds_assetprice SET (autovacuum_enabled = true)")
-            cursor.execute("ALTER TABLE feefifofunds_trade SET (autovacuum_enabled = true)")
+        """
+        Restore database settings after bulk ingestion.
 
-            # Run ANALYZE to update statistics
-            cursor.execute("ANALYZE feefifofunds_assetprice")
-            cursor.execute("ANALYZE feefifofunds_trade")
-
-        # VACUUM must be run outside of transaction
-        # Close any existing connections and get a new one with autocommit
-        connection = connections[self.database]
-        connection.ensure_connection()
-
-        # Store the original autocommit setting
-        old_autocommit = connection.autocommit
-        try:
-            # Enable autocommit for VACUUM
-            connection.set_autocommit(True)
-            with connection.cursor() as cursor:
-                cursor.execute("VACUUM ANALYZE feefifofunds_assetprice")
-                cursor.execute("VACUUM ANALYZE feefifofunds_trade")
-        finally:
-            # Restore original autocommit setting
-            connection.set_autocommit(old_autocommit)
+        QuestDB doesn't support VACUUM or ANALYZE commands.
+        QuestDB handles storage optimization automatically.
+        """
+        pass
