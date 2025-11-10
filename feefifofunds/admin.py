@@ -38,7 +38,7 @@ class AssetAdmin(admin.ModelAdmin):
 @admin.register(AssetPrice)
 class AssetPriceAdmin(admin.ModelAdmin):
     list_display = [
-        "asset",
+        "asset_id",
         "time",
         "quote_currency",
         "interval_minutes",
@@ -50,17 +50,16 @@ class AssetPriceAdmin(admin.ModelAdmin):
         "source",
     ]
     list_filter = ["source", "quote_currency", "interval_minutes", "time"]
-    search_fields = ["asset__ticker", "asset__name"]
+    search_fields = ["asset_id"]
     readonly_fields = ["created_at"]
     ordering = ["-time"]
     date_hierarchy = "time"
-    raw_id_fields = ["asset"]
 
     fieldsets = (
         (
             "Asset & Time",
             {
-                "fields": ("asset", "time", "quote_currency", "source", "interval_minutes"),
+                "fields": ("asset_id", "time", "quote_currency", "source", "interval_minutes"),
             },
         ),
         (
@@ -87,19 +86,18 @@ class AssetPriceAdmin(admin.ModelAdmin):
 
 @admin.register(Trade)
 class TradeAdmin(admin.ModelAdmin):
-    list_display = ["asset", "time", "quote_currency", "price", "volume", "source"]
+    list_display = ["asset_id", "time", "quote_currency", "price", "volume", "source"]
     list_filter = ["source", "quote_currency", "time"]
-    search_fields = ["asset__ticker", "asset__name"]
+    search_fields = ["asset_id"]
     readonly_fields = ["created_at"]
     ordering = ["-time"]
     date_hierarchy = "time"
-    raw_id_fields = ["asset"]
 
     fieldsets = (
         (
             "Trade Details",
             {
-                "fields": ("asset", "time", "quote_currency", "price", "volume", "source"),
+                "fields": ("asset_id", "time", "quote_currency", "price", "volume", "source"),
             },
         ),
         (

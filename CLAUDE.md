@@ -331,24 +331,21 @@ python manage.py remove_local_fingerprints --limit 100
 
 #### Database Migration Commands
 ```bash
-# IMPORTANT: FeeFiFoFunds uses TimescaleDB, not the default database
-# The database router will prevent migrations to the wrong database with a clear error
+# IMPORTANT: FeeFiFoFunds uses hybrid database approach
+# - Asset model: PostgreSQL (default database)
+# - AssetPrice and Trade models: QuestDB (questdb database, managed=False)
 
-# Create new migrations for feefifofunds (standard Django command)
+# Create new migrations for feefifofunds (Asset model only)
 python manage.py makemigrations feefifofunds
-python manage.py makemigrations feefifofunds --name add_tier_field
 
-# Apply migrations to TimescaleDB (MUST specify database)
-python manage.py migrate feefifofunds --database=timescaledb
-python manage.py migrate feefifofunds --database=timescaledb --fake  # Mark as applied
-python manage.py migrate feefifofunds 0002 --database=timescaledb    # Specific migration
+# Apply migrations to PostgreSQL (Asset model)
+python manage.py migrate feefifofunds
 
-# Apply all migrations to their correct databases
-python manage.py migrate --database=timescaledb  # For feefifofunds models
-python manage.py migrate                         # For all other models
+# Initialize QuestDB schema (AssetPrice and Trade tables)
+python manage.py setup_questdb_schema
 
-# Note: Running 'python manage.py migrate feefifofunds' without --database flag
-# will raise an error to prevent accidental migrations to the wrong database
+# Note: AssetPrice and Trade use managed=False and are created manually in QuestDB
+# Django migrations do NOT apply to QuestDB tables
 ```
 
 #### Data Management Commands
@@ -359,8 +356,8 @@ python manage.py clear_asset_data --yes             # Skip confirmation (for scr
 python manage.py clear_asset_data --tables prices   # Clear only prices and trades
 python manage.py clear_asset_data --dry-run         # Preview what would be deleted
 
-# Quick reset for testing
-python manage.py clear_asset_data --yes --database timescaledb
+# Quick reset for testing (clears QuestDB data)
+python manage.py clear_asset_data --yes --database questdb
 ```
 
 #### Data Ingestion Commands

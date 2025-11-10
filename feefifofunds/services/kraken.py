@@ -134,7 +134,7 @@ class KrakenAssetCreator:
         "YFII",
     }
 
-    def __init__(self, database: str = "timescaledb", default_tier: str = None):
+    def __init__(self, database: str = "questdb", default_tier: str = None):
         self._asset_cache = {}
         self._database = database
         self._default_tier = default_tier  # Keep None for auto-detection
@@ -273,7 +273,7 @@ def parse_trade_csv(file_path: str) -> Iterator[dict]:
 
 class BulkInsertHelper:
     @staticmethod
-    def bulk_create_prices(prices: list, batch_size: int = 25000, database: str = "timescaledb"):
+    def bulk_create_prices(prices: list, batch_size: int = 25000, database: str = "questdb"):
         from feefifofunds.models import AssetPrice
 
         for i in range(0, len(prices), batch_size):
@@ -281,7 +281,7 @@ class BulkInsertHelper:
             AssetPrice.objects.using(database).bulk_create(batch, ignore_conflicts=True)
 
     @staticmethod
-    def bulk_create_trades(trades: list, batch_size: int = 50000, database: str = "timescaledb"):
+    def bulk_create_trades(trades: list, batch_size: int = 50000, database: str = "questdb"):
         from feefifofunds.models import Trade
 
         for i in range(0, len(trades), batch_size):

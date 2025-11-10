@@ -1,17 +1,13 @@
 from django.db import models
-from timescale.db.models.fields import TimescaleDateTimeField
-from timescale.db.models.models import TimescaleModel
 
 
-class Trade(TimescaleModel):
-    asset = models.ForeignKey(
-        "Asset",
-        on_delete=models.CASCADE,
-        related_name="trades",
-        help_text="Asset this trade belongs to",
+class Trade(models.Model):
+    asset_id = models.IntegerField(
+        db_index=True,
+        help_text="ID of the asset this trade belongs to",
     )
-    time = TimescaleDateTimeField(
-        interval="1 day",
+    time = models.DateTimeField(
+        db_index=True,
         help_text="Exact time of the trade",
     )
     price = models.DecimalField(
@@ -42,18 +38,20 @@ class Trade(TimescaleModel):
     )
 
     class Meta:
+        managed = False
+        db_table = "trade"
         ordering = ["-time"]
         verbose_name = "Trade"
         verbose_name_plural = "Trades"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["asset", "time", "source", "quote_currency"],
-                name="unique_trade_asset_time_source_currency",
-            ),
-        ]
-        indexes = [
-            models.Index(fields=["asset"]),
-        ]
+
+    @property
+    def asset(self):
+        """Lazy load asset from PostgreSQL (default database)."""
+        if not hasattr(self, "_asset"):
+            from .asset import Asset
+
+            self._asset = Asset.objects.get(id=self.asset_id)
+        return self._asset
 
     def __str__(self):
-        return f"{self.asset.ticker} @ {self.time.strftime('%Y-%m-%d %H:%M:%S')}: ${self.price} (Vol: {self.volume})"
+        return f"Asset {self.asset_id} @ {self.time.strftime('%Y-%m-%d %H:%M:%S')}: ${self.price} (Vol: {self.volume})"

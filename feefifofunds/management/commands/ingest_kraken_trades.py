@@ -77,8 +77,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--database",
             type=str,
-            default="timescaledb",
-            help="Database to use (default: timescaledb)",
+            default="questdb",
+            help="Database to use (default: questdb)",
         )
         parser.add_argument(
             "--tier",

@@ -7,7 +7,6 @@ django-celery-beat==2.8.1
 django-environ==0.12.0
 django-redis==6.0.0
 django-storages==1.14.6
-django-timescaledb==0.2.13
 
 # Static File Serving (with Brotli compression)
 whitenoise[brotli]==6.11.0

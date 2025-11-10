@@ -14,7 +14,7 @@ from feefifofunds.models import Asset, AssetPrice, Trade
 
 
 class Command(BaseCommand):
-    help = "Clear all data from Asset, AssetPrice, and Trade tables in TimescaleDB"
+    help = "Clear all data from Asset, AssetPrice, and Trade tables"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -37,8 +37,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--database",
             type=str,
-            default="timescaledb",
-            help="Database to use (default: timescaledb)",
+            default="questdb",
+            help="Database to use (default: questdb for prices/trades, default for assets)",
         )
 
     def handle(self, *args, **options):
@@ -133,13 +133,11 @@ class Command(BaseCommand):
                 )
             )
 
-            # If using TimescaleDB, suggest vacuum
-            if database == "timescaledb" and total_deleted > 100000:
+            # Suggest vacuum for large deletions
+            if database == "questdb" and total_deleted > 100000:
                 self.stdout.write(
                     self.style.WARNING(
-                        "\n💡 Tip: Consider running VACUUM ANALYZE to reclaim disk space:\n"
-                        "   python manage.py dbshell --database=timescaledb\n"
-                        "   VACUUM ANALYZE feefifofunds_assetprice, feefifofunds_trade, feefifofunds_asset;"
+                        "\n💡 Tip: QuestDB automatically manages disk space.\n" "   No manual vacuum required."
                     )
                 )
 

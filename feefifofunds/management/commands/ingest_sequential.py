@@ -59,8 +59,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--database",
             type=str,
-            default="timescaledb",
-            help="Database to use (default: timescaledb)",
+            default="questdb",
+            help="Database to use (default: questdb)",
         )
         parser.add_argument(
             "--data-dir",
@@ -154,7 +154,7 @@ class Command(BaseCommand):
                 self.style.WARNING(
                     "\n⚠️  Warning: Unique constraints not found in database."
                     "\n   This will use a slower fallback method."
-                    "\n   For better performance, run: python manage.py migrate feefifofunds --database=timescaledb\n"
+                    "\n   For better performance, ensure QuestDB schema is properly created.\n"
                 )
             )
 

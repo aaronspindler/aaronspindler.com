@@ -619,9 +619,6 @@ django-storages==1.14.6 \
     --hash=sha256:11b7b6200e1cb5ffcd9962bd3673a39c7d6a6109e8096f0e03d46fab3d3aabd9 \
     --hash=sha256:7a25ce8f4214f69ac9c7ce87e2603887f7ae99326c316bc8d2d75375e09341c9
     # via -r requirements/base.in
-django-timescaledb==0.2.13 \
-    --hash=sha256:3a2dcdf224af318c6c813c7fbf323fa73ae9bd12d33cdf7540e34344ae62f739
-    # via -r requirements/base.in
 django-timezone-field==7.1 \
     --hash=sha256:93914713ed882f5bccda080eda388f7006349f25930b6122e9b07bf8db49c4b4 \
     --hash=sha256:b3ef409d88a2718b566fabe10ea996f2838bc72b22d3a2900c0aa905c761380c

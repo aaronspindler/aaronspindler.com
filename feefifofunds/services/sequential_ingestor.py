@@ -31,7 +31,7 @@ class SequentialIngestor:
     # Minimum file size to process (skip empty/header-only files)
     MIN_FILE_SIZE = 100  # bytes
 
-    def __init__(self, database: str = "timescaledb", data_dir: Optional[str] = None):
+    def __init__(self, database: str = "questdb", data_dir: Optional[str] = None):
         """Initialize the sequential ingestor."""
         self.database = database
         self.data_dir = data_dir  # For testing with custom data directory
