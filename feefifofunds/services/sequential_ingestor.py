@@ -239,7 +239,7 @@ class SequentialIngestor:
         records_inserted = 0
         batch_count = 0
 
-        with Sender(self.ilp_host, self.ilp_port) as sender:
+        with Sender.from_conf(f"tcp::addr={self.ilp_host}:{self.ilp_port};") as sender:
             with open(filepath, "r") as csvfile:
                 first_line = csvfile.readline()
                 if self._is_header_line(first_line):
@@ -302,7 +302,7 @@ class SequentialIngestor:
         records_inserted = 0
         batch_count = 0
 
-        with Sender(self.ilp_host, self.ilp_port) as sender:
+        with Sender.from_conf(f"tcp::addr={self.ilp_host}:{self.ilp_port};") as sender:
             with open(filepath, "r") as csvfile:
                 first_line = csvfile.readline()
                 if self._is_header_line(first_line):
