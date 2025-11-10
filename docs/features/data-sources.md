@@ -33,9 +33,10 @@ See [Massive.com Integration](massive-integration.md) for detailed documentation
 ```
 feefifofunds/services/data_sources/
 ├── __init__.py          # Package exports
-├── base.py              # BaseDataSource abstract class (289 lines)
-├── dto.py               # Data Transfer Objects (178 lines)
-└── implementations/     # Concrete implementations (Yahoo, Alpha Vantage, etc.)
+├── base.py              # BaseDataSource abstract class
+├── dto.py               # Data Transfer Objects
+├── finnhub.py           # Finnhub API integration
+└── massive.py           # Massive.com API integration
 ```
 
 ### Data Flow
@@ -186,7 +187,7 @@ fetched_at: datetime               # Timestamp of fetch
 ### Step 1: Create Implementation Class
 
 ```python
-# feefifofunds/services/data_sources/implementations/yahoo_finance.py
+# feefifofunds/services/data_sources/yahoo_finance.py
 from datetime import date
 from typing import List
 from decimal import Decimal
@@ -262,7 +263,7 @@ class YahooFinanceDataSource(BaseDataSource):
 
 ```python
 # feefifofunds/services/data_sources/__init__.py
-from .implementations.yahoo_finance import YahooFinanceDataSource
+from .yahoo_finance import YahooFinanceDataSource
 
 # Data source registry
 DATA_SOURCES = {

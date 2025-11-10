@@ -42,19 +42,37 @@ aaronspindler.com/
 │   ├── middleware.py   # Request fingerprinting
 │   ├── tasks.py        # Notification tasks
 │   └── management/     # Search index, cache commands
-├── feefifofunds/      # Financial data integration
-│   ├── models.py       # Fund, Performance, Holdings, Metrics, DataSource
+├── feefifofunds/      # Multi-asset tracking system
+│   ├── models/         # Modular model organization
+│   │   ├── asset.py    # Asset model (PostgreSQL)
+│   │   ├── price.py    # AssetPrice model (QuestDB)
+│   │   └── trade.py    # Trade model (QuestDB)
 │   ├── admin.py        # Django admin configuration
 │   ├── services/       # Data source integrations
 │   │   └── data_sources/
 │   │       ├── base.py  # BaseDataSource abstract class
 │   │       ├── dto.py   # Data Transfer Objects
-│   │       └── implementations/  # Concrete data sources
+│   │       ├── finnhub.py  # Finnhub API integration
+│   │       └── massive.py  # Massive.com API integration
 │   └── tests/          # Test suite
+├── projects/          # Third-party projects (not Django apps)
+│   └── ActionsUptime/ # GitHub Actions monitoring service
 ├── templates/         # Project-wide templates
 ├── static/           # Static assets (CSS, JS, images)
 └── tests/            # Test data factories
 ```
+
+### Note on Projects Directory
+
+The `projects/` directory contains third-party projects that are not part of the main Django application:
+
+- **ActionsUptime**: A separate Django project for monitoring GitHub Actions workflows and web endpoints
+  - Not integrated with the main aaronspindler.com codebase
+  - Included for reference or development purposes
+  - Has its own Django settings, apps, and deployment configuration
+  - Should not be imported or referenced by the main application
+
+These projects are independent and should not be confused with Django apps in the main application.
 
 ## Django Apps
 
@@ -262,39 +280,42 @@ aaronspindler.com/
 
 ### feefifofunds/ - Financial Data Integration
 
-**Purpose**: Fund data acquisition, storage, and analysis system for investment fund research.
+**Purpose**: Multi-asset tracking and analysis system using a hybrid database architecture for high-performance time-series data storage.
 
 **Key Components**:
 
-**Models** (`models.py`):
-- **Fund**: Core fund information (ticker, name, type, fees, current price)
-- **FundPerformance**: Historical OHLCV data with multiple intervals
-- **FundHolding**: Portfolio holdings with weights and classifications
-- **FundMetrics**: Calculated performance metrics (Sharpe ratio, alpha, drawdown, etc.)
-- **DataSource**: External API configuration and health monitoring
-- **DataSync**: Audit trail for all data synchronization operations
+**Models** (`models/` subdirectory - modular organization):
+- **Asset** (`asset.py` in PostgreSQL): Universal model for all asset types (stocks, crypto, commodities, currencies)
+  - Ticker, name, category (STOCK/CRYPTO/COMMODITY/CURRENCY)
+  - Tier classification (TIER1-4 based on market cap/importance)
+  - Active tracking status
+- **AssetPrice** (`price.py` in QuestDB): OHLCV price records with multi-interval support
+  - Open, high, low, close, volume data
+  - Multiple timeframes (1m, 5m, 15m, 60m, 1440m/daily, etc.)
+  - Quote currency and data source tracking
+  - Partitioned by day for optimal query performance
+- **Trade** (`trade.py` in QuestDB): Individual trade records with microsecond precision
+  - Tick-level price and volume data
+  - Quote currency and source tracking
+  - Partitioned by day for efficient queries
 
 **Data Sources** (`services/data_sources/`):
-- **BaseDataSource**: Abstract base class for all data source integrations
-- **DTOs**: Standardized data transfer objects (FundDataDTO, PerformanceDataDTO, HoldingDataDTO)
-- **Rate Limiting**: Automatic rate limit enforcement per data source
-- **Error Handling**: Comprehensive exception hierarchy (DataSourceError, RateLimitError, DataNotFoundError)
-- **Caching**: Redis-backed caching to reduce API calls
-- **Monitoring**: Request tracking, reliability scores, auto-disable on failures
+- **BaseDataSource** (`base.py`): Abstract base class for all data source integrations
+- **DTOs** (`dto.py`): Data Transfer Objects for standardized data handling
+- **Finnhub** (`finnhub.py`): Real-time and historical data for stocks, crypto, forex
+- **Massive** (`massive.py`): Historical stock/ETF data with 2-year free tier
 
-**Implementations** (`services/data_sources/implementations/`):
-- Yahoo Finance integration
-- Alpha Vantage integration (planned)
-- Finnhub integration (planned)
-- massive.com integration (planned)
+**Ingestion System**:
+- **QuestDB ILP**: High-speed ingestion via Influx Line Protocol (50K-100K records/sec)
+- **Tier-based filtering**: Process data by asset importance (TIER1-4)
+- **File type filtering**: OHLCV candles, trade ticks, or both
+- **Auto-asset creation**: Automatically creates Asset records during ingestion
+- **Idempotent operations**: Safe to re-run with ON CONFLICT DO NOTHING
 
-**Features**:
-- Standardized data acquisition from multiple sources
-- Automatic rate limiting and cost control
-- Data validation and type conversion (Decimal for financial precision)
-- Comprehensive audit trail (DataSync records)
-- Health monitoring and auto-recovery
-- Reliability scoring for source selection
+**Hybrid Database Architecture**:
+- **PostgreSQL**: Asset metadata, Django ORM support, relational queries
+- **QuestDB**: Time-series data, optimized for high-throughput ingestion and fast aggregations
+- **Benefits**: Combines Django's ORM convenience with QuestDB's time-series performance
 
 ## Design Patterns
 
@@ -348,6 +369,45 @@ Photos automatically generate 5 optimized versions:
 - Automatic WebP conversion
 - S3 storage integration
 - CDN-friendly structure
+
+### Model Organization Patterns
+
+This project uses two approaches for organizing Django models:
+
+**Single File Pattern** (`models.py`):
+- Used in: `accounts`, `blog`, `photos` apps
+- Best for: Apps with few models (1-5) that are closely related
+- Benefits: Simple, easy to navigate, Django default pattern
+- Example: `blog/models.py` contains BlogComment, CommentVote, KnowledgeGraphScreenshot
+
+**Modular Pattern** (`models/` directory):
+- Used in: `feefifofunds`, `utils` apps
+- Best for: Apps with many models or clear domain boundaries
+- Benefits: Better organization, easier to maintain, reduces merge conflicts
+- Structure:
+  ```
+  models/
+  ├── __init__.py     # Import all models for Django discovery
+  ├── asset.py        # Asset model
+  ├── price.py        # AssetPrice model
+  └── trade.py        # Trade model
+  ```
+- Important: `__init__.py` must import all models for Django to discover them
+
+**When to Use Which Pattern**:
+- Start with single file for simplicity
+- Migrate to modular when:
+  - Models exceed 500-1000 lines
+  - Clear domain boundaries emerge
+  - Multiple developers work on models
+  - Models have distinct responsibilities
+
+**Migration Process**:
+1. Create `models/` directory
+2. Move models to separate files by domain
+3. Import all models in `__init__.py`
+4. Update any direct imports in other files
+5. Run tests to ensure models are discovered
 
 ## Technology Stack
 

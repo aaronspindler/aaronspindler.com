@@ -11,8 +11,9 @@
 | Full-Text Search | PostgreSQL FTS with trigram similarity, sub-100ms autocomplete | [Search](docs/features/search.md) |
 | Performance Monitoring | Automated Lighthouse audits with historical trends | [Performance Monitoring](docs/features/performance-monitoring.md) |
 | Request Tracking | Privacy-focused analytics with IP geolocation | [Request Tracking](docs/features/request-tracking.md) |
-| Financial Data Integration | Standardized framework for fund data from external APIs with rate limiting, caching, and monitoring | [Data Sources](docs/features/data-sources.md) |
-| Kraken Data Ingestion | Historical OHLCV and trade data import system | [Kraken Ingestion](docs/features/kraken-ingestion.md) |
+| FeeFiFoFunds | Multi-asset tracking with PostgreSQL + QuestDB hybrid architecture | [FeeFiFoFunds](docs/features/feefifofunds.md) |
+| Financial Data Integration | Standardized framework for asset price data from external APIs | [Data Sources](docs/features/data-sources.md) |
+| Kraken Data Ingestion | High-speed OHLCV and trade data import (50K-100K records/sec) | [Kraken Ingestion](docs/features/kraken-ingestion.md) |
 | Massive.com Integration | Historical stock/ETF data fetching (2 years free) | [Massive Integration](docs/features/massive-integration.md) |
 | Omas Coffee Website | Multi-domain website serving omas.coffee | [Omas Coffee](docs/features/omas-coffee.md) |
 | Optimized Assets | Static file compression, multi-stage Docker builds, intelligent caching | [Architecture](docs/architecture.md) |
@@ -131,13 +132,13 @@ python manage.py run_lighthouse_audit
 python manage.py geolocate_fingerprints
 
 # Financial data
-# See Kraken Ingestion documentation: docs/features/kraken-ingestion.md
+# See FeeFiFoFunds documentation: docs/features/feefifofunds.md
 # See Data Sources documentation: docs/features/data-sources.md
 # See Massive Integration documentation: docs/features/massive-integration.md
-python manage.py ingest_sequential --tier TIER1  # NEW: Fast ingestion (~15 seconds for TIER1)
+python manage.py ingest_sequential --tier TIER1  # Fast ingestion (~15 seconds for TIER1)
 python manage.py ingest_sequential               # Ingest all data (~2 hours)
-python manage.py backload_massive SPY --create-fund --days 730
-python manage.py update_massive_daily
+python manage.py backfill_prices --ticker AAPL --source massive --days 730
+python manage.py load_prices --ticker BTC --source finnhub --days 30
 ```
 
 See [Management Commands](docs/commands.md) for complete reference.
@@ -151,7 +152,8 @@ aaronspindler.com/
 ├── pages/             # Core website pages
 ├── photos/            # Photo management
 ├── utils/             # Search, notifications, monitoring
-├── feefifofunds/      # Financial data integration
+├── feefifofunds/      # Multi-asset tracking (PostgreSQL + QuestDB)
+├── omas/              # Omas Coffee website (omas.coffee)
 ├── config/            # Django configuration
 ├── deployment/        # Docker and deployment files
 │   ├── Dockerfile
