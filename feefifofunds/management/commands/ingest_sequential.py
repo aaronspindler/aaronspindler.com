@@ -184,6 +184,7 @@ class Command(BaseCommand):
 
                     if success:
                         total_records += records
+                        reporter.update_records(records)
                         reporter.complete_file(success=True)
                     else:
                         raise Exception(error_msg)
