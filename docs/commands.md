@@ -577,6 +577,80 @@ python manage.py remove_local_fingerprints --limit 100
 
 ## FeeFiFoFunds Data Management
 
+### ingest_sequential
+
+**Fast sequential ingestion of Kraken OHLCVT files (both OHLCV and trade data).**
+
+**Usage**:
+```bash
+python manage.py ingest_sequential [--tier TIER] [--file-type TYPE]
+```
+
+**Options**:
+- `--tier`: Asset tier to ingest (TIER1/TIER2/TIER3/TIER4/ALL). Default: ALL
+- `--file-type`: Type of files to ingest (ohlcv/trade/both). Default: both
+- `--yes`, `-y`: Skip confirmation prompts
+- `--database`: Database to use (default: timescaledb)
+- `--data-dir`: Custom data directory (for testing)
+- `--stop-on-error`: Stop processing on first error (default: continue)
+
+**Examples**:
+```bash
+# Ingest only TIER1 assets (BTC, ETH, etc. - fastest)
+python manage.py ingest_sequential --tier TIER1
+
+# Ingest only OHLCV (candle) data
+python manage.py ingest_sequential --file-type ohlcv
+
+# Ingest only trade (tick) data
+python manage.py ingest_sequential --file-type trade
+
+# Ingest TIER1 OHLCV data only
+python manage.py ingest_sequential --tier TIER1 --file-type ohlcv
+
+# Ingest all assets and all file types (default)
+python manage.py ingest_sequential
+
+# Automated run (skip prompts)
+python manage.py ingest_sequential --tier TIER1 --yes
+
+# Stop on first error
+python manage.py ingest_sequential --stop-on-error
+```
+
+**Key Features**:
+- **PostgreSQL COPY operations**: Direct database bulk loading for maximum speed
+- **Flexible filtering**: Filter by asset tier (TIER1-4) and/or file type (ohlcv/trade)
+- **Idempotent**: Uses ON CONFLICT DO NOTHING, safe to re-run
+- **Auto file management**: Moves completed files to `ingested/` directory
+- **Empty file cleanup**: Deletes invalid/empty files automatically
+- **Rich progress display**: Real-time stats with progress tracking
+- **Handles both OHLCV and trade files**: Automatically detects file type
+- **Smart header detection**: Handles files with or without headers
+- **Float timestamp support**: Handles microsecond precision timestamps
+
+**Performance**:
+- TIER1 assets: ~10-15 seconds
+- TIER2 assets: ~30-60 seconds
+- Full dataset: ~1.5-2 hours
+- Speed: ~50K-100K records/second per file
+
+**Error Handling**:
+```bash
+# By default, continues processing on errors
+python manage.py ingest_sequential
+
+# To stop on first error
+python manage.py ingest_sequential --stop-on-error
+```
+
+**When to Use**:
+- **Preferred method** for all Kraken data ingestion
+- Handles both OHLCV candle data and individual trade data
+- Simple, reliable sequential processing
+
+---
+
 ### backload_massive
 
 Backload historical price data from Massive.com (formerly Polygon.io) for stocks and ETFs. Free tier provides 2 years (730 days) of historical data.

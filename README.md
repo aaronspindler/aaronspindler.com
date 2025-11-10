@@ -134,8 +134,8 @@ python manage.py geolocate_fingerprints
 # See Kraken Ingestion documentation: docs/features/kraken-ingestion.md
 # See Data Sources documentation: docs/features/data-sources.md
 # See Massive Integration documentation: docs/features/massive-integration.md
-python manage.py ingest_kraken_ohlcv --intervals 1440
-python manage.py ingest_kraken_trades
+python manage.py ingest_sequential --tier TIER1  # NEW: Fast ingestion (~15 seconds for TIER1)
+python manage.py ingest_sequential               # Ingest all data (~2 hours)
 python manage.py backload_massive SPY --create-fund --days 730
 python manage.py update_massive_daily
 ```
