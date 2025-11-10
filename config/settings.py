@@ -91,7 +91,7 @@ DATABASES = {
 
 if env("QUESTDB_URL", default=None):
     DATABASES["questdb"] = env.db(var="QUESTDB_URL")
-    DATABASES["questdb"]["ENGINE"] = "django.db.backends.postgresql"
+    DATABASES["questdb"]["ENGINE"] = "config.db_backends.questdb"  # Custom backend that skips version check
     DATABASES["questdb"]["CONN_MAX_AGE"] = 600  # Keep connections alive for 10 minutes
     DATABASES["questdb"]["CONN_HEALTH_CHECKS"] = True  # Check connection health
     DATABASES["questdb"]["OPTIONS"] = {
