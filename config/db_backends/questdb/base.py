@@ -1,7 +1,7 @@
 """
 Custom Django database backend for QuestDB.
 
-QuestDB uses the PostgreSQL wire protocol but reports version 11.3 for
+QuestDB uses the PostgreSQL wire protocol but reports version 12.3 for
 compatibility. Django 5.x requires PostgreSQL 14+, so we skip the version
 check for QuestDB connections.
 """
@@ -18,7 +18,7 @@ class DatabaseWrapper(base.DatabaseWrapper):
         """
         Skip PostgreSQL version check for QuestDB.
 
-        QuestDB reports PostgreSQL 11.3 for wire protocol compatibility,
+        QuestDB reports PostgreSQL 12.3 for wire protocol compatibility,
         but Django 5.x requires PostgreSQL 14+. Since QuestDB supports
         the features we need, we skip this check.
         """
