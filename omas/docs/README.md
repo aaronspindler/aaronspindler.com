@@ -1,128 +1,83 @@
-# Omas Coffee Website
+# Omas Coffee Documentation
 
-This Django app serves the Omas Coffee website at `omas.coffee` domain.
+> **German coffee cart website** - Separate domain served via Django multi-domain routing.
 
-## Overview
+## 📚 Documentation Has Moved
 
-The Omas Coffee website is a separate website served from the same Django project as aaronspindler.com. It uses domain-based routing middleware to serve different content based on the request hostname.
+All Omas Coffee documentation has been consolidated to the main project `docs/` directory for better organization and easier maintenance.
 
-## Features
+### 🚀 Quick Links
 
-- **Dedicated Homepage**: Coffee-themed homepage with feature showcase
-- **Independent URL Routing**: Separate URL configuration (`omas.urls`)
-- **Custom Templates**: Coffee-themed design and branding
-- **Domain Routing**: Automatically serves when accessing omas.coffee
+**Technical Documentation:**
+- **[Omas Coffee Feature Guide](../../docs/features/omas-coffee.md)** - Domain routing, German translations, local setup, deployment
 
-## Architecture
+**Brand & Design Documentation:**
+- **[Brand Foundation](../../docs/apps/omas/brand-foundation.md)** - Mission, values, brand personality
+- **[Brand Standards](../../docs/apps/omas/brand-standards.md)** - Logo, colors, typography guidelines
+- **[Design Guidelines](../../docs/apps/omas/design-guidelines.md)** - Design principles
+- **[Digital Design](../../docs/apps/omas/digital-design.md)** - Website/digital presence guidelines
+- **[Physical Design](../../docs/apps/omas/physical-design.md)** - Coffee cart physical design
+- **[Design Brief](../../docs/apps/omas/DESIGN_BRIEF.md)** - Complete design specification
 
-### Domain Routing
+**Core Documentation:**
+- **[Architecture Overview](../../docs/architecture.md)** - Multi-domain support explanation
+- **[Documentation Index](../../docs/README.md)** - Complete documentation map
 
-The app uses `config.domain_routing.DomainRoutingMiddleware` to route requests:
-- Requests to `omas.coffee` or `www.omas.coffee` → `omas.urls`
-- All other domains → `config.urls` (main site)
+## 🏃 Quick Start
 
-### URL Configuration
-
-```python
-# omas/urls.py
-urlpatterns = [
-    path("", views.home, name="home"),
-]
-```
-
-### Views
-
-- `home`: Displays the Omas Coffee homepage with welcome message and features
-
-### Templates
-
-- `omas/base.html`: Base template with coffee-themed styling
-- `omas/home.html`: Homepage content extending base template
-
-## Local Development
-
-### Setup
-
-1. Add domain to `/etc/hosts`:
-   ```bash
-   sudo nano /etc/hosts
-   # Add: 127.0.0.1 omas.coffee
-   ```
-
-2. Run development server:
-   ```bash
-   python manage.py runserver
-   ```
-
-3. Access in browser:
-   - Main site: `http://localhost:8000`
-   - Omas Coffee: `http://omas.coffee:8000`
-
-### Testing
-
-Run tests for the omas app:
 ```bash
-python manage.py test omas
+# Add domain to /etc/hosts for local development
+sudo nano /etc/hosts
+# Add: 127.0.0.1 omas.coffee
+
+# Run development server
+python manage.py runserver
+
+# Access sites
+# Main site: http://localhost:8000
+# Omas Coffee: http://omas.coffee:8000
 ```
 
-## Production Deployment
+See the [Omas Coffee Feature Guide](../../docs/features/omas-coffee.md) for complete setup and deployment instructions.
+
+## 📊 Overview
+
+The Omas Coffee website is served from the same Django project as aaronspindler.com using domain-based routing:
+- **Dedicated Homepage**: Coffee-themed design with feature showcase
+- **Independent URL Routing**: Separate URL configuration (`omas.urls`)
+- **Domain Routing**: `DomainRoutingMiddleware` routes `omas.coffee` requests
+- **German Theme**: Traditional German coffee cart branding
+
+## 🎨 Design
+
+### Color Scheme
+- Primary: Brown coffee tones (`#6B4423`, `#3E2723`)
+- Background: Gradient from light to dark brown
+- Accents: Coffee brown for interactive elements
+
+### Features
+1. **Premium Beans** 🌱
+2. **Traditional Methods** 👵
+3. **Expert Craft** ☕
+4. **Cozy Atmosphere** 🏡
+
+See [Brand Standards](../../docs/apps/omas/brand-standards.md) for complete brand guidelines.
+
+## 🚀 Deployment
 
 ### DNS Configuration
-
-Point the domain to your server:
 ```
 omas.coffee        A     <server-ip>
 www.omas.coffee    CNAME omas.coffee
 ```
 
 ### Django Settings
-
-Already configured in `config/settings.py`:
+Already configured:
 - `ALLOWED_HOSTS` includes `omas.coffee` and `www.omas.coffee`
 - `CSRF_TRUSTED_ORIGINS` includes `https://omas.coffee` and `https://www.omas.coffee`
 
-### Web Server (nginx example)
+See [Omas Coffee Feature Guide](../../docs/features/omas-coffee.md#production-deployment) for complete deployment instructions.
 
-```nginx
-server {
-    server_name omas.coffee www.omas.coffee;
+---
 
-    location / {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    # SSL configuration
-    listen 443 ssl;
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-}
-```
-
-## Design
-
-### Color Scheme
-
-- Primary: Brown coffee tones (`#6B4423`, `#3E2723`)
-- Background: Gradient from light to dark brown
-- Text: Dark gray (`#333`) on white background
-- Accents: Coffee brown (`#6B4423`)
-
-### Features Section
-
-The homepage showcases four key features:
-1. **Premium Beans** 🌱
-2. **Traditional Methods** 👵
-3. **Expert Craft** ☕
-4. **Cozy Atmosphere** 🏡
-
-## Future Enhancements
-
-Potential additions:
-- Menu/Products page
-- Location/Contact information
-- Blog/News section
-- Online ordering integration
-- Gallery of coffee products
-- About/Story page
+**Note**: This directory previously contained brand documentation files (brand-foundation.md, brand-standards.md, etc.) which have been moved to `docs/apps/omas/` for centralized access and maintenance.

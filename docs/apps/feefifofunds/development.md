@@ -26,27 +26,30 @@ FeeFiFoFunds is a Django-based multi-asset price tracking platform. The project 
 ### Completed Components (MVP Phase 1)
 
 #### 🗄️ Database Models (100%)
-- **Asset** - Universal model for all asset types (4 categories)
-- **AssetPrice** - OHLCV price data with multi-source support
+- **Asset** - Universal model for all asset types (4 categories) stored in PostgreSQL
+- **AssetPrice** - OHLCV price data stored in QuestDB for time-series performance
+- **Trade** - Individual trade records stored in QuestDB
 - Uses TimestampedModel mixin from `utils/models/mixins.py`
 
 #### 🔌 Data Sources (100%)
+- **Kraken CSV Ingestion** - Fast QuestDB ILP ingestion (50K-100K records/sec)
 - **FinnhubDataSource** - Stocks and crypto (~1 year historical on free tier)
 - **MassiveDataSource** - Stocks via Polygon.io (2 years historical on free tier)
 - Standardized data transformation pipeline
 - Error handling (DataSourceError, DataNotFoundError)
 
 #### 🛠️ Management Commands (100%)
+- **setup_questdb_schema** - Initialize QuestDB tables
 - **create_asset** - Create assets manually
-- **load_prices** - Load recent price data
+- **ingest_sequential** - Fast QuestDB ILP ingestion from Kraken CSV
+- **load_prices** - Load recent price data from APIs
 - **backfill_prices** - Backfill historical prices (single or all assets)
-- **populate_popular_assets** - Seed popular assets
 - Dry-run mode support
 - Free tier warnings
 
 #### 🎨 Admin Interface (100%)
-- Asset admin with filters and search
-- AssetPrice admin with list display
+- Asset admin with filters and search (PostgreSQL)
+- AssetPrice and Trade data managed via raw SQL (QuestDB)
 - Proper field organization and help text
 
 ### In Progress
@@ -68,6 +71,7 @@ FeeFiFoFunds is a Django-based multi-asset price tracking platform. The project 
 
 - Python 3.13+
 - PostgreSQL 16+
+- QuestDB 8.2.0+
 - Redis 7+ (optional, for future caching)
 - uv (for fast dependency management)
 
@@ -112,6 +116,9 @@ DATABASE_URL=postgresql://user:password@localhost:5432/aaronspindler
 DEBUG=True
 SECRET_KEY=your-secret-key-here
 
+# QuestDB
+QUESTDB_URL=postgresql://admin:quest@localhost:8812/qdb
+
 # Data Source API Keys
 FINNHUB_API_KEY=your-finnhub-key
 MASSIVE_API_KEY=your-polygon-key
@@ -125,11 +132,14 @@ USE_DEV_CACHE_PREFIX=True
 - Finnhub: https://finnhub.io/register (free tier: 60 calls/min)
 - Massive.com/Polygon.io: https://polygon.io/dashboard/signup (free tier: 2 years historical)
 
-6. **Set up database**
+6. **Set up databases**
 
 ```bash
-# Run migrations
+# Run PostgreSQL migrations
 python manage.py migrate
+
+# Initialize QuestDB schema
+python manage.py setup_questdb_schema
 
 # Create superuser for admin access
 python manage.py createsuperuser
@@ -138,10 +148,10 @@ python manage.py createsuperuser
 7. **Seed data (optional)**
 
 ```bash
-# Populate popular assets
-python manage.py populate_popular_assets
+# Ingest Kraken data (TIER1 only for quick testing)
+python manage.py ingest_sequential --tier TIER1 --yes
 
-# Load price data for specific assets
+# Or load price data from external APIs
 python manage.py backfill_prices --ticker AAPL --source massive --days 365
 python manage.py backfill_prices --ticker BTC --source finnhub --days 365
 ```
@@ -162,8 +172,9 @@ feefifofunds/
 ├── apps.py
 ├── models/               # Database models
 │   ├── __init__.py
-│   ├── asset.py          # Universal Asset model
-│   └── price.py          # AssetPrice model
+│   ├── asset.py          # Universal Asset model (PostgreSQL)
+│   ├── price.py          # AssetPrice model (QuestDB)
+│   └── trade.py          # Trade model (QuestDB)
 │
 ├── services/             # Business logic
 │   ├── __init__.py
@@ -177,17 +188,13 @@ feefifofunds/
 │
 ├── management/commands/  # Django management commands
 │   ├── __init__.py
+│   ├── setup_questdb_schema.py
 │   ├── create_asset.py
+│   ├── ingest_sequential.py
 │   ├── load_prices.py
-│   ├── backfill_prices.py
-│   └── populate_popular_assets.py
+│   └── backfill_prices.py
 │
-├── migrations/           # Database migrations
-├── docs/                 # Documentation
-│   ├── README.md
-│   ├── ARCHITECTURE.md
-│   └── DEVELOPMENT.md
-│
+├── migrations/           # Database migrations (PostgreSQL only)
 ├── admin.py              # Django admin configuration
 ├── urls.py               # URL routing (minimal, admin only)
 └── tests/                # Test suite (to be added)
@@ -202,19 +209,21 @@ feefifofunds/
 python manage.py create_asset --ticker BTC --name Bitcoin --category CRYPTO
 
 # Create a stock
-python manage.py create_asset --ticker AAPL --name "Apple Inc" --category STOCK
+python manage.py create_asset --ticker AAPL --name "Apple Inc." --category STOCK
 
 # Create a commodity
-python manage.py create_asset --ticker GLD --name "Gold ETF" --category COMMODITY --quote-currency USD
-
-# Populate popular assets (stocks, crypto, commodities, currencies)
-python manage.py populate_popular_assets
+python manage.py create_asset --ticker GLD --name "Gold ETF" --category COMMODITY
 ```
+
+**Note**: Most assets are auto-created during Kraken ingestion with automatic tier classification.
 
 ### Price Data Loading
 
 ```bash
-# Load recent prices (default: 7 days)
+# Ingest Kraken CSV data (recommended - fastest)
+python manage.py ingest_sequential --tier TIER1 --yes
+
+# Load recent prices from APIs
 python manage.py load_prices --ticker AAPL --source massive --days 7
 
 # Load 30 days of data
@@ -223,21 +232,21 @@ python manage.py load_prices --ticker BTC --source finnhub --days 30
 # Backfill historical data
 python manage.py backfill_prices --ticker AAPL --source massive --days 365
 
-# Backfill all active assets
-python manage.py backfill_prices --source massive --days 730 --all
+# Backfill all active assets using grouped endpoint (MUCH faster!)
+python manage.py backfill_prices --source massive --days 730 --all --grouped
 
 # Dry-run mode (preview without saving)
 python manage.py load_prices --ticker AAPL --source massive --days 7 --dry-run
 ```
 
 **Data Source Considerations**:
-- Finnhub free tier: ~1 year historical, 60 calls/minute, supports stocks + crypto
-- Massive.com free tier: 2 years historical, ~100 requests/second, stocks only
-- Commands warn when exceeding free tier limits
+- **Kraken**: Best for crypto, 50K-100K records/sec ingestion via QuestDB ILP
+- **Finnhub**: ~1 year historical, 60 calls/minute, supports stocks + crypto
+- **Massive.com**: 2 years historical, ~100 requests/second, stocks only
 
 ### Database Migrations
 
-When modifying models:
+When modifying Asset model (PostgreSQL):
 
 ```bash
 # Create migration for feefifofunds app
@@ -253,7 +262,10 @@ python manage.py migrate feefifofunds
 python manage.py showmigrations feefifofunds
 ```
 
-**Important**: Never manually edit or drop migrations after they're committed. Use new migrations for all model changes.
+**Important**:
+- Django migrations only apply to PostgreSQL models (Asset)
+- QuestDB models (AssetPrice, Trade) use `managed=False` and are created via `setup_questdb_schema`
+- Never manually edit or drop migrations after they're committed
 
 ### Django Admin
 
@@ -265,8 +277,8 @@ python manage.py createsuperuser
 open http://localhost:8000/admin/
 
 # Available admin interfaces:
-# - Assets: Browse, filter, search, create assets
-# - Asset Prices: View price history with filters
+# - Assets: Browse, filter, search, create assets (PostgreSQL)
+# - AssetPrice/Trade: Query via Django shell or QuestDB console (managed=False)
 ```
 
 ### Django Shell
@@ -276,18 +288,24 @@ open http://localhost:8000/admin/
 python manage.py shell
 
 # Example queries:
->>> from feefifofunds.models import Asset, AssetPrice
+>>> from feefifofunds.models import Asset
+>>> from django.db import connections
 >>>
 >>> # Get all crypto assets
 >>> Asset.objects.filter(category='CRYPTO')
 >>>
->>> # Get price history for BTC
+>>> # Query QuestDB for price history
 >>> btc = Asset.objects.get(ticker='BTC')
->>> btc.prices.order_by('-timestamp')[:10]
->>>
->>> # Compare sources
->>> AssetPrice.objects.filter(asset=btc, source='finnhub')
->>> AssetPrice.objects.filter(asset=btc, source='massive')
+>>> with connections['questdb'].cursor() as cursor:
+...     cursor.execute("""
+...         SELECT time, close, volume
+...         FROM assetprice
+...         WHERE asset_id = %s
+...         AND interval_minutes = 1440
+...         ORDER BY time DESC
+...         LIMIT 10
+...     """, [btc.id])
+...     rows = cursor.fetchall()
 ```
 
 ## 🧪 Testing
@@ -325,7 +343,7 @@ make test-shell
 **Test Structure** (to be implemented):
 ```python
 from django.test import TestCase
-from feefifofunds.models import Asset, AssetPrice
+from feefifofunds.models import Asset
 
 class AssetModelTest(TestCase):
     def test_asset_creation(self):
@@ -334,8 +352,12 @@ class AssetModelTest(TestCase):
             name='Test Asset',
             category='STOCK'
         )
-        self.assertEqual(asset.ticker, 'TEST')
-        self.assertTrue(asset.active)
+        actual_ticker = asset.ticker
+        expected_ticker = 'TEST'
+        message = f"Expected ticker {expected_ticker}, got {actual_ticker}"
+        self.assertEqual(actual_ticker, expected_ticker, message)
+
+        self.assertTrue(asset.active, "Asset should be active by default")
 ```
 
 ## 🐛 Debugging
@@ -395,6 +417,19 @@ python manage.py shell
 >>> from django.conf import settings
 >>> settings.FINNHUB_API_KEY
 >>> settings.MASSIVE_API_KEY
+```
+
+### QuestDB Debugging
+
+```bash
+# Test QuestDB connection
+psql -h localhost -p 8812 -U admin -d qdb -c "SELECT 1"
+
+# Check table exists
+psql -h localhost -p 8812 -U admin -d qdb -c "SELECT COUNT(*) FROM assetprice"
+
+# Verify data ingestion
+psql -h localhost -p 8812 -U admin -d qdb -c "SELECT COUNT(*) FROM assetprice WHERE asset_id = 1"
 ```
 
 ## 🤝 Contribution Guidelines
@@ -461,17 +496,23 @@ refactor: Simplify price data transformation
 
 - [Django Documentation](https://docs.djangoproject.com/)
 - [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [QuestDB Documentation](https://questdb.io/docs/)
 - [Finnhub API Documentation](https://finnhub.io/docs/api)
 - [Polygon.io API Documentation](https://polygon.io/docs)
 
 ### Project Documentation
 
-- [README.md](README.md) - Project overview and quick start
-- [ARCHITECTURE.md](ARCHITECTURE.md) - Technical architecture details
+- [Feature Overview](overview.md) - Complete feature documentation
+- [Kraken Ingestion Guide](kraken-ingestion.md) - CSV data ingestion details
+- [Massive.com Integration](massive-integration.md) - API integration guide
+- [QuestDB Setup Guide](questdb-setup.md) - Database setup and optimization
+- [Data Sources Framework](data-sources.md) - External API integration patterns
+- [Commands Reference](../../commands.md#feefifofunds-data-management) - All management commands
+- [Architecture Overview](../../architecture.md) - System design
 
 ## 🆘 Getting Help
 
-- Check existing documentation
+- Check [centralized documentation](../../) for comprehensive guides
 - Search GitHub issues
 - Review error messages and stack traces
 - Use Django shell for debugging queries
@@ -479,7 +520,7 @@ refactor: Simplify price data transformation
   - Clear description of problem
   - Steps to reproduce
   - Error messages and stack traces
-  - Environment details (Python version, OS, etc.)
+  - Environment details (Python version, OS, databases, etc.)
 
 ## 📝 Development Notes
 
@@ -509,11 +550,16 @@ Always use `.env` file and django-environ.
 
 ### Database Best Practices
 
+**PostgreSQL (Asset model)**:
 - Always use migrations for schema changes
 - Never manually edit the database
-- Use `update_or_create` for upserts
-- Wrap bulk operations in `@transaction.atomic`
 - Index fields used in filters and joins
+
+**QuestDB (AssetPrice, Trade models)**:
+- Use raw SQL for queries (`connections['questdb'].cursor()`)
+- Leverage PARTITION BY DAY for time-range queries
+- Use SYMBOL types for repeated strings
+- Batch inserts with ILP for maximum performance
 
 ### Data Quality
 
@@ -544,5 +590,6 @@ When loading price data:
 ## 🔗 Related Resources
 
 - **Parent Project**: [aaronspindler.com](https://aaronspindler.com)
-- **Main CLAUDE.md**: Development guidelines and commands
+- **Main Documentation**: [docs/](../../) - Comprehensive project documentation
+- **Main CLAUDE.md**: [../../CLAUDE.md](../../CLAUDE.md) - AI context and quick reference
 - **Utils Models**: Shared model mixins in `utils/models/mixins.py`

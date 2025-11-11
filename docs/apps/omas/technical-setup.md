@@ -264,6 +264,35 @@ Potential improvements for the German translation system:
    - Confirm domain is in ALLOWED_HOSTS
    - Check DomainRoutingMiddleware is first in middleware
    - Verify domain mapping in domain_routing.py
+   - Test: `curl -H "Host: omas.coffee" http://localhost:8000`
+
+4. **/etc/hosts not working** (local development):
+   - Verify `/etc/hosts` entry: `127.0.0.1 omas.coffee`
+   - Clear browser DNS cache: Chrome → chrome://net-internals/#dns → Clear
+   - Use direct IP: `http://127.0.0.1:8000` with Host header
+   - Restart browser after editing /etc/hosts
+
+5. **CSRF errors on omas.coffee**:
+   - Check `CSRF_TRUSTED_ORIGINS` includes `https://omas.coffee`
+   - Verify both `omas.coffee` and `www.omas.coffee` are listed
+   - Check for proper HTTPS scheme in production
+
+6. **DNS not resolving in production**:
+   - Verify DNS A record points to server IP: `dig omas.coffee`
+   - Check CNAME for www: `dig www.omas.coffee`
+   - Wait for DNS propagation (can take 24-48 hours)
+   - Test from different locations/networks
+
+7. **SSL certificate issues**:
+   - Ensure SSL cert covers both `omas.coffee` and `www.omas.coffee`
+   - Use wildcard cert: `*.omas.coffee` OR list both in SAN
+   - Check cert expiration: `openssl s_client -connect omas.coffee:443`
+
+8. **Wrong site loads for omas.coffee**:
+   - Check middleware order: DomainRoutingMiddleware must be FIRST
+   - Verify domain_mapping dictionary in `config/domain_routing.py`
+   - Test hostname detection: Add logging to middleware
+   - Check for nginx/reverse proxy hostname forwarding
 
 ## Related Documentation
 

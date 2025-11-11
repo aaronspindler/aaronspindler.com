@@ -410,7 +410,19 @@ node.on('contextmenu', (event, d) => {
 
 ## Related Documentation
 
-- [Blog System](blog-system.md) - Blog post structure and creation
-- [Management Commands](../commands.md) - Command reference
-- [API Reference](../api.md) - Complete API documentation
-- [Architecture](../architecture.md) - Technical implementation details
+### Core Documentation
+- [Architecture](../architecture.md) - Technical implementation details and design patterns
+- [Management Commands](../commands.md#blog--knowledge-graph) - Graph-related commands
+- [API Reference](../api.md) - Complete API endpoints including graph data
+- [Documentation Index](../README.md) - Complete documentation map
+
+### Related Features
+- [Blog System](blog-system.md) - Blog post structure and metadata extraction
+- [Performance Monitoring](performance-monitoring.md) - Lighthouse audits and screenshots
+- [Photo Management](photo-management.md) - Similar screenshot generation pattern
+
+### Implementation Files
+- Graph Builder: `blog/knowledge_graph.py`
+- Screenshot Generator: `blog/management/commands/generate_knowledge_graph_screenshot.py`
+- D3.js Visualization: `templates/blog/knowledge_graph.html`
+- API Views: `blog/views_json.py`

@@ -5,17 +5,17 @@
 
 | Feature | Description | Documentation |
 |---------|-------------|--------------|
-| Interactive Knowledge Graph | D3.js-powered visualization mapping relationships between blog posts | [Knowledge Graph](docs/features/knowledge-graph.md) |
-| Smart Photo Management | Automatic multi-resolution generation with EXIF extraction | [Photo Management](docs/features/photo-management.md) |
-| Template-Based Blog | Blog posts as HTML templates with rich metadata | [Blog System](docs/features/blog-system.md) |
+| Interactive Knowledge Graph | D3.js-powered visualization mapping relationships between blog posts | [Blog App](docs/apps/blog/) |
+| Smart Photo Management | Automatic multi-resolution generation with EXIF extraction | [Photos App](docs/apps/photos/) |
+| Template-Based Blog | Blog posts as HTML templates with rich metadata | [Blog App](docs/apps/blog/) |
 | Full-Text Search | PostgreSQL FTS with trigram similarity, sub-100ms autocomplete | [Search](docs/features/search.md) |
-| Performance Monitoring | Automated Lighthouse audits with historical trends | [Performance Monitoring](docs/features/performance-monitoring.md) |
+| Performance Monitoring | Automated Lighthouse audits with historical trends | [Performance](docs/features/performance-monitoring.md) |
 | Request Tracking | Privacy-focused analytics with IP geolocation | [Request Tracking](docs/features/request-tracking.md) |
-| FeeFiFoFunds | Multi-asset tracking with PostgreSQL + QuestDB hybrid architecture | [FeeFiFoFunds](docs/features/feefifofunds.md) |
-| Financial Data Integration | Standardized framework for asset price data from external APIs | [Data Sources](docs/features/data-sources.md) |
-| Kraken Data Ingestion | High-speed OHLCV and trade data import (50K-100K records/sec) | [Kraken Ingestion](docs/features/kraken-ingestion.md) |
-| Massive.com Integration | Historical stock/ETF data fetching (2 years free) | [Massive Integration](docs/features/massive-integration.md) |
-| Omas Coffee Website | Multi-domain website serving omas.coffee | [Omas Coffee](docs/features/omas-coffee.md) |
+| FeeFiFoFunds | Multi-asset tracking with PostgreSQL + QuestDB hybrid architecture | [FeeFiFoFunds App](docs/apps/feefifofunds/) |
+| Financial Data Integration | Standardized framework for asset price data from external APIs | [FeeFiFoFunds App](docs/apps/feefifofunds/) |
+| Kraken Data Ingestion | High-speed OHLCV and trade data import (50K-100K records/sec) | [FeeFiFoFunds App](docs/apps/feefifofunds/) |
+| Massive.com Integration | Historical stock/ETF data fetching (2 years free) | [FeeFiFoFunds App](docs/apps/feefifofunds/) |
+| Omas Coffee Website | Multi-domain website serving omas.coffee | [Omas Coffee App](docs/apps/omas/) |
 | Optimized Assets | Static file compression, multi-stage Docker builds, intelligent caching | [Architecture](docs/architecture.md) |
 
 ## TECH STACK
@@ -76,6 +76,8 @@ See [Deployment Guide](docs/deployment.md) for production setup.
 
 ## DOCUMENTATION
 
+**📚 [Documentation Index](docs/README.md)** - Complete documentation map with audience-based navigation
+
 ### Core Documentation
 
 | Document | Description |
@@ -87,20 +89,22 @@ See [Deployment Guide](docs/deployment.md) for production setup.
 | [Deployment Guide](docs/deployment.md) | Production deployment with Docker |
 | [Maintenance Guide](docs/maintenance.md) | Monitoring, backups, and troubleshooting |
 
-### Feature Documentation
+### Django App Documentation
 
-| Document | Description |
-|----------|-------------|
-| [Blog System](docs/features/blog-system.md) | Template-based posts, comments, syntax highlighting |
-| [Knowledge Graph](docs/features/knowledge-graph.md) | Visualization, screenshots, API |
-| [Photo Management](docs/features/photo-management.md) | Multi-resolution, EXIF, albums |
-| [Full-Text Search](docs/features/search.md) | PostgreSQL FTS, autocomplete, indexing |
-| [Performance Monitoring](docs/features/performance-monitoring.md) | Lighthouse audits, badges |
-| [Request Tracking](docs/features/request-tracking.md) | Fingerprinting, geolocation, security |
-| [Data Sources](docs/features/data-sources.md) | External API integration framework for fund data |
-| [Massive.com Integration](docs/features/massive-integration.md) | Historical stock/ETF data fetching (2 years free) |
-| [Kraken Ingestion](docs/features/kraken-ingestion.md) | Historical OHLCV and trade data import |
-| [Omas Coffee](docs/features/omas-coffee.md) | Multi-domain website implementation |
+| App | Description | Documentation |
+|-----|-------------|---------------|
+| [Blog](docs/apps/blog/) | Template-based blog with knowledge graph visualization | [Blog System](docs/apps/blog/blog-system.md), [Knowledge Graph](docs/apps/blog/knowledge-graph.md) |
+| [Photos](docs/apps/photos/) | Multi-resolution photo management with EXIF | [Photo Management](docs/apps/photos/photo-management.md) |
+| [FeeFiFoFunds](docs/apps/feefifofunds/) | Multi-asset price tracking (PostgreSQL + QuestDB) | [Overview](docs/apps/feefifofunds/overview.md), [5 more docs](docs/apps/feefifofunds/) |
+| [Omas Coffee](docs/apps/omas/) | German coffee cart website (multi-domain) | [Technical Setup](docs/apps/omas/technical-setup.md), [Brand Docs](docs/apps/omas/) |
+
+### Cross-Cutting Features
+
+| Feature | Description |
+|---------|-------------|
+| [Full-Text Search](docs/features/search.md) | PostgreSQL FTS with autocomplete (used by blog, photos) |
+| [Performance Monitoring](docs/features/performance-monitoring.md) | Lighthouse audits and historical tracking |
+| [Request Tracking](docs/features/request-tracking.md) | Request fingerprinting, geolocation, security |
 
 ## COMMON COMMANDS
 
@@ -110,125 +114,50 @@ python manage.py runserver
 python manage.py build_css --dev
 make static  # Build all assets + pre-commit
 
-# Blog management
-# See Blog System documentation: docs/features/blog-system.md
-# See Knowledge Graph documentation: docs/features/knowledge-graph.md
-python manage.py create_blog_post --title "Post Title" --category tech
+# Blog & search
 python manage.py rebuild_knowledge_graph
 python manage.py rebuild_search_index
 
 # Testing
-# See Testing documentation: docs/testing.md
 python manage.py test
-make test  # Docker test environment
-coverage run --source='.' manage.py test --no-input && coverage report
+make test
 
 # Maintenance
-# See Maintenance documentation: docs/maintenance.md
-# See Performance Monitoring documentation: docs/features/performance-monitoring.md
-# See Request Tracking documentation: docs/features/request-tracking.md
 python manage.py clear_cache
 python manage.py run_lighthouse_audit
-python manage.py geolocate_fingerprints
 
 # Financial data
-# See FeeFiFoFunds documentation: docs/features/feefifofunds.md
-# See Data Sources documentation: docs/features/data-sources.md
-# See Massive Integration documentation: docs/features/massive-integration.md
-python manage.py ingest_sequential --tier TIER1  # Fast ingestion (~15 seconds for TIER1)
-python manage.py ingest_sequential               # Ingest all data (~2 hours)
-python manage.py backfill_prices --ticker AAPL --source massive --days 730
-python manage.py load_prices --ticker BTC --source finnhub --days 30
+# See FeeFiFoFunds documentation: docs/apps/feefifofunds/
+python manage.py ingest_sequential --tier TIER1
 ```
 
-See [Management Commands](docs/commands.md) for complete reference.
+See [Management Commands](docs/commands.md) for complete command reference.
 
 ## PROJECT STRUCTURE
 
-```
-aaronspindler.com/
-├── accounts/           # User authentication
-├── blog/              # Blog system & knowledge graph
-├── pages/             # Core website pages
-├── photos/            # Photo management
-├── utils/             # Search, notifications, monitoring
-├── feefifofunds/      # Multi-asset tracking (PostgreSQL + QuestDB)
-├── omas/              # Omas Coffee website (omas.coffee)
-├── config/            # Django configuration
-├── deployment/        # Docker and deployment files
-│   ├── Dockerfile
-│   ├── docker-compose.test.yml
-│   └── *.Dockerfile   # Service-specific images
-├── .config/           # Tool configurations
-│   ├── postcss.config.js
-│   ├── purgecss.config.js
-│   └── .prettierrc    # CSS formatter
-├── requirements/      # Python dependencies
-│   ├── base.txt       # Core dependencies
-│   └── dev.txt        # Development dependencies
-├── docs/              # Documentation
-│   ├── features/      # Feature-specific guides
-│   ├── architecture.md
-│   ├── testing.md
-│   ├── commands.md
-│   ├── api.md
-│   ├── deployment.md
-│   └── maintenance.md
-├── templates/         # Django templates
-├── static/            # CSS, JS, images
-├── scripts/           # Utility scripts
-└── tests/             # Test factories
-```
+**Django Apps**: accounts, blog, pages, photos, utils, feefifofunds, omas
+**Config**: deployment/, .config/, requirements/, docs/, templates/, static/
 
-See [Architecture Guide](docs/architecture.md) for detailed structure. For Docker configuration, see [Deployment documentation](docs/deployment.md). For test structure, see [Testing documentation](docs/testing.md).
+See [Architecture Guide](docs/architecture.md) for complete project structure.
 
-## DEVELOPMENT WORKFLOW
+## DEVELOPMENT
 
-1. **Create feature branch**: `git checkout -b feature/amazing-feature`
-2. **Make changes**: Edit code, write tests
-3. **Run tests**: `make test` (see [Testing documentation](docs/testing.md) for test requirements)
-4. **Pre-commit checks**: Automatic via git hooks (Ruff, Prettier, etc.)
-5. **Commit**: `git commit -m 'feat: Add amazing feature'`
-6. **Push**: `git push origin feature/amazing-feature`
-7. **Open PR**: Create pull request on GitHub
+**Workflow**: Branch → Code → Test → Pre-commit → Commit → PR
+**Code Quality**: Ruff (linting/formatting), Prettier (CSS), Pre-commit hooks, 80%+ coverage
 
-For available management commands, see [Management Commands documentation](docs/commands.md). For project organization, see [Architecture documentation](docs/architecture.md).
-
-### Code Quality
-
-| Tool | Purpose |
-|------|---------|
-| Ruff | Python linting and formatting (Black-compatible) |
-| Prettier | CSS formatting for source files |
-| Pre-commit | Automatic checks on commit/push |
-| Safety | Security vulnerability scanning |
-| Coverage | Maintain 80%+ test coverage |
-
-Run `pre-commit run --all-files` before pushing.
+See [Testing Guide](docs/testing.md) and [Architecture Guide](docs/architecture.md) for details.
 
 ## CONTRIBUTING
 
-Contributions welcome! Please:
-
-1. Review [Testing Guide](docs/testing.md) for test requirements
-2. Follow code standards (Ruff formatting, type hints, docstrings)
-3. Write tests for new features (use factories from `tests/factories.py`)
-4. Update documentation in `docs/` for significant changes
-5. Follow [conventional commits](https://www.conventionalcommits.org/) format
-
-For code organization, see [Architecture documentation](docs/architecture.md). For development commands, see [Management Commands documentation](docs/commands.md).
-
-**Commit Conventions**: `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:`
+1. Follow [Testing Guide](docs/testing.md) - write tests, use factories
+2. Follow code standards - Ruff formatting, type hints
+3. Update `docs/` for all changes - see [Documentation Guide](.cursor/rules/documentation.mdc)
+4. Use conventional commits: `feat:`, `fix:`, `docs:`, etc.
 
 ## SECURITY
 
-| Security Feature | Description | Documentation |
-|-----------------|--------------|--------------|
-| CodeQL Analysis | Automated security scanning on push, PR, and daily | - |
-| GitHub Copilot Autofix | AI-powered fix suggestions for security alerts | - |
-| Pre-commit Hooks | Local code quality enforcement | - |
-| Dependency Scanning | Safety checks for vulnerabilities | - |
-| Request Fingerprinting | Suspicious request detection | [Request Tracking](docs/features/request-tracking.md) |
+**Automated**: CodeQL Analysis, GitHub Copilot Autofix, Pre-commit Hooks, Dependency Scanning
+**Manual**: Request fingerprinting - see [Request Tracking](docs/features/request-tracking.md)
 
 For security monitoring procedures, see [Maintenance documentation](docs/maintenance.md).
 

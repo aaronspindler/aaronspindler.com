@@ -7,58 +7,161 @@ alwaysApply: true
 
 ## Context Documents
 
-When working with this codebase, always reference these primary context documents for guidance:
+When working with this codebase, reference these primary documents for guidance:
 
-- **CLAUDE.md** - Developer-focused reference with:
-  - Common development commands
-  - Architecture overview and app structure
-  - Key technical features and implementation details
-  - Deployment configuration
-  - Testing approach
+- **CLAUDE.md** - AI-optimized quick reference with:
+  - Project overview and key features
+  - Directory organization
+  - Cursor rules summary
+  - Common development commands (brief examples)
+  - Quick reference to docs/ for detailed information
+  - **Targets ~300-400 lines**
+  - **Points to centralized docs/ for details**
 
-- **README.md** - Project overview with:
+- **docs/README.md** - Comprehensive documentation index with:
+  - Audience-based navigation (External Users, AI Assistants, Developers, DevOps, API Consumers)
+  - Complete documentation map with descriptions
+  - Links to all core docs, feature docs, and app-specific docs
+
+- **README.md** - Project landing page with:
   - Quick start guide
-  - High-level feature descriptions
+  - Feature showcase with links to detailed docs
   - Tech stack overview
-  - User-facing documentation
+  - Documentation section with links to all docs
+
+- **docs/** - Centralized detailed documentation:
+  - Core docs: architecture.md, commands.md, testing.md, api.md, deployment.md, maintenance.md
+  - Feature docs: docs/features/*.md
+  - App-specific docs: docs/apps/*/
+
+## Documentation Philosophy
+
+**Centralized detailed documentation**: All comprehensive documentation lives in `docs/` to avoid duplication and maintain a single source of truth.
+
+**CLAUDE.md is concise**: Provides AI-specific guidance and quick reference, not comprehensive documentation. It should:
+- Remain 300-400 lines
+- Give brief examples with pointers to docs/ for complete information
+- Focus on AI-specific guidance and quick wins
+- Not duplicate content that exists in docs/
+
+**README.md is user-facing**: Serves as the project landing page with quick start and feature showcase.
 
 ## Updating Context Documents
 
-**CRITICAL**: Whenever you make changes to the codebase that affect documented behavior, you MUST update the relevant context documents to keep them in sync with the implementation.
+**CRITICAL**: Whenever you make changes to the codebase that affect documented behavior, you MUST update the relevant documents to keep them in sync with the implementation.
 
 ### When to Update CLAUDE.md
 
-Update CLAUDE.md when changes affect:
-- New or modified management commands
-- Changes to the Django app architecture or structure
-- New key technical features or system components
-- Updates to environment variables or configuration
-- Changes to the testing approach or development workflow
-- New or modified deployment requirements
-- Changes to performance optimizations or caching strategies
+Update CLAUDE.md only for changes that affect AI-specific guidance:
+- **Cursor rules summary**: New or modified cursor rules
+- **Common commands**: Changes to most frequently used commands (keep brief, reference docs/commands.md)
+- **Directory organization**: Structural changes to project layout
+- **Documentation structure**: Changes to docs/ organization
+- **Development guidelines**: Standards for management command output or other AI-relevant patterns
+
+**DO NOT add detailed information to CLAUDE.md** - instead:
+- Add detailed docs to appropriate file in docs/
+- Add brief mention in CLAUDE.md with link to docs/ for details
+
+**Target**: Keep CLAUDE.md at 300-400 lines. If it grows beyond this, move detailed content to docs/.
+
+### When to Update docs/README.md
+
+Update `docs/README.md` (documentation index) when:
+- Adding new documentation files
+- Reorganizing documentation structure
+- Adding new categories or sections
+- Updating audience-based navigation
 
 ### When to Update README.md
 
 Update README.md when changes affect:
-- New user-facing features
-- Changes to the tech stack or major dependencies
-- Updates to the quick start or setup process
+- New user-facing features (add to features table with link to docs/features/)
+- Changes to tech stack or major dependencies
+- Updates to quick start or setup process
 - Changes to Docker deployment instructions
-- New capabilities in blog posts, photo management, or knowledge graph
-- Updates to the testing or development workflow that users need to know
 
-### Update Process
+### When to Update docs/ Files
 
-1. Make your code changes first
-2. Review both CLAUDE.md and README.md to identify outdated sections
-3. Update the relevant sections to reflect the new implementation
-4. Ensure consistency between both documents (don't contradict information)
-5. Keep updates clear, concise, and accurate
+See `.cursor/rules/documentation.mdc` for comprehensive guidelines on updating documentation in `docs/`.
 
-### What NOT to Update
+Update `docs/` files for:
+- **New features**: Create docs/features/[feature].md
+- **New commands**: Add to docs/commands.md
+- **API changes**: Update docs/api.md
+- **Architecture changes**: Update docs/architecture.md
+- **Deployment changes**: Update docs/deployment.md
+
+## Update Process
+
+1. **Make code changes first**
+2. **Update detailed documentation** in appropriate docs/ file
+3. **Update docs/README.md** if new doc was added
+4. **Update README.md** if user-facing feature or quick start changed
+5. **Update CLAUDE.md** only if AI-specific guidance changed (keep brief with link to docs/)
+6. **Ensure consistency** - don't contradict information across documents
+7. **Keep updates clear, concise, and accurate**
+
+## Examples
+
+### Good Example: Adding New Feature
+
+```
+1. Implement the feature
+2. Create docs/features/new-feature.md with comprehensive details
+3. Add to docs/README.md feature documentation table
+4. Add to README.md features table with link
+5. Add brief mention to CLAUDE.md "Key Features" section with link to doc
+```
+
+### Good Example: Adding New Command
+
+```
+1. Implement the management command
+2. Add full documentation to docs/commands.md (usage, options, examples)
+3. Add brief example to CLAUDE.md "Common Tasks" section with reference to docs/commands.md
+```
+
+### Bad Example: Adding Detailed Info to CLAUDE.md
+
+```
+❌ DO NOT add 200 lines of detailed architecture to CLAUDE.md
+✅ DO add brief architecture overview with links to docs/architecture.md
+```
+
+## What NOT to Update
 
 Do not update these documents for:
 - Minor bug fixes that don't change behavior
 - Refactoring that doesn't affect the public API or usage
 - Internal implementation details that don't affect developers using the codebase
 - Temporary or experimental changes
+
+## Avoiding Duplication
+
+**CRITICAL**: Do not duplicate detailed information between CLAUDE.md and docs/.
+
+**Rule**: If information exists in docs/, CLAUDE.md should:
+1. Provide brief summary (1-2 sentences)
+2. Point to docs/ for complete information
+3. Include example command/code if relevant (brief)
+
+**Example**:
+```markdown
+# CLAUDE.md
+### Blog & Knowledge Graph
+\```bash
+python manage.py rebuild_knowledge_graph
+python manage.py generate_knowledge_graph_screenshot
+\```
+
+**See** [docs/commands.md](docs/commands.md) **for all commands with detailed options and examples.**
+```
+
+## Maintenance
+
+Periodically review CLAUDE.md:
+- If it exceeds 400 lines, move detailed content to docs/
+- Ensure all references to docs/ are accurate
+- Verify no duplication with docs/ files
+- Check that it remains AI-optimized and concise

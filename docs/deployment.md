@@ -296,6 +296,74 @@ User.objects.create_superuser('admin', 'admin@example.com', 'secure-password')
 "
 ```
 
+### QuestDB Setup (For FeeFiFoFunds)
+
+QuestDB is required for FeeFiFoFunds time-series data storage. See [QuestDB Setup Guide](apps/feefifofunds/questdb-setup.md) for detailed configuration.
+
+**Docker Compose Configuration**:
+
+```yaml
+# docker-compose.production.yml
+services:
+  questdb:
+    image: questdb/questdb:8.2.0
+    container_name: questdb
+    ports:
+      - "9000:9000"   # REST API & Web Console
+      - "8812:8812"   # PostgreSQL wire protocol
+      - "9009:9009"   # InfluxDB line protocol
+    volumes:
+      - questdb_data:/var/lib/questdb
+    environment:
+      - QDB_PG_USER=admin
+      - QDB_PG_PASSWORD=quest
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  questdb_data:
+```
+
+**Environment Variables**:
+
+```bash
+# .env
+QUESTDB_URL=postgresql://admin:quest@questdb:8812/qdb
+```
+
+**Initialize Schema**:
+
+```bash
+# After QuestDB is running
+docker exec -it website python manage.py setup_questdb_schema
+
+# Verify tables were created
+docker exec -it questdb curl "http://localhost:9000/exec?query=SHOW TABLES"
+```
+
+**Health Check**:
+
+```bash
+# Test QuestDB is running
+curl http://localhost:9000/
+
+# Test PostgreSQL wire protocol
+psql -h localhost -p 8812 -U admin -d qdb -c "SELECT 1"
+
+# Check from Django
+docker exec -it website python manage.py shell
+>>> from django.db import connections
+>>> connections['questdb'].ensure_connection()
+>>> print("QuestDB connected!")
+```
+
+**See**:
+- [QuestDB Setup Guide](apps/feefifofunds/questdb-setup.md) - Complete configuration and tuning
+- [FeeFiFoFunds Overview](apps/feefifofunds/overview.md) - Architecture details
+
 ## AWS S3 Configuration
 
 ### S3 Bucket Setup
@@ -746,7 +814,20 @@ open http://localhost:5555
 
 ## Related Documentation
 
-- [Architecture](architecture.md) - System design
-- [Commands](commands.md) - Management commands
-- [Maintenance](maintenance.md) - Ongoing maintenance
-- [Testing](testing.md) - Pre-deployment testing
+### Core Documentation
+- [Architecture](architecture.md) - System design and infrastructure
+- [Maintenance](maintenance.md) - Post-deployment operations and monitoring
+- [Testing](testing.md) - Pre-deployment testing with Docker
+- [Commands](commands.md) - Operational management commands
+- [Documentation Index](README.md) - Complete documentation map
+
+### App-Specific Deployment
+- [FeeFiFoFunds](apps/feefifofunds/) - QuestDB deployment requirements
+- [Photos](apps/photos/) - S3 configuration for media storage
+- [Omas Coffee](apps/omas/) - Multi-domain DNS configuration
+
+### Deployment Files
+- Docker Configuration: `deployment/Dockerfile`
+- Compose File: `deployment/docker-compose.test.yml`
+- Environment Template: `.env.example`
+- Captain Definition: `captain-definition` (CapRover deployment)

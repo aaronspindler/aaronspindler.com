@@ -177,7 +177,7 @@ These projects are independent and should not be confused with Django apps in th
 - Spring 2025 opening announcement
 - Newsletter signup integration
 
-**Related Documentation**: [Omas Coffee Feature Documentation](features/omas-coffee.md)
+**Related Documentation**: [Omas Coffee App Documentation](apps/omas/)
 
 ### pages/ - Core Website
 
@@ -580,7 +580,23 @@ This project uses two approaches for organizing Django models:
 
 ## Related Documentation
 
-- [Testing Guide](testing.md)
-- [Deployment Guide](deployment.md)
-- [Management Commands](commands.md)
-- [API Reference](api.md)
+### Core Documentation
+- [Testing Guide](testing.md) - Test framework, factories, Docker test environment
+- [Deployment Guide](deployment.md) - Production deployment with Docker
+- [Management Commands](commands.md) - Complete command reference
+- [API Reference](api.md) - REST API endpoints
+- [Maintenance Guide](maintenance.md) - Operations, monitoring, troubleshooting
+
+### Cross-Cutting Features
+- [Search System](features/search.md) - PostgreSQL FTS architecture (used by blog, photos)
+- [Performance Monitoring](features/performance-monitoring.md) - Lighthouse audit system
+- [Request Tracking](features/request-tracking.md) - Security and analytics
+
+### App-Specific Documentation
+- [Blog App](apps/blog/) - Template-based blog system with knowledge graph
+- [Photos App](apps/photos/) - Photo management with multi-resolution images
+- [FeeFiFoFunds App](apps/feefifofunds/) - Multi-asset tracking with hybrid database
+- [Omas Coffee App](apps/omas/) - German coffee cart website with brand guidelines
+
+### Documentation Index
+- [Documentation Index](README.md) - Complete documentation map

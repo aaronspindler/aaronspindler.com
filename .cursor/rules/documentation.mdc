@@ -9,22 +9,37 @@ This file provides guidance for maintaining documentation when making code chang
 
 ## Documentation Structure
 
+All documentation is centralized in the `docs/` directory for easier maintenance and discoverability.
+
 ```
 docs/
+├── README.md               # Documentation index with audience-based navigation
 ├── architecture.md          # System design and Django apps
 ├── testing.md              # Test framework and factories
 ├── commands.md             # Management commands reference
 ├── api.md                  # REST API endpoints
 ├── deployment.md           # Production deployment
 ├── maintenance.md          # Monitoring and troubleshooting
-└── features/               # Feature-specific documentation
-    ├── blog-system.md
-    ├── knowledge-graph.md
-    ├── photo-management.md
-    ├── search.md
-    ├── performance-monitoring.md
-    └── request-tracking.md
+├── features/               # Feature-specific documentation
+│   ├── blog-system.md
+│   ├── knowledge-graph.md
+│   ├── photo-management.md
+│   ├── search.md
+│   ├── performance-monitoring.md
+│   ├── request-tracking.md
+│   ├── feefifofunds.md
+│   ├── omas-coffee.md
+│   └── ...
+└── apps/                   # App-specific documentation
+    ├── feefifofunds/       # FeeFiFoFunds development guide
+    │   └── development.md
+    └── omas/               # Omas Coffee brand and design docs
+        ├── brand-foundation.md
+        ├── brand-standards.md
+        └── ...
 ```
+
+**Documentation Index**: `docs/README.md` provides a comprehensive map of all documentation with audience-based navigation (External Users, AI Assistants, Developers, DevOps, API Consumers).
 
 ## When to Update Documentation
 
@@ -34,6 +49,7 @@ docs/
    - Create new file in `docs/features/` for major features
    - Update existing feature docs for enhancements
    - Add to README.md features list with doc link
+   - Add to `docs/README.md` (documentation index) feature documentation table
    - Update architecture.md if new Django app or significant architectural change
 
 2. **New Management Commands**
@@ -275,11 +291,11 @@ When an AI assistant (Claude, Copilot, etc.) is making code changes:
 **Code Changes**: Add blog post scheduling feature
 
 **Documentation Updates Required**:
-1. `docs/features/blog-system.md`:
+1. `docs/apps/blog/blog-system.md`:
    - Add "Scheduled Posts" section under Features
    - Add usage examples for scheduling
    - Document scheduling API if added
-2. `docs/commands.md`:
+2. `docs/commands.md` or `docs/apps/blog/commands.md`:
    - Add `publish_scheduled_posts` command if created
 3. `docs/api.md`:
    - Add scheduling endpoints if API exposed
@@ -315,7 +331,7 @@ When an AI assistant (Claude, Copilot, etc.) is making code changes:
    python manage.py optimize_images --quality 90
    \```
    ```
-2. `docs/features/photo-management.md`:
+2. `docs/apps/photos/photo-management.md`:
    - Add to "Image Optimization" section
    - Reference the command for manual optimization
 3. `README.md`:

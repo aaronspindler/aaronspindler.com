@@ -684,7 +684,19 @@ locust -f locustfile.py --host=http://localhost:8000
 
 ## Related Documentation
 
-- [Architecture](architecture.md) - Project structure
+### Core Documentation
+- [Architecture](architecture.md) - Project structure and design patterns
 - [Management Commands](commands.md) - Test-related commands
-- [Deployment](deployment.md) - Production testing
+- [Deployment](deployment.md) - Production testing and CI/CD
+- [Documentation Index](README.md) - Complete documentation map
+
+### App-Specific Testing
+- [FeeFiFoFunds Development](apps/feefifofunds/development.md) - App-specific testing guide
+
+### Test Infrastructure
 - Test Data Factories: `tests/factories.py`
+- Docker Test Environment: `deployment/docker-compose.test.yml`
+- CI/CD Pipeline: `.github/workflows/test-and-check.yml`
+
+### Related Guidelines
+- [`.cursor/rules/testing.mdc`](../.cursor/rules/testing.mdc) - Testing guidelines for AI assistants

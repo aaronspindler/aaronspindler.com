@@ -198,6 +198,201 @@ Some models automatically update search vectors on save:
 
 Blog posts, projects, and books require manual rebuild since they're not database models.
 
+## Adding Search to New Content Types
+
+### Step-by-Step Integration Guide
+
+This guide shows how to add full-text search to a new Django model.
+
+**Example**: Adding search to a hypothetical `Article` model
+
+#### Step 1: Add Search Vector Field to Model
+
+```python
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVectorField
+from django.db import models
+
+class Article(models.Model):
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    content = models.TextField()
+    author = models.CharField(max_length=100)
+    published_at = models.DateTimeField(auto_now_add=True)
+
+    # Add search vector field
+    search_vector = SearchVectorField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            # Add GIN index for fast full-text search
+            GinIndex(fields=['search_vector']),
+            # Add trigram index for typo tolerance
+            models.Index(fields=['title'], name='article_title_trigram'),
+        ]
+```
+
+#### Step 2: Create and Run Migration
+
+```bash
+# Create migration
+python manage.py makemigrations
+
+# Run migration
+python manage.py migrate
+
+# Enable pg_trgm extension (one-time, if not already done)
+python manage.py dbshell
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+```
+
+#### Step 3: Create SearchableContent Entries
+
+**Option A: In Model's save() method** (recommended for auto-updating):
+
+```python
+from utils.models import SearchableContent
+
+class Article(models.Model):
+    # ... fields ...
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+        # Update search vector
+        from django.contrib.postgres.search import SearchVector
+        Article.objects.filter(pk=self.pk).update(
+            search_vector=SearchVector('title', weight='A') +
+                         SearchVector('description', weight='B') +
+                         SearchVector('content', weight='C')
+        )
+
+        # Update SearchableContent for global search
+        SearchableContent.objects.update_or_create(
+            content_type='Article',
+            object_id=str(self.pk),
+            defaults={
+                'title': self.title,
+                'description': self.description,
+                'content': self.content[:500],  # First 500 chars
+                'url': f'/articles/{self.pk}/',
+                'published_at': self.published_at,
+            }
+        )
+```
+
+**Option B: Management Command** (for bulk operations):
+
+```python
+# management/commands/rebuild_article_search.py
+from django.core.management.base import BaseCommand
+from django.contrib.postgres.search import SearchVector
+from myapp.models import Article
+from utils.models import SearchableContent
+
+class Command(BaseCommand):
+    def handle(self, *args, **options):
+        # Update search vectors
+        Article.objects.update(
+            search_vector=SearchVector('title', weight='A') +
+                         SearchVector('description', weight='B') +
+                         SearchVector('content', weight='C')
+        )
+
+        # Update global search index
+        for article in Article.objects.all():
+            SearchableContent.objects.update_or_create(
+                content_type='Article',
+                object_id=str(article.pk),
+                defaults={
+                    'title': article.title,
+                    'description': article.description,
+                    'content': article.content[:500],
+                    'url': f'/articles/{article.pk}/',
+                    'published_at': article.published_at,
+                }
+            )
+
+        self.stdout.write(self.style.SUCCESS(
+            f'✅ Rebuilt search index for {Article.objects.count()} articles'
+        ))
+```
+
+#### Step 4: Update rebuild_search_index Command
+
+Add your new content type to `utils/management/commands/rebuild_search_index.py`:
+
+```python
+# Add to content_type choices
+CONTENT_TYPE_CHOICES = ['blog', 'photos', 'albums', 'books', 'projects', 'articles', 'all']
+
+# Add to rebuild logic
+if content_type in ['all', 'articles']:
+    from myapp.models import Article
+    # ... rebuild logic for articles
+```
+
+#### Step 5: Add to Search Results
+
+Update search views to include the new content type:
+
+```python
+# views.py
+from myapp.models import Article
+
+def search_results(request):
+    query = request.GET.get('q', '')
+
+    # Search in SearchableContent (global search)
+    searchable_results = SearchableContent.objects.filter(
+        # ... existing search logic
+    )
+
+    # Or search directly in Article model
+    articles = Article.objects.annotate(
+        rank=SearchRank(F('search_vector'), SearchQuery(query)),
+        similarity=TrigramSimilarity('title', query),
+    ).filter(
+        Q(rank__gt=0.01) | Q(similarity__gt=0.2)
+    ).order_by('-rank', '-similarity')[:10]
+
+    return render(request, 'search/results.html', {
+        'query': query,
+        'results': searchable_results,
+        'articles': articles,
+    })
+```
+
+#### Step 6: Test Search
+
+```python
+# Django shell
+python manage.py shell
+
+# Test search vector
+from myapp.models import Article
+from django.contrib.postgres.search import SearchQuery
+
+article = Article.objects.first()
+print(article.search_vector)  # Should show tsvector
+
+# Test search
+query = SearchQuery('django')
+results = Article.objects.filter(search_vector=query)
+print(results)
+```
+
+### Quick Checklist
+
+- [ ] Add `search_vector` field to model
+- [ ] Add GIN index in model Meta
+- [ ] Create migration and run `python manage.py migrate`
+- [ ] Update search vector on save OR create management command
+- [ ] Add to `rebuild_search_index` command
+- [ ] Update search views to include new content type
+- [ ] Test search functionality
+- [ ] Document in feature documentation
+
 ## PostgreSQL Configuration
 
 ### Required Extensions

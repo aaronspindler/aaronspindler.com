@@ -39,6 +39,154 @@ QuestDB is purpose-built for time-series data and offers:
 - **PostgreSQL compatibility**: SQL queries work seamlessly
 - **Designed timestamp**: Native time-series indexing
 
+### Design Principles
+
+1. **Simplicity First** - MVP focuses on core data ingestion, not complex analytics
+2. **Universal Model** - Single Asset table with category field instead of polymorphic inheritance
+3. **Multi-source Support** - Track same asset from multiple data providers
+4. **Timezone-aware** - All timestamps stored in UTC
+5. **Decimal Precision** - Financial data uses Decimal fields for accuracy
+
+### Application Layers
+
+FeeFiFoFunds follows a standard Django architecture:
+
+1. **Models Layer** (`feefifofunds/models/`)
+   - Django ORM models: Asset (PostgreSQL), AssetPrice/Trade (QuestDB)
+   - Uses TimestampedModel mixin from utils.models
+   - Database constraints and indexes defined in models
+
+2. **Services Layer** (`feefifofunds/services/`)
+   - Business logic not tied to HTTP requests
+   - Data source integrations (Finnhub, Massive.com)
+   - BaseDataSource pattern for consistent API integration
+
+3. **Management Commands Layer** (`feefifofunds/management/commands/`)
+   - CLI tools for data management and ingestion
+   - Current focus: manual data operations for MVP
+
+4. **Admin Interface** (`feefifofunds/admin.py`)
+   - Django admin configuration for web-based data management
+
+5. **Views Layer** (Planned)
+   - HTML views for end users
+   - JSON API endpoints
+
+### Design Decisions
+
+#### Why Universal Asset Model?
+
+**Chosen**: Single table with category field
+**Alternative**: Polymorphic inheritance (Stock, Crypto, Commodity models)
+
+**Reasoning**:
+- ✅ Simpler queries and relationships
+- ✅ Easy to add new categories
+- ✅ Better for MVP stage
+- ✅ Less database tables
+- ❌ Can't have category-specific fields (not needed for MVP)
+
+#### Why Multi-Source Support?
+
+**Chosen**: Multiple sources per asset (Kraken, Finnhub, Massive.com)
+**Alternative**: Single source per asset
+
+**Reasoning**:
+- ✅ Compare data quality across sources
+- ✅ Fallback if one source fails
+- ✅ Verify accuracy with multiple providers
+- ✅ Future: Merge/reconcile data
+- ❌ More storage required (acceptable for MVP)
+
+#### Why Decimal for Prices?
+
+**Chosen**: DecimalField(max_digits=20, decimal_places=8)
+**Alternative**: FloatField
+
+**Reasoning**:
+- ✅ Exact precision for financial calculations
+- ✅ No floating-point errors
+- ✅ Industry standard for financial data
+- ❌ Slightly slower than float (negligible for MVP)
+
+#### Why Django?
+
+**Chosen**: Django
+**Alternative**: FastAPI, Flask
+
+**Reasoning**:
+- ✅ Integrated admin interface (huge for MVP)
+- ✅ ORM with migration support
+- ✅ Part of existing Django project
+- ✅ Built-in authentication
+- ❌ Heavier than FastAPI (not a concern for MVP)
+
+#### Why PostgreSQL + QuestDB?
+
+**Chosen**: PostgreSQL for metadata + QuestDB for time-series
+**Alternative**: Single database (PostgreSQL or TimescaleDB)
+
+**Reasoning**:
+- ✅ Best of both worlds: relational + time-series performance
+- ✅ QuestDB optimized for high ingestion rates
+- ✅ PostgreSQL for complex relational queries
+- ✅ Can scale independently
+- ❌ Slightly more complex setup (worth it for performance)
+
+### Future Architecture
+
+#### Planned Enhancements
+
+**Phase 2: Caching Layer**
+- Redis for asset metadata (1 hour TTL)
+- Redis for latest prices (20 min TTL)
+- Redis for price history (1 hour TTL)
+
+**Phase 2: Metrics Calculation**
+- New AssetMetrics model
+- Calculate returns, volatility, Sharpe ratio, max drawdown
+- Pre-computed metrics for common timeframes (1D, 7D, 30D, 90D, 1Y, ALL)
+
+**Phase 3: API Endpoints**
+```
+/feefifofunds/api/assets/                    # List assets
+/feefifofunds/api/assets/<ticker>/           # Asset detail
+/feefifofunds/api/assets/<ticker>/prices/    # Price history
+/feefifofunds/api/assets/<ticker>/metrics/   # Calculated metrics
+```
+
+**Phase 4: Real-time Updates**
+- WebSocket server (Django Channels)
+- Redis Pub/Sub for event broadcasting
+- Celery Beat for scheduled price updates
+
+**Phase 5+: Advanced Features**
+- Asset comparison engine
+- Portfolio tracking
+- User authentication
+- Custom alerts
+- Machine learning predictions
+
+#### Scalability Considerations
+
+**Current Scale (MVP)**:
+- 100-1,000 assets
+- Manual data updates
+- Single server deployment
+- Admin-only interface
+
+**Future Scale**:
+- 10,000+ assets
+- Automated updates (hourly/daily)
+- Multi-server deployment
+- Public API + frontend
+
+**Scaling Strategy**:
+1. **Vertical** first - Larger database servers
+2. **Caching** next - Redis for frequently accessed data
+3. **Read Replicas** - For price history queries
+4. **Horizontal** - Multiple app servers with load balancer
+
 ## Data Models
 
 ### Asset Model (PostgreSQL)
@@ -612,6 +760,21 @@ python manage.py setup_questdb_schema
 
 ## Related Documentation
 
-- [Commands Reference](../commands.md#feefifofunds-data-management) - All management commands
-- [Architecture](../architecture.md) - System design overview
-- [CLAUDE.md](../../CLAUDE.md#feefifofunds-data-management) - Development guide
+### Core Documentation
+- [Commands Reference](../commands.md#feefifofunds-data-management) - All management commands with examples
+- [Architecture](../architecture.md) - System design and Django apps overview
+- [Documentation Index](../README.md) - Complete documentation map
+
+### Related Feature Docs
+- [Kraken Ingestion](kraken-ingestion.md) - Fast CSV data ingestion (50K-100K records/sec)
+- [Massive.com Integration](massive-integration.md) - Stock/ETF data from Massive.com API
+- [Data Sources Framework](data-sources.md) - External API integration patterns
+- [QuestDB Setup](questdb-setup.md) - Time-series database configuration and optimization
+
+### App-Specific Documentation
+- [FeeFiFoFunds Development Guide](../apps/feefifofunds/development.md) - Local setup, testing, debugging, contribution guidelines
+
+### External Resources
+- [QuestDB Documentation](https://questdb.io/docs/) - Time-series database docs
+- [Finnhub API](https://finnhub.io/docs/api) - Stock and crypto data API
+- [Polygon.io API](https://polygon.io/docs) - Stock market data API (Massive.com)
