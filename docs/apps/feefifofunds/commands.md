@@ -288,6 +288,201 @@ python manage.py backfill_prices --ticker AAPL --source massive --days 30 --dry-
 
 ---
 
+### backfill_kraken_gaps
+
+**Detect and backfill gaps in Kraken asset price data using the Kraken REST API.**
+
+Identifies both missing days and missing intervals within days, classifies gaps based on Kraken's 720-candle API limitation, and provides interactive backfilling with detailed reporting.
+
+**Usage**:
+```bash
+python manage.py backfill_kraken_gaps [--tier TIER] [--asset TICKER] [--interval N]
+```
+
+**Options**:
+- `--tier`: Filter by asset tier (TIER1/TIER2/TIER3/TIER4/ALL)
+- `--asset`: Filter by specific asset ticker (e.g., BTC, ETH)
+- `--interval`: Filter by specific interval in minutes (e.g., 60, 1440)
+- `--yes`, `-y`: Auto-confirm all backfills without prompting
+- `--dry-run`: Only detect gaps, don't backfill
+- `--show-unfillable-only`: Only show gaps beyond 720-candle limit
+- `--export-unfillable`: Export unfillable gaps to CSV file
+
+**Examples**:
+```bash
+# Detect all gaps for TIER1 assets
+python manage.py backfill_kraken_gaps --tier TIER1
+
+# Detect and auto-backfill gaps for specific interval
+python manage.py backfill_kraken_gaps --tier TIER1 --interval 1440 --yes
+
+# Dry run to see what gaps exist
+python manage.py backfill_kraken_gaps --tier TIER1 --dry-run
+
+# Backfill specific asset
+python manage.py backfill_kraken_gaps --asset BTC --interval 60
+
+# Show only gaps that can't be filled by API
+python manage.py backfill_kraken_gaps --tier TIER1 --show-unfillable-only
+
+# Export unfillable gaps to CSV for manual handling
+python manage.py backfill_kraken_gaps --tier TIER1 --export-unfillable gaps.csv
+```
+
+**Key Features**:
+
+**Gap Detection**:
+- **Missing Days**: Identifies days with no data in continuous sequence
+- **Missing Intervals**: Detects incomplete data within days (e.g., missing hours)
+- **Comprehensive Scanning**: Checks all asset/interval combinations in QuestDB
+
+**720-Candle API Limitation**:
+Kraken's REST API only returns the last 720 candles, which means:
+- **Daily (1440 min)**: ~2 years from today
+- **Hourly (60 min)**: 30 days from today
+- **5-minute**: ~2.5 days from today
+
+Gaps older than these limits **cannot** be filled via API and require CSV export from Kraken.
+
+**Gap Classification**:
+- **API-Fillable**: Gaps within 720-candle limit (can backfill now)
+- **Unfillable**: Gaps beyond 720-candle limit (require CSV or alternative source)
+
+**Interactive Mode**:
+- Displays two separate reports: fillable vs unfillable gaps
+- Shows gap summary: start date, end date, missing candle count, days from today
+- Prompts for confirmation before backfilling (unless `--yes` flag used)
+- Tracks success/failure per gap with error messages
+
+**High-Performance Ingestion**:
+- Uses QuestDB ILP (Influx Line Protocol) for fast writes
+- Idempotent: Safe to re-run, handles duplicate timestamps
+- Rate limiting: 1 second between API requests (conservative)
+
+**Output Example**:
+```
+═══════════════════════════════════════════════════════════
+Kraken Gap Detection Report
+═══════════════════════════════════════════════════════════
+
+Scanning 15 assets for gaps...
+
+───────────────────────────────────────────────────────────
+📊 API-FILLABLE GAPS (within 720-candle limit)
+───────────────────────────────────────────────────────────
+
+BTC (TIER1) - 1440 min interval:
+  ✓ 2024-11-01 → 2024-11-03 (3 days, 3 candles)
+    └─ 9 candles from today (limit: 720) ✓
+
+ETH (TIER1) - 60 min interval:
+  ✓ 2025-01-10 08:00 → 2025-01-10 14:00 (6 hours, 6 candles)
+    └─ 50 candles from today (limit: 720) ✓
+
+Summary: 23 fillable gaps, 1,245 total candles to fetch
+
+───────────────────────────────────────────────────────────
+❌ UNFILLABLE GAPS (beyond 720-candle limit)
+───────────────────────────────────────────────────────────
+
+SOL (TIER1) - 1440 min interval:
+  ✗ 2022-03-01 → 2022-03-15 (15 days, 15 candles)
+    └─ 1,076 candles from today (limit: 720) ✗
+    └─ TOO OLD by 356 candles (356 days)
+    → ACTION: Download CSV from Kraken for 2022-03-01 to 2022-03-15
+
+Summary: 4 unfillable gaps
+  → Requires CSV export or alternative data source
+  → Kraken CSV export: https://www.kraken.com/features/api#ohlc-data
+
+═══════════════════════════════════════════════════════════
+
+Proceed with backfilling 23 API-available gaps? [y/N]:
+```
+
+**CSV Export Format** (when using `--export-unfillable`):
+```csv
+asset_ticker,tier,interval_minutes,gap_start,gap_end,missing_candles,candles_from_today,overflow_candles
+SOL,TIER1,1440,2022-03-01,2022-03-15,15,1076,356
+XRP,TIER1,60,2024-10-05,2024-10-10,144,912,192
+```
+
+**Common Use Cases**:
+
+1. **Regular Gap Checks**:
+   ```bash
+   # Weekly check for TIER1 assets
+   python manage.py backfill_kraken_gaps --tier TIER1
+   ```
+
+2. **After Bulk Ingestion**:
+   ```bash
+   # Check for any missed data after bulk CSV ingestion
+   python manage.py backfill_kraken_gaps --tier TIER1 --tier TIER2
+   ```
+
+3. **Specific Asset Maintenance**:
+   ```bash
+   # Check and fill gaps for specific asset
+   python manage.py backfill_kraken_gaps --asset BTC --yes
+   ```
+
+4. **Gap Analysis**:
+   ```bash
+   # Generate report of all gaps
+   python manage.py backfill_kraken_gaps --dry-run --export-unfillable analysis.csv
+   ```
+
+5. **Old Data Identification**:
+   ```bash
+   # Find gaps that need CSV export
+   python manage.py backfill_kraken_gaps --show-unfillable-only
+   ```
+
+**When to Use**:
+- After initial CSV bulk ingestion to fill recent gaps
+- Regular maintenance to catch missed data
+- Recovery from data collection outages
+- Identifying data that needs CSV export
+
+**When NOT to Use**:
+- For gaps older than 720 candles (use CSV export instead)
+- Initial bulk historical load (use `ingest_sequential` with CSV files)
+- Real-time data streaming (use WebSocket or scheduled polling)
+
+**Requirements**:
+- Assets must exist in PostgreSQL database
+- Asset price data must exist in QuestDB (from previous ingestion)
+- Kraken API accessible (no API key required for public OHLC endpoint)
+- QuestDB ILP port (9009) accessible
+
+**Error Handling**:
+- Continues processing on errors by default
+- Failed gaps listed at end with error messages
+- Common errors:
+  - Unknown asset pair (check ticker mapping)
+  - Rate limit exceeded (automatic 1-second delay)
+  - Network timeout (automatic retry with backoff)
+
+**Performance**:
+- Gap detection: ~1 second per 10 assets
+- API fetching: 1 request/second (rate limited)
+- QuestDB writes: 50K-100K records/second via ILP
+- Example: 20 gaps × 30 candles each = ~20 seconds
+
+**Data Quality**:
+- Excludes Kraken's incomplete last candle
+- Validates OHLC data format
+- Handles missing volume/trade count gracefully
+- Idempotent: Safe to re-run without duplicates
+
+**Related Commands**:
+- `ingest_sequential`: For bulk CSV ingestion (preferred for historical data)
+- `setup_questdb_schema`: Initialize QuestDB schema
+- `backfill_prices`: For external API sources (Massive.com, Finnhub)
+
+---
+
 
 
 ## Related Documentation
