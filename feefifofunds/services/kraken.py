@@ -248,17 +248,3 @@ def parse_ohlcv_csv(file_path: str, interval_minutes: int) -> Iterator[dict]:
                 }
             except (ValueError, IndexError):
                 continue
-
-
-class BulkInsertHelper:
-    @staticmethod
-    def bulk_create_prices(prices: list, batch_size: int = 25000):
-        """
-        Bulk create AssetPrice records.
-        Database routing handled automatically by FeeFiFoFundsQuestDBRouter.
-        """
-        from feefifofunds.models import AssetPrice
-
-        for i in range(0, len(prices), batch_size):
-            batch = prices[i : i + batch_size]
-            AssetPrice.objects.bulk_create(batch, ignore_conflicts=True)
