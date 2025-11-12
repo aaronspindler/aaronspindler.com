@@ -1,7 +1,7 @@
 """
 Management command to initialize QuestDB schema for time-series tables.
 
-Creates the assetprice and trade tables in QuestDB with optimized schema
+Creates the assetprice table in QuestDB with optimized schema
 including SYMBOL types, PARTITION BY DAY, and designated timestamps.
 """
 
@@ -10,7 +10,7 @@ from django.db import connections
 
 
 class Command(BaseCommand):
-    help = "Initialize QuestDB schema for AssetPrice and Trade tables"
+    help = "Initialize QuestDB schema for AssetPrice table"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -36,10 +36,9 @@ class Command(BaseCommand):
             with connections[database].cursor() as cursor:
                 # Drop tables if requested
                 if drop_tables:
-                    self.stdout.write(self.style.WARNING("\n⚠️  Dropping existing tables..."))
+                    self.stdout.write(self.style.WARNING("\n⚠️  Dropping existing table..."))
                     cursor.execute("DROP TABLE IF EXISTS assetprice")
-                    cursor.execute("DROP TABLE IF EXISTS trade")
-                    self.stdout.write(self.style.SUCCESS("✓ Tables dropped"))
+                    self.stdout.write(self.style.SUCCESS("✓ Table dropped"))
 
                 # Create AssetPrice table
                 self.stdout.write("\n📈 Creating assetprice table...")
@@ -60,34 +59,19 @@ class Command(BaseCommand):
                 """)
                 self.stdout.write(self.style.SUCCESS("✓ assetprice table created"))
 
-                # Create Trade table
-                self.stdout.write("\n💱 Creating trade table...")
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS trade (
-                        asset_id INT,
-                        time TIMESTAMP,
-                        price DOUBLE,
-                        volume DOUBLE,
-                        quote_currency SYMBOL CAPACITY 256 CACHE,
-                        source SYMBOL CAPACITY 256 CACHE
-                    ) timestamp(time) PARTITION BY DAY;
-                """)
-                self.stdout.write(self.style.SUCCESS("✓ trade table created"))
-
-                # Verify tables
-                self.stdout.write("\n🔍 Verifying tables...")
+                # Verify table
+                self.stdout.write("\n🔍 Verifying table...")
                 cursor.execute("""
                     SELECT table_name
                     FROM tables()
-                    WHERE table_name IN ('assetprice', 'trade')
-                    ORDER BY table_name
+                    WHERE table_name = 'assetprice'
                 """)
                 tables = [row[0] for row in cursor.fetchall()]
 
-                if len(tables) == 2:
-                    self.stdout.write(self.style.SUCCESS(f"✓ Found {len(tables)} tables: {', '.join(tables)}"))
+                if len(tables) == 1:
+                    self.stdout.write(self.style.SUCCESS(f"✓ Found table: {tables[0]}"))
                 else:
-                    self.stdout.write(self.style.WARNING(f"⚠️  Only found {len(tables)} tables: {', '.join(tables)}"))
+                    self.stdout.write(self.style.WARNING("⚠️  assetprice table not found"))
 
             self.stdout.write("\n" + "─" * 60)
             self.stdout.write(self.style.SUCCESS("\n✅ QuestDB schema initialization complete!"))

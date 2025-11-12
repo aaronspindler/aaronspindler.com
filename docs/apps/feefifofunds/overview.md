@@ -7,8 +7,7 @@ FeeFiFoFunds is an MVP Django application for tracking financial asset prices ov
 **Key Features:**
 - Track multiple asset types: stocks, cryptocurrencies, commodities, currencies
 - Store OHLCV (candle) data at multiple timeframes (1m, 5m, 15m, 60m, daily, etc.)
-- Store individual trade (tick) data with microsecond precision
-- Ingest data from multiple sources: Kraken CSV files, Massive.com API, Finnhub API
+- Ingest data from multiple sources: Kraken OHLCV CSV files, Massive.com API, Finnhub API
 - High-performance ingestion: 50K-100K records/second with QuestDB ILP
 - Tier-based asset classification for filtering and prioritization
 
@@ -24,7 +23,7 @@ FeeFiFoFunds uses two databases for optimal performance:
    - Relational queries and data integrity constraints
 
 2. **QuestDB (time-series database)**
-   - Stores AssetPrice and Trade models for time-series data
+   - Stores AssetPrice model for time-series data
    - Optimized for high-throughput ingestion and fast queries
    - PARTITION BY DAY for efficient time-based queries
    - SYMBOL types for optimized string storage
@@ -52,7 +51,7 @@ QuestDB is purpose-built for time-series data and offers:
 FeeFiFoFunds follows a standard Django architecture:
 
 1. **Models Layer** (`feefifofunds/models/`)
-   - Django ORM models: Asset (PostgreSQL), AssetPrice/Trade (QuestDB)
+   - Django ORM models: Asset (PostgreSQL), AssetPrice (QuestDB)
    - Uses TimestampedModel mixin from utils.models
    - Database constraints and indexes defined in models
 
@@ -292,62 +291,13 @@ with connections['questdb'].cursor() as cursor:
     rows = cursor.fetchall()
 ```
 
----
-
-### Trade Model (QuestDB)
-
-Individual trade (tick) records stored in QuestDB for high-performance time-series queries.
-
-**Fields:**
-- `asset_id` (IntegerField): Reference to Asset.id in PostgreSQL
-- `time` (DateTimeField): Exact timestamp of trade (microsecond precision)
-- `price` (DecimalField): Trade execution price
-- `volume` (DecimalField): Trade volume/quantity
-- `quote_currency` (CharField, SYMBOL): Currency for pricing
-- `source` (CharField, SYMBOL): Data source (default: kraken)
-
-**QuestDB Schema:**
-```sql
-CREATE TABLE trade (
-    asset_id INT,
-    time TIMESTAMP,
-    price DOUBLE,
-    volume DOUBLE,
-    quote_currency SYMBOL CAPACITY 256 CACHE,
-    source SYMBOL CAPACITY 256 CACHE
-) timestamp(time) PARTITION BY DAY;
-```
-
-**Model Properties:**
-- `managed = False`: Django doesn't manage this table
-- `db_table = 'trade'`: QuestDB table name
-- `asset` property: Lazy loads Asset from PostgreSQL
-
-**Usage:**
-```python
-from feefifofunds.models import Trade
-from django.db import connections
-
-# Query recent trades (use QuestDB connection)
-with connections['questdb'].cursor() as cursor:
-    cursor.execute("""
-        SELECT asset_id, time, price, volume
-        FROM trade
-        WHERE asset_id = 1
-        AND time >= dateadd('d', -1, now())
-        ORDER BY time DESC
-        LIMIT 1000
-    """)
-    rows = cursor.fetchall()
-```
-
 ## Management Commands
 
 ### Database Setup
 
 #### setup_questdb_schema
 
-Initialize QuestDB schema for AssetPrice and Trade tables.
+Initialize QuestDB schema for AssetPrice table.
 
 ```bash
 # Initial setup
@@ -359,8 +309,7 @@ python manage.py setup_questdb_schema --drop
 
 **What it does:**
 - Creates `assetprice` table with SYMBOL types, PARTITION BY DAY
-- Creates `trade` table with SYMBOL types, PARTITION BY DAY
-- Verifies tables were created successfully
+- Verifies table was created successfully
 
 **When to run:**
 - Initial project setup
@@ -397,13 +346,13 @@ python manage.py create_asset \
 
 #### ingest_sequential (Recommended)
 
-Fast sequential ingestion of Kraken OHLCV and trade data using QuestDB ILP.
+Fast sequential ingestion of Kraken OHLCV data using QuestDB ILP.
 
 **Key Features:**
 - QuestDB ILP (Influx Line Protocol) for maximum speed (50K-100K records/sec)
-- Filter by tier (TIER1-4), file type (ohlcv/trade), and intervals
+- Filter by tier (TIER1-4) and intervals
 - Auto-creates Asset records with tier classification
-- Moves completed files to `ingested/` directory
+- Moves completed files to `ingested/ohlcv/` directory
 - Idempotent: safe to re-run
 
 **Examples:**
@@ -412,14 +361,8 @@ Fast sequential ingestion of Kraken OHLCV and trade data using QuestDB ILP.
 # Ingest TIER1 assets only (BTC, ETH, etc. - fastest)
 python manage.py ingest_sequential --tier TIER1
 
-# Ingest only OHLCV candle data
-python manage.py ingest_sequential --file-type ohlcv
-
-# Ingest only trade tick data
-python manage.py ingest_sequential --file-type trade
-
-# Ingest TIER1 OHLCV with specific intervals (1h and 1d only)
-python manage.py ingest_sequential --tier TIER1 --file-type ohlcv --intervals 60,1440
+# Ingest TIER1 with specific intervals (1h and 1d only)
+python manage.py ingest_sequential --tier TIER1 --intervals 60,1440
 
 # Automated run (skip confirmation)
 python manage.py ingest_sequential --tier TIER1 --yes
@@ -436,9 +379,7 @@ python manage.py ingest_sequential --tier TIER1 --stop-on-error
 
 **Performance:**
 - TIER1 OHLCV: ~10-15 seconds (major assets)
-- TIER1 trade: ~30-60 seconds (major assets tick data)
 - Full OHLCV: ~30-60 minutes (all tiers, all intervals)
-- Full trade: ~2-4 hours (all tiers, all tick data)
 
 ---
 
@@ -525,31 +466,6 @@ with connections['questdb'].cursor() as cursor:
         print(f"{time}: O={open} H={high} L={low} C={close} V={volume}")
 ```
 
-### Query Trade Data
-
-```python
-from django.db import connections
-from feefifofunds.models import Asset
-
-# Get Ethereum asset
-eth = Asset.objects.get(ticker='ETH')
-
-# Query trades for last hour
-with connections['questdb'].cursor() as cursor:
-    cursor.execute("""
-        SELECT time, price, volume
-        FROM trade
-        WHERE asset_id = %s
-        AND time >= dateadd('h', -1, now())
-        ORDER BY time DESC
-        LIMIT 1000
-    """, [eth.id])
-
-    for row in cursor.fetchall():
-        time, price, volume = row
-        print(f"{time}: ${price} Vol={volume}")
-```
-
 ### Calculate VWAP (Volume Weighted Average Price)
 
 ```python
@@ -597,21 +513,21 @@ python manage.py shell
 >>> Asset.objects.count()
 ```
 
-### Full Kraken Data Ingestion
+### Full Kraken OHLCV Ingestion
 
 ```bash
 # Ingest all OHLCV data (all tiers, all intervals)
-python manage.py ingest_sequential --file-type ohlcv --yes
+python manage.py ingest_sequential --yes
 
-# Ingest all trade data (all tiers)
-python manage.py ingest_sequential --file-type trade --yes
+# Ingest specific intervals only
+python manage.py ingest_sequential --intervals 60,1440 --yes
 ```
 
 ### Incremental Updates
 
 ```bash
 # Ingest only new TIER1 OHLCV data (daily interval)
-python manage.py ingest_sequential --tier TIER1 --file-type ohlcv --intervals 1440 --yes
+python manage.py ingest_sequential --tier TIER1 --intervals 1440 --yes
 
 # Backfill recent data from Massive.com
 python manage.py backfill_prices --source massive --days 7 --all --grouped
@@ -754,7 +670,7 @@ python manage.py setup_questdb_schema
 
 **Slow ingestion:**
 - Use tier filtering: `--tier TIER1` for testing
-- Use file type filtering: `--file-type ohlcv` or `--file-type trade`
+- Use interval filtering: `--intervals 1440` for testing
 - Check network latency to QuestDB
 - Monitor QuestDB logs for errors
 
@@ -766,7 +682,7 @@ python manage.py setup_questdb_schema
 - [Documentation Index](../README.md) - Complete documentation map
 
 ### Related Feature Docs
-- [Kraken Ingestion](kraken-ingestion.md) - Fast CSV data ingestion (50K-100K records/sec)
+- [Kraken OHLCV Ingestion](ohlcv-ingestion.md) - Fast CSV data ingestion (50K-100K records/sec)
 - [Massive.com Integration](massive-integration.md) - Stock/ETF data from Massive.com API
 - [Data Sources Framework](data-sources.md) - External API integration patterns
 - [QuestDB Setup](questdb-setup.md) - Time-series database configuration and optimization

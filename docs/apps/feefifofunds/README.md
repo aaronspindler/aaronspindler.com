@@ -9,8 +9,7 @@ FeeFiFoFunds is a Django application for tracking financial asset prices over ti
 **Key Features:**
 - Track multiple asset types: stocks, crypto, commodities, currencies
 - Store OHLCV (candle) data at multiple timeframes (1m, 5m, 15m, 60m, daily, etc.)
-- Store individual trade (tick) data with microsecond precision
-- Ingest data from multiple sources: Kraken CSV, Massive.com API, Finnhub API
+- Ingest data from multiple sources: Kraken OHLCV CSV, Massive.com API, Finnhub API
 - High-performance ingestion: 50K-100K records/second with QuestDB ILP
 - Tier-based asset classification for filtering and prioritization
 - Hybrid database architecture: PostgreSQL + QuestDB
@@ -21,7 +20,7 @@ FeeFiFoFunds is a Django application for tracking financial asset prices over ti
 
 - **[Overview](overview.md)** - Complete system architecture and feature guide
   - Hybrid database approach (PostgreSQL + QuestDB)
-  - Data models (Asset, AssetPrice, Trade)
+  - Data models (Asset, AssetPrice)
   - Management commands
   - Usage examples
   - Configuration
@@ -37,9 +36,9 @@ FeeFiFoFunds is a Django application for tracking financial asset prices over ti
 
 ### Data Ingestion
 
-- **[Kraken Ingestion](kraken-ingestion.md)** - Fast CSV data ingestion (50K-100K records/sec)
+- **[Kraken OHLCV Ingestion](ohlcv-ingestion.md)** - Fast CSV data ingestion (50K-100K records/sec)
   - QuestDB ILP ingestion
-  - OHLCV and trade data
+  - OHLCV candlestick data
   - Tier-based filtering
   - File management
   - Performance optimization
@@ -98,17 +97,17 @@ python manage.py shell
 
 **See [Overview](overview.md) for complete setup guide.**
 
-### Full Kraken Data Ingestion
+### Full Kraken OHLCV Ingestion
 
 ```bash
 # Ingest all OHLCV data (all tiers, all intervals)
-python manage.py ingest_sequential --file-type ohlcv --yes
+python manage.py ingest_sequential --yes
 
-# Ingest all trade data (all tiers)
-python manage.py ingest_sequential --file-type trade --yes
+# Ingest specific intervals only (e.g., 1-hour and daily candles)
+python manage.py ingest_sequential --intervals 60,1440 --yes
 ```
 
-**See [Kraken Ingestion](kraken-ingestion.md) for detailed guide.**
+**See [Kraken OHLCV Ingestion](ohlcv-ingestion.md) for detailed guide.**
 
 ### API Data Sources
 

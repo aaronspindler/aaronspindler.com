@@ -51,7 +51,7 @@ make static
 ### FeeFiFoFunds App
 - `setup_questdb_schema` - Initialize QuestDB tables
 - `create_asset` - Create asset records
-- `ingest_sequential` - Fast Kraken CSV ingestion (50K-100K records/sec)
+- `ingest_sequential` - Fast Kraken OHLCV CSV ingestion (50K-100K records/sec)
 - `load_prices` - Load prices from APIs
 - `backfill_prices` - Backfill historical data
 

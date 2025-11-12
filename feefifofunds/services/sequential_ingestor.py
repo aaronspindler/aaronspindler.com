@@ -1,5 +1,5 @@
 """
-High-performance sequential file ingestor for OHLCVT data.
+High-performance sequential file ingestor for OHLCV data.
 Uses QuestDB's native ILP (InfluxDB Line Protocol) for maximum performance.
 """
 
@@ -21,7 +21,7 @@ from feefifofunds.services.kraken import KrakenAssetCreator, KrakenPairParser
 
 class SequentialIngestor:
     """
-    Optimized sequential ingestor for OHLCVT files.
+    Optimized sequential ingestor for OHLCV files.
     Uses QuestDB's native ILP (InfluxDB Line Protocol) with auto-flush for maximum performance.
     """
 
@@ -70,7 +70,7 @@ class SequentialIngestor:
         self.ilp_conf = None
 
     def _get_data_directories(self) -> Dict[str, Path]:
-        """Get the data directories for OHLCV and Trade files."""
+        """Get the data directories for OHLCV files."""
         base_dir = Path(settings.BASE_DIR)
 
         if self.data_dir:
@@ -80,7 +80,6 @@ class SequentialIngestor:
 
         return {
             "ohlcv": kraken_dir / "Kraken_OHLCVT",
-            "trades": kraken_dir / "Kraken_Trading_History",
             "ingested": kraken_dir / "ingested",
         }
 
@@ -91,23 +90,22 @@ class SequentialIngestor:
         ingested_dir.mkdir(parents=True, exist_ok=True)
 
         (ingested_dir / "ohlcv").mkdir(exist_ok=True)
-        (ingested_dir / "trade").mkdir(exist_ok=True)
 
         return ingested_dir
 
     def discover_files(
         self,
         tier_filter: Optional[str] = None,
-        file_type_filter: str = "both",
+        file_type_filter: str = "ohlcv",
         interval_filter: Optional[List[int]] = None,
     ) -> List[Tuple[Path, str, str]]:
         """
-        Discover all files to process, optionally filtered by tier, file type, and intervals.
+        Discover all OHLCV files to process, optionally filtered by tier and intervals.
 
         Args:
             tier_filter: Filter by asset tier (TIER1/2/3/4/ALL)
-            file_type_filter: Filter by file type ('ohlcv', 'trade', or 'both')
-            interval_filter: Filter by intervals in minutes (e.g., [60, 1440]). Only applies to OHLCV files.
+            file_type_filter: File type filter (currently only 'ohlcv' is supported)
+            interval_filter: Filter by intervals in minutes (e.g., [60, 1440])
 
         Returns:
             List of tuples: (filepath, file_type, ticker)
@@ -115,7 +113,7 @@ class SequentialIngestor:
         files = []
         dirs = self._get_data_directories()
 
-        if file_type_filter in ("ohlcv", "both") and dirs["ohlcv"].exists():
+        if dirs["ohlcv"].exists():
             for filepath in dirs["ohlcv"].glob("*.csv"):
                 filename = filepath.stem
 
@@ -146,21 +144,6 @@ class SequentialIngestor:
                         files.append((filepath, "ohlcv", base_ticker))
                     except ValueError:
                         continue
-
-        if file_type_filter in ("trade", "both") and dirs["trades"].exists():
-            for filepath in dirs["trades"].glob("*.csv"):
-                pair_name = filepath.stem
-                try:
-                    base_ticker, _ = KrakenPairParser.parse_pair(pair_name)
-
-                    if tier_filter and tier_filter != "ALL":
-                        asset_tier = KrakenAssetCreator.determine_tier(base_ticker)
-                        if asset_tier != tier_filter:
-                            continue
-
-                    files.append((filepath, "trade", base_ticker))
-                except ValueError:
-                    continue
 
         # Sort files for optimal processing
         # 1. Group by ticker (cache efficiency)
@@ -293,63 +276,9 @@ class SequentialIngestor:
 
         return records_inserted
 
-    def process_trade_file(
-        self, filepath: Path, asset: Asset, quote_currency: str, total_lines: int = 0, progress_callback=None
-    ) -> int:
-        """
-        Process a single trade file using QuestDB ILP protocol with auto-flush.
-
-        Uses a context manager to ensure data is properly flushed on completion.
-
-        Returns:
-            Number of records inserted
-        """
-        if self.ilp_conf is None:
-            raise RuntimeError("ILP connection not initialized. Call connect_ilp() first.")
-
-        records_inserted = 0
-
-        try:
-            with Sender.from_conf(self.ilp_conf) as sender:
-                with open(filepath, "r", buffering=8192) as csvfile:
-                    # Check and skip header if present
-                    first_line = csvfile.readline()
-                    has_header = self._is_header_line(first_line)
-                    if not has_header:
-                        csvfile.seek(0)
-
-                    reader = csv.reader(csvfile)
-
-                    for row in reader:
-                        if len(row) < 3:
-                            continue
-
-                        timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
-                        price = float(row[1])
-                        volume = float(row[2])
-
-                        sender.row(
-                            "trade",
-                            symbols={"quote_currency": quote_currency, "source": "kraken"},
-                            columns={"asset_id": asset.id, "price": price, "volume": volume},
-                            at=TimestampNanos.from_datetime(timestamp),
-                        )
-
-                        records_inserted += 1
-
-                        if progress_callback and records_inserted % 10000 == 0:
-                            progress_callback(records_inserted, total_lines)
-
-                # Context manager will auto-flush on exit
-
-        except Exception:
-            raise
-
-        return records_inserted
-
     def process_file(self, filepath: Path, file_type: str, progress_callback=None) -> Tuple[bool, int, Optional[str]]:
         """
-        Process a single file.
+        Process a single OHLCV file.
 
         Returns:
             Tuple of (success, records_processed, error_message)
@@ -359,28 +288,21 @@ class SequentialIngestor:
                 self._delete_empty_file(filepath)
                 return True, 0, "Empty file deleted"
 
-            if file_type == "ohlcv":
-                filename = filepath.stem
-                parts = filename.split("_")
-                if len(parts) < 2:
-                    return False, 0, f"Invalid OHLCV filename: {filename}"
+            filename = filepath.stem
+            parts = filename.split("_")
+            if len(parts) < 2:
+                return False, 0, f"Invalid OHLCV filename: {filename}"
 
-                pair_name = parts[0]
-                interval_minutes = int(parts[1])
-            else:
-                pair_name = filepath.stem
-                interval_minutes = None
+            pair_name = parts[0]
+            interval_minutes = int(parts[1])
 
             base_ticker, quote_currency = KrakenPairParser.parse_pair(pair_name)
 
             asset = self._get_or_create_asset(base_ticker, pair_name)
 
-            if file_type == "ohlcv":
-                records_inserted = self.process_ohlcv_file(
-                    filepath, asset, interval_minutes, quote_currency, 0, progress_callback
-                )
-            else:
-                records_inserted = self.process_trade_file(filepath, asset, quote_currency, 0, progress_callback)
+            records_inserted = self.process_ohlcv_file(
+                filepath, asset, interval_minutes, quote_currency, 0, progress_callback
+            )
 
             # Cache ingested directory on first use
             if self.ingested_dir is None:

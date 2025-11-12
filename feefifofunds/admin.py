@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Asset, AssetPrice, Trade
+from .models import Asset, AssetPrice
 
 
 @admin.register(Asset)
@@ -71,24 +71,6 @@ class AssetPriceAdmin(admin.ModelAdmin):
             "Volume & Trades",
             {
                 "fields": ("volume", "trade_count"),
-            },
-        ),
-    )
-
-
-@admin.register(Trade)
-class TradeAdmin(admin.ModelAdmin):
-    list_display = ["asset_id", "time", "quote_currency", "price", "volume", "source"]
-    list_filter = ["source", "quote_currency", "time"]
-    search_fields = ["asset_id"]
-    ordering = ["-time"]
-    date_hierarchy = "time"
-
-    fieldsets = (
-        (
-            "Trade Details",
-            {
-                "fields": ("asset_id", "time", "quote_currency", "price", "volume", "source"),
             },
         ),
     )

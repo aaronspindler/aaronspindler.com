@@ -6,7 +6,7 @@ Complete reference for all FeeFiFoFunds management commands including database s
 
 ### setup_questdb_schema
 
-Initialize QuestDB schema for AssetPrice and Trade time-series tables.
+Initialize QuestDB schema for AssetPrice time-series table.
 
 **Usage**:
 ```bash
@@ -15,14 +15,14 @@ python manage.py setup_questdb_schema
 
 **Options**:
 - `--database`: Database to use (default: questdb)
-- `--drop`: Drop existing tables before creating (DANGEROUS)
+- `--drop`: Drop existing table before creating (DANGEROUS)
 
 **Examples**:
 ```bash
 # Initialize schema (safe, uses IF NOT EXISTS)
 python manage.py setup_questdb_schema
 
-# Drop and recreate tables (CAREFUL - deletes all data!)
+# Drop and recreate table (CAREFUL - deletes all data!)
 python manage.py setup_questdb_schema --drop
 
 # Use different database connection
@@ -34,8 +34,7 @@ python manage.py setup_questdb_schema --database custom_questdb
    - SYMBOL types for quote_currency and source
    - PARTITION BY DAY for optimal performance
    - Designated timestamp column
-2. Creates `trade` table with optimized QuestDB schema
-3. Verifies tables were created successfully
+2. Verifies table was created successfully
 
 **When to Run**:
 - Initial project setup
@@ -43,8 +42,8 @@ python manage.py setup_questdb_schema --database custom_questdb
 - When switching to a new QuestDB instance
 
 **Note**:
-- AssetPrice and Trade models use `managed=False` in Django
-- Django migrations do NOT apply to these QuestDB tables
+- AssetPrice model uses `managed=False` in Django
+- Django migrations do NOT apply to this QuestDB table
 - Schema must be created manually with this command
 
 ---
@@ -92,17 +91,16 @@ python manage.py create_asset --ticker GLD --name "SPDR Gold Trust" --category C
 
 ### ingest_sequential
 
-**Fast sequential ingestion of Kraken OHLCV and trade data files using QuestDB ILP (Influx Line Protocol).**
+**Fast sequential ingestion of Kraken OHLCV data files using QuestDB ILP (Influx Line Protocol).**
 
 **Usage**:
 ```bash
-python manage.py ingest_sequential [--tier TIER] [--file-type TYPE] [--intervals INTERVALS]
+python manage.py ingest_sequential [--tier TIER] [--intervals INTERVALS]
 ```
 
 **Options**:
 - `--tier`: Asset tier to ingest (TIER1/TIER2/TIER3/TIER4/ALL). Default: ALL
-- `--file-type`: Type of files to ingest (ohlcv/trade/both). Default: both
-- `--intervals`: Comma-separated intervals in minutes (e.g., '60,1440' for 1h and 1d). Only for OHLCV files.
+- `--intervals`: Comma-separated intervals in minutes (e.g., '60,1440' for 1h and 1d)
 - `--yes`, `-y`: Skip confirmation prompts
 - `--database`: Database to use (default: questdb)
 - `--data-dir`: Custom data directory (for testing)
@@ -113,16 +111,10 @@ python manage.py ingest_sequential [--tier TIER] [--file-type TYPE] [--intervals
 # Ingest only TIER1 assets (BTC, ETH, etc. - fastest)
 python manage.py ingest_sequential --tier TIER1
 
-# Ingest only OHLCV (candle) data
-python manage.py ingest_sequential --file-type ohlcv
+# Ingest TIER1 data with specific intervals (1h and 1d only)
+python manage.py ingest_sequential --tier TIER1 --intervals 60,1440
 
-# Ingest only trade (tick) data
-python manage.py ingest_sequential --file-type trade
-
-# Ingest TIER1 OHLCV data with specific intervals (1h and 1d only)
-python manage.py ingest_sequential --tier TIER1 --file-type ohlcv --intervals 60,1440
-
-# Ingest all assets and all file types (default)
+# Ingest all assets (default)
 python manage.py ingest_sequential
 
 # Automated run (skip prompts)
@@ -134,12 +126,11 @@ python manage.py ingest_sequential --stop-on-error
 
 **Key Features**:
 - **QuestDB ILP ingestion**: Direct Influx Line Protocol for maximum speed (50K-100K records/sec)
-- **Flexible filtering**: Filter by asset tier (TIER1-4), file type (ohlcv/trade), and/or intervals
+- **Flexible filtering**: Filter by asset tier (TIER1-4) and/or intervals
 - **Idempotent**: QuestDB handles duplicate timestamps automatically, safe to re-run
-- **Auto file management**: Moves completed files to `ingested/` directory
+- **Auto file management**: Moves completed files to `ingested/ohlcv/` directory
 - **Empty file cleanup**: Deletes invalid/empty files automatically
 - **Rich progress display**: Real-time stats with file size, records, and ETA
-- **Handles both OHLCV and trade files**: Automatically detects file type from filename
 - **Auto-asset creation**: Creates Asset records with tier classification if they don't exist
 - **Persistent ILP connection**: Single connection for entire batch for better performance
 
@@ -151,9 +142,7 @@ python manage.py ingest_sequential --stop-on-error
 
 **Performance**:
 - TIER1 OHLCV: ~10-15 seconds (major assets only)
-- TIER1 trade: ~30-60 seconds (major assets tick data)
 - Full OHLCV dataset: ~30-60 minutes (all tiers, all intervals)
-- Full trade dataset: ~2-4 hours (all tiers, all tick data)
 - Speed: 50K-100K records/second with QuestDB ILP
 
 **Error Handling**:
@@ -166,14 +155,13 @@ python manage.py ingest_sequential --stop-on-error
 ```
 
 **File Discovery**:
-- Automatically discovers files in `data/` directory
-- Filters by tier, file type, and intervals
+- Automatically discovers OHLCV files in `data/` directory
+- Filters by tier and intervals
 - Displays file breakdown and tier statistics before processing
 - Waits for user confirmation (unless --yes specified)
 
 **When to Use**:
-- **Preferred method** for all Kraken data ingestion
-- Handles both OHLCV candle data and individual trade tick data
+- **Preferred method** for Kraken OHLCV data ingestion
 - Fast, reliable sequential processing with QuestDB ILP
 - Ideal for both initial bulk loads and incremental updates
 
@@ -305,7 +293,7 @@ python manage.py backfill_prices --ticker AAPL --source massive --days 30 --dry-
 ## Related Documentation
 
 - [FeeFiFoFunds Overview](overview.md) - Architecture and data models
-- [Kraken Ingestion](kraken-ingestion.md) - CSV data ingestion details
+- [Kraken OHLCV Ingestion](ohlcv-ingestion.md) - CSV data ingestion details
 - [Data Sources](data-sources.md) - API integration framework
 - [QuestDB Setup](questdb-setup.md) - Database configuration and tuning
 - [Development Guide](development.md) - Local setup and testing

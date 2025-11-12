@@ -250,24 +250,6 @@ def parse_ohlcv_csv(file_path: str, interval_minutes: int) -> Iterator[dict]:
                 continue
 
 
-def parse_trade_csv(file_path: str) -> Iterator[dict]:
-    with open(file_path, newline="", encoding="utf-8") as csvfile:
-        reader = csv.reader(csvfile)
-        for row in reader:
-            if len(row) < 3:
-                continue
-
-            try:
-                timestamp = datetime.fromtimestamp(int(row[0]), tz=dt_timezone.utc)
-                yield {
-                    "timestamp": timestamp,
-                    "price": Decimal(row[1]),
-                    "volume": Decimal(row[2]),
-                }
-            except (ValueError, IndexError):
-                continue
-
-
 class BulkInsertHelper:
     @staticmethod
     def bulk_create_prices(prices: list, batch_size: int = 25000):
@@ -280,15 +262,3 @@ class BulkInsertHelper:
         for i in range(0, len(prices), batch_size):
             batch = prices[i : i + batch_size]
             AssetPrice.objects.bulk_create(batch, ignore_conflicts=True)
-
-    @staticmethod
-    def bulk_create_trades(trades: list, batch_size: int = 50000):
-        """
-        Bulk create Trade records.
-        Database routing handled automatically by FeeFiFoFundsQuestDBRouter.
-        """
-        from feefifofunds.models import Trade
-
-        for i in range(0, len(trades), batch_size):
-            batch = trades[i : i + batch_size]
-            Trade.objects.bulk_create(batch, ignore_conflicts=True)

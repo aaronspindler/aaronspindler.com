@@ -100,7 +100,7 @@ See [apps/README.md](apps/README.md) for more information about app-specific doc
 ### Financial Data (FeeFiFoFunds)
 - [FeeFiFoFunds App Documentation](apps/feefifofunds/) - Complete multi-asset tracking guide
   - [Overview](apps/feefifofunds/overview.md) - Architecture and data models
-  - [Kraken Ingestion](apps/feefifofunds/kraken-ingestion.md) - CSV data ingestion
+  - [Kraken OHLCV Ingestion](apps/feefifofunds/ohlcv-ingestion.md) - CSV data ingestion
   - [Massive Integration](apps/feefifofunds/massive-integration.md) - Stock/ETF API
   - [Data Sources](apps/feefifofunds/data-sources.md) - API integration framework
   - [QuestDB Setup](apps/feefifofunds/questdb-setup.md) - Time-series database

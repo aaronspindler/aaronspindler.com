@@ -18,7 +18,7 @@ Commands specific to individual Django apps:
 - **[FeeFiFoFunds Commands](../../apps/feefifofunds/commands.md)** - Financial data management
   - `setup_questdb_schema` - Initialize QuestDB tables
   - `create_asset` - Manually create asset records
-  - `ingest_sequential` - Fast Kraken CSV ingestion (50K-100K records/sec)
+  - `ingest_sequential` - Fast Kraken OHLCV CSV ingestion (50K-100K records/sec)
   - `load_prices` - Load prices from external APIs
   - `backfill_prices` - Backfill historical data
 
@@ -45,7 +45,7 @@ Commands that work across multiple apps:
 | Command | Category | Description |
 |---------|----------|-------------|
 | `rebuild_knowledge_graph` | Blog | Rebuild knowledge graph cache |
-| `ingest_sequential` | FeeFiFoFunds | Fast Kraken CSV ingestion |
+| `ingest_sequential` | FeeFiFoFunds | Fast Kraken OHLCV CSV ingestion |
 | `build_css` | Static | Build and optimize CSS |
 | `rebuild_search_index` | Search | Rebuild full-text search index |
 | `run_lighthouse_audit` | Monitoring | Run performance audit |

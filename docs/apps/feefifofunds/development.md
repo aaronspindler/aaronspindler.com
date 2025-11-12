@@ -28,7 +28,6 @@ FeeFiFoFunds is a Django-based multi-asset price tracking platform. The project 
 #### 🗄️ Database Models (100%)
 - **Asset** - Universal model for all asset types (4 categories) stored in PostgreSQL
 - **AssetPrice** - OHLCV price data stored in QuestDB for time-series performance
-- **Trade** - Individual trade records stored in QuestDB
 - Uses TimestampedModel mixin from `utils/models/mixins.py`
 
 #### 🔌 Data Sources (100%)
@@ -49,7 +48,7 @@ FeeFiFoFunds is a Django-based multi-asset price tracking platform. The project 
 
 #### 🎨 Admin Interface (100%)
 - Asset admin with filters and search (PostgreSQL)
-- AssetPrice and Trade data managed via raw SQL (QuestDB)
+- AssetPrice data managed via raw SQL (QuestDB)
 - Proper field organization and help text
 
 ### In Progress
@@ -173,8 +172,7 @@ feefifofunds/
 ├── models/               # Database models
 │   ├── __init__.py
 │   ├── asset.py          # Universal Asset model (PostgreSQL)
-│   ├── price.py          # AssetPrice model (QuestDB)
-│   └── trade.py          # Trade model (QuestDB)
+│   └── price.py          # AssetPrice model (QuestDB)
 │
 ├── services/             # Business logic
 │   ├── __init__.py
@@ -264,7 +262,7 @@ python manage.py showmigrations feefifofunds
 
 **Important**:
 - Django migrations only apply to PostgreSQL models (Asset)
-- QuestDB models (AssetPrice, Trade) use `managed=False` and are created via `setup_questdb_schema`
+- QuestDB model (AssetPrice) uses `managed=False` and is created via `setup_questdb_schema`
 - Never manually edit or drop migrations after they're committed
 
 ### Django Admin
@@ -278,7 +276,7 @@ open http://localhost:8000/admin/
 
 # Available admin interfaces:
 # - Assets: Browse, filter, search, create assets (PostgreSQL)
-# - AssetPrice/Trade: Query via Django shell or QuestDB console (managed=False)
+# - AssetPrice: Query via Django shell or QuestDB console (managed=False)
 ```
 
 ### Django Shell
@@ -503,7 +501,7 @@ refactor: Simplify price data transformation
 ### Project Documentation
 
 - [Feature Overview](overview.md) - Complete feature documentation
-- [Kraken Ingestion Guide](kraken-ingestion.md) - CSV data ingestion details
+- [Kraken OHLCV Ingestion Guide](ohlcv-ingestion.md) - CSV data ingestion details
 - [Massive.com Integration](massive-integration.md) - API integration guide
 - [QuestDB Setup Guide](questdb-setup.md) - Database setup and optimization
 - [Data Sources Framework](data-sources.md) - External API integration patterns
@@ -555,7 +553,7 @@ Always use `.env` file and django-environ.
 - Never manually edit the database
 - Index fields used in filters and joins
 
-**QuestDB (AssetPrice, Trade models)**:
+**QuestDB (AssetPrice model)**:
 - Use raw SQL for queries (`connections['questdb'].cursor()`)
 - Leverage PARTITION BY DAY for time-range queries
 - Use SYMBOL types for repeated strings

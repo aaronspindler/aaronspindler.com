@@ -18,7 +18,7 @@ docs/apps/
 │   ├── README.md           # FeeFiFoFunds app index
 │   ├── overview.md         # Architecture and data models
 │   ├── development.md      # Development guide
-│   ├── kraken-ingestion.md # Kraken CSV ingestion
+│   ├── ohlcv-ingestion.md  # Kraken OHLCV CSV ingestion
 │   ├── data-sources.md     # API integration framework
 │   ├── massive-integration.md # Massive.com API
 │   └── questdb-setup.md    # QuestDB configuration
@@ -109,7 +109,7 @@ Multi-asset price tracking system with PostgreSQL + QuestDB hybrid architecture.
   - Local setup and prerequisites
   - Testing and debugging
   - Contribution guidelines
-- **[kraken-ingestion.md](feefifofunds/kraken-ingestion.md)** - Fast CSV data ingestion
+- **[ohlcv-ingestion.md](feefifofunds/ohlcv-ingestion.md)** - Fast OHLCV CSV data ingestion
   - QuestDB ILP ingestion (50K-100K records/sec)
   - Tier-based filtering
   - Performance optimization
