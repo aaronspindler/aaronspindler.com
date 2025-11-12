@@ -34,6 +34,7 @@ class SequentialIngestor:
         self.asset_cache: Dict[str, Asset] = {}
         self.ilp_host, self.ilp_port = self._get_ilp_connection()
         self.ilp_conf = None
+        self.ingested_dir = None  # Cache ingested directory path
         self.stats = {
             "files_processed": 0,
             "records_inserted": 0,
@@ -164,7 +165,10 @@ class SequentialIngestor:
         # Sort files for optimal processing
         # 1. Group by ticker (cache efficiency)
         # 2. Within ticker, sort by size (quick wins first)
-        files.sort(key=lambda x: (x[2], x[0].stat().st_size))
+        # Cache file sizes to avoid multiple stat calls
+        files_with_size = [(f[0], f[1], f[2], f[0].stat().st_size) for f in files]
+        files_with_size.sort(key=lambda x: (x[2], x[3]))
+        files = [(f[0], f[1], f[2]) for f in files_with_size]
 
         return files
 
@@ -174,9 +178,11 @@ class SequentialIngestor:
         if file_size < self.MIN_FILE_SIZE:
             return True
 
+        # More efficient: check first two lines without loading entire file
         with open(filepath, "r") as f:
-            lines = f.readlines()
-            if len(lines) <= 1:
+            if not f.readline():  # Empty file
+                return True
+            if not f.readline():  # Only header line
                 return True
 
         return False
@@ -202,20 +208,17 @@ class SequentialIngestor:
 
     def _is_header_line(self, line: str) -> bool:
         """Check if a CSV line is a header based on content."""
-        header_keywords = ["time", "timestamp", "open", "high", "low", "close", "volume", "price", "count", "trade"]
-
-        line_lower = line.lower()
-
-        for keyword in header_keywords:
-            if keyword in line_lower:
-                return True
-
-        first_field = line.split(",")[0].strip()
-        try:
-            float(first_field)
+        # Quick numeric check first (most common case)
+        first_field = line.split(",", 1)[0].strip()
+        if first_field and first_field[0].isdigit():
             return False
-        except ValueError:
-            return True
+
+        # Fallback to keyword check
+        line_lower = line.lower()
+        return any(
+            keyword in line_lower
+            for keyword in ("time", "timestamp", "open", "high", "low", "close", "volume", "price", "count", "trade")
+        )
 
     def process_ohlcv_file(
         self,
@@ -241,16 +244,16 @@ class SequentialIngestor:
 
         try:
             with Sender.from_conf(self.ilp_conf) as sender:
-                with open(filepath, "r") as csvfile:
+                with open(filepath, "r", buffering=8192) as csvfile:
+                    # Check and skip header if present
                     first_line = csvfile.readline()
-                    if self._is_header_line(first_line):
-                        pass
-                    else:
+                    has_header = self._is_header_line(first_line)
+                    if not has_header:
                         csvfile.seek(0)
 
                     reader = csv.reader(csvfile)
 
-                    for row_num, row in enumerate(reader, 1):
+                    for row in reader:
                         if len(row) < 6:
                             continue
 
@@ -280,8 +283,8 @@ class SequentialIngestor:
 
                         records_inserted += 1
 
-                        if progress_callback and row_num % 10000 == 0:
-                            progress_callback(row_num, total_lines)
+                        if progress_callback and records_inserted % 10000 == 0:
+                            progress_callback(records_inserted, total_lines)
 
                 # Context manager will auto-flush on exit
 
@@ -308,16 +311,16 @@ class SequentialIngestor:
 
         try:
             with Sender.from_conf(self.ilp_conf) as sender:
-                with open(filepath, "r") as csvfile:
+                with open(filepath, "r", buffering=8192) as csvfile:
+                    # Check and skip header if present
                     first_line = csvfile.readline()
-                    if self._is_header_line(first_line):
-                        pass
-                    else:
+                    has_header = self._is_header_line(first_line)
+                    if not has_header:
                         csvfile.seek(0)
 
                     reader = csv.reader(csvfile)
 
-                    for row_num, row in enumerate(reader, 1):
+                    for row in reader:
                         if len(row) < 3:
                             continue
 
@@ -334,8 +337,8 @@ class SequentialIngestor:
 
                         records_inserted += 1
 
-                        if progress_callback and row_num % 10000 == 0:
-                            progress_callback(row_num, total_lines)
+                        if progress_callback and records_inserted % 10000 == 0:
+                            progress_callback(records_inserted, total_lines)
 
                 # Context manager will auto-flush on exit
 
@@ -379,8 +382,10 @@ class SequentialIngestor:
             else:
                 records_inserted = self.process_trade_file(filepath, asset, quote_currency, 0, progress_callback)
 
-            ingested_dir = self._ensure_ingested_directory()
-            target_dir = ingested_dir / file_type
+            # Cache ingested directory on first use
+            if self.ingested_dir is None:
+                self.ingested_dir = self._ensure_ingested_directory()
+            target_dir = self.ingested_dir / file_type
             target_path = target_dir / filepath.name
 
             if target_path.exists():
