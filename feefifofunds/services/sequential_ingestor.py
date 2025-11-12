@@ -22,13 +22,9 @@ from feefifofunds.services.kraken import KrakenAssetCreator, KrakenPairParser
 class SequentialIngestor:
     """
     Optimized sequential ingestor for OHLCVT files.
-    Uses QuestDB's native ILP (InfluxDB Line Protocol) for maximum performance.
+    Uses QuestDB's native ILP (InfluxDB Line Protocol) with auto-flush for maximum performance.
     """
 
-    # Batch size for ILP flush operations (500k for optimal QuestDB performance)
-    BATCH_SIZE = 500_000
-
-    # Minimum file size to process (skip empty/header-only files)
     MIN_FILE_SIZE = 100
 
     def __init__(self, database: str = "questdb", data_dir: Optional[str] = None):
@@ -37,7 +33,7 @@ class SequentialIngestor:
         self.data_dir = data_dir
         self.asset_cache: Dict[str, Asset] = {}
         self.ilp_host, self.ilp_port = self._get_ilp_connection()
-        self.sender = None
+        self.ilp_conf = None
         self.stats = {
             "files_processed": 0,
             "records_inserted": 0,
@@ -56,26 +52,27 @@ class SequentialIngestor:
         return "localhost", 9009
 
     def connect_ilp(self):
-        """Create persistent ILP connection for reuse across files."""
-        if self.sender is None:
-            conf = f"tcp::addr={self.ilp_host}:{self.ilp_port};"
-            self.sender = Sender.from_conf(conf)
+        """Store ILP connection configuration for later use.
+
+        Auto-flush is handled by QuestDB server based on configuration:
+        - Commit interval: 2000ms (from line.tcp.commit.interval.default)
+        - Maintenance job interval: 5000ms
+
+        Note: We store the config instead of creating a persistent connection
+        because TCP connections don't support explicit flush() and need to be
+        managed with context managers.
+        """
+        self.ilp_conf = f"tcp::addr={self.ilp_host}:{self.ilp_port};"
 
     def disconnect_ilp(self):
-        """Close ILP connection."""
-        if self.sender is not None:
-            try:
-                self.sender.close()
-            except Exception:
-                pass
-            self.sender = None
+        """Clean up ILP configuration."""
+        self.ilp_conf = None
 
     def _get_data_directories(self) -> Dict[str, Path]:
         """Get the data directories for OHLCV and Trade files."""
         base_dir = Path(settings.BASE_DIR)
 
         if self.data_dir:
-            # Use custom data directory for testing
             kraken_dir = Path(self.data_dir)
         else:
             kraken_dir = base_dir / "feefifofunds" / "data" / "kraken"
@@ -92,7 +89,6 @@ class SequentialIngestor:
         ingested_dir = dirs["ingested"]
         ingested_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create subdirectories for organization
         (ingested_dir / "ohlcv").mkdir(exist_ok=True)
         (ingested_dir / "trade").mkdir(exist_ok=True)
 
@@ -118,13 +114,10 @@ class SequentialIngestor:
         files = []
         dirs = self._get_data_directories()
 
-        # Process OHLCV files (if requested)
         if file_type_filter in ("ohlcv", "both") and dirs["ohlcv"].exists():
             for filepath in dirs["ohlcv"].glob("*.csv"):
-                # Parse filename to get ticker
-                filename = filepath.stem  # Remove .csv
+                filename = filepath.stem
 
-                # Skip special case files for now
                 if "Daily_OHLC" in filename:
                     continue
 
@@ -133,7 +126,6 @@ class SequentialIngestor:
                     pair_name = parts[0]
                     interval_str = parts[1]
 
-                    # Apply interval filter if specified
                     if interval_filter:
                         try:
                             interval = int(interval_str)
@@ -145,7 +137,6 @@ class SequentialIngestor:
                     try:
                         base_ticker, _ = KrakenPairParser.parse_pair(pair_name)
 
-                        # Apply tier filter if specified
                         if tier_filter and tier_filter != "ALL":
                             asset_tier = KrakenAssetCreator.determine_tier(base_ticker)
                             if asset_tier != tier_filter:
@@ -153,18 +144,14 @@ class SequentialIngestor:
 
                         files.append((filepath, "ohlcv", base_ticker))
                     except ValueError:
-                        # Skip unparseable files
                         continue
 
-        # Process Trade files (if requested)
         if file_type_filter in ("trade", "both") and dirs["trades"].exists():
             for filepath in dirs["trades"].glob("*.csv"):
-                # Parse filename to get ticker
-                pair_name = filepath.stem  # Remove .csv
+                pair_name = filepath.stem
                 try:
                     base_ticker, _ = KrakenPairParser.parse_pair(pair_name)
 
-                    # Apply tier filter if specified
                     if tier_filter and tier_filter != "ALL":
                         asset_tier = KrakenAssetCreator.determine_tier(base_ticker)
                         if asset_tier != tier_filter:
@@ -172,7 +159,6 @@ class SequentialIngestor:
 
                     files.append((filepath, "trade", base_ticker))
                 except ValueError:
-                    # Skip unparseable files
                     continue
 
         # Sort files for optimal processing
@@ -188,10 +174,8 @@ class SequentialIngestor:
         if file_size < self.MIN_FILE_SIZE:
             return True
 
-        # Also check if file only contains header
         with open(filepath, "r") as f:
             lines = f.readlines()
-            # If file has <= 1 line (header only or empty)
             if len(lines) <= 1:
                 return True
 
@@ -218,25 +202,20 @@ class SequentialIngestor:
 
     def _is_header_line(self, line: str) -> bool:
         """Check if a CSV line is a header based on content."""
-        # Common header keywords to check for
         header_keywords = ["time", "timestamp", "open", "high", "low", "close", "volume", "price", "count", "trade"]
 
-        # Convert to lowercase for comparison
         line_lower = line.lower()
 
-        # Check if any header keyword is in the line
         for keyword in header_keywords:
             if keyword in line_lower:
                 return True
 
-        # Try to parse as timestamp - if it fails, might be header
         first_field = line.split(",")[0].strip()
         try:
-            # Try to convert to float (timestamps can be floats)
             float(first_field)
-            return False  # It's a number, not a header
+            return False
         except ValueError:
-            return True  # Not a number, likely a header
+            return True
 
     def process_ohlcv_file(
         self,
@@ -248,68 +227,63 @@ class SequentialIngestor:
         progress_callback=None,
     ) -> int:
         """
-        Process a single OHLCV file using QuestDB ILP protocol.
+        Process a single OHLCV file using QuestDB ILP protocol with auto-flush.
+
+        Uses a context manager to ensure data is properly flushed on completion.
 
         Returns:
             Number of records inserted
         """
-        records_inserted = 0
-        batch_count = 0
-
-        sender = self.sender
-        if sender is None:
+        if self.ilp_conf is None:
             raise RuntimeError("ILP connection not initialized. Call connect_ilp() first.")
 
+        records_inserted = 0
+
         try:
-            with open(filepath, "r") as csvfile:
-                first_line = csvfile.readline()
-                if self._is_header_line(first_line):
-                    pass
-                else:
-                    csvfile.seek(0)
+            with Sender.from_conf(self.ilp_conf) as sender:
+                with open(filepath, "r") as csvfile:
+                    first_line = csvfile.readline()
+                    if self._is_header_line(first_line):
+                        pass
+                    else:
+                        csvfile.seek(0)
 
-                reader = csv.reader(csvfile)
+                    reader = csv.reader(csvfile)
 
-                for row_num, row in enumerate(reader, 1):
-                    if len(row) < 6:
-                        continue
+                    for row_num, row in enumerate(reader, 1):
+                        if len(row) < 6:
+                            continue
 
-                    timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
-                    open_price = float(row[1])
-                    high_price = float(row[2])
-                    low_price = float(row[3])
-                    close_price = float(row[4])
-                    volume = float(row[5]) if row[5] else 0.0
-                    trade_count = int(row[6]) if len(row) > 6 and row[6] else 0
+                        timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
+                        open_price = float(row[1])
+                        high_price = float(row[2])
+                        low_price = float(row[3])
+                        close_price = float(row[4])
+                        volume = float(row[5]) if row[5] else 0.0
+                        trade_count = int(row[6]) if len(row) > 6 and row[6] else 0
 
-                    sender.row(
-                        "assetprice",
-                        symbols={"quote_currency": quote_currency, "source": "kraken"},
-                        columns={
-                            "asset_id": asset.id,
-                            "open": open_price,
-                            "high": high_price,
-                            "low": low_price,
-                            "close": close_price,
-                            "volume": volume,
-                            "interval_minutes": interval_minutes,
-                            "trade_count": trade_count,
-                        },
-                        at=TimestampNanos.from_datetime(timestamp),
-                    )
+                        sender.row(
+                            "assetprice",
+                            symbols={"quote_currency": quote_currency, "source": "kraken"},
+                            columns={
+                                "asset_id": asset.id,
+                                "open": open_price,
+                                "high": high_price,
+                                "low": low_price,
+                                "close": close_price,
+                                "volume": volume,
+                                "interval_minutes": interval_minutes,
+                                "trade_count": trade_count,
+                            },
+                            at=TimestampNanos.from_datetime(timestamp),
+                        )
 
-                    batch_count += 1
-                    records_inserted += 1
+                        records_inserted += 1
 
-                    if batch_count >= self.BATCH_SIZE:
-                        sender.flush()
-                        batch_count = 0
+                        if progress_callback and row_num % 10000 == 0:
+                            progress_callback(row_num, total_lines)
 
-                    if progress_callback and row_num % 1000 == 0:
-                        progress_callback(row_num, total_lines)
-
-            if batch_count > 0:
-                sender.flush()
+                # Context manager will auto-flush on exit
 
         except Exception:
             raise
@@ -320,55 +294,50 @@ class SequentialIngestor:
         self, filepath: Path, asset: Asset, quote_currency: str, total_lines: int = 0, progress_callback=None
     ) -> int:
         """
-        Process a single trade file using QuestDB ILP protocol.
+        Process a single trade file using QuestDB ILP protocol with auto-flush.
+
+        Uses a context manager to ensure data is properly flushed on completion.
 
         Returns:
             Number of records inserted
         """
-        records_inserted = 0
-        batch_count = 0
-
-        sender = self.sender
-        if sender is None:
+        if self.ilp_conf is None:
             raise RuntimeError("ILP connection not initialized. Call connect_ilp() first.")
 
+        records_inserted = 0
+
         try:
-            with open(filepath, "r") as csvfile:
-                first_line = csvfile.readline()
-                if self._is_header_line(first_line):
-                    pass
-                else:
-                    csvfile.seek(0)
+            with Sender.from_conf(self.ilp_conf) as sender:
+                with open(filepath, "r") as csvfile:
+                    first_line = csvfile.readline()
+                    if self._is_header_line(first_line):
+                        pass
+                    else:
+                        csvfile.seek(0)
 
-                reader = csv.reader(csvfile)
+                    reader = csv.reader(csvfile)
 
-                for row_num, row in enumerate(reader, 1):
-                    if len(row) < 3:
-                        continue
+                    for row_num, row in enumerate(reader, 1):
+                        if len(row) < 3:
+                            continue
 
-                    timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
-                    price = float(row[1])
-                    volume = float(row[2])
+                        timestamp = datetime.fromtimestamp(float(row[0]), tz=timezone.utc)
+                        price = float(row[1])
+                        volume = float(row[2])
 
-                    sender.row(
-                        "trade",
-                        symbols={"quote_currency": quote_currency, "source": "kraken"},
-                        columns={"asset_id": asset.id, "price": price, "volume": volume},
-                        at=TimestampNanos.from_datetime(timestamp),
-                    )
+                        sender.row(
+                            "trade",
+                            symbols={"quote_currency": quote_currency, "source": "kraken"},
+                            columns={"asset_id": asset.id, "price": price, "volume": volume},
+                            at=TimestampNanos.from_datetime(timestamp),
+                        )
 
-                    batch_count += 1
-                    records_inserted += 1
+                        records_inserted += 1
 
-                    if batch_count >= self.BATCH_SIZE:
-                        sender.flush()
-                        batch_count = 0
+                        if progress_callback and row_num % 10000 == 0:
+                            progress_callback(row_num, total_lines)
 
-                    if progress_callback and row_num % 1000 == 0:
-                        progress_callback(row_num, total_lines)
-
-            if batch_count > 0:
-                sender.flush()
+                # Context manager will auto-flush on exit
 
         except Exception:
             raise
@@ -383,14 +352,11 @@ class SequentialIngestor:
             Tuple of (success, records_processed, error_message)
         """
         try:
-            # Check if file is empty
             if self._check_empty_file(filepath):
                 self._delete_empty_file(filepath)
                 return True, 0, "Empty file deleted"
 
-            # Parse file details
             if file_type == "ohlcv":
-                # Parse OHLCV filename: PAIR_INTERVAL.csv
                 filename = filepath.stem
                 parts = filename.split("_")
                 if len(parts) < 2:
@@ -399,17 +365,13 @@ class SequentialIngestor:
                 pair_name = parts[0]
                 interval_minutes = int(parts[1])
             else:
-                # Parse trade filename: PAIR.csv
                 pair_name = filepath.stem
                 interval_minutes = None
 
-            # Parse pair to get ticker and quote currency
             base_ticker, quote_currency = KrakenPairParser.parse_pair(pair_name)
 
-            # Get or create asset
             asset = self._get_or_create_asset(base_ticker, pair_name)
 
-            # Process file based on type (no line counting for performance)
             if file_type == "ohlcv":
                 records_inserted = self.process_ohlcv_file(
                     filepath, asset, interval_minutes, quote_currency, 0, progress_callback
@@ -417,12 +379,10 @@ class SequentialIngestor:
             else:
                 records_inserted = self.process_trade_file(filepath, asset, quote_currency, 0, progress_callback)
 
-            # Move file to ingested directory
             ingested_dir = self._ensure_ingested_directory()
             target_dir = ingested_dir / file_type
             target_path = target_dir / filepath.name
 
-            # Handle duplicate filenames
             if target_path.exists():
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 target_path = target_dir / f"{filepath.stem}_{timestamp}.csv"
