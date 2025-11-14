@@ -37,7 +37,7 @@ beautifulsoup4==4.14.2
 pyppeteer==2.0.0
 
 # AWS SDK
-boto3==1.40.70
+boto3==1.40.73
 
 # HTTP Client
 requests==2.32.5
@@ -50,4 +50,4 @@ polygon-api-client==1.15.4
 coverage==7.11.3
 
 # Celery Utilities
-tblib==3.2.1
+tblib==3.2.2
