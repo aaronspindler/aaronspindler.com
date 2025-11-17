@@ -52,8 +52,7 @@ python manage.py check_questdb_version --database custom_questdb
 ✅ QuestDB version is compatible!
 
 Next steps:
-  1. Fake-apply schema migration: python manage.py migrate feefifofunds 0003 --fake
-  2. Apply DEDUP migration: python manage.py migrate feefifofunds
+  1. Apply migration (creates table with DEDUP): python manage.py migrate feefifofunds
 ```
 
 ---
@@ -62,18 +61,6 @@ Next steps:
 
 QuestDB schema is managed through Django migrations (introduced in migration 0003+).
 
-**Initial Setup** (for existing databases):
-```bash
-# 1. Check QuestDB version (must be >= 7.3)
-python manage.py check_questdb_version
-
-# 2. Fake-apply initial schema migration (table already exists)
-python manage.py migrate feefifofunds 0003 --fake
-
-# 3. Apply DEDUP migration (actually runs ALTER TABLE)
-python manage.py migrate feefifofunds
-```
-
 **New Environments**:
 ```bash
 # Run all migrations (creates table with DEDUP enabled)
@@ -81,20 +68,16 @@ python manage.py migrate feefifofunds
 ```
 
 **Migrations**:
-- **0003_create_questdb_assetprice_table**: Creates `assetprice` table schema
+- **0003_create_questdb_assetprice_with_dedup**: Creates `assetprice` table with DEDUP enabled
   - SYMBOL types for quote_currency and source
   - PARTITION BY DAY for optimal performance
   - Designated timestamp column
-- **0004_enable_dedup_assetprice**: Enables deduplication with UPSERT KEYS
-  - Keys: `(time, asset_id, interval_minutes, source)`
+  - DEDUP UPSERT KEYS: `(time, asset_id, interval_minutes, source, quote_currency)`
   - Ensures idempotent re-ingestion (safe to re-run ingestion)
   - Upsert behavior: newer data overwrites older on conflict
 
 **Rollback**:
 ```bash
-# Disable deduplication (rollback 0004)
-python manage.py migrate feefifofunds 0003
-
 # Remove table (rollback 0003 - DANGEROUS)
 python manage.py migrate feefifofunds 0002
 ```
@@ -103,6 +86,7 @@ python manage.py migrate feefifofunds 0002
 - AssetPrice model uses `managed=False` in Django
 - These migrations only apply to the `questdb` database connection
 - Deduplication requires QuestDB 7.3+ (check with `check_questdb_version`)
+- DEDUP is enabled by default in migration 0003 (no separate migration needed)
 - With DEDUP enabled, re-ingesting data is safe (no duplicates created)
 
 ---
@@ -186,7 +170,7 @@ python manage.py ingest_sequential --stop-on-error
 **Key Features**:
 - **QuestDB ILP ingestion**: Direct Influx Line Protocol for maximum speed (50K-100K records/sec)
 - **Flexible filtering**: Filter by asset tier (TIER1-4) and/or intervals
-- **Idempotent**: QuestDB deduplication enabled (migration 0004) - safe to re-run, no duplicates
+- **Idempotent**: QuestDB deduplication enabled (migration 0003) - safe to re-run, no duplicates
 - **Auto file management**: Moves completed files to `ingested/ohlcv/` directory
 - **Empty file cleanup**: Deletes invalid/empty files automatically
 - **Rich progress display**: Real-time stats with file size, records, and ETA
@@ -415,7 +399,7 @@ Gaps older than these limits **cannot** be filled via API and require CSV export
 
 **High-Performance Ingestion**:
 - Uses QuestDB ILP (Influx Line Protocol) for fast writes
-- Idempotent: QuestDB deduplication enabled (migration 0004) - safe to re-run, no duplicates
+- Idempotent: QuestDB deduplication enabled (migration 0003) - safe to re-run, no duplicates
 - Rate limiting: 1 second between API requests (conservative)
 
 **Output Example**:
@@ -533,7 +517,7 @@ XRP,TIER1,60,2024-10-05,2024-10-10,144,912,192
 - Excludes Kraken's incomplete last candle
 - Validates OHLC data format
 - Handles missing volume/trade count gracefully
-- Idempotent: QuestDB deduplication (migration 0004) prevents duplicates
+- Idempotent: QuestDB deduplication (migration 0003) prevents duplicates
 
 **Related Commands**:
 - `ingest_sequential`: For bulk CSV ingestion (preferred for historical data)
