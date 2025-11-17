@@ -7,10 +7,12 @@ backfilling.
 """
 
 import csv
+import os
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 from django.core.management.base import BaseCommand
 from django.db import connections
@@ -18,8 +20,6 @@ from questdb.ingress import Sender, TimestampNanos
 
 from feefifofunds.models import Asset
 from feefifofunds.services.data_sources import KrakenDataSource
-from feefifofunds.services.kraken import KrakenPairParser
-from feefifofunds.utils.progress_reporter import ProgressReporter
 
 
 @dataclass
@@ -158,6 +158,8 @@ class GapDetector:
                 return None
 
             last_timestamp = result[0]
+            if last_timestamp.tzinfo is None:
+                last_timestamp = last_timestamp.replace(tzinfo=timezone.utc)
 
         now = datetime.now(timezone.utc)
         if last_timestamp >= now:
@@ -264,10 +266,22 @@ class GapDetector:
 class GapBackfiller:
     """Backfills gaps using Kraken API and QuestDB ILP."""
 
-    def __init__(self, ilp_conf: str, stdout):
+    KRAKEN_SUPPORTED_INTERVALS = {1, 5, 15, 30, 60, 240, 1440, 10080, 21600}
+
+    def __init__(self, stdout):
         self.kraken = KrakenDataSource()
-        self.ilp_conf = ilp_conf
         self.stdout = stdout
+        self.ilp_host, self.ilp_port = self._get_ilp_connection()
+        self.ilp_conf = f"tcp::addr={self.ilp_host}:{self.ilp_port};"
+
+    def _get_ilp_connection(self) -> Tuple[str, int]:
+        """Extract ILP connection details from QUESTDB_URL environment variable."""
+        questdb_url = os.environ.get("QUESTDB_URL", "")
+        if questdb_url:
+            parsed = urlparse(questdb_url)
+            host = parsed.hostname or "localhost"
+            return host, 9009
+        return "localhost", 9009
 
     def backfill_gap(self, gap: Gap) -> Tuple[bool, int, Optional[str]]:
         """
@@ -298,16 +312,14 @@ class GapBackfiller:
 
     def _get_kraken_pair_info(self, ticker: str) -> Tuple[str, str]:
         """Get Kraken pair information for a ticker."""
-        mapping = KrakenPairParser.KRAKEN_TICKER_MAPPING
-        base = mapping.get(ticker, ticker)
+        ticker_to_kraken = {
+            "BTC": "XBT",
+            "DOGE": "XDG",
+        }
 
-        reverse_mapping = {v: k for k, v in mapping.items() if k != ticker}
-        kraken_base = reverse_mapping.get(base, base)
-        if kraken_base == "BTC":
-            kraken_base = "XBT"
-
+        kraken_base = ticker_to_kraken.get(ticker, ticker)
         quote = "USD"
-        return kraken_base + quote, quote
+        return kraken_base, quote
 
     def _write_to_questdb(
         self, asset: Asset, price_data: List[dict], quote_currency: str, interval_minutes: int
@@ -438,8 +450,16 @@ class Command(BaseCommand):
         fillable_gaps = [g for g in all_gaps if g.is_api_fillable]
         unfillable_gaps = [g for g in all_gaps if not g.is_api_fillable]
 
-        if not show_unfillable_only and fillable_gaps:
-            self._display_fillable_gaps(fillable_gaps)
+        supported_gaps = [g for g in fillable_gaps if g.interval_minutes in GapBackfiller.KRAKEN_SUPPORTED_INTERVALS]
+        unsupported_interval_gaps = [
+            g for g in fillable_gaps if g.interval_minutes not in GapBackfiller.KRAKEN_SUPPORTED_INTERVALS
+        ]
+
+        if unsupported_interval_gaps:
+            self._display_unsupported_intervals(unsupported_interval_gaps)
+
+        if not show_unfillable_only and supported_gaps:
+            self._display_fillable_gaps(supported_gaps)
 
         if unfillable_gaps:
             self._display_unfillable_gaps(unfillable_gaps)
@@ -447,19 +467,48 @@ class Command(BaseCommand):
         if export_file:
             self._export_unfillable_gaps(unfillable_gaps, export_file)
 
-        if dry_run or not fillable_gaps:
+        if dry_run or not supported_gaps:
             return
 
         if show_unfillable_only:
             return
 
         if not auto_confirm:
-            response = input(f"\nProceed with backfilling {len(fillable_gaps)} API-available gaps? [y/N]: ")
+            response = input(f"\nProceed with backfilling {len(supported_gaps)} Kraken-supported gaps? [y/N]: ")
             if response.lower() != "y":
                 self.stdout.write("Backfill cancelled")
                 return
 
-        self._backfill_gaps(fillable_gaps)
+        self._backfill_gaps(supported_gaps)
+
+    def _display_unsupported_intervals(self, gaps: List[Gap]):
+        """Display gaps with intervals not supported by Kraken."""
+        self.stdout.write("─" * 60)
+        self.stdout.write(self.style.WARNING("⚠️  UNSUPPORTED INTERVALS (Kraken doesn't support these intervals)"))
+        self.stdout.write("─" * 60)
+        self.stdout.write("")
+
+        by_asset = defaultdict(list)
+        for gap in gaps:
+            by_asset[gap.asset.ticker].append(gap)
+
+        for ticker in sorted(by_asset.keys()):
+            asset_gaps = by_asset[ticker]
+            tier = asset_gaps[0].asset.tier
+            self.stdout.write(f"{ticker} ({tier}):")
+            for gap in asset_gaps:
+                days = (gap.end_date - gap.start_date).days
+                self.stdout.write(
+                    f"  ⚠ {gap.start_date.date()} → {gap.end_date.date()} "
+                    f"({days} days, interval: {gap.interval_minutes} min)"
+                )
+                self.stdout.write(
+                    f"    └─ Kraken supports: {', '.join(str(i) for i in sorted(GapBackfiller.KRAKEN_SUPPORTED_INTERVALS))}"
+                )
+            self.stdout.write("")
+
+        self.stdout.write(f"Summary: {len(gaps)} gaps with unsupported intervals (will be skipped)")
+        self.stdout.write("")
 
     def _display_fillable_gaps(self, gaps: List[Gap]):
         """Display API-fillable gaps."""
@@ -565,17 +614,13 @@ class Command(BaseCommand):
         self.stdout.write("═" * 60)
         self.stdout.write("")
 
-        ilp_conf = "tcp::addr=localhost:9009;"
-        backfiller = GapBackfiller(ilp_conf, self.stdout)
+        backfiller = GapBackfiller(self.stdout)
 
         success_count = 0
         failure_count = 0
         total_records = 0
 
-        reporter = ProgressReporter(total=len(gaps), unit="gaps")
-
         for i, gap in enumerate(gaps, 1):
-            reporter.update(i)
             self.stdout.write(
                 f"\n[{i}/{len(gaps)}] Backfilling {gap.asset.ticker} "
                 f"({gap.start_date.date()} → {gap.end_date.date()}, {gap.interval_minutes} min)..."
