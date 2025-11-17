@@ -1,6 +1,7 @@
 """
 Optimized sequential file ingestor management command for OHLCV data.
 Fast, simple sequential processing without state tracking.
+https://support.kraken.com/sections/360009899492-csv-data
 """
 
 import time
