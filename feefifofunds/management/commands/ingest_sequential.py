@@ -125,7 +125,7 @@ class Command(BaseCommand):
         # Confirm before proceeding
         if not skip_confirmation and len(all_files) > 0:
             self.stdout.write(f"\n⚠️  This will process {len(all_files):,} files via QuestDB ILP")
-            self.stdout.write("   Note: QuestDB automatically handles duplicate timestamps")
+            self.stdout.write("   Note: QuestDB deduplication enabled via UPSERT KEYS (migration 0004)")
             response = input("Continue? [y/N]: ")
             if response.lower() != "y":
                 self.stdout.write(self.style.WARNING("Aborted"))

@@ -4,47 +4,106 @@ Complete reference for all FeeFiFoFunds management commands including database s
 
 ## Commands
 
-### setup_questdb_schema
+### check_questdb_version
 
-Initialize QuestDB schema for AssetPrice time-series table.
+Check QuestDB version to verify DEDUP support (requires 7.3+).
 
 **Usage**:
 ```bash
-python manage.py setup_questdb_schema
+python manage.py check_questdb_version
 ```
 
 **Options**:
-- `--database`: Database to use (default: questdb)
-- `--drop`: Drop existing table before creating (DANGEROUS)
+- `--database`: Database to check (default: questdb)
 
 **Examples**:
 ```bash
-# Initialize schema (safe, uses IF NOT EXISTS)
-python manage.py setup_questdb_schema
+# Check default QuestDB instance
+python manage.py check_questdb_version
 
-# Drop and recreate table (CAREFUL - deletes all data!)
-python manage.py setup_questdb_schema --drop
-
-# Use different database connection
-python manage.py setup_questdb_schema --database custom_questdb
+# Check custom database connection
+python manage.py check_questdb_version --database custom_questdb
 ```
 
 **What It Does**:
-1. Creates `assetprice` table with optimized QuestDB schema
-   - SYMBOL types for quote_currency and source
-   - PARTITION BY DAY for optimal performance
-   - Designated timestamp column
-2. Verifies table was created successfully
+1. Queries QuestDB version using `SELECT version()`
+2. Verifies version is >= 7.3 (required for DEDUP feature)
+3. Displays compatibility status for deduplication support
+4. Provides migration instructions if version is compatible
 
 **When to Run**:
-- Initial project setup
-- After QuestDB instance reset
-- When switching to a new QuestDB instance
+- Before applying QuestDB migrations
+- After upgrading QuestDB instance
+- When troubleshooting deduplication issues
 
-**Note**:
+**Output Example**:
+```
+🔍 Checking QuestDB Version
+────────────────────────────────────────────────────────────
+
+📊 QuestDB Version: 7.4.3
+
+📋 Feature Compatibility:
+   ✅ DEDUP support: YES (7.3+ required)
+   ✅ Ready for deduplication migrations
+
+────────────────────────────────────────────────────────────
+
+✅ QuestDB version is compatible!
+
+Next steps:
+  1. Fake-apply schema migration: python manage.py migrate feefifofunds 0003 --fake
+  2. Apply DEDUP migration: python manage.py migrate feefifofunds
+```
+
+---
+
+### QuestDB Migrations
+
+QuestDB schema is managed through Django migrations (introduced in migration 0003+).
+
+**Initial Setup** (for existing databases):
+```bash
+# 1. Check QuestDB version (must be >= 7.3)
+python manage.py check_questdb_version
+
+# 2. Fake-apply initial schema migration (table already exists)
+python manage.py migrate feefifofunds 0003 --fake
+
+# 3. Apply DEDUP migration (actually runs ALTER TABLE)
+python manage.py migrate feefifofunds
+```
+
+**New Environments**:
+```bash
+# Run all migrations (creates table with DEDUP enabled)
+python manage.py migrate feefifofunds
+```
+
+**Migrations**:
+- **0003_create_questdb_assetprice_table**: Creates `assetprice` table schema
+  - SYMBOL types for quote_currency and source
+  - PARTITION BY DAY for optimal performance
+  - Designated timestamp column
+- **0004_enable_dedup_assetprice**: Enables deduplication with UPSERT KEYS
+  - Keys: `(time, asset_id, interval_minutes, source)`
+  - Ensures idempotent re-ingestion (safe to re-run ingestion)
+  - Upsert behavior: newer data overwrites older on conflict
+
+**Rollback**:
+```bash
+# Disable deduplication (rollback 0004)
+python manage.py migrate feefifofunds 0003
+
+# Remove table (rollback 0003 - DANGEROUS)
+python manage.py migrate feefifofunds 0002
+```
+
+**Important Notes**:
 - AssetPrice model uses `managed=False` in Django
-- Django migrations do NOT apply to this QuestDB table
-- Schema must be created manually with this command
+- These migrations only apply to the `questdb` database connection
+- Deduplication requires QuestDB 7.3+ (check with `check_questdb_version`)
+- With DEDUP enabled, re-ingesting data is safe (no duplicates created)
 
 ---
 
@@ -127,7 +186,7 @@ python manage.py ingest_sequential --stop-on-error
 **Key Features**:
 - **QuestDB ILP ingestion**: Direct Influx Line Protocol for maximum speed (50K-100K records/sec)
 - **Flexible filtering**: Filter by asset tier (TIER1-4) and/or intervals
-- **Idempotent**: QuestDB handles duplicate timestamps automatically, safe to re-run
+- **Idempotent**: QuestDB deduplication enabled (migration 0004) - safe to re-run, no duplicates
 - **Auto file management**: Moves completed files to `ingested/ohlcv/` directory
 - **Empty file cleanup**: Deletes invalid/empty files automatically
 - **Rich progress display**: Real-time stats with file size, records, and ETA
@@ -356,7 +415,7 @@ Gaps older than these limits **cannot** be filled via API and require CSV export
 
 **High-Performance Ingestion**:
 - Uses QuestDB ILP (Influx Line Protocol) for fast writes
-- Idempotent: Safe to re-run, handles duplicate timestamps
+- Idempotent: QuestDB deduplication enabled (migration 0004) - safe to re-run, no duplicates
 - Rate limiting: 1 second between API requests (conservative)
 
 **Output Example**:
@@ -474,11 +533,11 @@ XRP,TIER1,60,2024-10-05,2024-10-10,144,912,192
 - Excludes Kraken's incomplete last candle
 - Validates OHLC data format
 - Handles missing volume/trade count gracefully
-- Idempotent: Safe to re-run without duplicates
+- Idempotent: QuestDB deduplication (migration 0004) prevents duplicates
 
 **Related Commands**:
 - `ingest_sequential`: For bulk CSV ingestion (preferred for historical data)
-- `setup_questdb_schema`: Initialize QuestDB schema
+- `check_questdb_version`: Verify QuestDB version for DEDUP support
 - `backfill_prices`: For external API sources (Massive.com, Finnhub)
 
 ---
