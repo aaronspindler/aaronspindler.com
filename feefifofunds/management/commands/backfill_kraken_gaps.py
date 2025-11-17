@@ -139,10 +139,58 @@ class GapDetector:
         minutes_per_day = 24 * 60
         return minutes_per_day // interval_minutes
 
-    def detect_gaps(self, asset: Asset) -> List[Gap]:
+    def detect_last_to_now_gap(self, asset: Asset, interval_minutes: int) -> Optional[Gap]:
+        """
+        Detect a single gap from the last record timestamp to now.
+
+        Returns None if no data exists for this asset/interval combination.
+        """
+        query = """
+        SELECT MAX(time) as max_time
+        FROM assetprice
+        WHERE asset_id = %s AND interval_minutes = %s
+        """
+        with connections["questdb"].cursor() as cursor:
+            cursor.execute(query, [asset.id, interval_minutes])
+            result = cursor.fetchone()
+
+            if not result or not result[0]:
+                return None
+
+            last_timestamp = result[0]
+
+        now = datetime.now(timezone.utc)
+        if last_timestamp >= now:
+            return None
+
+        is_fillable, candles_from_today, overflow = GapClassifier.classify_gap(now, interval_minutes)
+
+        expected_count = self.calculate_expected_records_per_day(interval_minutes)
+        days_diff = (now - last_timestamp).days
+        missing_candles = days_diff * expected_count
+
+        return Gap(
+            asset=asset,
+            interval_minutes=interval_minutes,
+            start_date=last_timestamp,
+            end_date=now,
+            missing_candles=missing_candles,
+            candles_from_today=candles_from_today,
+            is_api_fillable=is_fillable,
+            overflow_candles=overflow,
+        )
+
+    def detect_gaps(self, asset: Asset, from_last: bool = False) -> List[Gap]:
         """Detect all gaps for an asset."""
         gaps = []
         intervals = self.get_asset_intervals(asset.id)
+
+        if from_last:
+            for interval_minutes in intervals:
+                gap = self.detect_last_to_now_gap(asset, interval_minutes)
+                if gap:
+                    gaps.append(gap)
+            return gaps
 
         for interval_minutes in intervals:
             date_range = self.get_date_range(asset.id, interval_minutes)
@@ -341,6 +389,11 @@ class Command(BaseCommand):
             type=str,
             help="Export unfillable gaps to CSV file",
         )
+        parser.add_argument(
+            "--from-last",
+            action="store_true",
+            help="Only fill gaps from the last record timestamp to now for each asset/interval",
+        )
 
     def handle(self, *args, **options):
         tier_filter = options.get("tier")
@@ -350,6 +403,7 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         show_unfillable_only = options["show_unfillable_only"]
         export_file = options.get("export_unfillable")
+        from_last = options["from_last"]
 
         self.stdout.write("═" * 60)
         self.stdout.write(self.style.SUCCESS("Kraken Gap Detection Report"))
@@ -366,12 +420,13 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("No assets found matching filters"))
             return
 
-        self.stdout.write(f"Scanning {len(assets)} assets for gaps...")
+        mode_text = "FROM-LAST mode (last timestamp → now)" if from_last else "all gaps"
+        self.stdout.write(f"Scanning {len(assets)} assets for {mode_text}...")
         self.stdout.write("")
 
         all_gaps = []
         for asset in assets:
-            gaps = detector.detect_gaps(asset)
+            gaps = detector.detect_gaps(asset, from_last=from_last)
             if interval_filter:
                 gaps = [g for g in gaps if g.interval_minutes == interval_filter]
             all_gaps.extend(gaps)
