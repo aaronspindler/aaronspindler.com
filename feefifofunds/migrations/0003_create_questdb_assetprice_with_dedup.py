@@ -16,7 +16,10 @@ def create_assetprice_table_with_dedup(_apps, _schema_editor):
                 trade_count INT,
                 quote_currency SYMBOL CAPACITY 256 CACHE,
                 source SYMBOL CAPACITY 256 CACHE
-            ) timestamp(time) PARTITION BY DAY
+            ) timestamp(time) PARTITION BY DAY;
+        """)
+        cursor.execute("""
+            ALTER TABLE assetprice
             DEDUP ENABLE UPSERT KEYS(time, asset_id, interval_minutes, source, quote_currency);
         """)
 
