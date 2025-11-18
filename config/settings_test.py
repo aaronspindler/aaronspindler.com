@@ -29,9 +29,26 @@ DATABASES = {
 }
 
 # QuestDB configuration for tests
-# In tests, we don't set up a real QuestDB instance, so we point to the default database
-# This allows tests to run without requiring QuestDB infrastructure
-DATABASES["questdb"] = DATABASES["default"]
+# Use real QuestDB instance for testing when available (for integration tests)
+# Falls back to PostgreSQL for unit tests that don't require QuestDB features
+if os.environ.get("QUESTDB_URL"):
+    # Parse QuestDB connection from environment
+    import dj_database_url
+
+    DATABASES["questdb"] = dj_database_url.parse(os.environ.get("QUESTDB_URL"))
+    DATABASES["questdb"]["ENGINE"] = "config.db_backends.questdb"  # Custom backend that skips version check
+    DATABASES["questdb"]["CONN_MAX_AGE"] = 600  # Keep connections alive for 10 minutes
+    DATABASES["questdb"]["CONN_HEALTH_CHECKS"] = True  # Check connection health
+    DATABASES["questdb"]["OPTIONS"] = {
+        "connect_timeout": 10,
+        "prepare_threshold": 5,  # Cache prepared statements after 5 uses
+        "server_side_binding": False,  # Disable server-side binding for QuestDB compatibility
+    }
+else:
+    # Fallback to PostgreSQL if QuestDB is not configured
+    # This allows basic unit tests to run without QuestDB
+    DATABASES["questdb"] = DATABASES["default"].copy()
+    DATABASES["questdb"]["NAME"] = "test_questdb"  # Use separate database to isolate data
 
 # Redis configuration for testing
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
