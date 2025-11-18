@@ -1,5 +1,20 @@
-# Enhanced Dependabot configuration for better dependency management
-# See: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Dependabot Configuration
+#
+# Automated dependency updates for maximum security and maintenance coverage
+# All ecosystems run DAILY with high PR limits for aggressive updating
+#
+# COVERED BY DEPENDABOT:
+# - Python packages (requirements/*.in)
+# - GitHub Actions (.github/workflows/*.yml)
+# - Docker base images (deployment/Dockerfile)
+# - npm packages (package.json)
+#
+# NOT COVERED BY DEPENDABOT (requires manual maintenance):
+# - Pre-commit hooks (.pre-commit-config.yaml) - Automated via pre-commit.ci
+# - Docker Compose service images (deployment/docker-compose*.yml)
+# - Git submodules
+#
+# See: https://docs.github.com/code-security/dependabot/dependabot-version-updates
 
 version: 2
 updates:
@@ -10,10 +25,14 @@ updates:
   - package-ecosystem: "pip"
     directory: "/requirements"
     schedule:
-      interval: "daily"  # Check daily for updates (most frequent option available)
-      time: "03:00"  # Run early morning to catch overnight releases
-      timezone: "America/New_York"  # Using EST/EDT timezone
-    open-pull-requests-limit: 15  # Allows for both regular and security updates
+      interval: "daily"
+      time: "03:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 20
+    pull-request-branch-name:
+      separator: "/"
+    rebase-strategy: "auto"
+    versioning-strategy: "increase-if-necessary"
     reviewers:
       - "aaronspindler"
     assignees:
@@ -25,14 +44,9 @@ updates:
     labels:
       - "dependencies"
       - "python"
-    ignore:
-      # Ignore major version updates for critical packages
-      - dependency-name: "django"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "psycopg2-binary"
-        update-types: ["version-update:semver-major"]
-    # Group minor and patch updates together
+      - "backend"
     groups:
+      # Group minor and patch updates for most packages
       python-minor-patch:
         patterns:
           - "*"
@@ -42,15 +56,33 @@ updates:
         exclude-patterns:
           - "django"
           - "psycopg2-binary"
+      # Group critical packages separately for easier review
+      python-critical:
+        patterns:
+          - "django"
+          - "psycopg2-binary"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group major version updates for critical packages
+      python-major:
+        patterns:
+          - "django"
+          - "psycopg2-binary"
+        update-types:
+          - "major"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "daily"  # Changed from weekly to daily
-      time: "04:00"  # Run after Python dependencies
-      timezone: "America/New_York"  # Using EST/EDT timezone
-    open-pull-requests-limit: 5
+      interval: "daily"
+      time: "04:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10
+    pull-request-branch-name:
+      separator: "/"
+    rebase-strategy: "auto"
     reviewers:
       - "aaronspindler"
     assignees:
@@ -61,19 +93,33 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+      - "ci"
     groups:
-      actions:
+      # Group minor and patch updates together
+      actions-minor-patch:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group major version updates separately for easier review
+      actions-major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
 
   # Docker - Dockerfile in deployment directory
   - package-ecosystem: "docker"
     directory: "/deployment"
     schedule:
-      interval: "daily"  # Changed from weekly to daily
-      time: "05:00"  # Run after GitHub Actions
-      timezone: "America/New_York"  # Using EST/EDT timezone
-    open-pull-requests-limit: 5
+      interval: "daily"
+      time: "05:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10
+    pull-request-branch-name:
+      separator: "/"
+    rebase-strategy: "auto"
     reviewers:
       - "aaronspindler"
     assignees:
@@ -84,7 +130,41 @@ updates:
     labels:
       - "dependencies"
       - "docker"
-    ignore:
-      # Ignore major Python version updates (only allow minor/patch updates like 3.13.x)
-      - dependency-name: "python"
-        update-types: ["version-update:semver-major"]
+      - "ci"
+
+  # npm dependencies - JavaScript tooling (PostCSS, Terser, Lighthouse, etc.)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "06:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10
+    pull-request-branch-name:
+      separator: "/"
+    rebase-strategy: "auto"
+    reviewers:
+      - "aaronspindler"
+    assignees:
+      - "aaronspindler"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "npm"
+      - "frontend"
+    groups:
+      # Group minor and patch updates together
+      npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group major version updates separately for easier review
+      npm-major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"

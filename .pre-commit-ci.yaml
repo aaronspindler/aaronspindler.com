@@ -1,0 +1,36 @@
+# Pre-commit.ci Configuration
+#
+# Automated hook updates and checks via https://pre-commit.ci
+# Free for public repositories, runs on every commit
+#
+# Benefits:
+# - Auto-updates hook versions weekly
+# - Runs hooks on every commit (faster than GitHub Actions)
+# - Auto-fixes and commits changes when possible
+
+# Auto-update hook versions weekly (Mondays at 00:00 UTC)
+autoupdate_schedule: weekly
+
+# Auto-update commits use this branch
+autoupdate_branch: ''  # Empty = default branch (main)
+
+# Commit message for auto-updates
+autoupdate_commit_msg: 'chore(pre-commit): auto-update hook versions'
+
+# Run pre-commit.ci on all branches
+# Set to specific branches if you want to limit (e.g., ['main', 'develop'])
+skip_branches: []
+
+# Hook IDs to skip on pre-commit.ci (but still run locally)
+# Useful for hooks that require local resources or are slow
+skip: []
+
+# Submodules to check out recursively
+submodules: false
+
+# Maximum time (in seconds) for a single hook to run
+# Default is 180 seconds (3 minutes)
+autofix_prs: true
+
+# Auto-fix commits use this message
+autofix_commit_msg: 'style: auto-fixes from pre-commit.ci hooks'

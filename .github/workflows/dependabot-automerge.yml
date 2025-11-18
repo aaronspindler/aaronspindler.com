@@ -1,0 +1,152 @@
+name: Dependabot Auto-Merge
+
+# Automatically approve and merge low-risk Dependabot PRs after CI passes
+# Low-risk = minor/patch updates for npm, GitHub Actions, and non-critical Python packages
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  # Also trigger when CI checks complete
+  check_suite:
+    types: [completed]
+  # Trigger when statuses are updated
+  status: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  dependabot-automerge:
+    runs-on: ubuntu-latest
+    # Only run for Dependabot PRs
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Get Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Determine if auto-merge is allowed
+        id: check
+        env:
+          DEPENDENCY_NAME: ${{ steps.metadata.outputs.dependency-names }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          PACKAGE_ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+        run: |
+          echo "Dependency: $DEPENDENCY_NAME"
+          echo "Update Type: $UPDATE_TYPE"
+          echo "Ecosystem: $PACKAGE_ECOSYSTEM"
+
+          # Default to not allowing auto-merge
+          ALLOW_AUTOMERGE=false
+
+          # Auto-merge rules (from most specific to least specific)
+
+          # 1. ALWAYS AUTO-MERGE: GitHub Actions (minor/patch)
+          if [[ "$PACKAGE_ECOSYSTEM" == "github_actions" ]]; then
+            if [[ "$UPDATE_TYPE" == "version-update:semver-minor" ]] || [[ "$UPDATE_TYPE" == "version-update:semver-patch" ]]; then
+              ALLOW_AUTOMERGE=true
+              echo "✅ Auto-merge: GitHub Actions minor/patch update"
+            fi
+          fi
+
+          # 2. ALWAYS AUTO-MERGE: npm (minor/patch)
+          if [[ "$PACKAGE_ECOSYSTEM" == "npm_and_yarn" ]]; then
+            if [[ "$UPDATE_TYPE" == "version-update:semver-minor" ]] || [[ "$UPDATE_TYPE" == "version-update:semver-patch" ]]; then
+              ALLOW_AUTOMERGE=true
+              echo "✅ Auto-merge: npm minor/patch update"
+            fi
+          fi
+
+          # 3. AUTO-MERGE: Python non-critical packages (minor/patch only)
+          if [[ "$PACKAGE_ECOSYSTEM" == "pip" ]]; then
+            # Block critical packages (Django, psycopg2) - always require manual review
+            if [[ "$DEPENDENCY_NAME" =~ "django" ]] || [[ "$DEPENDENCY_NAME" =~ "psycopg2" ]]; then
+              ALLOW_AUTOMERGE=false
+              echo "⏭️  Blocked: Critical Python package ($DEPENDENCY_NAME) requires manual review"
+            else
+              # Allow minor/patch for non-critical Python packages
+              if [[ "$UPDATE_TYPE" == "version-update:semver-minor" ]] || [[ "$UPDATE_TYPE" == "version-update:semver-patch" ]]; then
+                ALLOW_AUTOMERGE=true
+                echo "✅ Auto-merge: Non-critical Python package minor/patch update"
+              fi
+            fi
+          fi
+
+          # 4. AUTO-MERGE: Docker (patch only - minor/major need review)
+          if [[ "$PACKAGE_ECOSYSTEM" == "docker" ]]; then
+            if [[ "$UPDATE_TYPE" == "version-update:semver-patch" ]]; then
+              ALLOW_AUTOMERGE=true
+              echo "✅ Auto-merge: Docker patch update"
+            fi
+          fi
+
+          # 5. NEVER AUTO-MERGE: Major version updates (require manual review)
+          if [[ "$UPDATE_TYPE" == "version-update:semver-major" ]]; then
+            ALLOW_AUTOMERGE=false
+            echo "⏭️  Blocked: Major version update requires manual review"
+          fi
+
+          echo "allow_automerge=$ALLOW_AUTOMERGE" >> $GITHUB_OUTPUT
+
+          if [[ "$ALLOW_AUTOMERGE" == "true" ]]; then
+            echo "🎯 This PR qualifies for auto-merge"
+          else
+            echo "🛑 This PR requires manual review"
+          fi
+
+      - name: Wait for CI to pass
+        if: steps.check.outputs.allow_automerge == 'true'
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          check-name: 'all-checks'  # Wait for the final gate check from test.yml
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30  # Check every 30 seconds
+          allowed-conclusions: success
+
+      - name: Approve PR
+        if: steps.check.outputs.allow_automerge == 'true'
+        run: |
+          gh pr review --approve "$PR_URL"
+          echo "✅ PR approved automatically"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge
+        if: steps.check.outputs.allow_automerge == 'true'
+        run: |
+          gh pr merge --auto --squash "$PR_URL"
+          echo "🎯 Auto-merge enabled - will merge when all checks pass"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add comment explaining auto-merge
+        if: steps.check.outputs.allow_automerge == 'true'
+        run: |
+          gh pr comment "$PR_URL" --body "🤖 **Auto-merge enabled**
+
+          This PR qualifies for automatic merging because:
+          - ✅ Low-risk dependency update (minor/patch)
+          - ✅ CI checks are passing
+          - ✅ Automatic approval granted
+
+          The PR will be merged automatically once all required checks complete.
+
+          _To disable auto-merge, comment \`@dependabot cancel merge\` or run \`gh pr merge --disable-auto ${{ github.event.pull_request.number }}\`_"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add label for manual review
+        if: steps.check.outputs.allow_automerge == 'false'
+        run: |
+          gh pr edit "$PR_URL" --add-label "needs-manual-review"
+          echo "🏷️  Added 'needs-manual-review' label"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
