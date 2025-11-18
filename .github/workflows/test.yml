@@ -1,4 +1,4 @@
-name: CI - Tests
+name: Pipeline - Tests
 
 run-name: "${{ github.event.head_commit.message || github.event.pull_request.title || 'Run Tests' }}"
 

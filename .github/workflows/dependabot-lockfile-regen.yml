@@ -1,4 +1,4 @@
-name: Dependabot - Regenerate Lockfiles
+name: Dependabot Regenerate Lockfiles
 
 run-name: "Regenerate uv lockfiles for Dependabot PR"
 
