@@ -166,7 +166,7 @@ jobs:
           else
             echo "- Minimum runs per workflow: $KEEP_MIN" >> $GITHUB_STEP_SUMMARY
           fi
-          echo "- Processing mode: Parallel (max 5 concurrent workflows)" >> $GITHUB_STEP_SUMMARY
+          echo "- Processing mode: Parallel" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Results:**" >> $GITHUB_STEP_SUMMARY
           echo "- Workflows processed: $WORKFLOW_COUNT" >> $GITHUB_STEP_SUMMARY
