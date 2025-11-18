@@ -9,8 +9,8 @@
 # - Auto-fixes and commits changes when possible
 # - Creates fix PRs for protected branches
 
-# Auto-update hook versions weekly (Mondays at 00:00 UTC)
-autoupdate_schedule: weekly
+# Auto-update hook versions daily
+autoupdate_schedule: daily
 
 # Auto-update commits target this branch
 autoupdate_branch: ''  # Empty = default branch (main)
