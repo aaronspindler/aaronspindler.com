@@ -1,24 +1,26 @@
 # Pre-commit.ci Configuration
 #
 # Automated hook updates and checks via https://pre-commit.ci
-# Free for public repositories, runs on every commit
+# Free for public repositories, runs on EVERY commit (PRs AND direct pushes)
 #
 # Benefits:
 # - Auto-updates hook versions weekly
-# - Runs hooks on every commit (faster than GitHub Actions)
+# - Runs hooks on every commit to any branch
 # - Auto-fixes and commits changes when possible
+# - Creates fix PRs for protected branches
 
 # Auto-update hook versions weekly (Mondays at 00:00 UTC)
 autoupdate_schedule: weekly
 
-# Auto-update commits use this branch
+# Auto-update commits target this branch
 autoupdate_branch: ''  # Empty = default branch (main)
 
 # Commit message for auto-updates
 autoupdate_commit_msg: 'chore(pre-commit): auto-update hook versions'
 
-# Run pre-commit.ci on all branches
-# Set to specific branches if you want to limit (e.g., ['main', 'develop'])
+# IMPORTANT: Run on ALL branches (including main)
+# Empty list = no branches skipped = runs everywhere
+# To skip specific branches, add them here: ['branch-name']
 skip_branches: []
 
 # Hook IDs to skip on pre-commit.ci (but still run locally)
@@ -28,9 +30,19 @@ skip: []
 # Submodules to check out recursively
 submodules: false
 
-# Maximum time (in seconds) for a single hook to run
-# Default is 180 seconds (3 minutes)
+# Auto-fix PRs (creates fixup commits with formatting fixes)
 autofix_prs: true
 
 # Auto-fix commits use this message
 autofix_commit_msg: 'style: auto-fixes from pre-commit.ci hooks'
+
+# Behavior on protected branches (like main):
+# - Pre-commit.ci will RUN the hooks
+# - If fixes are needed, it will CREATE A PR with fixes
+# - It cannot push directly to protected branches
+# - You'll need to merge the fix PR
+
+# Behavior on non-protected branches (like feature branches in PRs):
+# - Pre-commit.ci will RUN the hooks
+# - If fixes are needed, it will COMMIT directly to the branch
+# - Auto-fixes are immediate and automatic
