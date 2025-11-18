@@ -1,0 +1,104 @@
+name: Cleanup Old Workflow Runs
+
+on:
+  # Run weekly on Sunday at 3 AM UTC
+  schedule:
+    - cron: '0 3 * * 0'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      retain_days:
+        description: 'Keep runs newer than this many days'
+        required: false
+        default: '30'
+        type: string
+      keep_minimum_runs:
+        description: 'Minimum number of runs to keep per workflow'
+        required: false
+        default: '10'
+        type: string
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: Cleanup old workflow runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RETAIN_DAYS: ${{ github.event.inputs.retain_days || '30' }}
+          KEEP_MIN: ${{ github.event.inputs.keep_minimum_runs || '10' }}
+        run: |
+          echo "🧹 Cleaning up workflow runs older than $RETAIN_DAYS days (keeping at least $KEEP_MIN per workflow)"
+
+          # Calculate cutoff date
+          CUTOFF_DATE=$(date -u -d "$RETAIN_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-${RETAIN_DAYS}d +%Y-%m-%dT%H:%M:%SZ)
+          echo "Cutoff date: $CUTOFF_DATE"
+
+          # Get all workflows
+          WORKFLOWS=$(gh workflow list --repo ${{ github.repository }} --json name,id -q '.[] | .id')
+
+          TOTAL_DELETED=0
+          for WORKFLOW_ID in $WORKFLOWS; do
+            WORKFLOW_NAME=$(gh workflow view $WORKFLOW_ID --repo ${{ github.repository }} --json name -q '.name')
+            echo ""
+            echo "📋 Processing workflow: $WORKFLOW_NAME (ID: $WORKFLOW_ID)"
+
+            # Get total run count for this workflow
+            TOTAL_RUNS=$(gh run list --workflow $WORKFLOW_ID --repo ${{ github.repository }} --limit 1000 --json databaseId -q '. | length')
+            echo "   Total runs: $TOTAL_RUNS"
+
+            # Get old runs (older than cutoff date)
+            OLD_RUNS=$(gh run list \
+              --workflow $WORKFLOW_ID \
+              --repo ${{ github.repository }} \
+              --limit 1000 \
+              --json databaseId,createdAt,status \
+              --jq "[.[] | select(.createdAt < \"$CUTOFF_DATE\")] | .[].databaseId")
+
+            OLD_COUNT=$(echo "$OLD_RUNS" | grep -c . || echo 0)
+
+            if [ $OLD_COUNT -eq 0 ]; then
+              echo "   ✓ No old runs to delete"
+              continue
+            fi
+
+            # Calculate how many we can delete while keeping minimum
+            RUNS_AFTER_DELETE=$((TOTAL_RUNS - OLD_COUNT))
+            if [ $RUNS_AFTER_DELETE -lt $KEEP_MIN ]; then
+              CAN_DELETE=$((TOTAL_RUNS - KEEP_MIN))
+              if [ $CAN_DELETE -le 0 ]; then
+                echo "   ⏭️  Skipping: Would go below minimum of $KEEP_MIN runs"
+                continue
+              fi
+              echo "   ⚠️  Found $OLD_COUNT old runs, but only deleting $CAN_DELETE to keep minimum of $KEEP_MIN"
+              OLD_RUNS=$(echo "$OLD_RUNS" | head -n $CAN_DELETE)
+              OLD_COUNT=$CAN_DELETE
+            fi
+
+            echo "   🗑️  Deleting $OLD_COUNT old runs..."
+            DELETED=0
+            for RUN_ID in $OLD_RUNS; do
+              if gh run delete $RUN_ID --repo ${{ github.repository }} 2>/dev/null; then
+                DELETED=$((DELETED + 1))
+              fi
+            done
+
+            echo "   ✅ Deleted $DELETED runs"
+            TOTAL_DELETED=$((TOTAL_DELETED + DELETED))
+          done
+
+          echo ""
+          echo "✨ Cleanup complete! Deleted $TOTAL_DELETED runs total"
+
+      - name: Summary
+        run: |
+          echo "### Workflow Run Cleanup Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Retention period**: ${{ github.event.inputs.retain_days || '30' }} days" >> $GITHUB_STEP_SUMMARY
+          echo "- **Minimum runs per workflow**: ${{ github.event.inputs.keep_minimum_runs || '10' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ Cleanup completed successfully" >> $GITHUB_STEP_SUMMARY
