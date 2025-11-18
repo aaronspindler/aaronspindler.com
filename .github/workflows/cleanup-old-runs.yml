@@ -30,10 +30,20 @@ jobs:
       - name: Cleanup old workflow runs
         env:
           GH_TOKEN: ${{ github.token }}
-          RETAIN_DAYS: ${{ github.event.inputs.retain_days || '30' }}
-          KEEP_MIN: ${{ github.event.inputs.keep_minimum_runs || '10' }}
+          RETAIN_DAYS: ${{ inputs.retain_days }}
+          KEEP_MIN: ${{ inputs.keep_minimum_runs }}
         run: |
-          echo "🧹 Cleaning up workflow runs older than $RETAIN_DAYS days (keeping at least $KEEP_MIN per workflow)"
+          # Set defaults only if not provided (allow explicit 0)
+          RETAIN_DAYS=${RETAIN_DAYS:-30}
+          if [ -z "$KEEP_MIN" ]; then
+            KEEP_MIN=10
+          fi
+
+          if [ "$KEEP_MIN" -eq 0 ]; then
+            echo "🧹 Cleaning up ALL workflow runs older than $RETAIN_DAYS days (no minimum protection)"
+          else
+            echo "🧹 Cleaning up workflow runs older than $RETAIN_DAYS days (keeping at least $KEEP_MIN per workflow)"
+          fi
 
           # Calculate cutoff date
           CUTOFF_DATE=$(date -u -d "$RETAIN_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-${RETAIN_DAYS}d +%Y-%m-%dT%H:%M:%SZ)
@@ -44,9 +54,8 @@ jobs:
 
           TOTAL_DELETED=0
           for WORKFLOW_ID in $WORKFLOWS; do
-            WORKFLOW_NAME=$(gh workflow view $WORKFLOW_ID --repo ${{ github.repository }} --json name -q '.name')
             echo ""
-            echo "📋 Processing workflow: $WORKFLOW_NAME (ID: $WORKFLOW_ID)"
+            echo "📋 Processing workflow ID: $WORKFLOW_ID"
 
             # Get total run count for this workflow
             TOTAL_RUNS=$(gh run list --workflow $WORKFLOW_ID --repo ${{ github.repository }} --limit 1000 --json databaseId -q '. | length')
@@ -67,17 +76,19 @@ jobs:
               continue
             fi
 
-            # Calculate how many we can delete while keeping minimum
-            RUNS_AFTER_DELETE=$((TOTAL_RUNS - OLD_COUNT))
-            if [ $RUNS_AFTER_DELETE -lt $KEEP_MIN ]; then
-              CAN_DELETE=$((TOTAL_RUNS - KEEP_MIN))
-              if [ $CAN_DELETE -le 0 ]; then
-                echo "   ⏭️  Skipping: Would go below minimum of $KEEP_MIN runs"
-                continue
+            # Calculate how many we can delete while keeping minimum (skip if KEEP_MIN is 0)
+            if [ $KEEP_MIN -gt 0 ]; then
+              RUNS_AFTER_DELETE=$((TOTAL_RUNS - OLD_COUNT))
+              if [ $RUNS_AFTER_DELETE -lt $KEEP_MIN ]; then
+                CAN_DELETE=$((TOTAL_RUNS - KEEP_MIN))
+                if [ $CAN_DELETE -le 0 ]; then
+                  echo "   ⏭️  Skipping: Would go below minimum of $KEEP_MIN runs"
+                  continue
+                fi
+                echo "   ⚠️  Found $OLD_COUNT old runs, but only deleting $CAN_DELETE to keep minimum of $KEEP_MIN"
+                OLD_RUNS=$(echo "$OLD_RUNS" | head -n $CAN_DELETE)
+                OLD_COUNT=$CAN_DELETE
               fi
-              echo "   ⚠️  Found $OLD_COUNT old runs, but only deleting $CAN_DELETE to keep minimum of $KEEP_MIN"
-              OLD_RUNS=$(echo "$OLD_RUNS" | head -n $CAN_DELETE)
-              OLD_COUNT=$CAN_DELETE
             fi
 
             echo "   🗑️  Deleting $OLD_COUNT old runs..."
@@ -96,9 +107,21 @@ jobs:
           echo "✨ Cleanup complete! Deleted $TOTAL_DELETED runs total"
 
       - name: Summary
+        env:
+          RETAIN_DAYS: ${{ inputs.retain_days }}
+          KEEP_MIN: ${{ inputs.keep_minimum_runs }}
         run: |
+          RETAIN_DAYS=${RETAIN_DAYS:-30}
+          if [ -z "$KEEP_MIN" ]; then
+            KEEP_MIN=10
+          fi
+
           echo "### Workflow Run Cleanup Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Retention period**: ${{ github.event.inputs.retain_days || '30' }} days" >> $GITHUB_STEP_SUMMARY
-          echo "- **Minimum runs per workflow**: ${{ github.event.inputs.keep_minimum_runs || '10' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Retention period**: $RETAIN_DAYS days" >> $GITHUB_STEP_SUMMARY
+          if [ "$KEEP_MIN" -eq 0 ]; then
+            echo "- **Minimum runs per workflow**: None (delete all old runs)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Minimum runs per workflow**: $KEEP_MIN" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- **Status**: ✅ Cleanup completed successfully" >> $GITHUB_STEP_SUMMARY
