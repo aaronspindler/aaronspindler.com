@@ -31,7 +31,7 @@ class Command(BaseCommand):
             type=str,
             required=True,
             choices=self.VALID_CATEGORIES,
-            help=f'Category for the blog post. Valid options: {", ".join(self.VALID_CATEGORIES)}',
+            help=f"Category for the blog post. Valid options: {', '.join(self.VALID_CATEGORIES)}",
         )
 
     def handle(self, *args, **options):

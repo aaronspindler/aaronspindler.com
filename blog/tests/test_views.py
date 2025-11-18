@@ -408,7 +408,7 @@ class CommentModerationTest(TestCase):
         response = self.client.post(
             f"/comment/{self.comment.id}/moderate/",
             {"action": "approve"},
-            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            headers={"x-requested-with": "XMLHttpRequest"},
         )
 
         self.assertEqual(response.status_code, 200)

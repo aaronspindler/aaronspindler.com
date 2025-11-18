@@ -209,7 +209,7 @@ class Command(BaseCommand):
         except FileNotFoundError as e:
             logger.error(f"Command not found: {e}")
             raise CommandError(
-                "Unable to run Lighthouse. Make sure @lhci/cli is installed:\n" "  npm install --save-dev @lhci/cli"
+                "Unable to run Lighthouse. Make sure @lhci/cli is installed:\n  npm install --save-dev @lhci/cli"
             )
         except Exception as e:
             logger.error(f"Unexpected error during Lighthouse audit: {e}")

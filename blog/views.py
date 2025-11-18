@@ -190,7 +190,7 @@ def submit_comment(request, category, template_name):
     if form.is_valid():
         # Collect metadata for spam detection
         ip_address = request.META.get("REMOTE_ADDR")
-        user_agent = request.META.get("HTTP_USER_AGENT", "")
+        user_agent = request.headers.get("user-agent", "")
 
         comment = form.save(
             blog_template_name=template_name,
@@ -279,7 +279,7 @@ def reply_to_comment(request, comment_id):
 
     if form.is_valid():
         ip_address = request.META.get("REMOTE_ADDR")
-        user_agent = request.META.get("HTTP_USER_AGENT", "")
+        user_agent = request.headers.get("user-agent", "")
 
         reply = form.save(
             blog_template_name=parent_comment.blog_template_name,

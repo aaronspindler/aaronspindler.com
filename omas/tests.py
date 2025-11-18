@@ -27,19 +27,19 @@ class DomainRoutingTests(TestCase):
 
     def test_omas_coffee_routing(self):
         """Test that omas.coffee domain routes to omas.urls."""
-        response = self.client.get("/", HTTP_HOST="omas.coffee")
+        response = self.client.get("/", headers={"host": "omas.coffee"})
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "omas/home.html")
 
     def test_www_omas_coffee_routing(self):
         """Test that www.omas.coffee domain routes to omas.urls."""
-        response = self.client.get("/", HTTP_HOST="www.omas.coffee")
+        response = self.client.get("/", headers={"host": "www.omas.coffee"})
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "omas/home.html")
 
     def test_main_site_routing(self):
         """Test that the main site (aaronspindler.com) uses default routing."""
-        response = self.client.get("/", HTTP_HOST="aaronspindler.com")
+        response = self.client.get("/", headers={"host": "aaronspindler.com"})
         self.assertEqual(response.status_code, 200)
         # Should use the main site's home page, not omas
         self.assertTemplateNotUsed(response, "omas/home.html")

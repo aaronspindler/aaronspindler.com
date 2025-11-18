@@ -139,6 +139,7 @@ class PhotoAdmin(admin.ModelAdmin):
         ),
     )
 
+    @admin.display(description="Name")
     def get_display_name(self, obj):
         """Get display name for the photo."""
         if obj.title:
@@ -148,8 +149,7 @@ class PhotoAdmin(admin.ModelAdmin):
         else:
             return f"Photo {obj.pk}"
 
-    get_display_name.short_description = "Name"
-
+    @admin.action(description="Add selected photos to album")
     def add_to_album(self, request, queryset):
         """Batch action to add selected photos to an album."""
 
@@ -165,8 +165,7 @@ class PhotoAdmin(admin.ModelAdmin):
                 f"Selected {len(selected)} photos. To add to an album, edit the album and select these photos.",
             )
 
-    add_to_album.short_description = "Add selected photos to album"
-
+    @admin.display(description="Preview")
     def image_preview(self, obj):
         try:
             if obj.image_display:
@@ -190,13 +189,13 @@ class PhotoAdmin(admin.ModelAdmin):
             return "No image"
         return "No image"
 
-    image_preview.short_description = "Preview"
-
+    @admin.display(description="All Image Versions")
     def all_versions_preview(self, obj):
         """Display all available image versions with their sizes."""
         if not obj.image:
             return "No images available"
 
+        from django.utils.html import format_html
         from django.utils.safestring import mark_safe
 
         html_parts = []
@@ -228,31 +227,39 @@ class PhotoAdmin(admin.ModelAdmin):
                     size_kb = file_size / 1024 if file_size else 0
 
                     html_parts.append(
-                        f"""
+                        format_html(
+                            """
                         <div style="display: inline-block; margin: 10px; text-align: center;">
-                            <strong>{label}</strong><br>
-                            <img src="{url}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; padding: 5px;" /><br>
-                            <small>{dimensions} • {size_kb:.1f} KB</small>
+                            <strong>{}</strong><br>
+                            <img src="{}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; padding: 5px;" /><br>
+                            <small>{} • {:.1f} KB</small>
                         </div>
-                        """
+                        """,
+                            label,
+                            url,
+                            dimensions,
+                            size_kb,
+                        )
                     )
                 except (ValueError, AttributeError, FileNotFoundError):
                     html_parts.append(
-                        f"""<div style="display: inline-block; margin: 10px; text-align: center;">
-                            <strong>{label}</strong><br>
+                        format_html(
+                            """<div style="display: inline-block; margin: 10px; text-align: center;">
+                            <strong>{}</strong><br>
                             <small style="color: #999;">File not found</small>
-                        </div>"""
+                        </div>""",
+                            label,
+                        )
                     )
 
         if html_parts:
-            return mark_safe(
+            return mark_safe(  # nosec B703 B308 - Content is safely escaped via format_html
                 f'<div style="background: #f9f9f9; padding: 10px; border-radius: 5px;">{"".join(html_parts)}</div>'
             )
         else:
             return "No versions available"
 
-    all_versions_preview.short_description = "All Image Versions"
-
+    @admin.display(description="File Info")
     def file_info(self, obj):
         """Display file size and dimensions in list view."""
         try:
@@ -273,8 +280,7 @@ class PhotoAdmin(admin.ModelAdmin):
 
         return "—"
 
-    file_info.short_description = "File Info"
-
+    @admin.display(description="Original File Size")
     def file_size_display(self, obj):
         """Display formatted file size."""
         if obj.file_size:
@@ -286,16 +292,14 @@ class PhotoAdmin(admin.ModelAdmin):
                 return f"{obj.file_size / (1024 * 1024):.2f} MB"
         return "Unknown"
 
-    file_size_display.short_description = "Original File Size"
-
+    @admin.display(description="Original Dimensions")
     def dimensions_display(self, obj):
         """Display image dimensions."""
         if obj.width and obj.height:
             return f"{obj.width} × {obj.height} pixels"
         return "Unknown"
 
-    dimensions_display.short_description = "Original Dimensions"
-
+    @admin.display(description="Camera")
     def camera_info(self, obj):
         """Display camera information in list view."""
         if obj.camera_make and obj.camera_model:
@@ -307,8 +311,7 @@ class PhotoAdmin(admin.ModelAdmin):
             return " • ".join(info_parts)
         return "—"
 
-    camera_info.short_description = "Camera"
-
+    @admin.display(description="GPS Coordinates")
     def gps_coordinates_display(self, obj):
         """Display GPS coordinates in a readable format."""
         if obj.gps_latitude and obj.gps_longitude:
@@ -326,8 +329,7 @@ class PhotoAdmin(admin.ModelAdmin):
             )
         return "No GPS data"
 
-    gps_coordinates_display.short_description = "GPS Coordinates"
-
+    @admin.display(description="Full EXIF Data")
     def exif_summary(self, obj):
         """Display full EXIF data in a formatted way."""
         if obj.exif_data:
@@ -345,8 +347,7 @@ class PhotoAdmin(admin.ModelAdmin):
                 return str(obj.exif_data)
         return "No EXIF data available"
 
-    exif_summary.short_description = "Full EXIF Data"
-
+    @admin.display(description="Duplicates")
     def has_duplicates(self, obj):
         """Check if this photo has duplicates."""
         if obj.file_hash:
@@ -366,8 +367,7 @@ class PhotoAdmin(admin.ModelAdmin):
 
         return format_html('<span style="color: green;">✓ Unique</span>')
 
-    has_duplicates.short_description = "Duplicates"
-
+    @admin.display(description="File Hash (SHA-256)")
     def file_hash_display(self, obj):
         """Display file hash with truncation."""
         if obj.file_hash:
@@ -377,8 +377,7 @@ class PhotoAdmin(admin.ModelAdmin):
             )
         return "Not computed"
 
-    file_hash_display.short_description = "File Hash (SHA-256)"
-
+    @admin.display(description="Perceptual Hash")
     def perceptual_hash_display(self, obj):
         """Display perceptual hash."""
         if obj.perceptual_hash:
@@ -388,8 +387,7 @@ class PhotoAdmin(admin.ModelAdmin):
             )
         return "Not computed"
 
-    perceptual_hash_display.short_description = "Perceptual Hash"
-
+    @admin.display(description="Exact Duplicates")
     def duplicate_info(self, obj):
         """Display information about exact duplicates."""
         if not obj.file_hash:
@@ -422,8 +420,7 @@ class PhotoAdmin(admin.ModelAdmin):
         html_parts.append("</div>")
         return format_html("".join(html_parts))
 
-    duplicate_info.short_description = "Exact Duplicates"
-
+    @admin.display(description="Similar Images")
     def similar_images_display(self, obj):
         """Display information about similar images."""
         if not obj.perceptual_hash:
@@ -458,8 +455,7 @@ class PhotoAdmin(admin.ModelAdmin):
         html_parts.append("</div>")
         return format_html("".join(html_parts))
 
-    similar_images_display.short_description = "Similar Images"
-
+    @admin.action(description="Find duplicates among selected photos")
     def find_duplicates_action(self, request, queryset):
         """Action to find duplicates among selected photos."""
         from collections import defaultdict
@@ -486,8 +482,6 @@ class PhotoAdmin(admin.ModelAdmin):
         else:
             messages.info(request, f"Found {duplicate_count} group(s) of duplicates")
 
-    find_duplicates_action.short_description = "Find duplicates among selected photos"
-
     def get_urls(self):
         """Add custom URLs for bulk upload."""
         urls = super().get_urls()
@@ -511,7 +505,7 @@ class PhotoAdmin(admin.ModelAdmin):
                 if result["created"]:
                     messages.success(
                         request,
-                        f'Successfully uploaded {len(result["created"])} photo(s).',
+                        f"Successfully uploaded {len(result['created'])} photo(s).",
                     )
 
                 if result["skipped"]:
@@ -519,7 +513,7 @@ class PhotoAdmin(admin.ModelAdmin):
                     for filename, reason in result["skipped"][:5]:
                         skipped_msg += f"\n• {filename}: {reason}"
                     if len(result["skipped"]) > 5:
-                        skipped_msg += f'\n... and {len(result["skipped"]) - 5} more'
+                        skipped_msg += f"\n... and {len(result['skipped']) - 5} more"
                     messages.warning(request, skipped_msg)
 
                 if result["errors"]:
@@ -527,7 +521,7 @@ class PhotoAdmin(admin.ModelAdmin):
                     for filename, error in result["errors"][:5]:
                         error_msg += f"\n• {filename}: {error}"
                     if len(result["errors"]) > 5:
-                        error_msg += f'\n... and {len(result["errors"]) - 5} more'
+                        error_msg += f"\n... and {len(result['errors']) - 5} more"
                     messages.error(request, error_msg)
 
                 return redirect("admin:photos_photo_changelist")
@@ -587,25 +581,26 @@ class PhotoAlbumAdmin(admin.ModelAdmin):
         ),
     )
 
+    @admin.display(description="Photos")
     def photo_count(self, obj):
         return obj.photos.count()
 
-    photo_count.short_description = "Photos"
-
+    @admin.display(
+        description="Privacy",
+        ordering="is_private",
+    )
     def privacy_status(self, obj):
         if obj.is_private:
             return format_html('<span style="color: #dc3545;">🔒 Private</span>')
         else:
             return format_html('<span style="color: #28a745;">🌐 Public</span>')
 
-    privacy_status.short_description = "Privacy"
-    privacy_status.admin_order_field = "is_private"
-
+    @admin.display(
+        description="Downloads",
+        ordering="allow_downloads",
+    )
     def downloads_status(self, obj):
         if obj.allow_downloads:
             return format_html('<span style="color: #28a745;">✓ Enabled</span>')
         else:
             return format_html('<span style="color: #6c757d;">✗ Disabled</span>')
-
-    downloads_status.short_description = "Downloads"
-    downloads_status.admin_order_field = "allow_downloads"

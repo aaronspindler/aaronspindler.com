@@ -203,7 +203,7 @@ class ExifExtractor:
                     from math import gcd
 
                     common = gcd(numerator, denominator)
-                    return f"{numerator//common}/{denominator//common}"
+                    return f"{numerator // common}/{denominator // common}"
                 else:  # 1 second or more - show as decimal
                     value = numerator / denominator
                     if value == int(value):
@@ -213,7 +213,7 @@ class ExifExtractor:
             else:
                 value = float(shutter_speed)
                 if value < 1:
-                    return f"1/{int(1/value)}"  # Convert to fraction format
+                    return f"1/{int(1 / value)}"  # Convert to fraction format
                 else:
                     return f"{value:.1f}s"
         except:
@@ -610,9 +610,9 @@ class DuplicateDetector:
         """
         try:
             if algorithm == "md5":
-                hasher = hashlib.md5()
+                hasher = hashlib.md5(usedforsecurity=False)  # File checksums, not crypto
             elif algorithm == "sha1":
-                hasher = hashlib.sha1()
+                hasher = hashlib.sha1(usedforsecurity=False)  # File checksums, not crypto
             else:  # Default to sha256
                 hasher = hashlib.sha256()
 

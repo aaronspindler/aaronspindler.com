@@ -73,6 +73,7 @@ class IPAddressAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
     actions = ["geolocate_selected", "delete_local_ips"]
 
+    @admin.display(description="Location")
     def location_display(self, obj):
         """Display geolocation information."""
         if not obj.geo_data:
@@ -83,13 +84,10 @@ class IPAddressAdmin(admin.ModelAdmin):
             return f"{city}, {country}"
         return country or "Unknown"
 
-    location_display.short_description = "Location"
-
+    @admin.display(description="Request Count")
     def request_count(self, obj):
         """Count of RequestFingerprint records using this IP."""
         return obj.request_fingerprints.count()
-
-    request_count.short_description = "Request Count"
 
     def has_add_permission(self, request):
         """Disable manual creation - IPs created automatically from requests."""
@@ -182,13 +180,15 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
 
+    @admin.display(
+        description="IP Address",
+        ordering="ip_address__ip_address",
+    )
     def ip_display(self, obj):
         """Display IP address."""
         return obj.ip_address.ip_address if obj.ip_address else "Unknown"
 
-    ip_display.short_description = "IP Address"
-    ip_display.admin_order_field = "ip_address__ip_address"
-
+    @admin.display(description="Location")
     def location_display(self, obj):
         """Display geolocation information from related IPAddress."""
         if not obj.ip_address or not obj.ip_address.geo_data:
@@ -198,8 +198,6 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         if city and country:
             return f"{city}, {country}"
         return country or "Unknown"
-
-    location_display.short_description = "Location"
 
     def has_add_permission(self, request):
         """Disable manual creation - fingerprints should be created from requests."""
@@ -237,11 +235,10 @@ class LighthouseAuditAdmin(admin.ModelAdmin):
     date_hierarchy = "audit_date"
     ordering = ["-audit_date"]
 
+    @admin.display(description="Average")
     def average_score(self, obj):
         """Display the average score."""
         return obj.average_score
-
-    average_score.short_description = "Average"
 
     def has_add_permission(self, request):
         """Disable manual adding of audits (should be created via management command)."""

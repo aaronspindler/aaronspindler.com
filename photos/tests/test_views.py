@@ -71,7 +71,7 @@ class AlbumDetailViewTestCase(TestCase):
         from django.core.files.uploadedfile import SimpleUploadedFile
 
         test_image = SimpleUploadedFile(
-            name=f'{title.lower().replace(" ", "_")}.jpg',
+            name=f"{title.lower().replace(' ', '_')}.jpg",
             content=img_io.getvalue(),
             content_type="image/jpeg",
         )

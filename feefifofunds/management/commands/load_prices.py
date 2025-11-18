@@ -74,7 +74,7 @@ class Command(BaseCommand):
             )
 
         self.stdout.write(
-            f"Loading prices for {asset.name} ({ticker}) from {source}...\n" f"Date range: {start_date} to {end_date}"
+            f"Loading prices for {asset.name} ({ticker}) from {source}...\nDate range: {start_date} to {end_date}"
         )
 
         if dry_run:

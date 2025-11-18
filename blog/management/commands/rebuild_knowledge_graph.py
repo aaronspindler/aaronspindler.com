@@ -58,14 +58,14 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"Rebuild complete: "
-                f'{metrics.get("total_posts", 0)} posts, '
-                f'{metrics.get("total_internal_links", 0)} internal links, '
-                f'{metrics.get("total_external_links", 0)} external links'
+                f"{metrics.get('total_posts', 0)} posts, "
+                f"{metrics.get('total_internal_links', 0)} internal links, "
+                f"{metrics.get('total_external_links', 0)} external links"
             )
         )
 
         if graph_data.get("errors"):
-            self.stdout.write(self.style.WARNING(f'Errors: {graph_data["errors"]}'))
+            self.stdout.write(self.style.WARNING(f"Errors: {graph_data['errors']}"))
 
         orphan_posts = metrics.get("orphan_posts", [])
         if orphan_posts:

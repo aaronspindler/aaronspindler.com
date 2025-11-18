@@ -83,7 +83,7 @@ class PhotoTestMixin:
         # Create tiny test image
         img_io = create_tiny_test_image()
         test_image = SimpleUploadedFile(
-            name=f'{title.lower().replace(" ", "_")}.jpg',
+            name=f"{title.lower().replace(' ', '_')}.jpg",
             content=img_io.getvalue(),
             content_type="image/jpeg",
         )

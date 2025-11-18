@@ -55,7 +55,7 @@ def get_client_ip(request) -> str:
     """
     try:
         # Check X-Forwarded-For first (most common proxy header)
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        x_forwarded_for = request.headers.get("x-forwarded-for")
         if x_forwarded_for:
             # X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2, ...)
             # The first IP is typically the original client
@@ -64,7 +64,7 @@ def get_client_ip(request) -> str:
                 return ip_address
 
         # Check X-Real-IP header (used by some proxies like nginx)
-        x_real_ip = request.META.get("HTTP_X_REAL_IP")
+        x_real_ip = request.headers.get("x-real-ip")
         if x_real_ip:
             ip_address = x_real_ip.strip()
             if ip_address:
@@ -189,7 +189,7 @@ def get_request_fingerprint_data(request) -> Dict[str, Any]:
 
         return {
             "ip_address": ip_address,
-            "user_agent": request.META.get("HTTP_USER_AGENT", "unknown"),
+            "user_agent": request.headers.get("user-agent", "unknown"),
             "headers": headers,
             "fingerprint": generate_fingerprint(request, include_ip=True),
             "fingerprint_no_ip": generate_fingerprint(request, include_ip=False),
@@ -291,7 +291,7 @@ def is_suspicious_request(request) -> Tuple[bool, Optional[str]]:
     """
     try:
         # Check for missing User-Agent (common for bots)
-        user_agent = request.META.get("HTTP_USER_AGENT", "")
+        user_agent = request.headers.get("user-agent", "")
         if not user_agent:
             return (True, "Missing User-Agent header")
 
@@ -312,7 +312,7 @@ def is_suspicious_request(request) -> Tuple[bool, Optional[str]]:
                 return (True, f"Suspicious User-Agent pattern: {pattern}")
 
         # Check for missing common headers
-        if not request.META.get("HTTP_ACCEPT"):
+        if not request.headers.get("accept"):
             return (True, "Missing Accept header")
 
         # Check for IP address issues

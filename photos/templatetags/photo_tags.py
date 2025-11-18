@@ -3,6 +3,7 @@ Template tags for working with photos and responsive images.
 """
 
 from django import template
+from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
 register = template.Library()
@@ -24,12 +25,16 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
     if not alt_text:
         alt_text = photo.title
 
+    # Escape user-controlled data to prevent XSS
+    alt_text = escape(alt_text)
+    css_class = escape(css_class)
+
     # Build the srcset attribute
     srcset_parts = []
 
     if photo.image_display and photo.image_display.name:
         try:
-            srcset_parts.append(f"{photo.image_display.url} 1200w")
+            srcset_parts.append(f"{escape(photo.image_display.url)} 1200w")
         except (ValueError, AttributeError):
             # S3 storage may raise errors for missing files - skip this size
             pass
@@ -37,7 +42,9 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
     if photo.image_optimized and photo.image_optimized.name:
         try:
             srcset_parts.append(
-                f"{photo.image_optimized.url} {photo.width}w" if photo.width else photo.image_optimized.url
+                f"{escape(photo.image_optimized.url)} {photo.width}w"
+                if photo.width
+                else escape(photo.image_optimized.url)
             )
         except (ValueError, AttributeError):
             # S3 storage may raise errors for missing files - skip this size
@@ -45,7 +52,7 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
 
     if photo.image and photo.image.name:
         try:
-            srcset_parts.append(f"{photo.image.url} {photo.width}w" if photo.width else photo.image.url)
+            srcset_parts.append(f"{escape(photo.image.url)} {photo.width}w" if photo.width else escape(photo.image.url))
         except (ValueError, AttributeError):
             # S3 storage may raise errors for missing files - skip this size
             pass
@@ -65,10 +72,10 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
     if not default_src:
         return ""  # No valid image found
 
-    # Build the img tag
+    # Build the img tag with escaped values
     img_tag = f"""
-    <img src="{default_src}"
-         {f'srcset="{srcset}"' if srcset else ''}
+    <img src="{escape(default_src)}"
+         {f'srcset="{srcset}"' if srcset else ""}
          sizes="(max-width: 400px) 400px,
                 (max-width: 800px) 800px,
                 (max-width: 1920px) 1920px,
@@ -76,11 +83,11 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
          class="{css_class}"
          alt="{alt_text}"
          loading="{loading}"
-         {f'width="{photo.width}"' if photo.width else ''}
-         {f'height="{photo.height}"' if photo.height else ''}>
+         {f'width="{photo.width}"' if photo.width else ""}
+         {f'height="{photo.height}"' if photo.height else ""}>
     """
 
-    return mark_safe(img_tag)
+    return mark_safe(img_tag)  # nosec B703 B308 - All user data escaped above
 
 
 @register.simple_tag
@@ -99,6 +106,10 @@ def picture_element(photo, css_class="", alt_text="", loading="lazy"):
     if not alt_text:
         alt_text = photo.title
 
+    # Escape user-controlled data to prevent XSS
+    alt_text = escape(alt_text)
+    css_class = escape(css_class)
+
     # Build the picture element with source elements for different sizes
     picture_html = "<picture>"
 
@@ -107,7 +118,7 @@ def picture_element(photo, css_class="", alt_text="", loading="lazy"):
         try:
             picture_html += f"""
         <source media="(min-width: 1200px)"
-                srcset="{photo.image_optimized.url}">
+                srcset="{escape(photo.image_optimized.url)}">
         """
         except (ValueError, AttributeError):
             # S3 storage may raise errors for missing files - skip this source
@@ -117,7 +128,7 @@ def picture_element(photo, css_class="", alt_text="", loading="lazy"):
         try:
             picture_html += f"""
         <source media="(min-width: 768px)"
-                srcset="{photo.image_display.url}">
+                srcset="{escape(photo.image_display.url)}">
         """
         except (ValueError, AttributeError):
             # S3 storage may raise errors for missing files - skip this source
@@ -137,14 +148,14 @@ def picture_element(photo, css_class="", alt_text="", loading="lazy"):
         return ""  # No valid image found
 
     picture_html += f"""
-    <img src="{fallback_src}"
+    <img src="{escape(fallback_src)}"
          class="{css_class}"
          alt="{alt_text}"
          loading="{loading}">
     </picture>
     """
 
-    return mark_safe(picture_html)
+    return mark_safe(picture_html)  # nosec B703 B308 - All user data escaped above
 
 
 @register.filter

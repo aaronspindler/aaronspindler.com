@@ -192,7 +192,7 @@ class Command(BaseCommand):
                         # Get element bounds for better positioning
                         box = await element.boundingBox()
                         if box:
-                            self.stdout.write(f'Container dimensions: {box["width"]}x{box["height"]}')
+                            self.stdout.write(f"Container dimensions: {box['width']}x{box['height']}")
 
                         screenshot = await element.screenshot(
                             {

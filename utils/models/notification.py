@@ -3,7 +3,7 @@ Notification-related models for email and SMS notifications.
 """
 
 import json
-import random
+import secrets
 import uuid
 
 from django.db import models
@@ -36,7 +36,7 @@ class NotificationEmail(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.verification_code_small:
-            self.verification_code_small = random.randint(100000, 999999)
+            self.verification_code_small = secrets.randbelow(900000) + 100000
         super().save(*args, **kwargs)
 
     def create_verification_message(self):
@@ -71,7 +71,7 @@ class NotificationPhoneNumber(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.verification_code:
-            self.verification_code = random.randint(100000, 999999)
+            self.verification_code = secrets.randbelow(900000) + 100000
         super().save(*args, **kwargs)
 
     def create_verification_message(self):
