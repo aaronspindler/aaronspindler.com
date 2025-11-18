@@ -40,7 +40,6 @@ jobs:
           package-type: 'container'
           min-versions-to-keep: 5
           delete-only-untagged-versions: 'false'
-          # Optional: protect specific versions with regex
 
       - name: Delete untagged versions of ${{ matrix.package }}
         uses: actions/delete-package-versions@v5

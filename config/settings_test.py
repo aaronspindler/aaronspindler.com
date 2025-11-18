@@ -28,6 +28,11 @@ DATABASES = {
     }
 }
 
+# QuestDB configuration for tests
+# In tests, we don't set up a real QuestDB instance, so we point to the default database
+# This allows tests to run without requiring QuestDB infrastructure
+DATABASES["questdb"] = DATABASES["default"]
+
 # Redis configuration for testing
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 

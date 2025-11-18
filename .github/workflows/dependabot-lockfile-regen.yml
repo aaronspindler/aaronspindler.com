@@ -55,6 +55,19 @@ jobs:
 
           echo "Note: Both lockfiles are always regenerated to ensure consistency"
 
+      - name: Deduplicate hashes
+        run: |
+          echo "🔍 Checking for duplicate hashes..."
+
+          for file in requirements/base.txt requirements/dev.txt; do
+            if [ -f "$file" ]; then
+              # Remove consecutive duplicate lines (which are the hash duplicates)
+              awk '!x[$0]++' "$file" > "${file}.tmp"
+              mv "${file}.tmp" "$file"
+              echo "✅ Deduplicated hashes in $file"
+            fi
+          done
+
       - name: Check for lockfile changes
         id: lockfile_changes
         run: |
