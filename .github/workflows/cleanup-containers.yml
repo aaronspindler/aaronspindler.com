@@ -1,0 +1,55 @@
+name: Container Registry Cleanup
+
+on:
+  # Run after successful deployment
+  workflow_run:
+    workflows: ["Deploy to Production"]
+    types: [completed]
+    branches: [main]
+
+  # Also run weekly as a backup
+  schedule:
+    - cron: '0 3 * * 1'  # Every Monday at 3 AM UTC
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    # Only run if the triggering workflow succeeded or if manually triggered/scheduled
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+
+    permissions:
+      packages: write
+      contents: read
+
+    strategy:
+      matrix:
+        package:
+          - aaronspindler.com-web
+          - aaronspindler.com-celery
+          - aaronspindler.com-celerybeat
+          - aaronspindler.com-flower
+
+    steps:
+      - name: Delete old versions of ${{ matrix.package }}
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: '${{ matrix.package }}'
+          package-type: 'container'
+          min-versions-to-keep: 5
+          delete-only-untagged-versions: 'false'
+          # Delete up to 100 old versions in each run
+          num-old-versions-to-delete: 100
+          # Optional: protect specific versions with regex
+          # ignore-versions: '^(latest|stable|v\d+\.\d+\.\d+)$'
+
+      - name: Delete untagged versions of ${{ matrix.package }}
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: '${{ matrix.package }}'
+          package-type: 'container'
+          delete-only-untagged-versions: 'true'
+          # Keep at least 1 untagged version (in case it's in use)
+          min-versions-to-keep: 1
