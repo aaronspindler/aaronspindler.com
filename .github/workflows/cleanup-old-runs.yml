@@ -125,13 +125,20 @@ jobs:
 
           echo "   🗑️  Deleting $OLD_COUNT old runs..."
           DELETED=0
+          FAILED=0
           for RUN_ID in $OLD_RUNS; do
-            if gh run delete $RUN_ID --repo ${{ github.repository }} 2>/dev/null; then
+            if gh run delete $RUN_ID --repo ${{ github.repository }} 2>&1; then
               DELETED=$((DELETED + 1))
+            else
+              FAILED=$((FAILED + 1))
+              echo "   ⚠️  Failed to delete run $RUN_ID"
             fi
           done
 
           echo "   ✅ Deleted $DELETED runs from '$WORKFLOW_NAME'"
+          if [ $FAILED -gt 0 ]; then
+            echo "   ⚠️  Failed to delete $FAILED runs"
+          fi
           echo "deleted=$DELETED" >> $GITHUB_OUTPUT
 
   # Third job: summary
