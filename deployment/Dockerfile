@@ -61,8 +61,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libxkbcommon0 \
     libxrandr2 \
     xdg-utils \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
+    # Node.js and npm from Debian repositories (more reliable than NodeSource)
+    nodejs \
+    npm \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

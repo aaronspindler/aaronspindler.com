@@ -40,10 +40,7 @@ jobs:
           package-type: 'container'
           min-versions-to-keep: 5
           delete-only-untagged-versions: 'false'
-          # Delete up to 100 old versions in each run
-          num-old-versions-to-delete: 100
           # Optional: protect specific versions with regex
-          # ignore-versions: '^(latest|stable|v\d+\.\d+\.\d+)$'
 
       - name: Delete untagged versions of ${{ matrix.package }}
         uses: actions/delete-package-versions@v5
@@ -51,5 +48,4 @@ jobs:
           package-name: '${{ matrix.package }}'
           package-type: 'container'
           delete-only-untagged-versions: 'true'
-          # Keep at least 1 untagged version (in case it's in use)
           min-versions-to-keep: 1
