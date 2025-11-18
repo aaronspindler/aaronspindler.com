@@ -31,13 +31,13 @@ jobs:
       contents: read
 
     steps:
-      - name: Get workflow IDs
+      - name: Get workflow IDs and names
         id: get-workflows
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "🔍 Discovering workflows in repository..."
-          WORKFLOWS=$(gh workflow list --repo ${{ github.repository }} --json id -q '[.[].id]')
+          WORKFLOWS=$(gh workflow list --repo ${{ github.repository }} --json id,name -q '[.[] | {id: .id, name: .name}]')
           COUNT=$(echo "$WORKFLOWS" | jq 'length')
 
           echo "workflows=$WORKFLOWS" >> $GITHUB_OUTPUT
@@ -56,17 +56,18 @@ jobs:
 
     strategy:
       matrix:
-        workflow_id: ${{ fromJson(needs.discover.outputs.workflows) }}
+        workflow: ${{ fromJson(needs.discover.outputs.workflows) }}
       max-parallel: 5  # Process 5 workflows simultaneously
       fail-fast: false  # Continue even if one workflow fails
 
     steps:
-      - name: Cleanup workflow ${{ matrix.workflow_id }}
+      - name: Cleanup workflow "${{ matrix.workflow.name }}"
         env:
           GH_TOKEN: ${{ github.token }}
           RETAIN_DAYS: ${{ inputs.retain_days }}
           KEEP_MIN: ${{ inputs.keep_minimum_runs }}
-          WORKFLOW_ID: ${{ matrix.workflow_id }}
+          WORKFLOW_ID: ${{ matrix.workflow.id }}
+          WORKFLOW_NAME: ${{ matrix.workflow.name }}
         run: |
           # Set defaults only if not provided (allow explicit 0)
           RETAIN_DAYS=${RETAIN_DAYS:-30}
@@ -74,7 +75,7 @@ jobs:
             KEEP_MIN=10
           fi
 
-          echo "🧹 Processing workflow ID: $WORKFLOW_ID"
+          echo "🧹 Processing workflow: $WORKFLOW_NAME (ID: $WORKFLOW_ID)"
 
           if [ "$KEEP_MIN" -eq 0 ]; then
             echo "   Mode: Delete ALL runs older than $RETAIN_DAYS days (no minimum protection)"
@@ -85,10 +86,6 @@ jobs:
           # Calculate cutoff date
           CUTOFF_DATE=$(date -u -d "$RETAIN_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-${RETAIN_DAYS}d +%Y-%m-%dT%H:%M:%SZ)
           echo "   Cutoff date: $CUTOFF_DATE"
-
-          # Get workflow name for better logging
-          WORKFLOW_NAME=$(gh workflow view $WORKFLOW_ID --repo ${{ github.repository }} --json name -q '.name')
-          echo "   Workflow: $WORKFLOW_NAME"
 
           # Get total run count for this workflow
           TOTAL_RUNS=$(gh run list --workflow $WORKFLOW_ID --repo ${{ github.repository }} --limit 1000 --json databaseId -q '. | length')
