@@ -4,9 +4,9 @@ run-name: "${{ github.event.head_commit.message || github.event.pull_request.tit
 
 on:
   push:
-    branches: [ '**' ]  # Run on all branches
+    branches: [ '**' ]
   pull_request:
-    branches: [ '**' ]  # Run on PRs targeting any branch
+    branches: [ '**' ]
     types: [ opened, synchronize, reopened, ready_for_review ]
   workflow_dispatch:
 
@@ -274,7 +274,6 @@ jobs:
         if: always()
         run: docker compose -f deployment/docker-compose.test.yml down -v
 
-  # Combine and upload coverage
   coverage-upload:
     runs-on: ubuntu-latest
     needs: test-suite
@@ -331,7 +330,6 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  # Cleanup artifacts if tests fail
   cleanup-artifacts:
     runs-on: ubuntu-latest
     needs: [django-checks, test-suite]

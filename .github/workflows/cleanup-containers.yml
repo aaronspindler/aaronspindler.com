@@ -1,7 +1,6 @@
-name: Container Registry Cleanup
+name: Housekeeping - Container Registry Cleanup
 
 on:
-  # Run after successful deployment
   workflow_run:
     workflows: ["Deploy to Production"]
     types: [completed]
@@ -11,7 +10,6 @@ on:
   schedule:
     - cron: '0 3 * * 1'  # Every Monday at 3 AM UTC
 
-  # Allow manual trigger for testing
   workflow_dispatch:
 
 jobs:

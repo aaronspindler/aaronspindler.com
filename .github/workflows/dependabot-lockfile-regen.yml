@@ -19,7 +19,6 @@ permissions:
 
 jobs:
   regenerate-lockfiles:
-    # Only run for Dependabot PRs
     if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
