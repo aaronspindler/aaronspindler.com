@@ -13,3 +13,6 @@ ruff==0.14.4
 # Security auditing (optional - used in CI/CD)
 safety==3.7.0
 pip-audit==2.9.0
+
+# Secret detection for pre-commit
+detect-secrets==1.5.0

@@ -117,3 +117,41 @@ show_missing = true
 skip_empty = true
 # Precision of coverage percentages
 precision = 2
+
+[tool.bandit]
+# Bandit security linter configuration
+# See: https://bandit.readthedocs.io/en/latest/config.html
+
+# Exclude directories from security scanning
+exclude_dirs = [
+    "/tests/",
+    "/test_*/",
+    "/migrations/",
+    "/venv/",
+    "/.venv/",
+    "/node_modules/",
+    "/staticfiles/",
+    "/projects/ActionsUptime/",
+]
+
+# Skip specific security checks that may produce false positives
+skips = [
+    "B101",  # assert_used - Asserts are fine in tests and Django code
+    "B113",  # request_without_timeout - Sometimes timeout isn't needed
+    "B404",  # subprocess_without_shell_equals_true - We use subprocess safely
+]
+
+# Set confidence level threshold (LOW, MEDIUM, HIGH)
+# Only report issues with at least this confidence level
+confidence = "MEDIUM"
+
+# Set severity level threshold (LOW, MEDIUM, HIGH)
+# Only report issues with at least this severity level
+severity = "MEDIUM"
+
+# Specific tests to run (empty = run all tests)
+tests = []
+
+# Exclude specific test IDs from all files
+# Add test IDs here if they're globally noisy
+exclude_tests = []

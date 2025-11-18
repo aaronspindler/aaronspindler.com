@@ -1,5 +1,5 @@
-# Pre-commit hooks - simplified configuration
-# Focuses on essential checks that match CI/CD
+# Pre-commit hooks - Enhanced configuration for Django project
+# Includes security checks, Django-specific hooks, and comprehensive validation
 #
 # Install: pre-commit install
 # Run manually: pre-commit run --all-files
@@ -8,7 +8,7 @@
 repos:
   # Ruff - Fast Python linter with import sorting built-in
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.4
+    rev: v0.14.5
     hooks:
       - id: ruff
         name: ruff linter + import sorting
@@ -16,18 +16,60 @@ repos:
       - id: ruff-format  # Ruff's formatter (compatible with Black)
         name: ruff formatter
 
+  # Django - Automatic Django code upgrades
+  - repo: https://github.com/adamchainz/django-upgrade
+    rev: '1.21.0'
+    hooks:
+      - id: django-upgrade
+        name: django-upgrade - Modernize Django code
+        args: ['--target-version', '5.1']  # Update to match your Django version
+
+  # Security - Detect secrets and credentials
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        name: detect-secrets - Prevent committing secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package-lock.json
+
+  # Security - Python security linter
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        name: bandit - Security linter
+        args: ['-c', 'pyproject.toml']
+        additional_dependencies: ['bandit[toml]']
+
   # Basic file quality checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-merge-conflict
+      - id: check-json
+        name: check-json - Validate JSON files
+      - id: check-toml
+        name: check-toml - Validate TOML files
+      - id: check-added-large-files
+        name: check-added-large-files - Prevent large files
+        args: ['--maxkb=1000']  # Max 1MB
+      - id: check-case-conflict
+        name: check-case-conflict - Check filename case conflicts
+      - id: check-docstring-first
+        name: check-docstring-first - Check docstring positioning
+      - id: debug-statements
+        name: debug-statements - Check for debugger imports
+      - id: mixed-line-ending
+        name: mixed-line-ending - Check line endings
+        args: ['--fix=lf']  # Force Unix line endings
 
   # Prettier - Format CSS files
   - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v3.1.0
+    rev: v4.0.0-alpha.8
     hooks:
       - id: prettier
         name: prettier (css)
@@ -47,7 +89,7 @@ repos:
 
 # Configuration
 default_language_version:
-  python: python3
+  python: python3.13  # Updated to specific version
 
 # Files to exclude from all hooks
 exclude: |

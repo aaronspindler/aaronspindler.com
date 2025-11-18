@@ -585,6 +585,10 @@ defusedxml==0.7.1 \
     --hash=sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69 \
     --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
     # via py-serializable
+detect-secrets==1.5.0 \
+    --hash=sha256:6bb46dcc553c10df51475641bb30fd69d25645cc12339e46c824c1e0c388898a \
+    --hash=sha256:e24e7b9b5a35048c313e983f76c4bd09dad89f045ff059e354f9943bf45aa060
+    # via -r requirements/dev.in
 distlib==0.4.0 \
     --hash=sha256:9659f7d87e46584a30b5780e43ac7a2143098441670ff0a49d5f9034c54a6c16 \
     --hash=sha256:feec40075be03a04501a973d81f633735b4b69f98b05450592310c0f401a4e0d
@@ -1565,7 +1569,9 @@ pyyaml==6.0.3 \
     --hash=sha256:f7057c9a337546edc7973c0d3ba84ddcdf0daa14533c2065749c9075001090e6 \
     --hash=sha256:fa160448684b4e94d80416c0fa4aac48967a969efe22931448d853ada8baf926 \
     --hash=sha256:fc09d0aa354569bc501d4e787133afc08552722d3ab34836a80547331bb5d4a0
-    # via pre-commit
+    # via
+    #   detect-secrets
+    #   pre-commit
 questdb==2.0.4 \
     --hash=sha256:030b8da10e50b9e1d9dbc1efcb9d0687b9dba2a3cd7fc3266b699c982c1b8a83 \
     --hash=sha256:0471e9b275147c4df134961f7c4cf6f985d866237a5678f764fc67b868364aae \
@@ -1775,6 +1781,7 @@ requests==2.32.5 \
     # via
     #   -r requirements/base.in
     #   cachecontrol
+    #   detect-secrets
     #   finnhub-python
     #   pip-audit
     #   safety
