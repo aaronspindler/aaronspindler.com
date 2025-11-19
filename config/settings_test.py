@@ -32,17 +32,24 @@ DATABASES = {
 # Use real QuestDB instance for testing when available (for integration tests)
 # Falls back to PostgreSQL for unit tests that don't require QuestDB features
 if os.environ.get("QUESTDB_URL"):
-    # Parse QuestDB connection from environment
-    import dj_database_url
+    # Parse QuestDB connection URL using urllib.parse
+    from urllib.parse import urlparse
 
-    DATABASES["questdb"] = dj_database_url.parse(os.environ.get("QUESTDB_URL"))
-    DATABASES["questdb"]["ENGINE"] = "config.db_backends.questdb"  # Custom backend that skips version check
-    DATABASES["questdb"]["CONN_MAX_AGE"] = 600  # Keep connections alive for 10 minutes
-    DATABASES["questdb"]["CONN_HEALTH_CHECKS"] = True  # Check connection health
-    DATABASES["questdb"]["OPTIONS"] = {
-        "connect_timeout": 10,
-        "prepare_threshold": 5,  # Cache prepared statements after 5 uses
-        "server_side_binding": False,  # Disable server-side binding for QuestDB compatibility
+    questdb_url = urlparse(os.environ.get("QUESTDB_URL"))
+    DATABASES["questdb"] = {
+        "ENGINE": "config.db_backends.questdb",  # Custom backend that skips version check
+        "NAME": questdb_url.path.lstrip("/") or "qdb",
+        "USER": questdb_url.username or "admin",
+        "PASSWORD": questdb_url.password or "quest",
+        "HOST": questdb_url.hostname or "questdb",
+        "PORT": questdb_url.port or 8812,
+        "CONN_MAX_AGE": 600,  # Keep connections alive for 10 minutes
+        "CONN_HEALTH_CHECKS": True,  # Check connection health
+        "OPTIONS": {
+            "connect_timeout": 10,
+            "prepare_threshold": 5,  # Cache prepared statements after 5 uses
+            "server_side_binding": False,  # Disable server-side binding for QuestDB compatibility
+        },
     }
 else:
     # Fallback to PostgreSQL if QuestDB is not configured
