@@ -139,6 +139,15 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Add label for auto-merge
+        if: steps.check.outputs.allow_automerge == 'true'
+        run: |
+          gh pr edit "$PR_URL" --add-label "dependabot-auto-merge"
+          echo "🏷️  Added 'dependabot-auto-merge' label"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Add label for manual review
         if: steps.check.outputs.allow_automerge == 'false'
         run: |
