@@ -144,9 +144,11 @@ jobs:
 
       - name: Start required services
         run: |
-          docker compose -f deployment/docker-compose.test.yml up -d postgres redis
+          docker compose -f deployment/docker-compose.test.yml up -d postgres redis questdb
           echo "Waiting for services to be healthy..."
-          timeout 60s bash -c 'until docker compose -f deployment/docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
+          timeout 90s bash -c 'until docker compose -f deployment/docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
+          echo "Service status:"
+          docker compose -f deployment/docker-compose.test.yml ps
 
       - name: Run Django ${{ matrix.check }} check
         run: |
@@ -202,9 +204,11 @@ jobs:
 
       - name: Start test services
         run: |
-          docker compose -f deployment/docker-compose.test.yml up -d postgres redis
+          docker compose -f deployment/docker-compose.test.yml up -d postgres redis questdb
           echo "Waiting for services to be healthy..."
-          timeout 60s bash -c 'until docker compose -f deployment/docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
+          timeout 90s bash -c 'until docker compose -f deployment/docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
+          echo "Service status:"
+          docker compose -f deployment/docker-compose.test.yml ps
 
       - name: Run tests for ${{ matrix.test-group.name }}
         run: |

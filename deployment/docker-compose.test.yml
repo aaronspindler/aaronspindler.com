@@ -52,11 +52,13 @@ services:
     volumes:
       - questdb_test_data:/var/lib/questdb
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/exec?query=SELECT%201"]
+      # Simple TCP connection check to PostgreSQL wire protocol port
+      # Uses /dev/tcp which is available in bash (QuestDB image uses bash)
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8812'"]
       interval: 5s
       timeout: 3s
       retries: 10
-      start_period: 20s
+      start_period: 30s
     networks:
       - test_network
 
