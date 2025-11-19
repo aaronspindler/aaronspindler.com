@@ -47,15 +47,28 @@ self.assertEqual(actual, expected, message)
 
 ## Running Tests
 
-Run tests using:
+**CRITICAL**: Do NOT attempt to run tests locally. Tests run automatically on CI (GitHub Actions).
+
+### Viewing Test Results
+
+When you need to check test results:
+1. Tests run automatically on every push to GitHub
+2. Use `gh pr checks` to view test status for a pull request
+3. Use `gh run view` to see detailed test results from CI
+4. Pull test results from CI rather than running tests locally
+
+### Local Testing (Only if explicitly requested)
+
+If the user explicitly requests local test execution:
 ```bash
 make test
 ```
 
-This command runs the Django test suite without parallel execution (suitable for local development).
+This command runs the Django test suite without parallel execution.
 
 ## Important Notes
 
-- **Do NOT run tests** unless explicitly requested by the user
+- **Do NOT run tests locally** - tests run on CI
 - **Do NOT write new tests** unless explicitly requested by the user
 - When modifying existing code, always check for corresponding tests and update them to reflect changes
+- Pull test results from CI using `gh pr checks` or `gh run view`
