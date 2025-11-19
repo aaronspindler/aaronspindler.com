@@ -50,7 +50,7 @@ class PhotoAlbumSitemapTest(TestCase):
     def test_items_returns_only_public_albums(self):
         """Test that items() returns only public albums."""
         # Create public and private albums
-        public1 = PhotoFactory.create_photo_album(title="Public 1", is_private=False)
+        PhotoFactory.create_photo_album(title="Public 1", is_private=False)
         public2 = PhotoFactory.create_photo_album(title="Public 2", is_private=False)
         private = PhotoFactory.create_photo_album(title="Private", is_private=True)
 
