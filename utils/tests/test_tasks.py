@@ -87,7 +87,7 @@ class SendEmailTaskTest(TestCase, NotificationConfigTestMixin):
         ]
 
         # Execute the task
-        result = send_email(self.email.pk)
+        send_email(self.email.pk)
 
         # Verify send_mail was called with correct arguments
         mock_send_mail.assert_called_once_with(
