@@ -88,7 +88,39 @@ python manage.py test
 make test
 ```
 
-**IMPORTANT**: Do NOT write new tests unless requested. DO update existing tests when modifying code.
+**CRITICAL GUIDELINES:**
+- **Do NOT write new tests** unless explicitly requested by the user
+- **Do NOT run tests** unless explicitly requested by the user
+- **DO update existing tests** when modifying code that has test coverage
+
+**When to Update Existing Tests:**
+- Modifying code that has test coverage
+- Changing function signatures or behavior
+- Fixing bugs that have test cases
+- Refactoring code with existing tests
+
+**Test Assertion Guidelines (from user's global CLAUDE.md):**
+Prefer named variables for each parameter in assertions over inlining:
+
+```python
+# DON'T DO THIS:
+self.assertEqual(test_result.get_count(), 10, "Expecting 10")
+
+# DO THIS:
+actual = test_result.get_count()
+expected = 10
+message = f"Found {actual} expected {expected}"
+self.assertEqual(actual, expected, message)
+```
+
+**Rationale:** Better code readability, better test error logs, less chance for errors when changing expected values.
+
+**If Explicitly Asked to Write Tests:**
+- Do not test frameworks or libraries - only test code in this repository
+- Be as concise as possible
+- Ensure edge cases are tested
+- Utilize factories to create test data
+- Follow existing test patterns in the codebase
 
 **See** [docs/testing.md](docs/testing.md) **and** [.cursor/rules/testing.mdc](.cursor/rules/testing.mdc)
 
