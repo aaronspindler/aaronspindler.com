@@ -22,7 +22,7 @@
     "postcss-import": "^16.1.1",
     "postcss-preset-env": "^9.3.0",
     "prettier": "^3.6.2",
-    "purgecss": "^5.0.0",
+    "purgecss": "^7.0.2",
     "terser": "^5.43.1"
   },
   "dependencies": {
