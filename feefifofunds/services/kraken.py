@@ -10,7 +10,31 @@ from feefifofunds.models import Asset
 
 
 class KrakenPairParser:
-    QUOTE_CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CAD", "CHF", "AUD", "AED", "XBT", "ETH", "DAI", "DOT", "POL"]
+    QUOTE_CURRENCIES = [
+        # Z-prefixed versions (check these first for longer matches)
+        "ZUSD",
+        "ZEUR",
+        "ZGBP",
+        "ZJPY",
+        "ZCAD",
+        "ZCHF",
+        "ZAUD",
+        "ZAED",
+        # Regular versions
+        "USD",
+        "EUR",
+        "GBP",
+        "JPY",
+        "CAD",
+        "CHF",
+        "AUD",
+        "AED",
+        "XBT",
+        "ETH",
+        "DAI",
+        "DOT",
+        "POL",
+    ]
 
     KRAKEN_TICKER_MAPPING = {
         "XBT": "BTC",
@@ -44,6 +68,9 @@ class KrakenPairParser:
 
 
 class KrakenAssetCreator:
+    # Fiat currencies
+    FIAT_CURRENCIES = {"USD", "EUR", "GBP", "JPY", "CAD", "CHF", "AUD", "AED"}
+
     # Tier classification based on market cap/importance
     TIER1_ASSETS = {
         "BTC",
@@ -139,6 +166,14 @@ class KrakenAssetCreator:
         self._default_tier = default_tier
 
     @classmethod
+    def determine_category(cls, ticker: str) -> str:
+        """Determine if an asset is a fiat currency or cryptocurrency."""
+        ticker_upper = ticker.upper()
+        if ticker_upper in cls.FIAT_CURRENCIES:
+            return Asset.Category.CURRENCY
+        return Asset.Category.CRYPTO
+
+    @classmethod
     def determine_tier(cls, ticker: str) -> str:
         """Determine the appropriate tier for an asset based on its ticker."""
         ticker_upper = ticker.upper()
@@ -168,13 +203,17 @@ class KrakenAssetCreator:
             # Auto-detect tier based on ticker
             asset_tier = self.determine_tier(ticker)
 
+        # Determine category
+        asset_category = self.determine_category(ticker)
+        description = f"Cryptocurrency: {ticker}" if asset_category == Asset.Category.CRYPTO else f"Currency: {ticker}"
+
         asset, created = Asset.objects.get_or_create(
             ticker=ticker,
             defaults={
                 "name": ticker,
-                "category": Asset.Category.CRYPTO,
+                "category": asset_category,
                 "tier": asset_tier,
-                "description": f"Cryptocurrency: {ticker}",
+                "description": description,
                 "active": True,
             },
         )
@@ -205,13 +244,18 @@ class KrakenAssetCreator:
             if ticker not in existing_tickers:
                 # Use auto-tier determination for each asset
                 asset_tier = self.determine_tier(ticker) if self._default_tier is None else self._default_tier
+                # Determine category
+                asset_category = self.determine_category(ticker)
+                description = (
+                    f"Cryptocurrency: {ticker}" if asset_category == Asset.Category.CRYPTO else f"Currency: {ticker}"
+                )
                 assets_to_create.append(
                     Asset(
                         ticker=ticker,
                         name=ticker,
-                        category=Asset.Category.CRYPTO,
+                        category=asset_category,
                         tier=asset_tier,
-                        description=f"Cryptocurrency: {ticker}",
+                        description=description,
                         active=True,
                     )
                 )

@@ -311,6 +311,8 @@ class SequentialIngestorUnitTest(TestCase):
 class SequentialIngestorIntegrationTest(TestCase):
     """Integration tests for the sequential ingestor (requires QuestDB)."""
 
+    databases = ["default", "questdb"]
+
     def setUp(self):
         """Create temporary test data directory structure."""
         self.test_dir = Path(tempfile.mkdtemp())
