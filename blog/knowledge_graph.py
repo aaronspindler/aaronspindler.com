@@ -364,7 +364,12 @@ class GraphBuilder:
 
         except Exception as e:
             logger.error(f"Error building complete graph: {str(e)}", exc_info=True)
-            return {"nodes": [], "edges": [], "metrics": {}, "errors": ["A server error occurred while building the knowledge graph."]}
+            return {
+                "nodes": [],
+                "edges": [],
+                "metrics": {},
+                "errors": ["A server error occurred while building the knowledge graph."],
+            }
 
     def get_post_connections(self, template_name: str, depth: int = 1) -> Dict:
         """Get connections for a specific blog post."""
@@ -412,7 +417,12 @@ class GraphBuilder:
             # Sanitize template_name to prevent log injection
             safe_template_name = str(template_name).replace("\n", "").replace("\r", "")[:100]
             logger.error(f"Error getting post connections for {safe_template_name}: {str(e)}", exc_info=True)
-            return {"nodes": [], "edges": [], "metrics": {}, "errors": ["A server error occurred while getting post connections."]}
+            return {
+                "nodes": [],
+                "edges": [],
+                "metrics": {},
+                "errors": ["A server error occurred while getting post connections."],
+            }
 
     def _get_all_blog_templates(self) -> List[Dict[str, str]]:
         """Get all blog template names with their categories."""
