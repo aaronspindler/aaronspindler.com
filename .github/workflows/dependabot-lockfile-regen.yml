@@ -60,8 +60,10 @@ jobs:
 
           for file in requirements/base.txt requirements/dev.txt; do
             if [ -f "$file" ]; then
+              echo "Processing $file..."
               # Remove consecutive duplicate lines (which are the hash duplicates)
-              awk '!x[$0]++' "$file" > "${file}.tmp"
+              # This handles cases where uv pip compile generates duplicate hashes
+              uniq "$file" > "${file}.tmp"
               mv "${file}.tmp" "$file"
               echo "✅ Deduplicated hashes in $file"
             fi
