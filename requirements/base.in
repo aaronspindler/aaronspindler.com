@@ -22,7 +22,7 @@ gunicorn==23.0.0
 # Database Drivers
 psycopg==3.2.12
 psycopg-binary==3.2.12
-questdb==2.0.4
+questdb==4.0.0
 
 # Caching & Message Broker
 redis==7.0.1
