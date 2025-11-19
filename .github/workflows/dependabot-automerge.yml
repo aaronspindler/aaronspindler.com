@@ -6,11 +6,8 @@ name: Dependabot Auto-Merge
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  # Also trigger when CI checks complete
-  check_suite:
-    types: [completed]
-  # Trigger when statuses are updated
-  status: {}
+  pull_request_target:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
