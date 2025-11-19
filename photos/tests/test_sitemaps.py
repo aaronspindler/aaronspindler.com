@@ -51,8 +51,8 @@ class PhotoAlbumSitemapTest(TestCase):
         """Test that items() returns only public albums."""
         # Create public and private albums
         PhotoFactory.create_photo_album(title="Public 1", is_private=False)
-        public2 = PhotoFactory.create_photo_album(title="Public 2", is_private=False)
-        private = PhotoFactory.create_photo_album(title="Private", is_private=True)
+        PhotoFactory.create_photo_album(title="Public 2", is_private=False)
+        PhotoFactory.create_photo_album(title="Private", is_private=True)
 
         items = self.sitemap.items()
 
@@ -76,7 +76,7 @@ class PhotoAlbumSitemapTest(TestCase):
     def test_items_caching(self):
         """Test that items are cached."""
         # Create an album
-        album = PhotoFactory.create_photo_album(title="Cached Album", is_private=False)
+        PhotoFactory.create_photo_album(title="Cached Album", is_private=False)
 
         # First call should set cache
         items1 = self.sitemap.items()
@@ -412,7 +412,7 @@ class SitemapCacheTest(TestCase):
     def test_cache_ttl(self):
         """Test that cache TTL is set correctly."""
         album_sitemap = PhotoAlbumSitemap()
-        album = PhotoFactory.create_photo_album(is_private=False)
+        PhotoFactory.create_photo_album(is_private=False)
 
         # Trigger cache set
         album_sitemap.items()
@@ -435,10 +435,10 @@ class SitemapCacheTest(TestCase):
         # Setup mock cache to return None (cache miss)
         mock_cache.get.return_value = None
 
-        album = PhotoFactory.create_photo_album(is_private=False)
+        PhotoFactory.create_photo_album(is_private=False)
         sitemap = PhotoAlbumSitemap()
 
-        items = sitemap.items()
+        sitemap.items()
 
         # Verify cache.get was called
         mock_cache.get.assert_called_once_with("sitemap_photo_albums_v1")
