@@ -212,7 +212,7 @@ class PictureElementTagTest(TestCase):
 
         with patch("photos.templatetags.photo_tags.escape") as mock_escape:
             mock_escape.side_effect = lambda x: f"escaped_{x}"
-            result = picture_element(self.photo, css_class="<script>")
+            picture_element(self.photo, css_class="<script>")
 
         # Verify escape was called
         mock_escape.assert_any_call(self.photo.title)
