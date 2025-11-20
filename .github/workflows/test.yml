@@ -153,27 +153,24 @@ jobs:
 
 
       - name: Verify test image was created
-        # The bake action should have created both local and registry tags
+        # The bake action should have pushed to registry, verify by pulling
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           echo "Verifying test image creation..."
 
-          # Verify the local image exists
-          if docker image inspect ${{ env.DOCKER_IMAGE_NAME }}:latest >/dev/null 2>&1; then
-            echo "✅ Local test image confirmed"
-          else
-            echo "❌ Local image NOT found"
-            exit 1
-          fi
+          # Define the registry tag
+          REGISTRY_TAG="${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}"
 
           # Test if we can pull the image from GHCR (to verify push worked)
           echo "Testing registry push..."
           echo "  Attempting: docker pull $REGISTRY_TAG"
           if docker pull "$REGISTRY_TAG"; then
             echo "  ✅ Successfully pulled from GHCR - push was successful!"
-            echo ""
-            echo "📊 Image details from registry:"
-            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep "${{ env.TEST_IMAGE_TAG }}"
+
+            # Tag it locally for docker-compose usage
+            echo "Creating local tag for docker-compose..."
+            docker tag "$REGISTRY_TAG" "${{ env.DOCKER_IMAGE_NAME }}:latest"
+            echo "✅ Local tag created: ${{ env.DOCKER_IMAGE_NAME }}:latest"
           else
             echo "  ❌ Could not pull from GHCR"
             echo "  Possible reasons:"
@@ -198,6 +195,17 @@ jobs:
         # For PRs from forks that can't push to GHCR, save as artifact
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |
+          # The image was loaded locally, now we need to tag it properly
+          REGISTRY_TAG="${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}"
+
+          # Create local tag for docker-compose from the loaded image
+          if docker image inspect "$REGISTRY_TAG" >/dev/null 2>&1; then
+            echo "Creating local tag from registry-formatted image..."
+            docker tag "$REGISTRY_TAG" "${{ env.DOCKER_IMAGE_NAME }}:latest"
+            echo "✅ Local tag created"
+          fi
+
+          # Export the image
           mkdir -p /tmp/docker-image
           docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | gzip > /tmp/docker-image/image.tar.gz
           echo "⚠️ Fork PR: Saved image as artifact (registry push not available)"

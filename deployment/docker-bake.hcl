@@ -28,8 +28,6 @@ target "test" {
   inherits = ["_common"]
   dockerfile = "deployment/Dockerfile"
   tags = [
-    # Local tag for docker compose usage
-    "test-runner:latest",
     # Registry tag for GHCR push - ensure this is always included
     "${REGISTRY}/${IMAGE_PREFIX}/test-runner:${TAG}",
     # Also tag with 'latest' in the registry for caching
@@ -40,6 +38,7 @@ target "test" {
   }
   # Note: output type is now controlled by the GitHub Action's push/load parameters
   # Removed hardcoded output to allow both local loading and registry pushing
+  # Local tag will be created in workflow after pulling from registry
 }
 
 # Production web service
