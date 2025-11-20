@@ -1,0 +1,5 @@
+services:
+  test_runner:
+    # In CI we reuse the pre-built test image that the build job produces.
+    build: null
+    image: test-runner:latest

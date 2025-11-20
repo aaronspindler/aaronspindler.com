@@ -4,10 +4,22 @@ run-name: "${{ github.event.head_commit.message || github.event.pull_request.tit
 
 on:
   push:
-    branches: [ '**' ]
+    branches: [ 'main' ]  # Only run on direct pushes to main
+    paths-ignore:  # Skip workflow for documentation-only changes
+      - '**.md'
+      - 'docs/**'
+      - '.cursor/**'
+      - 'LICENSE'
+      - '.gitignore'
   pull_request:
-    branches: [ '**' ]
+    branches: [ '**' ]  # Run on all PRs
     types: [ opened, synchronize, reopened, ready_for_review ]
+    paths-ignore:  # Skip workflow for documentation-only changes
+      - '**.md'
+      - 'docs/**'
+      - '.cursor/**'
+      - 'LICENSE'
+      - '.gitignore'
   workflow_dispatch:
 
 # Cancel in-progress test runs for fast feedback
@@ -19,7 +31,12 @@ env:
   SECRET_KEY: "FAKE_SECRET_KEY"
   PYTHONUNBUFFERED: 1
   DOCKER_IMAGE_NAME: test-runner
+  DOCKER_IMAGE_ARCHIVE: test-runner-image.tar.gz
   REGISTRY: ghcr.io
+  TEST_COMPOSE_FILES: -f deployment/docker-compose.test.yml -f deployment/docker-compose.test.ci.yml
+  # Cache versions - bump these to invalidate caches
+  PIP_CACHE_VERSION: v1
+  DOCKER_CACHE_VERSION: v1
 
 permissions:
   contents: read
@@ -40,6 +57,7 @@ jobs:
         with:
           driver-opts: |
             network=host
+            image=moby/buildkit:buildx-stable-1
 
       - name: Verify Docker Compose file
         run: |
@@ -48,6 +66,14 @@ jobs:
             exit 1
           fi
           echo "✅ deployment/docker-compose.test.yml found"
+
+      - name: Log in to GitHub Container Registry (for cache)
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Docker image with Bake
         uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c  # v5.10.0
@@ -59,12 +85,19 @@ jobs:
           files: deployment/docker-bake.hcl
           targets: test
           load: true
+          set: |
+            *.cache-from=type=gha,scope=test-${{ env.DOCKER_CACHE_VERSION }}
+            *.cache-from=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/test-runner:cache
+            *.cache-to=type=gha,mode=max,scope=test-${{ env.DOCKER_CACHE_VERSION }}
+
+      - name: Install pigz for fast compression
+        run: |
+          sudo apt-get update && sudo apt-get install -y pigz
 
       - name: Save Docker image to file with optimized compression
         run: |
-          sudo apt-get update && sudo apt-get install -y pigz
-          docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | pigz -6 > test-runner-image.tar.gz
-          echo "📦 Compressed image size: $(du -h test-runner-image.tar.gz | cut -f1)"
+          docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | pigz -6 > "${{ env.DOCKER_IMAGE_ARCHIVE }}"
+          echo "📦 Compressed image size: $(du -h "${{ env.DOCKER_IMAGE_ARCHIVE }}" | cut -f1)"
           echo "Available images:"
           docker images | grep test-runner || true
 
@@ -72,7 +105,7 @@ jobs:
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: docker-image
-          path: test-runner-image.tar.gz
+          path: ${{ env.DOCKER_IMAGE_ARCHIVE }}
           retention-days: 1
           compression-level: 0  # Already compressed with pigz
 
@@ -93,6 +126,7 @@ jobs:
         with:
           driver-opts: |
             network=host
+            image=moby/buildkit:buildx-stable-1
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
@@ -112,9 +146,10 @@ jobs:
           targets: production
           push: false
           set: |
-            *.cache-from=type=gha,scope=buildx-main
+            *.cache-from=type=gha,scope=buildx-main-${{ env.DOCKER_CACHE_VERSION }}
             *.cache-from=type=gha
-            *.cache-to=type=gha,mode=max,scope=buildx-main
+            *.cache-from=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}:cache
+            *.cache-to=type=gha,mode=max,scope=buildx-main-${{ env.DOCKER_CACHE_VERSION }}
           provenance: false
           sbom: false
 
@@ -134,38 +169,45 @@ jobs:
           name: docker-image
           path: /tmp
 
+      - name: Install pigz for fast decompression
+        run: |
+          sudo apt-get update && sudo apt-get install -y pigz
+
       - name: Load Docker image with optimized decompression
         run: |
           echo "Loading Docker image..."
-          sudo apt-get update && sudo apt-get install -y pigz
-          pigz -dc /tmp/test-runner-image.tar.gz | docker load
+          pigz -dc "/tmp/${{ env.DOCKER_IMAGE_ARCHIVE }}" | docker load
           docker images | grep test-runner
-          sed -i 's|build: \.|image: test-runner:latest|g' deployment/docker-compose.test.yml
 
       - name: Start required services
         run: |
-          docker compose -f deployment/docker-compose.test.yml up -d postgres redis questdb
+          COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
+          export COMPOSE
+          docker compose $COMPOSE up -d postgres redis questdb
           echo "Waiting for services to be healthy..."
-          timeout 90s bash -c 'until docker compose -f deployment/docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
+          timeout 90s bash -c "until docker compose \$COMPOSE ps --format json | grep -q '\"Health\":\"healthy\"'; do echo 'Waiting for services...'; sleep 2; done" || echo "Warning: Services health check timed out"
           echo "Service status:"
-          docker compose -f deployment/docker-compose.test.yml ps
+          docker compose $COMPOSE ps
 
       - name: Run Django ${{ matrix.check }} check
         run: |
+          COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
           case "${{ matrix.check }}" in
             migrations)
-              docker compose -f deployment/docker-compose.test.yml run --rm test_runner \
+              docker compose $COMPOSE run --rm test_runner \
                 python manage.py makemigrations --check --dry-run --settings=config.settings_test
               ;;
             system)
-              docker compose -f deployment/docker-compose.test.yml run --rm test_runner \
+              docker compose $COMPOSE run --rm test_runner \
                 python manage.py check --deploy --settings=config.settings_test
               ;;
           esac
 
       - name: Cleanup
         if: always()
-        run: docker compose -f deployment/docker-compose.test.yml down -v
+        run: |
+          COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
+          docker compose $COMPOSE down -v
 
   test-suite:
     runs-on: ubuntu-latest
@@ -194,28 +236,44 @@ jobs:
           name: docker-image
           path: /tmp
 
+      - name: Install pigz for fast decompression
+        run: |
+          sudo apt-get update && sudo apt-get install -y pigz
+
       - name: Load Docker image with optimized decompression
         run: |
           echo "Loading Docker image..."
-          sudo apt-get update && sudo apt-get install -y pigz
-          pigz -dc /tmp/test-runner-image.tar.gz | docker load
+          pigz -dc "/tmp/${{ env.DOCKER_IMAGE_ARCHIVE }}" | docker load
           docker images | grep test-runner
-          sed -i 's|build: \.|image: test-runner:latest|g' deployment/docker-compose.test.yml
+
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.local
+          key: ${{ runner.os }}-pip-${{ env.PIP_CACHE_VERSION }}-${{ hashFiles('requirements/*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ env.PIP_CACHE_VERSION }}-
 
       - name: Start test services
         run: |
-          docker compose -f deployment/docker-compose.test.yml up -d postgres redis questdb
+          COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
+          export COMPOSE
+          docker compose $COMPOSE up -d postgres redis questdb
           echo "Waiting for services to be healthy..."
-          timeout 90s bash -c 'until docker compose -f deployment/docker-compose.test.yml ps --format json | grep -q "\"Health\":\"healthy\""; do echo "Waiting for services..."; sleep 2; done' || echo "Warning: Services health check timed out"
+          timeout 90s bash -c "until docker compose \$COMPOSE ps --format json | grep -q '\"Health\":\"healthy\"'; do echo 'Waiting for services...'; sleep 2; done" || echo "Warning: Services health check timed out"
           echo "Service status:"
-          docker compose -f deployment/docker-compose.test.yml ps
+          docker compose $COMPOSE ps
 
       - name: Run tests for ${{ matrix.test-group.name }}
         run: |
+          COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
           mkdir -p ./test_output
-          docker compose -f deployment/docker-compose.test.yml run --rm \
+          docker compose $COMPOSE run --rm \
             -v $(pwd)/test_output:/code/test_output \
             -v $(pwd)/pyproject.toml:/code/pyproject.toml:ro \
+            -v ~/.cache/pip:/root/.cache/pip \
             test_runner sh -c "
             pip install coverage unittest-xml-reporting --no-cache-dir --root-user-action=ignore &&
             export PYTHONDONTWRITEBYTECODE=1 &&
@@ -246,7 +304,9 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: docker compose -f deployment/docker-compose.test.yml down -v
+        run: |
+          COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
+          docker compose $COMPOSE down -v
 
   coverage-upload:
     runs-on: ubuntu-latest
@@ -273,6 +333,16 @@ jobs:
         uses: actions/setup-python@bfc4944b43a5d84377eca3cf6ab5b7992ba61923  # v6.0.0
         with:
           python-version: '3.12.2'
+
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.local
+          key: ${{ runner.os }}-pip-coverage-${{ env.PIP_CACHE_VERSION }}-${{ hashFiles('requirements/*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-coverage-${{ env.PIP_CACHE_VERSION }}-
 
       - name: Install coverage
         run: |
@@ -389,6 +459,7 @@ jobs:
         with:
           driver-opts: |
             network=host
+            image=moby/buildkit:buildx-stable-1
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
@@ -408,8 +479,9 @@ jobs:
           targets: production
           push: true
           set: |
-            *.cache-from=type=gha,scope=buildx-main
+            *.cache-from=type=gha,scope=buildx-main-${{ env.DOCKER_CACHE_VERSION }}
             *.cache-from=type=gha
-            *.cache-to=type=gha,mode=max,scope=buildx-main
+            *.cache-from=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}:cache
+            *.cache-to=type=gha,mode=max,scope=buildx-main-${{ env.DOCKER_CACHE_VERSION }}
           provenance: false
           sbom: false
