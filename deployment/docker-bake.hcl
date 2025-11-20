@@ -27,11 +27,15 @@ target "_common" {
 target "test" {
   inherits = ["_common"]
   dockerfile = "deployment/Dockerfile"
-  tags = ["test-runner:latest"]
+  tags = [
+    "test-runner:latest",
+    "${REGISTRY}/${IMAGE_PREFIX}/test-runner:${TAG}"
+  ]
   args = {
     SKIP_JS_BUILD = "1"
   }
-  output = ["type=docker"]
+  # Note: output type is now controlled by the GitHub Action's push/load parameters
+  # Removed hardcoded output to allow both local loading and registry pushing
 }
 
 # Production web service

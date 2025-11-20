@@ -131,7 +131,7 @@ jobs:
         env:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_PREFIX: ${{ github.repository }}
-          TAG: test
+          TAG: ${{ env.TEST_IMAGE_TAG }}  # Use the unique run ID tag
           # Phase 3: Enable BuildKit cache mounts for package managers
           DOCKER_BUILDKIT: 1
           BUILDKIT_INLINE_CACHE: 1
@@ -148,13 +148,29 @@ jobs:
             *.cache-to=type=gha,mode=max,scope=test-${{ env.DOCKER_CACHE_VERSION }}
             *.cache-to=type=inline
 
-      - name: Tag and push test image with unique run ID
-        # For registry-based distribution to downstream jobs
+      - name: Verify test image was created
+        # The bake action should have created both local and registry tags
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
-          docker tag ${{ env.DOCKER_IMAGE_NAME }}:latest ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}
-          docker push ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}
-          echo "✅ Pushed test image: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}"
+          echo "🔍 Verifying test image creation..."
+          echo "Expected images:"
+          echo "  - Local: ${{ env.DOCKER_IMAGE_NAME }}:latest"
+          echo "  - Registry: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}"
+          echo ""
+          echo "Available images:"
+          docker images | grep -E "(test-runner|REPOSITORY)" || true
+          echo ""
+
+          # Verify the local image exists
+          if docker image inspect ${{ env.DOCKER_IMAGE_NAME }}:latest >/dev/null 2>&1; then
+            echo "✅ Local test image confirmed: ${{ env.DOCKER_IMAGE_NAME }}:latest"
+          else
+            echo "❌ ERROR: Expected local image '${{ env.DOCKER_IMAGE_NAME }}:latest' not found!"
+            exit 1
+          fi
+
+          # The registry push is handled by the bake action
+          echo "✅ Test image ready for distribution via GHCR"
 
       - name: Export image for fork PRs (fallback)
         # For PRs from forks that can't push to GHCR, save as artifact
