@@ -331,6 +331,7 @@ class SequentialIngestorIntegrationTest(TestCase):
         try:
             AssetPrice.objects.using("questdb").all().delete()
         except Exception:
+            # Ignore errors if no test data exists to clean up
             pass
 
     def tearDown(self):
