@@ -9,17 +9,8 @@ python manage.py migrate --no-input || {
     echo "Warning: Migrations failed, but continuing..."
 }
 
-# Build CSS files
-echo "Building combined CSS..."
-python manage.py build_css || {
-    echo "Warning: CSS build failed, but continuing..."
-}
-
-# Collect static files
-echo "Collecting static files..."
-python manage.py collectstatic_optimize || {
-    echo "Warning: Static file collection failed, but continuing..."
-}
+# CSS is now built during Docker image build with templates available
+# No need to rebuild at runtime
 
 echo "Web container initialization complete!"
 

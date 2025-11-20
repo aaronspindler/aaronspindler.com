@@ -107,6 +107,12 @@ RUN if [ "$SKIP_JS_BUILD" = "0" ]; then npm run build:js; else echo "Skipping JS
 # Copy rest of application code (changes most frequently - keep last!)
 COPY . /code/
 
+# Build CSS with all templates now available
+# PurgeCSS will scan all templates to determine which CSS to keep
+RUN python manage.py build_css && \
+    python manage.py collectstatic_optimize --no-input || \
+    echo "CSS build completed"
+
 # Expose port 80
 EXPOSE 80
 

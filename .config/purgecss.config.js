@@ -1,10 +1,21 @@
 module.exports = {
   content: [
+    // Global templates
     'templates/**/*.html',
-    'static/js/**/*.js',
+    // App-specific templates
     'blog/templates/**/*.html',
     'pages/templates/**/*.html',
-    'accounts/templates/**/*.html'
+    'accounts/templates/**/*.html',
+    'photos/templates/**/*.html',
+    'feefifofunds/templates/**/*.html',
+    'projects/templates/**/*.html',
+    'utils/templates/**/*.html',
+    'omas/templates/**/*.html',
+    // JavaScript files that might have dynamic classes
+    'static/js/**/*.js',
+    'omas/static/**/*.js',
+    // Python files that might have class names in strings
+    '**/*.py'
   ],
   css: ['static/css/**/*.css'],
   defaultExtractor: content => {
