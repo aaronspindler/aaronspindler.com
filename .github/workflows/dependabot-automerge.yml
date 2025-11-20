@@ -94,24 +94,46 @@ jobs:
             echo "🛑 This PR requires manual review"
           fi
 
-      # Add delay to allow test workflow to create all jobs
-      - name: Wait for workflow initialization
-        if: steps.check.outputs.allow_automerge == 'true'
-        run: |
-          echo "⏳ Waiting 90 seconds for test workflow to initialize all jobs..."
-          sleep 90
-          echo "✅ Proceeding to check for CI status"
-
-      - name: Wait for CI to pass
+      # Wait for multiple key CI jobs instead of the all-checks job which may not exist immediately
+      - name: Wait for Docker build to complete
         if: steps.check.outputs.allow_automerge == 'true'
         uses: lewagon/wait-on-check-action@v1.4.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          check-name: 'all-checks'  # Wait for the final gate check from test.yml
+          check-name: 'build-docker-image'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 30  # Check every 30 seconds
+          wait-interval: 30
           allowed-conclusions: success,skipped
-          verbose: true  # Enable verbose logging for debugging
+
+      - name: Wait for Django checks to complete
+        if: steps.check.outputs.allow_automerge == 'true'
+        uses: lewagon/wait-on-check-action@v1.4.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          check-name: 'django-checks'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success,skipped
+
+      - name: Wait for test suite to complete
+        if: steps.check.outputs.allow_automerge == 'true'
+        uses: lewagon/wait-on-check-action@v1.4.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          check-name: 'test-suite'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success,skipped
+
+      - name: Wait for coverage upload to complete
+        if: steps.check.outputs.allow_automerge == 'true'
+        uses: lewagon/wait-on-check-action@v1.4.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          check-name: 'coverage-upload'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success,skipped
 
       - name: Approve PR
         if: steps.check.outputs.allow_automerge == 'true'
