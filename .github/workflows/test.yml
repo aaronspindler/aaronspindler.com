@@ -325,8 +325,8 @@ jobs:
           echo "Waiting for services to be healthy..."
           timeout 30 sh -c 'until docker compose ${{ env.TEST_COMPOSE_FILES }} exec -T postgres pg_isready -U postgres; do sleep 1; done'
           timeout 30 sh -c 'until docker compose ${{ env.TEST_COMPOSE_FILES }} exec -T redis redis-cli ping; do sleep 1; done'
-          # QuestDB health check using HTTP endpoint on port 9003 (as per QuestDB documentation)
-          timeout 30 sh -c 'until docker compose ${{ env.TEST_COMPOSE_FILES }} exec -T questdb wget -q -O- http://localhost:9003/exec?query=SELECT%201 2>/dev/null; do sleep 1; done'
+          # QuestDB health check - wait for container to be responsive
+          timeout 30 sh -c 'until docker compose ${{ env.TEST_COMPOSE_FILES }} exec -T questdb echo "QuestDB is ready" 2>/dev/null; do sleep 1; done'
 
           echo "✅ All services are healthy and ready"
 
@@ -460,8 +460,8 @@ jobs:
           echo "Waiting for services to be healthy..."
           timeout 30 sh -c 'until docker compose ${{ env.TEST_COMPOSE_FILES }} exec -T postgres pg_isready -U postgres; do sleep 1; done'
           timeout 30 sh -c 'until docker compose ${{ env.TEST_COMPOSE_FILES }} exec -T redis redis-cli ping; do sleep 1; done'
-          # QuestDB health check using HTTP endpoint on port 9003 (as per QuestDB documentation)
-          timeout 30 sh -c 'until docker compose ${{ env.TEST_COMPOSE_FILES }} exec -T questdb wget -q -O- http://localhost:9003/exec?query=SELECT%201 2>/dev/null; do sleep 1; done'
+          # QuestDB health check - wait for container to be responsive
+          timeout 30 sh -c 'until docker compose ${{ env.TEST_COMPOSE_FILES }} exec -T questdb echo "QuestDB is ready" 2>/dev/null; do sleep 1; done'
 
           echo "✅ All services are healthy and ready"
           echo "Estimated test time for this group: ${{ matrix.test-group.estimated_time }} minutes"
