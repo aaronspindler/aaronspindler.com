@@ -250,6 +250,45 @@ docker-compose -f docker-compose.production.yml down
 docker-compose -f docker-compose.production.yml restart
 ```
 
+## CI/CD Pipeline
+
+The project uses GitHub Actions for continuous integration and deployment automation. The CI/CD pipeline ensures code quality through automated testing, linting, and security scanning before deployment.
+
+### Key Features
+- **Automated Testing**: Runs comprehensive test suite on every push and PR
+- **Parallel Execution**: Tests split across 6 parallel jobs for faster feedback
+- **Docker Integration**: Uses GitHub Container Registry for efficient image distribution
+- **Security Scanning**: CodeQL analysis and Copilot Autofix for vulnerability detection
+
+### Workflow Triggers
+- Push to `main` branch
+- Pull requests
+- Manual workflow dispatch
+- Scheduled security scans (daily)
+
+### Pre-deployment Checks
+Before deployment, the CI/CD pipeline ensures:
+- All tests pass (Django tests across 6 parallel jobs)
+- Code passes linting (Ruff)
+- Type checking succeeds (MyPy)
+- No security vulnerabilities detected (CodeQL)
+- Docker images build successfully
+
+### GitHub Container Registry
+Production deployments use pre-built images from GHCR:
+```bash
+# Pull the latest tested image
+docker pull ghcr.io/aaronspindler/aaronspindler.com:latest
+
+# Or specific commit
+docker pull ghcr.io/aaronspindler/aaronspindler.com:sha-<commit-sha>
+```
+
+For detailed CI/CD information, see:
+- [CI/CD Pipeline Documentation](features/ci-cd.md) - Complete CI/CD guide
+- [Optimization Report](features/ci-cd-optimization-report.md) - Performance improvements
+- [GitHub Workflows](.github/workflows/) - Workflow definitions
+
 ## Database Setup
 
 ### Create PostgreSQL Database
@@ -816,6 +855,7 @@ open http://localhost:5555
 
 ### Core Documentation
 - [Architecture](architecture.md) - System design and infrastructure
+- [CI/CD Pipeline](features/ci-cd.md) - Continuous integration and deployment
 - [Maintenance](maintenance.md) - Post-deployment operations and monitoring
 - [Testing](testing.md) - Pre-deployment testing with Docker
 - [Commands](commands.md) - Operational management commands

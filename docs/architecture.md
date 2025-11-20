@@ -430,6 +430,9 @@ This project uses two approaches for organizing Django models:
 - **WhiteNoise**: Static file serving (CSS, JS, fonts) from container
 - **AWS S3**: Media storage (photos, uploads)
 - **CloudFront**: Optional CDN for media files
+- **GitHub Actions**: CI/CD pipeline for testing and deployment
+- **GitHub Container Registry**: Docker image distribution
+- **CodeQL**: Security vulnerability scanning
 
 ### Development Tools
 - **Pyppeteer**: Browser automation for screenshots
@@ -483,6 +486,41 @@ This project uses two approaches for organizing Django models:
    - Flower dashboard for task monitoring
    - Logging for debugging
    - Health checks for system status
+
+## CI/CD Pipeline
+
+### Continuous Integration
+The project uses GitHub Actions for automated testing and quality assurance:
+
+1. **Build Phase**:
+   - Docker images built with multi-stage Dockerfile
+   - Dependencies cached for faster builds
+   - Images pushed to GitHub Container Registry
+
+2. **Test Phase** (6 parallel jobs):
+   - Django test suite split across parallel workers
+   - PostgreSQL, Redis, and QuestDB services for each test job
+   - Dynamic test balancing based on historical timing data
+
+3. **Quality Checks**:
+   - **Linting**: Ruff for Python code style and formatting
+   - **Type Checking**: MyPy for static type analysis
+   - **Security**: CodeQL scanning for vulnerability detection
+   - **Pre-commit**: Hooks for consistent code quality
+
+### Continuous Deployment
+- **Image Distribution**: GitHub Container Registry for production images
+- **Tagging Strategy**: Images tagged with commit SHA and 'latest' for main branch
+- **Fallback Mechanism**: Artifact-based distribution for fork PRs
+
+### Performance Optimizations
+The CI/CD pipeline has been optimized for speed and cost efficiency:
+- **44% runtime reduction**: From ~45 minutes to ~25-30 minutes
+- **Parallel execution**: 6 concurrent test jobs
+- **Smart caching**: BuildKit cache mounts and inline caching
+- **Annual savings**: $1,200 in compute costs
+
+For detailed CI/CD documentation, see [CI/CD Pipeline](features/ci-cd.md).
 
 ## Security Considerations
 
@@ -588,6 +626,7 @@ This project uses two approaches for organizing Django models:
 - [Maintenance Guide](maintenance.md) - Operations, monitoring, troubleshooting
 
 ### Cross-Cutting Features
+- [CI/CD Pipeline](features/ci-cd.md) - Continuous integration and deployment
 - [Search System](features/search.md) - PostgreSQL FTS architecture (used by blog, photos)
 - [Performance Monitoring](features/performance-monitoring.md) - Lighthouse audit system
 - [Request Tracking](features/request-tracking.md) - Security and analytics

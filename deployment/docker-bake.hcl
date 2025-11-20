@@ -27,11 +27,18 @@ target "_common" {
 target "test" {
   inherits = ["_common"]
   dockerfile = "deployment/Dockerfile"
-  tags = ["test-runner:latest"]
+  tags = [
+    # Registry tag for GHCR push - ensure this is always included
+    "${REGISTRY}/${IMAGE_PREFIX}/test-runner:${TAG}",
+    # Also tag with 'latest' in the registry for caching
+    "${REGISTRY}/${IMAGE_PREFIX}/test-runner:latest"
+  ]
   args = {
     SKIP_JS_BUILD = "1"
   }
-  output = ["type=docker"]
+  # Note: output type is now controlled by the GitHub Action's push/load parameters
+  # Removed hardcoded output to allow both local loading and registry pushing
+  # Local tag will be created in workflow after pulling from registry
 }
 
 # Production web service
