@@ -94,12 +94,20 @@ jobs:
             echo "🛑 This PR requires manual review"
           fi
 
+      # Add delay to allow test workflow to create all jobs
+      - name: Wait for workflow initialization
+        if: steps.check.outputs.allow_automerge == 'true'
+        run: |
+          echo "⏳ Waiting 90 seconds for test workflow to initialize all jobs..."
+          sleep 90
+          echo "✅ Proceeding to check for CI status"
+
       - name: Wait for CI to pass
         if: steps.check.outputs.allow_automerge == 'true'
         uses: lewagon/wait-on-check-action@v1.4.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          check-regexp: '^Pipeline - Tests$'  # Wait for the entire test workflow to complete
+          check-name: 'all-checks'  # Wait for the final gate check from test.yml
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 30  # Check every 30 seconds
           allowed-conclusions: success,skipped
