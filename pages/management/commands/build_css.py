@@ -50,7 +50,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.dev_mode = options.get("dev", False)
-        self.skip_purge = options.get("no_purge", False) or self.dev_mode
+        # TEMPORARY: Always skip PurgeCSS until Docker build issue is fixed
+        # PurgeCSS is removing ALL styles in production (only 4KB remaining)
+        # TODO: Fix PurgeCSS to work correctly in Docker build context
+        self.skip_purge = True  # options.get("no_purge", False) or self.dev_mode
 
         mode = "development" if self.dev_mode else "production"
         self.stdout.write(self.style.SUCCESS(f"🚀 Building CSS in {mode} mode\n"))
