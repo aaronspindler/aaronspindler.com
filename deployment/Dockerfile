@@ -109,9 +109,8 @@ COPY . /code/
 
 # Build CSS with all templates now available
 # PurgeCSS will scan all templates to determine which CSS to keep
-RUN python manage.py build_css && \
-    python manage.py collectstatic_optimize --no-input || \
-    echo "CSS build completed"
+# Note: collectstatic runs in entrypoint (needs runtime config)
+RUN python manage.py build_css
 
 # Expose port 80
 EXPOSE 80
