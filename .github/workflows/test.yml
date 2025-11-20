@@ -1,44 +1,3 @@
-# ============================================================================
-# WORKFLOW OPTIMIZATION SUMMARY
-# ============================================================================
-# Baseline: ~45 minutes | Target: ~25-30 minutes | Reduction: 44%
-#
-# PHASE 1 OPTIMIZATIONS (8-12 min savings):
-#   ✓ Fixed pip cache configuration
-#   ✓ Optimized health check timeouts (90s → 30s)
-#   ✓ Rebalanced test groups for better parallelization
-#
-# PHASE 2 OPTIMIZATIONS (30-48 min savings):
-#   ✓ Switched to GHCR registry for Docker image distribution
-#   ✓ Eliminated artifact downloads (5-8 min per job × 6 jobs)
-#   ✓ Enabled parallel image pulls across all test jobs
-#
-# PHASE 3 OPTIMIZATIONS (5-10 min savings):
-#   ✓ BuildKit cache mounts for package managers (2-4 min)
-#     - Inline caching for better layer reuse
-#     - Cache mount flags enabled in Buildx
-#
-#   ✓ Dynamic test splitting with timing data (3-5 min)
-#     - Collects actual test durations per group
-#     - Stores timing data for future optimizations
-#     - Enables data-driven rebalancing
-#
-#   ✓ Optimized service startup per job
-#     - docker-compose with health checks
-#     - Services start in parallel with test image pull
-#     - Fast health check verification
-#
-# TRADE-OFFS & DESIGN DECISIONS:
-#   • Services approach: docker-compose per job (reliable, proven to work)
-#   • Coverage upload: Kept artifact-based (reliable, parallel processing complex)
-#   • Test isolation: Maintained through Django test runner database handling
-#   • Fork support: Preserved with fallback to artifact distribution
-#   • Each job starts its own services (job-scoped, automatic cleanup)
-#
-# TOTAL CUMULATIVE SAVINGS: 43-70 minutes (96-155% faster than baseline)
-# Target runtime: 25-30 minutes (achievable with current optimizations)
-# ============================================================================
-
 name: Pipeline - Tests
 
 run-name: "${{ github.event.head_commit.message || github.event.pull_request.title || 'Run Tests' }}"
@@ -117,9 +76,6 @@ jobs:
           echo "✅ deployment/docker-compose.test.yml found"
 
       - name: Log in to GitHub Container Registry
-        # Always authenticate for pushes from main and PRs with write access
-        # PRs from forks will fall back to building locally without registry push
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -141,82 +97,18 @@ jobs:
         with:
           files: deployment/docker-bake.hcl
           targets: test
-          # Push to registry for distribution (except PRs from forks)
-          push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-          # Only load locally for fork PRs (when not pushing)
-          load: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          push: true
           set: |
-            *.cache-from=type=gha,scope=test-${{ env.DOCKER_CACHE_VERSION }}
-            *.cache-from=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/test-runner:cache
-            *.cache-to=type=gha,mode=max,scope=test-${{ env.DOCKER_CACHE_VERSION }}
-            *.cache-to=type=inline
+            *.cache-from=type=gha,scope=buildx-${{ env.DOCKER_CACHE_VERSION }}
+            *.cache-to=type=gha,mode=max,scope=buildx-${{ env.DOCKER_CACHE_VERSION }}
 
 
       - name: Verify test image was created
-        # The bake action should have pushed to registry, verify by pulling
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
-          echo "Verifying test image creation..."
-
-          # Define the registry tag
           REGISTRY_TAG="${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}"
-
-          # Test if we can pull the image from GHCR (to verify push worked)
-          echo "Testing registry push..."
-          echo "  Attempting: docker pull $REGISTRY_TAG"
-          if docker pull "$REGISTRY_TAG"; then
-            echo "  ✅ Successfully pulled from GHCR - push was successful!"
-
-            # Tag it locally for docker-compose usage
-            echo "Creating local tag for docker-compose..."
-            docker tag "$REGISTRY_TAG" "${{ env.DOCKER_IMAGE_NAME }}:latest"
-            echo "✅ Local tag created: ${{ env.DOCKER_IMAGE_NAME }}:latest"
-          else
-            echo "  ❌ Could not pull from GHCR"
-            echo "  Possible reasons:"
-            echo "    - Image was not pushed (fork PR or push=false)"
-            echo "    - Push failed silently"
-            echo "    - Registry authentication issue"
-            echo "    - Incorrect image path/tag"
-          fi
-          echo ""
-
-          # Final summary
-          echo "📊 VERIFICATION SUMMARY:"
-          if docker image inspect "${{ env.DOCKER_IMAGE_NAME }}:latest" >/dev/null 2>&1 || docker image inspect "$REGISTRY_TAG" >/dev/null 2>&1; then
-            echo "  ✅ At least one expected image variant exists"
-          else
-            echo "  ❌ CRITICAL: No expected image variants found!"
-            echo "  The build may have failed or used unexpected tags"
-            exit 1
-          fi
-
-      - name: Export image for fork PRs (fallback)
-        # For PRs from forks that can't push to GHCR, save as artifact
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        run: |
-          # The image was loaded locally, now we need to tag it properly
-          REGISTRY_TAG="${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}"
-
-          # Create local tag for docker-compose from the loaded image
-          if docker image inspect "$REGISTRY_TAG" >/dev/null 2>&1; then
-            echo "Creating local tag from registry-formatted image..."
-            docker tag "$REGISTRY_TAG" "${{ env.DOCKER_IMAGE_NAME }}:latest"
-            echo "✅ Local tag created"
-          fi
-
-          # Export the image
-          mkdir -p /tmp/docker-image
-          docker save ${{ env.DOCKER_IMAGE_NAME }}:latest | gzip > /tmp/docker-image/image.tar.gz
-          echo "⚠️ Fork PR: Saved image as artifact (registry push not available)"
-
-      - name: Upload image artifact (fork PRs only)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
-        with:
-          name: docker-image-fork
-          path: /tmp/docker-image/image.tar.gz
-          retention-days: 1
+          docker pull "$REGISTRY_TAG"
+          docker tag "$REGISTRY_TAG" "${{ env.DOCKER_IMAGE_NAME }}:latest"
+          echo "✅ Test image ready"
 
   # Build production images in parallel with tests (push with temp tag)
   build-production-images:
@@ -258,11 +150,8 @@ jobs:
           targets: production
           push: true
           set: |
-            *.cache-from=type=gha,scope=buildx-main-${{ env.DOCKER_CACHE_VERSION }}
-            *.cache-from=type=gha
-            *.cache-from=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}:cache
-            *.cache-to=type=gha,mode=max,scope=buildx-main-${{ env.DOCKER_CACHE_VERSION }}
-            *.cache-to=type=inline
+            *.cache-from=type=gha,scope=buildx-${{ env.DOCKER_CACHE_VERSION }}
+            *.cache-to=type=gha,mode=max,scope=buildx-${{ env.DOCKER_CACHE_VERSION }}
           provenance: false
           sbom: false
 
@@ -280,8 +169,6 @@ jobs:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
 
       - name: Log in to GitHub Container Registry
-        # Authenticate to pull test image from registry
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -289,35 +176,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pull test image from GHCR
-        # Registry pulls are 5-8 minutes faster than artifact downloads per job
-        # Parallel pulls across jobs are much more efficient than sequential artifact downloads
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
-          echo "Pulling test image from registry..."
-          if docker pull ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}; then
-            echo "✅ Successfully pulled image from registry"
-            echo "Tagging as local image for docker-compose..."
-            docker tag ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }} ${{ env.DOCKER_IMAGE_NAME }}:latest
-            echo "✅ Image ready"
-          else
-            echo "❌ Failed to pull image from registry"
-            exit 1
-          fi
-
-      - name: Download and load image (fork PRs fallback)
-        # For PRs from forks that can't access GHCR, use artifact
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53  # v6.0.0
-        with:
-          name: docker-image-fork
-          path: /tmp
-
-      - name: Load image from artifact (fork PRs fallback)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        run: |
-          echo "⚠️ Fork PR: Loading image from artifact..."
-          gunzip -c /tmp/image.tar.gz | docker load
-          docker images | grep test-runner
+          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}
+          docker tag ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }} ${{ env.DOCKER_IMAGE_NAME }}:latest
+          echo "✅ Image ready"
 
       - name: Start services
         run: |
@@ -389,18 +251,10 @@ jobs:
           #   apps: "feefifofunds"
           #   estimated_time: 10
           #   paths: ["feefifofunds/**"]
-    outputs:
-      # Phase 3 Priority 2: Pass coverage data as outputs for parallel processing
-      coverage-accounts-config: ${{ steps.coverage-data.outputs.accounts-config }}
-      coverage-pages-utils: ${{ steps.coverage-data.outputs.pages-utils }}
-      coverage-blog: ${{ steps.coverage-data.outputs.blog }}
-      coverage-photos: ${{ steps.coverage-data.outputs.photos }}
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
 
       - name: Log in to GitHub Container Registry
-        # Authenticate to pull test image from registry
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
         with:
           registry: ${{ env.REGISTRY }}
@@ -408,51 +262,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Pull test image from GHCR
-        # Registry pulls support parallel downloads and layer caching for faster distribution
-        # Eliminates 5-8 minutes per job compared to sequential artifact downloads
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
-          echo "Pulling test image from registry..."
           docker pull ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}
           docker tag ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }} ${{ env.DOCKER_IMAGE_NAME }}:latest
-          echo "✅ Image ready:"
-          docker images | grep test-runner
-
-      - name: Download and load image (fork PRs fallback)
-        # For PRs from forks that can't access GHCR, use artifact
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53  # v6.0.0
-        with:
-          name: docker-image-fork
-          path: /tmp
-
-      - name: Load image from artifact (fork PRs fallback)
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        run: |
-          echo "⚠️ Fork PR: Loading image from artifact..."
-          gunzip -c /tmp/image.tar.gz | docker load
-          docker images | grep test-runner
-
-      - name: Cache Python dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.local
-          key: ${{ runner.os }}-pip-${{ env.PIP_CACHE_VERSION }}-${{ hashFiles('requirements/*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-${{ env.PIP_CACHE_VERSION }}-
-
-      - name: Download test timing data (if available)
-        # Phase 3 Priority 4: Use previous test timing for better distribution
-        uses: actions/cache/restore@v4
-        with:
-          path: .test-timings
-          key: test-timings-${{ github.ref }}-
-          restore-keys: |
-            test-timings-main-
-            test-timings-
-        continue-on-error: true
+          echo "✅ Image ready"
 
       - name: Start services
         run: |
@@ -473,16 +286,11 @@ jobs:
       - name: Run tests for ${{ matrix.test-group.name }}
         run: |
           COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
-          mkdir -p ./test_output .test-timings
-
-          # Phase 3: Collect test timing data for future runs
-          START_TIME=$(date +%s)
+          mkdir -p ./test_output
 
           docker compose $COMPOSE run --rm \
             -v $(pwd)/test_output:/code/test_output \
-            -v $(pwd)/.test-timings:/code/.test-timings \
             -v $(pwd)/pyproject.toml:/code/pyproject.toml:ro \
-            -v ~/.cache/pip:/root/.cache/pip \
             test_runner sh -c "
             pip install coverage unittest-xml-reporting pytest-json-report --root-user-action=ignore &&
             export PYTHONDONTWRITEBYTECODE=1 &&
@@ -498,11 +306,7 @@ jobs:
             coverage xml -o /code/test_output/coverage-${{ matrix.test-group.name }}.xml
           "
 
-          # Calculate actual duration for future optimization
-          END_TIME=$(date +%s)
-          DURATION=$((END_TIME - START_TIME))
-          echo "{\"group\":\"${{ matrix.test-group.name }}\",\"duration\":$DURATION}" > .test-timings/${{ matrix.test-group.name }}.json
-          echo "✅ Tests completed in ${DURATION}s (estimated: ${{ matrix.test-group.estimated_time }}min)"
+          echo "✅ Tests completed"
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
@@ -517,15 +321,6 @@ jobs:
           name: test-results-${{ matrix.test-group.name }}
           path: ./test_output/test-results-${{ matrix.test-group.name }}/
           retention-days: 1
-
-      - name: Save test timing data
-        # Phase 3: Store timing data for next run
-        uses: actions/cache/save@v4
-        if: always()
-        with:
-          path: .test-timings
-          key: test-timings-${{ github.ref }}-${{ github.run_id }}-${{ matrix.test-group.name }}
-        continue-on-error: true
 
       - name: Cleanup
         if: always()
