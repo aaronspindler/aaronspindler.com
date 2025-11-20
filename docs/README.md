@@ -59,6 +59,7 @@ These features are used across multiple Django apps:
 
 | Document | Description | Used By |
 |----------|-------------|---------|
+| [features/ci-cd.md](features/ci-cd.md) | CI/CD pipeline with GitHub Actions | All apps |
 | [features/search.md](features/search.md) | PostgreSQL FTS with autocomplete | Blog, Photos |
 | [features/performance-monitoring.md](features/performance-monitoring.md) | Lighthouse audit system | All apps |
 | [features/request-tracking.md](features/request-tracking.md) | Request fingerprinting and security | All apps |
@@ -112,6 +113,7 @@ See [apps/README.md](apps/README.md) for more information about app-specific doc
   - [Brand Documentation](apps/omas/) - Complete brand guidelines (6 docs)
 
 ### Cross-Cutting Features
+- [CI/CD Pipeline](features/ci-cd.md) - Continuous integration and deployment
 - [Search System](features/search.md) - Full-text search with autocomplete
 - [Performance Monitoring](features/performance-monitoring.md) - Lighthouse audits
 - [Request Tracking](features/request-tracking.md) - Security and analytics

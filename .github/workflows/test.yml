@@ -126,56 +126,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Debug push conditions
-        run: |
-          echo "🔍 Debugging push conditions:"
-          echo "Event name: ${{ github.event_name }}"
-          echo "Is PR: ${{ github.event_name == 'pull_request' }}"
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "PR head repo: ${{ github.event.pull_request.head.repo.full_name }}"
-            echo "Current repo: ${{ github.repository }}"
-            echo "Is same repo: ${{ github.event.pull_request.head.repo.full_name == github.repository }}"
-          fi
-          echo "Should push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}"
-          echo ""
-          echo "🔍 Registry configuration:"
-          echo "REGISTRY: ${{ env.REGISTRY }}"
-          echo "Repository: ${{ github.repository }}"
-          echo "Image will be: ${{ env.REGISTRY }}/${{ github.repository }}/test-runner:${{ env.TEST_IMAGE_TAG }}"
-
-      - name: Diagnostic - Check environment and expected tags
-        run: |
-          echo "🔍 DIAGNOSTIC: Environment Variables and Expected Tags"
-          echo "================================================"
-          echo "REGISTRY: ${{ env.REGISTRY }}"
-          echo "github.repository: ${{ github.repository }}"
-          echo "IMAGE_PREFIX (as passed): ${{ github.repository }}"
-          echo "TAG: ${{ env.TEST_IMAGE_TAG }}"
-          echo ""
-          echo "🏷️ Expected image tags based on docker-bake.hcl:"
-          echo "  - Local: test-runner:latest"
-          echo "  - Registry: ${{ env.REGISTRY }}/${{ github.repository }}/test-runner:${{ env.TEST_IMAGE_TAG }}"
-          echo "  - Registry latest: ${{ env.REGISTRY }}/${{ github.repository }}/test-runner:latest"
-          echo ""
-          echo "⚠️  Checking for potential double-prefix issue:"
-          echo "  If IMAGE_PREFIX=${{ github.repository }}, the tag would be:"
-          echo "  ${{ env.REGISTRY }}/${{ github.repository }}/test-runner:${{ env.TEST_IMAGE_TAG }}"
-          echo ""
-          echo "📋 Bake action parameters:"
-          echo "  push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}"
-          echo "  load: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}"
-          echo ""
-          SHOULD_PUSH="${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}"
-          SHOULD_LOAD="${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}"
-          if [[ "$SHOULD_PUSH" == "true" && "$SHOULD_LOAD" == "true" ]]; then
-            echo "❌ WARNING: Both push and load are set to true - this might cause conflicts!"
-          elif [[ "$SHOULD_PUSH" == "true" ]]; then
-            echo "✅ Will push to registry (not load locally)"
-          elif [[ "$SHOULD_LOAD" == "true" ]]; then
-            echo "✅ Will load locally (not push to registry)"
-          else
-            echo "⚠️  Neither push nor load is set to true - image might not be available!"
-          fi
+      # Removed verbose diagnostic output - keeping build process streamlined
 
       - name: Build and push test image to GHCR
         id: bake
@@ -200,80 +151,23 @@ jobs:
             *.cache-to=type=gha,mode=max,scope=test-${{ env.DOCKER_CACHE_VERSION }}
             *.cache-to=type=inline
 
-      - name: Diagnostic - Analyze bake action results
-        if: always()
-        run: |
-          echo "🔍 DIAGNOSTIC: Post-Bake Analysis"
-          echo "=================================="
-          echo "Bake action outcome: ${{ steps.bake.outcome }}"
-          echo ""
-          echo "📦 All Docker images after bake:"
-          docker images | head -20
-          echo ""
-          echo "🔍 Images matching 'test-runner':"
-          docker images | grep -E "(test-runner|TEST)" || echo "No test-runner images found"
-          echo ""
-          echo "🔍 Images matching repository name:"
-          docker images | grep -i "aaronspindler" || echo "No images with repository name found"
-          echo ""
-          echo "🏷️ Checking specific expected tags:"
-          echo "  Checking: test-runner:latest"
-          docker image inspect test-runner:latest >/dev/null 2>&1 && echo "  ✅ Found" || echo "  ❌ Not found"
-          echo "  Checking: ${{ env.REGISTRY }}/${{ github.repository }}/test-runner:${{ env.TEST_IMAGE_TAG }}"
-          docker image inspect "${{ env.REGISTRY }}/${{ github.repository }}/test-runner:${{ env.TEST_IMAGE_TAG }}" >/dev/null 2>&1 && echo "  ✅ Found" || echo "  ❌ Not found"
-          echo "  Checking: ${{ env.REGISTRY }}/${{ github.repository }}/test-runner:latest"
-          docker image inspect "${{ env.REGISTRY }}/${{ github.repository }}/test-runner:latest" >/dev/null 2>&1 && echo "  ✅ Found" || echo "  ❌ Not found"
 
       - name: Verify test image was created
         # The bake action should have created both local and registry tags
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
-          echo "🔍 ENHANCED VERIFICATION: Test image creation"
-          echo "=============================================="
-          echo ""
-          echo "📋 Configuration values:"
-          echo "  DOCKER_IMAGE_NAME: ${{ env.DOCKER_IMAGE_NAME }}"
-          echo "  REGISTRY: ${{ env.REGISTRY }}"
-          echo "  github.repository: ${{ github.repository }}"
-          echo "  TEST_IMAGE_TAG: ${{ env.TEST_IMAGE_TAG }}"
-          echo ""
-          echo "🏷️ Expected image tags:"
-          echo "  - Local: ${{ env.DOCKER_IMAGE_NAME }}:latest"
-          echo "  - Registry: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}"
-          echo ""
-          echo "📦 All available Docker images:"
-          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedSince}}" | head -20
-          echo ""
-
-          # Check for any test-runner images regardless of repository
-          echo "🔍 All test-runner images (any repository):"
-          docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}" | grep -i test-runner || echo "  ❌ No test-runner images found at all"
-          echo ""
+          echo "Verifying test image creation..."
 
           # Verify the local image exists
-          echo "🔍 Checking for local image: ${{ env.DOCKER_IMAGE_NAME }}:latest"
           if docker image inspect ${{ env.DOCKER_IMAGE_NAME }}:latest >/dev/null 2>&1; then
-            echo "  ✅ Local test image confirmed"
-            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep "^${{ env.DOCKER_IMAGE_NAME }}"
+            echo "✅ Local test image confirmed"
           else
-            echo "  ❌ Local image NOT found"
+            echo "❌ Local image NOT found"
+            exit 1
           fi
-          echo ""
-
-          # Check if the registry-tagged image exists locally
-          REGISTRY_TAG="${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}"
-          echo "🔍 Checking for registry-tagged image locally: $REGISTRY_TAG"
-          if docker image inspect "$REGISTRY_TAG" >/dev/null 2>&1; then
-            echo "  ✅ Registry-tagged image exists locally"
-            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep "${{ env.REGISTRY }}/${{ github.repository }}"
-          else
-            echo "  ❌ Registry-tagged image NOT found locally"
-            echo "  This suggests the image was pushed directly without local tagging"
-          fi
-          echo ""
 
           # Test if we can pull the image from GHCR (to verify push worked)
-          echo "🔍 Testing registry push by attempting pull..."
+          echo "Testing registry push..."
           echo "  Attempting: docker pull $REGISTRY_TAG"
           if docker pull "$REGISTRY_TAG"; then
             echo "  ✅ Successfully pulled from GHCR - push was successful!"
@@ -387,37 +281,14 @@ jobs:
         # Parallel pulls across jobs are much more efficient than sequential artifact downloads
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
-          echo "🔍 DIAGNOSTIC: Image pull attempt"
-          echo "================================="
-          echo "Registry: ${{ env.REGISTRY }}"
-          echo "Repository: ${{ github.repository }}"
-          echo "Image name: ${{ env.DOCKER_IMAGE_NAME }}"
-          echo "Tag: ${{ env.TEST_IMAGE_TAG }}"
-          echo ""
-          echo "Full image path: ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}"
-          echo ""
-          echo "Attempting to pull test image from registry..."
+          echo "Pulling test image from registry..."
           if docker pull ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}; then
             echo "✅ Successfully pulled image from registry"
-            echo ""
             echo "Tagging as local image for docker-compose..."
             docker tag ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }} ${{ env.DOCKER_IMAGE_NAME }}:latest
-            echo "✅ Image ready:"
-            docker images | grep test-runner
+            echo "✅ Image ready"
           else
-            echo "❌ FAILED to pull image from registry!"
-            echo ""
-            echo "Debugging: Checking what images ARE available in the registry..."
-            echo "Note: This requires authenticated access to list packages"
-
-            # Try to understand what went wrong
-            echo ""
-            echo "Possible issues:"
-            echo "1. Image was never pushed (check build job logs)"
-            echo "2. Image path/tag mismatch"
-            echo "3. Authentication problem (though login succeeded)"
-            echo "4. Registry visibility/permissions issue"
-
+            echo "❌ Failed to pull image from registry"
             exit 1
           fi
 
