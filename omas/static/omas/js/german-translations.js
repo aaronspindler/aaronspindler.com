@@ -100,9 +100,15 @@
 
         // Set content with both German and English
         const germanText = element.getAttribute('data-german') || element.textContent.trim();
+        // Escape HTML to prevent XSS
+        const escapeHtml = (text) => {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        };
         tooltipEl.innerHTML = `
-            <div class="tooltip-german">${germanText}</div>
-            <div class="tooltip-english">${translation}</div>
+            <div class="tooltip-german">${escapeHtml(germanText)}</div>
+            <div class="tooltip-english">${escapeHtml(translation)}</div>
         `;
 
         // Show and position
