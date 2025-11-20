@@ -75,7 +75,6 @@ class RemoveLocalFingerprintsCommandTest(TestCase):
 
     def test_command_deletes_local_ips(self):
         """Test that command deletes local IP fingerprints."""
-        initial_count = RequestFingerprint.objects.count()
         local_count = len(self.local_ips)
         public_count = len(self.public_ips)
 

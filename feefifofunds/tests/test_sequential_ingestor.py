@@ -485,7 +485,7 @@ class SequentialIngestorIntegrationTest(TestCase):
             ingestor.load_asset_cache()
 
             for filepath, file_type, _ in files:
-                success, records_processed, error = ingestor.process_file(
+                _success, _records_processed, _error = ingestor.process_file(
                     filepath=filepath, file_type=file_type, progress_callback=None
                 )
                 # This block should never execute since files is empty
