@@ -25,19 +25,19 @@ psycopg-binary==3.2.12
 questdb==4.0.0
 
 # Caching & Message Broker
-redis==7.0.1
+redis==7.1.0
 
 # Image Processing
 Pillow==12.0.0
 ImageHash==4.3.2
-numpy==2.3.4
+numpy==2.3.5
 
 # Web Scraping & Browser Automation
 beautifulsoup4==4.14.2
 pyppeteer==2.0.0
 
 # AWS SDK
-boto3==1.40.70
+boto3==1.41.0
 
 # HTTP Client
 requests==2.32.5
@@ -47,7 +47,7 @@ finnhub-python==2.4.25
 polygon-api-client==1.15.4
 
 # Testing & Coverage
-coverage==7.11.3
+coverage==7.12.0
 
 # Celery Utilities
-tblib==3.2.1
+tblib==3.2.2
