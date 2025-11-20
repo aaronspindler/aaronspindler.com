@@ -28,8 +28,12 @@ target "test" {
   inherits = ["_common"]
   dockerfile = "deployment/Dockerfile"
   tags = [
+    # Local tag for docker compose usage
     "test-runner:latest",
-    "${REGISTRY}/${IMAGE_PREFIX}/test-runner:${TAG}"
+    # Registry tag for GHCR push - ensure this is always included
+    "${REGISTRY}/${IMAGE_PREFIX}/test-runner:${TAG}",
+    # Also tag with 'latest' in the registry for caching
+    "${REGISTRY}/${IMAGE_PREFIX}/test-runner:latest"
   ]
   args = {
     SKIP_JS_BUILD = "1"

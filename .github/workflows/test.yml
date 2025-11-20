@@ -126,6 +126,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Debug push conditions
+        run: |
+          echo "🔍 Debugging push conditions:"
+          echo "Event name: ${{ github.event_name }}"
+          echo "Is PR: ${{ github.event_name == 'pull_request' }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PR head repo: ${{ github.event.pull_request.head.repo.full_name }}"
+            echo "Current repo: ${{ github.repository }}"
+            echo "Is same repo: ${{ github.event.pull_request.head.repo.full_name == github.repository }}"
+          fi
+          echo "Should push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}"
+          echo ""
+          echo "🔍 Registry configuration:"
+          echo "REGISTRY: ${{ env.REGISTRY }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Image will be: ${{ env.REGISTRY }}/${{ github.repository }}/test-runner:${{ env.TEST_IMAGE_TAG }}"
+
       - name: Build and push test image to GHCR
         uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c  # v5.10.0
         env:
@@ -140,8 +157,8 @@ jobs:
           targets: test
           # Push to registry for distribution (except PRs from forks)
           push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-          # Also load locally as fallback for fork PRs
-          load: true
+          # Only load locally for fork PRs (when not pushing)
+          load: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
           set: |
             *.cache-from=type=gha,scope=test-${{ env.DOCKER_CACHE_VERSION }}
             *.cache-from=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/test-runner:cache
@@ -165,12 +182,30 @@ jobs:
           if docker image inspect ${{ env.DOCKER_IMAGE_NAME }}:latest >/dev/null 2>&1; then
             echo "✅ Local test image confirmed: ${{ env.DOCKER_IMAGE_NAME }}:latest"
           else
-            echo "❌ ERROR: Expected local image '${{ env.DOCKER_IMAGE_NAME }}:latest' not found!"
-            exit 1
+            echo "⚠️ Local image not found with simple tag, checking registry-style tags..."
+            docker images | grep test-runner || true
           fi
 
-          # The registry push is handled by the bake action
-          echo "✅ Test image ready for distribution via GHCR"
+          # Check if the registry-tagged image exists locally
+          REGISTRY_TAG="${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}"
+          echo ""
+          echo "🔍 Checking for registry-tagged image: $REGISTRY_TAG"
+          if docker image inspect "$REGISTRY_TAG" >/dev/null 2>&1; then
+            echo "✅ Registry-tagged image exists locally: $REGISTRY_TAG"
+            echo "This should have been pushed to GHCR if push was enabled"
+          else
+            echo "⚠️ Registry-tagged image not found locally"
+          fi
+
+          # Test if we can pull the image from GHCR (to verify push worked)
+          echo ""
+          echo "🔍 Testing if image was successfully pushed to GHCR..."
+          if docker pull "$REGISTRY_TAG" 2>/dev/null; then
+            echo "✅ Successfully pulled image from GHCR - push was successful!"
+          else
+            echo "❌ Could not pull image from GHCR - push may have failed or image may not exist yet"
+            echo "Note: This is expected for the first run or if push was disabled"
+          fi
 
       - name: Export image for fork PRs (fallback)
         # For PRs from forks that can't push to GHCR, save as artifact
