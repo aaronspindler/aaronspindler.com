@@ -218,49 +218,6 @@ jobs:
           path: /tmp/docker-image/image.tar.gz
           retention-days: 1
 
-  # Build production images in parallel with tests (cached, not pushed until all tests pass)
-  build-production-images:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
-        with:
-          driver-opts: |
-            network=host
-            image=moby/buildkit:buildx-stable-1
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build production images (cache only, don't push)
-        uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c  # v5.10.0
-        env:
-          REGISTRY: ${{ env.REGISTRY }}
-          IMAGE_PREFIX: ${{ github.repository }}
-          TAG: ${{ github.sha }}
-        with:
-          files: deployment/docker-bake.hcl
-          targets: production
-          push: false
-          set: |
-            *.cache-from=type=gha,scope=buildx-main-${{ env.DOCKER_CACHE_VERSION }}
-            *.cache-from=type=gha
-            *.cache-from=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}:cache
-            *.cache-to=type=gha,mode=max,scope=buildx-main-${{ env.DOCKER_CACHE_VERSION }}
-          provenance: false
-          sbom: false
 
   django-checks:
     runs-on: ubuntu-latest
@@ -600,7 +557,7 @@ jobs:
   # Final check to ensure all jobs passed (gate before pushing images)
   all-checks:
     runs-on: ubuntu-latest
-    needs: [build-docker-image, django-checks, test-suite, coverage-upload, build-production-images]
+    needs: [build-docker-image, django-checks, test-suite, coverage-upload]
     if: always()
     steps:
       - name: Check if all jobs passed
@@ -629,20 +586,6 @@ jobs:
             exit 1
           fi
 
-          PROD_BUILD_STATUS="${{ needs.build-production-images.result }}"
-
-          # Only fail if production build ran and failed (skip if it was skipped for PRs)
-          if [[ "$PROD_BUILD_STATUS" != "success" && "$PROD_BUILD_STATUS" != "skipped" ]]; then
-            echo "❌ Production image build failed (status: $PROD_BUILD_STATUS)"
-            exit 1
-          fi
-
-          if [[ "$PROD_BUILD_STATUS" == "skipped" ]]; then
-            echo "⏭️  Production image build skipped (not on main branch)"
-          else
-            echo "✅ Production images built in parallel with tests"
-          fi
-
           echo "✅ All checks passed successfully!"
           echo ""
           echo "🚀 OPTIMIZATIONS ACTIVE:"
@@ -654,8 +597,8 @@ jobs:
           echo "  TOTAL: 43-70 minutes saved (from ~45min baseline)"
           echo "  Target runtime: ~25-30 minutes (44% reduction)"
 
-  # Push production images from cache after all checks pass
-  push-production-images:
+  # Build and push production images after all checks pass
+  build-and-push-production-images:
     runs-on: ubuntu-latest
     needs: [all-checks]
     if: github.ref == 'refs/heads/main' && needs.all-checks.result == 'success'
@@ -673,6 +616,7 @@ jobs:
           driver-opts: |
             network=host
             image=moby/buildkit:buildx-stable-1
+          buildkitd-flags: --allow-insecure-entitlement security.insecure --allow-insecure-entitlement network.host
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
@@ -681,12 +625,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push production images from cache
+      - name: Build and push production images
         uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c  # v5.10.0
         env:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_PREFIX: ${{ github.repository }}
           TAG: ${{ github.sha }}
+          DOCKER_BUILDKIT: 1
+          BUILDKIT_INLINE_CACHE: 1
         with:
           files: deployment/docker-bake.hcl
           targets: production
@@ -696,11 +642,12 @@ jobs:
             *.cache-from=type=gha
             *.cache-from=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}:cache
             *.cache-to=type=gha,mode=max,scope=buildx-main-${{ env.DOCKER_CACHE_VERSION }}
+            *.cache-to=type=inline
           provenance: false
           sbom: false
 
   # Cleanup old test images from GHCR to avoid storage bloat
-  # Keeps only the last 7 days of test images (sufficient for debugging recent runs)
+  # Keeps only the last 10 test images (sufficient for debugging recent runs)
   cleanup-test-images:
     runs-on: ubuntu-latest
     needs: [all-checks]
@@ -712,7 +659,7 @@ jobs:
       - name: Delete old test images
         uses: actions/delete-package-versions@v5
         with:
-          package-name: '${{ github.repository }}/test-runner'
+          package-name: 'test-runner'
           package-type: 'container'
           min-versions-to-keep: 10
           delete-only-untagged-versions: 'false'
