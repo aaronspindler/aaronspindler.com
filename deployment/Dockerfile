@@ -109,11 +109,19 @@ COPY . /code/
 
 # Build CSS with all templates now available
 # PurgeCSS will scan all templates to determine which CSS to keep
-# Note: collectstatic runs in entrypoint (needs runtime config)
 RUN python manage.py build_css
+
+# Collect static files and create WhiteNoise manifest
+# Must run during build (not entrypoint) for CompressedManifestStaticFilesStorage
+RUN python manage.py collectstatic_optimize --no-input
 
 # Expose port 80
 EXPOSE 80
+
+# Health check for zero-downtime deployments
+# CapRover will wait for new container to pass health check before routing traffic
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+#     CMD curl -f http://127.0.0.1:80/health/ || exit 1
 
 # Use entrypoint script to handle initialization
 ENTRYPOINT ["/docker-entrypoint.sh"]
