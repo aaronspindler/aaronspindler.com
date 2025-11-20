@@ -113,7 +113,7 @@ RUN python manage.py build_css
 
 # Collect static files and create WhiteNoise manifest
 # Must run during build (not entrypoint) for CompressedManifestStaticFilesStorage
-RUN python manage.py collectstatic_optimize --no-input
+RUN python manage.py collectstatic_optimize
 
 # Expose port 80
 EXPOSE 80
