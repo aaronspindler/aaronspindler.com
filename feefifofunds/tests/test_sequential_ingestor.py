@@ -331,6 +331,7 @@ class SequentialIngestorIntegrationTest(TestCase):
         try:
             AssetPrice.objects.using("questdb").all().delete()
         except Exception:
+            # Ignore errors if no test data exists to clean up
             pass
 
     def tearDown(self):
@@ -484,7 +485,7 @@ class SequentialIngestorIntegrationTest(TestCase):
             ingestor.load_asset_cache()
 
             for filepath, file_type, _ in files:
-                success, records_processed, error = ingestor.process_file(
+                _, _, _ = ingestor.process_file(
                     filepath=filepath, file_type=file_type, progress_callback=None
                 )
                 # This block should never execute since files is empty

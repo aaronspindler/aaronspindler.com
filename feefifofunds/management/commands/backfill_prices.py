@@ -212,6 +212,8 @@ class Command(BaseCommand):
             for ticker, error in failed_assets:
                 self.stdout.write(f"  • {ticker}: {error[:60]}")
 
+        return None
+
     def _handle_grouped(self, options):
         """Handle backfill using grouped daily endpoint."""
         dry_run = options["dry_run"]

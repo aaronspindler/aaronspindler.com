@@ -105,7 +105,6 @@ def migrate_ip_addresses_forward(apps, schema_editor):
     # This is MUCH faster than looping through IPs
     print("   Executing bulk link operation...")
 
-    db_alias = schema_editor.connection.alias
     with schema_editor.connection.cursor() as cursor:
         # Update all RequestFingerprints in a single query using a JOIN
         cursor.execute(
