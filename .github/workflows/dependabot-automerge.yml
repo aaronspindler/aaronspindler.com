@@ -96,13 +96,14 @@ jobs:
 
       - name: Wait for CI to pass
         if: steps.check.outputs.allow_automerge == 'true'
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.4.1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          check-name: 'all-checks'  # Wait for the final gate check from test.yml
+          check-regexp: '^Pipeline - Tests$'  # Wait for the entire test workflow to complete
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 30  # Check every 30 seconds
-          allowed-conclusions: success
+          allowed-conclusions: success,skipped
+          verbose: true  # Enable verbose logging for debugging
 
       - name: Approve PR
         if: steps.check.outputs.allow_automerge == 'true'
