@@ -14,8 +14,15 @@ module.exports = {
     // JavaScript files that might have dynamic classes
     'static/js/**/*.js',
     'omas/static/**/*.js',
-    // Python files that might have class names in strings
-    '**/*.py'
+    // Python files that might have class names in strings (narrow to specific app directories)
+    'blog/**/*.py',
+    'pages/**/*.py',
+    'accounts/**/*.py',
+    'photos/**/*.py',
+    'utils/**/*.py',
+    'omas/**/*.py',
+    'feefifofunds/**/*.py',
+    'projects/**/*.py'
   ],
   css: ['static/css/**/*.css'],
   defaultExtractor: content => {

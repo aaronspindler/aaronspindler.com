@@ -85,7 +85,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 RUN python -c "from pyppeteer import chromium_downloader; chromium_downloader.download_chromium()"
 
 # Copy package files for NPM (changes less frequently than app code)
-COPY package*.json .config/postcss.config.js .config/purgecss.config.js ./
+COPY package*.json ./
+COPY .config/postcss.config.js .config/purgecss.config.js .config/
 
 # Install NPM dependencies with cache mount
 RUN --mount=type=cache,target=/root/.npm \
@@ -107,13 +108,21 @@ RUN if [ "$SKIP_JS_BUILD" = "0" ]; then npm run build:js; else echo "Skipping JS
 # Copy rest of application code (changes most frequently - keep last!)
 COPY . /code/
 
+# Verify templates are available before CSS build (temporary debugging)
+RUN echo "=== Verifying template availability ===" && \
+    find templates -name "*.html" -type f | wc -l && \
+    echo "templates/*.html files found" && \
+    find blog/templates -name "*.html" -type f | wc -l && \
+    echo "blog/templates/*.html files found" && \
+    ls -la .config/ && \
+    echo "=== Config files verified ==="
+
 # Build CSS with all templates now available
 # PurgeCSS will scan all templates to determine which CSS to keep
 RUN python manage.py build_css
 
-# Collect static files and create WhiteNoise manifest
-# Must run during build (not entrypoint) for CompressedManifestStaticFilesStorage
-RUN python manage.py collectstatic_optimize
+# Note: collectstatic_optimize runs in docker-entrypoint.sh (needs runtime environment)
+# Running it here with limited build-time environment creates incomplete static files
 
 # Expose port 80
 EXPOSE 80
