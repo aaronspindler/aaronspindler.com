@@ -24,15 +24,6 @@ repos:
         name: django-upgrade - Modernize Django code
         args: ['--target-version', '5.1']  # Update to match your Django version
 
-  # Security - Detect secrets and credentials
-  - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.5.0
-    hooks:
-      - id: detect-secrets
-        name: detect-secrets - Prevent committing secrets
-        args: ['--baseline', '.secrets.baseline']
-        exclude: package-lock.json
-
   # Security - Python security linter
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.10

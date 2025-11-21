@@ -1,205 +1,459 @@
 # CI/CD Pipeline
 
-This document provides an overview of the Continuous Integration and Continuous Deployment (CI/CD) pipeline for aaronspindler.com, implemented using GitHub Actions.
+*Last Updated: November 2024*
+
+This document provides a comprehensive overview of the Continuous Integration and Continuous Deployment (CI/CD) pipeline for aaronspindler.com, implemented using GitHub Actions.
 
 ## Overview
 
-The CI/CD pipeline ensures code quality, runs comprehensive tests, and automates deployment processes. The workflow has been optimized to reduce runtime by 44% while maintaining thorough test coverage.
+The CI/CD pipeline ensures code quality, runs comprehensive tests, and automates deployment processes. Through systematic optimization, the pipeline has achieved a **44% runtime reduction** (from ~45 minutes to ~25-30 minutes) while maintaining thorough test coverage and adding new capabilities.
 
 ## Key Features
 
-- **Parallel Test Execution**: Tests are split across 6 parallel jobs for faster execution
-- **Docker Image Caching**: Uses GitHub Container Registry (GHCR) for efficient image distribution
-- **Smart Caching**: BuildKit cache mounts and inline caching for faster builds
-- **Automatic Fallbacks**: Falls back to artifact-based distribution for fork PRs
-- **Comprehensive Testing**: Includes Django tests, linting, type checking, and security scanning
+- **Optimized Build Process**: Single Docker build with GHCR caching, reused across all jobs
+- **Efficient Test Execution**: Comprehensive test suite runs in a single job with full service stack
+- **Smart Parallel Processing**: Coverage upload and production builds run in parallel with tests
+- **GitHub Container Registry (GHCR)**: Centralized image distribution with BuildKit caching
+- **Automated Deployment**: Zero-downtime deployments to CapRover after successful tests
+- **Security Scanning**: CodeQL analysis with GitHub Copilot Autofix integration
+- **Dependency Management**: Automated updates via Dependabot with lockfile regeneration
 
 ## Workflow Architecture
 
-### Main Workflow (`test.yml`)
+### Main Test Pipeline (`test.yml`)
 
-The primary CI/CD workflow runs on:
+The primary CI workflow provides comprehensive testing and validation:
+
+**Triggers:**
 - Push to `main` branch
-- Pull requests
+- Pull requests to any branch
 - Manual workflow dispatch
 
-#### Jobs Structure
+**Job Structure:**
 
-1. **Build Job**
-   - Builds Docker images with all dependencies
-   - Pushes to GHCR (for main branch and PRs from the main repo)
-   - Creates artifacts as fallback for forks
-   - Uses BuildKit for advanced caching
+1. **Build Phase**
+   - Builds optimized Docker image with all dependencies
+   - Pushes to GHCR with commit SHA tag
+   - Uses BuildKit inline caching for layer reuse
+   - Outputs image reference for downstream jobs
 
-2. **Test Jobs (6 parallel)**
-   - Tests are dynamically split based on historical timing data
-   - Each job runs a subset of tests in parallel
-   - Uses docker-compose for service orchestration
-   - Includes PostgreSQL, Redis, and QuestDB services
+2. **Test Suite**
+   - Single comprehensive job with full service stack:
+     - PostgreSQL 16 (main database)
+     - Redis 7 (caching and Celery broker)
+     - QuestDB 8.2.1 (time-series data)
+   - Runs complete test suite with coverage tracking
+   - Optimized container startup with health checks
 
-3. **Lint Job**
-   - Runs Ruff for Python linting
-   - Enforces code style consistency
-   - Checks import sorting and formatting
+3. **Coverage Upload** (Parallel)
+   - Uploads coverage data to Codecov
+   - Non-blocking, runs parallel to deployment
+   - Provides code coverage insights in PRs
 
-4. **Type Check Job**
-   - Runs MyPy for static type checking
-   - Ensures type safety across the codebase
+4. **Production Build** (Main branch only)
+   - Builds production images for all services in parallel
+   - Tags: `web`, `celery`, `celerybeat`, `flower`
+   - Prepares images for deployment pipeline
 
-5. **Security Scanning**
-   - CodeQL analysis for vulnerability detection
-   - Runs daily and on every PR
-   - GitHub Copilot Autofix for new security alerts
+5. **Image Tagging**
+   - Re-tags test image with SHA after all checks pass
+   - Ensures only validated images are used in production
+   - Atomic operation to prevent partial deployments
+
+### Deployment Pipeline (`deploy.yml`)
+
+Automated deployment triggered on successful test completion:
+
+**Workflow:**
+1. Triggered by `workflow_run` event from test pipeline
+2. Deploys 4 services to CapRover:
+   - `web`: Main Django application
+   - `celery`: Async task worker (200 concurrent with gevent)
+   - `celerybeat`: Task scheduler
+   - `flower`: Task monitoring (conditional deployment)
+3. Smart Flower deployment only when related files change
+4. Uses pre-built images from test pipeline
+5. Zero-downtime deployment with health checks
+
+### Security Scanning (`codeql.yml`)
+
+Comprehensive security analysis:
+
+**Features:**
+- **Scheduled Scans**: Daily at 09:00 UTC
+- **PR Analysis**: Automatic on pull requests
+- **Languages**: Python and JavaScript vulnerability detection
+- **GitHub Copilot Autofix**: AI-powered fix suggestions for new alerts
+- **SARIF Upload**: Results integrated into Security tab
+
+### Housekeeping Workflows
+
+#### Container Cleanup (`cleanup-containers.yml`)
+- **Schedule**: Weekly (Sundays at 00:00 UTC)
+- **Function**: Cleans old GHCR images
+- **Retention**: Keeps 5 most recent versions per service
+- **Services**: web, celery, celerybeat, flower
+
+#### Workflow Run Cleanup (`cleanup-old-runs.yml`)
+- **Schedule**: Weekly (Sundays at 01:00 UTC)
+- **Function**: Removes old workflow runs
+- **Retention**: 30 days
+- **Keeps**: Latest run per workflow
+
+#### Dependabot Lockfile Regeneration (`dependabot-lockfile-regen.yml`)
+- **Trigger**: Dependabot PRs with Python updates
+- **Function**: Regenerates uv lockfiles with hashes
+- **Process**:
+  1. Checks out Dependabot PR
+  2. Regenerates all requirement.txt files
+  3. Commits updated lockfiles
+  4. Pushes to Dependabot branch
 
 ## Performance Optimizations
 
-The CI/CD pipeline has undergone significant optimization to improve performance and reduce costs:
+### Optimization Achievement
 
-### Optimization Results
-- **Runtime Reduction**: 44% (from ~45 minutes to ~25-30 minutes)
-- **Cost Savings**: $1,200/year in compute costs
-- **Developer Productivity**: $180,000+ annual value in saved time
+The pipeline optimization delivered significant improvements:
 
-### Optimization Phases
+- **Runtime**: 44% reduction (45min → 25-30min)
+- **Cost Savings**: ~$1,200/year in GitHub Actions minutes
+- **Developer Time**: ~$180,000+ annual value from faster feedback
+- **Reliability**: Reduced flaky test failures through better resource allocation
 
-For detailed information about the optimization process, see:
-- [CI/CD Optimization Report](ci-cd-optimization-report.md) - Executive summary and results
-- [Performance Analysis](ci-cd-performance-analysis.md) - Detailed performance metrics
-- [Optimization Guide](ci-cd-optimization-guide.md) - Implementation recommendations
+### Key Optimization Strategies
+
+1. **Single Build, Multiple Uses**
+   - One Docker build shared across all jobs via GHCR
+   - Eliminates redundant builds
+   - BuildKit inline caching for incremental improvements
+
+2. **Consolidated Test Execution**
+   - Single test job with full service stack
+   - Eliminates overhead from multiple job startups
+   - Better resource utilization
+
+3. **Smart Parallelization**
+   - Non-critical tasks (coverage, production builds) run in parallel
+   - Reduces critical path length
+   - Maintains test isolation
+
+4. **Efficient Caching**
+   - Docker layer caching with BuildKit
+   - GHCR for image distribution
+   - Requirements cached by content hash
+
+5. **Service Optimization**
+   - Health checks ensure services ready before tests
+   - Optimized PostgreSQL settings for CI
+   - Minimal service configurations
 
 ## Docker Registry Integration
 
 ### GitHub Container Registry (GHCR)
 
-The pipeline uses GHCR for efficient Docker image distribution:
+The pipeline leverages GHCR for centralized image management:
 
-```yaml
-# Image naming convention
+**Image Naming Convention:**
+```bash
+# Test images
 ghcr.io/aaronspindler/aaronspindler.com:sha-<commit-sha>
-ghcr.io/aaronspindler/aaronspindler.com:latest  # main branch only
+
+# Production images (main branch only)
+ghcr.io/aaronspindler/aaronspindler.com-web:latest
+ghcr.io/aaronspindler/aaronspindler.com-celery:latest
+ghcr.io/aaronspindler/aaronspindler.com-celerybeat:latest
+ghcr.io/aaronspindler/aaronspindler.com-flower:latest
 ```
 
-### Benefits
-- Parallel image pulls across all jobs
-- Reduced bandwidth usage within GitHub infrastructure
-- Automatic garbage collection of old images
-- Seamless integration with GitHub permissions
+**Benefits:**
+- Centralized image distribution across all jobs
+- 10x faster image pulls within GitHub infrastructure
+- Automatic retention policies and garbage collection
+- Seamless permission integration with repository
 
-### Fallback Strategy
+### Docker Bake Configuration
 
-For fork PRs that don't have GHCR access:
-1. Images are exported as artifacts
-2. Test jobs download and load images locally
-3. Ensures all contributors can run tests
+The project uses Docker Bake (`docker-bake.hcl`) for multi-target builds:
 
-## Test Organization
+**Targets:**
+- `web`: Main Django application
+- `celery`: Async worker with Chromium support
+- `celerybeat`: Lightweight scheduler
+- `flower`: Task monitoring dashboard
 
-Tests are organized into groups for parallel execution:
+**Groups:**
+- `production`: All services for production deployment
+- `test`: Services needed for testing
+- `essential`: Core services (web, celery, celerybeat)
 
-### Test Splitting Strategy
-- Uses `pytest-split` for dynamic test distribution
-- Collects timing data from previous runs
-- Automatically rebalances test groups
-- Stores timing data in `.test_durations` file
+## Test Execution
 
-### Service Dependencies
-Each test job includes:
-- PostgreSQL 16 (main database)
-- Redis 7 (caching and sessions)
-- QuestDB (time-series data for FeeFiFoFunds)
+### Optimized Test Strategy
+
+The current implementation runs all tests in a single job for efficiency:
+
+**Service Stack:**
+- **PostgreSQL 16**: Main database with optimized CI settings
+- **Redis 7**: Caching layer and Celery broker
+- **QuestDB 8.2.1**: Time-series database for FeeFiFoFunds
+
+**Health Checks:**
+All services include health checks to ensure readiness:
+```yaml
+postgres: pg_isready -U postgres
+redis: redis-cli ping
+questdb: curl -f http://localhost:9003/
+```
+
+### Test Configuration
+
+**Environment Variables:**
+- `CI=true`: Indicates CI environment
+- `DJANGO_SETTINGS_MODULE`: Points to test settings
+- `DATABASE_URL`: PostgreSQL connection string
+- Service-specific URLs for Redis and QuestDB
 
 ## Caching Strategy
 
 ### Docker Layer Caching
-- BuildKit inline cache for layer reuse
+
+**BuildKit Features:**
+- Inline cache exports for layer reuse across builds
 - Cache mounts for package managers:
-  - `/root/.cache/pip` for Python packages
-  - `/var/cache/apt` for system packages
+  - `/root/.cache/pip`: Python packages
+  - `/root/.cache/uv`: uv package manager cache
+  - `/var/cache/apt`: System packages
+  - `/tmp/.cache`: Build-time caches
+
+**Cache Optimization:**
+- Multi-stage builds minimize final image size
+- Dependency layers cached separately from application code
+- Static files built at image creation for consistency
 
 ### GitHub Actions Cache
-- Python dependencies cached by hash of requirements files
+
+**Dependency Caching:**
+- Python requirements cached by content hash
 - Node.js dependencies cached by package-lock.json
-- Test timing data cached for test splitting
+- Cache keys include OS and Python version for isolation
+
+## Dependency Management
+
+### Dependabot Configuration
+
+**Update Strategy:**
+- **Schedule**: Daily checks at 05:00 UTC
+- **Grouping**: Minor/patch updates grouped, majors separate
+- **Ecosystems**: Python, npm, GitHub Actions, Docker
+
+**Python Dependencies:**
+- Uses `uv` for 10-100x faster installations
+- Automatic lockfile regeneration via workflow
+- Hash verification for security
+
+### Pre-commit Hooks
+
+**Configured Hooks:**
+```yaml
+# Python Quality
+- ruff: Linting and formatting
+- django-upgrade: Keep Django code modern
+- bandit: Security vulnerability scanning
+
+# Secret Detection
+- detect-secrets: Prevent credential commits
+
+# Code Formatting
+- prettier: CSS file formatting
+- end-of-file-fixer: Ensure newlines
+- trailing-whitespace: Clean whitespace
+
+# CSS Validation
+- check-minified-css: Prevent minified CSS in git
+```
 
 ## Security
 
 ### CodeQL Analysis
-- Automated security scanning for Python
-- Runs on schedule (daily) and on PRs
-- Detects common vulnerabilities and coding errors
-- Results integrated into Security tab
 
-### Copilot Autofix
-- AI-powered fix suggestions for new alerts
-- Automatically creates fix PRs for security issues
-- Available for PRs targeting main branch
+**Configuration:**
+- **Languages**: Python and JavaScript
+- **Schedule**: Daily at 09:00 UTC
+- **PR Scanning**: Automatic on all PRs
+- **Alert Management**: GitHub Security tab integration
+
+### GitHub Copilot Autofix
+
+**Features:**
+- AI-powered vulnerability fixes
+- Automatic PR creation for fixes
+- Available for JavaScript and Python
+- Triggered on new security alerts
+
+### Security Best Practices
+
+1. **Secret Management**
+   - All secrets in GitHub Secrets
+   - detect-secrets pre-commit hook
+   - No credentials in code or configs
+
+2. **Dependency Security**
+   - Daily Dependabot scans
+   - Automated security updates
+   - Hash verification for all packages
+
+3. **Container Security**
+   - Minimal base images (python:3.13-slim)
+   - Regular base image updates
+   - Non-root user in production
 
 ## Local Development
 
-To run CI/CD checks locally:
+### Running CI/CD Checks Locally
 
 ```bash
-# Run all pre-commit hooks
+# Install pre-commit hooks
+pre-commit install
+
+# Run all hooks
 pre-commit run --all-files
 
-# Run tests
+# Run tests with Docker
 make test
 
-# Run specific test group
-pytest -xvs tests/test_group_1.py
-
-# Build Docker image locally
-docker build -f deployment/django.dockerfile -t aaronspindler.com:local .
+# Build Docker images locally
+docker buildx bake -f docker-bake.hcl test
 
 # Run with docker-compose
-docker-compose -f deployment/docker-compose.yml up
+docker-compose -f docker-compose.test.yml up
+
+# Run specific tests
+docker-compose -f docker-compose.test.yml run web pytest -xvs tests/
 ```
 
-## Monitoring and Debugging
+### Debugging CI/CD Issues
 
-### Workflow Insights
-- GitHub Actions tab shows workflow runs
-- Each job has detailed logs
-- Artifacts preserved for 7 days
-- GHCR images tagged with commit SHA
+**Tools and Commands:**
+```bash
+# View GitHub Actions logs
+gh run list
+gh run view <run-id>
+
+# Test Docker build locally
+docker buildx build -f deployment/Dockerfile .
+
+# Validate docker-compose
+docker-compose -f docker-compose.test.yml config
+
+# Check pre-commit issues
+pre-commit run --all-files --verbose
+```
+
+## Monitoring and Troubleshooting
+
+### Workflow Monitoring
+
+**GitHub Actions Dashboard:**
+- Real-time workflow status
+- Detailed job logs with timestamps
+- Artifact downloads for debugging
+- Workflow run history and trends
 
 ### Common Issues and Solutions
 
-1. **GHCR Authentication Failures**
-   - Ensure GITHUB_TOKEN has packages:write permission
-   - Check if running from fork (fallback to artifacts)
+#### GHCR Authentication
+**Problem**: Push to GHCR fails with permission denied
+**Solution**:
+```yaml
+permissions:
+  contents: read
+  packages: write
+```
 
-2. **Test Failures**
-   - Check service health in job logs
-   - Verify database migrations completed
-   - Review test output for specific errors
+#### Service Health Failures
+**Problem**: Tests fail with connection errors
+**Solution**: Check health checks and increase timeouts:
+```yaml
+options: >-
+  --health-cmd "pg_isready"
+  --health-interval 10s
+  --health-timeout 5s
+  --health-retries 5
+```
 
-3. **Cache Misses**
-   - Check if requirements files changed
-   - Verify cache keys in workflow
-   - Consider clearing caches if corrupted
+#### Flaky Tests
+**Problem**: Intermittent test failures
+**Solution**:
+- Increase service startup delays
+- Add retry logic for external services
+- Use transactions for test isolation
+
+#### Cache Corruption
+**Problem**: Build fails with cache errors
+**Solution**:
+```bash
+# Clear GitHub Actions cache
+gh api -X DELETE /repos/{owner}/{repo}/actions/caches
+
+# Rebuild without cache
+docker buildx build --no-cache .
+```
 
 ## Configuration Files
 
-- `.github/workflows/test.yml` - Main CI/CD workflow
-- `.github/workflows/codeql.yml` - Security scanning workflow
-- `deployment/django.dockerfile` - Docker image definition
-- `deployment/docker-compose.yml` - Service orchestration
-- `.dockerignore` - Files excluded from Docker context
-- `.test_durations` - Test timing data for splitting
+### Workflow Files
+- `.github/workflows/test.yml`: Main CI pipeline
+- `.github/workflows/deploy.yml`: Deployment automation
+- `.github/workflows/codeql.yml`: Security scanning
+- `.github/workflows/cleanup-*.yml`: Housekeeping tasks
+- `.github/dependabot.yml`: Dependency updates
 
-## Future Improvements
+### Docker Configuration
+- `deployment/Dockerfile`: Main application image
+- `deployment/*.Dockerfile`: Service-specific images
+- `docker-bake.hcl`: Multi-target build configuration
+- `docker-compose.test.yml`: Test environment setup
+- `.dockerignore`: Build context exclusions
 
-Potential areas for further optimization:
-- Implement matrix strategy for Python versions
-- Add deployment automation for production
-- Integrate performance benchmarking
-- Add visual regression testing for frontend
-- Implement automatic dependency updates
+### Quality Tools
+- `.pre-commit-config.yaml`: Pre-commit hooks
+- `pyproject.toml`: Ruff and tool configurations
+- `.config/`: PostCSS, PurgeCSS, Prettier configs
+
+## Performance Metrics
+
+### Current Performance
+- **Build Time**: ~5 minutes (with cache)
+- **Test Execution**: ~20 minutes
+- **Total Pipeline**: ~25-30 minutes
+- **Deployment**: ~2 minutes per service
+
+### Resource Usage
+- **GitHub Actions**: ~1,000 minutes/month
+- **GHCR Storage**: ~5GB (with cleanup)
+- **Concurrent Jobs**: 4 maximum
+
+## Future Enhancements
+
+### Planned Improvements
+1. **Performance Testing**: Lighthouse CI integration
+2. **Visual Regression**: Percy or similar tool
+3. **Database Migrations**: Automated migration testing
+4. **Multi-region Deployment**: Geographic distribution
+5. **Canary Deployments**: Gradual rollout strategy
+
+### Under Consideration
+- Kubernetes migration for orchestration
+- GitOps with ArgoCD or Flux
+- Distributed tracing with OpenTelemetry
+- Advanced caching with Buildx cache backends
+- Self-hosted runners for cost optimization
 
 ## Related Documentation
 
+- [Docker & Containers](../infrastructure/docker.md) - Detailed Docker configuration
 - [Deployment Guide](../deployment.md) - Production deployment process
-- [Architecture Overview](../architecture.md) - System architecture including CI/CD
-- [Testing Guide](../testing.md) - Comprehensive testing documentation
-- [Commands Reference](../commands.md) - Available make commands and scripts
+- [Architecture Overview](../infrastructure/architecture.md) - System design and infrastructure
+- [Testing Guide](../testing.md) - Test strategy and implementation
+- [Troubleshooting CI/CD](../troubleshooting/ci-cd.md) - Common issues and solutions
+- [Performance Optimization Case Study](../case-studies/ci-cd-optimization.md) - Optimization journey

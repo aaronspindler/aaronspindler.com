@@ -1,17 +1,26 @@
 # Deployment Guide
 
+*Last Updated: November 2024*
+
 ## Overview
 
-Comprehensive guide for deploying the Django application to production using Docker, with WhiteNoise for static files, AWS S3 for media storage, Redis caching, PostgreSQL database, and Celery for background tasks.
+Comprehensive guide for deploying aaronspindler.com to production using Docker containers, automated CI/CD with GitHub Actions, and CapRover for orchestration. The application uses WhiteNoise for static files, AWS S3 for media storage, PostgreSQL + QuestDB for data, Redis for caching, and Celery for background tasks.
 
 ## Prerequisites
 
-- Docker and Docker Compose installed
-- PostgreSQL 15+ database
-- Redis server
-- AWS S3 bucket (for media storage - photos, uploads)
-- Domain name with DNS configured
-- SSL certificate (Let's Encrypt recommended)
+### Infrastructure Requirements
+- **CapRover**: PaaS platform for container orchestration
+- **PostgreSQL 16**: Main application database
+- **Redis 7**: Caching and message broker
+- **QuestDB 8.2.1**: Time-series data for FeeFiFoFunds
+- **AWS S3**: Media file storage (photos, uploads)
+- **Domain**: With DNS configured
+- **SSL**: Let's Encrypt (auto-configured by CapRover)
+
+### Development Requirements
+- Docker and Docker Buildx installed locally
+- GitHub account with Actions enabled
+- GHCR (GitHub Container Registry) access
 
 ## Environment Configuration
 
@@ -74,220 +83,311 @@ CSRF_COOKIE_SECURE=True
 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
-## Docker Deployment
+## Deployment Architecture
 
-### Dockerfile
+### CapRover Deployment
 
-The project includes a multi-stage Dockerfile optimized for production:
+The application is deployed to CapRover, a self-hosted PaaS that provides:
+- **Automatic SSL**: Let's Encrypt certificates
+- **Container Orchestration**: Docker Swarm based
+- **Zero-downtime Deployments**: Health check based routing
+- **Multi-app Support**: Web, Celery, Celerybeat, Flower
 
+### GitHub Container Registry
+
+All services use pre-built images from GHCR:
+```bash
+ghcr.io/aaronspindler/aaronspindler.com-web:latest
+ghcr.io/aaronspindler/aaronspindler.com-celery:latest
+ghcr.io/aaronspindler/aaronspindler.com-celerybeat:latest
+ghcr.io/aaronspindler/aaronspindler.com-flower:latest
+```
+
+## Docker Configuration
+
+### Docker Bake Build System
+
+The project uses Docker Bake (`docker-bake.hcl`) for multi-target builds:
+
+```hcl
+# Build all production images
+docker buildx bake -f docker-bake.hcl production
+
+# Build specific service
+docker buildx bake -f docker-bake.hcl web
+
+# Push to registry
+docker buildx bake -f docker-bake.hcl production --push
+```
+
+**Targets:**
+- `web`: Main Django application
+- `celery`: Async worker (200 concurrent with gevent)
+- `celerybeat`: Task scheduler
+- `flower`: Monitoring dashboard
+
+### Optimized Dockerfiles
+
+#### Web Container (`deployment/Dockerfile`)
 ```dockerfile
-# Stage 1: Build stage
-FROM python:3.13-slim AS builder
-
-WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    postgresql-client \
-    libpq-dev \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Stage 2: Runtime stage
+# syntax=docker/dockerfile:1.4
 FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    postgresql-client \
-    libpq5 \
+# Install system dependencies with cache mount
+RUN --mount=type=cache,target=/var/cache/apt \
+    --mount=type=cache,target=/var/lib/apt \
+    apt-get update && apt-get install -y \
+    chromium chromium-driver nodejs npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Pyppeteer for screenshots
-RUN pip install pyppeteer && python -c "from pyppeteer import chromium_downloader; chromium_downloader.download_chromium()"
-
-# Copy Python packages from builder
-COPY --from=builder /usr/local/lib/python3.13/site-packages/ /usr/local/lib/python3.13/site-packages/
+# Install Python dependencies with uv for speed
+COPY requirements/ /app/requirements/
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=cache,target=/root/.cache/uv \
+    pip install uv && \
+    uv pip install --system -r requirements/production.txt
 
 # Copy application code
-COPY . .
+COPY . /app/
 
-# Collect static files
-RUN python manage.py collectstatic --noinput
+# Build static files at image creation
+RUN python manage.py collectstatic --noinput && \
+    python manage.py build_css && \
+    npm run build
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
   CMD python -c "import requests; requests.get('http://localhost:8000/health/')"
 
-# Run Gunicorn
+# Run with gunicorn
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4"]
 ```
 
-### docker-compose.yml
+### Test Environment (`docker-compose.test.yml`)
 
-Production Docker Compose configuration:
+The test environment configuration used in CI/CD:
 
 ```yaml
 version: '3.8'
 
 services:
-  web:
-    build: .
-    image: aaronspindler.com:latest
-    container_name: website
-    env_file:
-      - .env.production
-    ports:
-      - "80:8000"
-    depends_on:
-      - postgres
-      - redis
-    volumes:
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
   postgres:
-    image: postgres:15
-    container_name: postgres_db
+    image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
+      POSTGRES_DB: test_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=200
+      -c fsync=off
+      -c synchronous_commit=off
 
   redis:
     image: redis:7-alpine
-    container_name: redis_cache
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  celery:
-    build: .
-    container_name: celery_worker
-    command: celery -A config worker --loglevel=info
-    env_file:
-      - .env.production
-    depends_on:
-      - postgres
-      - redis
-    volumes:
-      - media_volume:/app/media
-    restart: unless-stopped
-
-  celery-beat:
-    build: .
-    container_name: celery_beat
-    command: celery -A config beat --loglevel=info
-    env_file:
-      - .env.production
-    depends_on:
-      - postgres
-      - redis
-    restart: unless-stopped
-
-  flower:
-    build: .
-    container_name: celery_flower
-    command: celery -A config flower --port=5555
-    env_file:
-      - .env.production
+  questdb:
+    image: questdb/questdb:8.2.1
+    environment:
+      QDB_CAIRO_SQL_COPY_BUFFER_SIZE: 4M
+      QDB_TELEMETRY_ENABLED: false
     ports:
-      - "5555:5555"
-    depends_on:
-      - redis
-      - celery
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-  redis_data:
-  static_volume:
-  media_volume:
+      - "9000:9000"  # REST API & Web Console
+      - "8812:8812"  # PostgreSQL wire protocol
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9003/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 ```
 
-### Build and Deploy
+## CapRover Deployment
+
+### Initial Setup
+
+1. **Install CapRover** on your server:
+```bash
+docker run -p 80:80 -p 443:443 -p 3000:3000 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /captain:/captain \
+  caprover/caprover
+```
+
+2. **Configure Domain**: Point your domain to CapRover server IP
+
+3. **Create Apps** in CapRover dashboard:
+   - `aaronspindler-web`: Main application
+   - `aaronspindler-celery`: Worker service
+   - `aaronspindler-celerybeat`: Scheduler
+   - `aaronspindler-flower`: Monitoring (optional)
+
+### Captain Definition
+
+The `captain-definition` file configures CapRover deployment:
+
+```json
+{
+  "schemaVersion": 2,
+  "imageName": "ghcr.io/aaronspindler/aaronspindler.com-web:latest"
+}
+```
+
+### Environment Variables in CapRover
+
+Set these in the CapRover app settings:
 
 ```bash
-# Build Docker image
-docker-compose -f docker-compose.production.yml build
+# Core Settings
+SECRET_KEY=<generated-secret-key>
+DEBUG=False
+ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
 
-# Start services
-docker-compose -f docker-compose.production.yml up -d
+# Database
+DATABASE_URL=postgresql://user:pass@postgres-captain:5432/dbname
 
-# View logs
-docker-compose -f docker-compose.production.yml logs -f
+# Redis
+REDIS_URL=redis://redis-captain:6379/0
+CELERY_BROKER_URL=redis://redis-captain:6379/1
 
-# Stop services
-docker-compose -f docker-compose.production.yml down
+# AWS S3
+AWS_ACCESS_KEY_ID=<your-key>
+AWS_SECRET_ACCESS_KEY=<your-secret>
+AWS_STORAGE_BUCKET_NAME=<bucket-name>
 
-# Restart services
-docker-compose -f docker-compose.production.yml restart
+# QuestDB (if using FeeFiFoFunds)
+QUESTDB_HOST=questdb-captain
+QUESTDB_PORT=8812
+```
+
+### Automated Deployment Workflow
+
+The GitHub Actions deployment pipeline (`deploy.yml`) automatically deploys on successful tests:
+
+```yaml
+name: Deploy to CapRover
+
+on:
+  workflow_run:
+    workflows: ["Test"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy Web
+        uses: caprover/deploy-from-github@main
+        with:
+          server: ${{ secrets.CAPROVER_SERVER }}
+          app: 'aaronspindler-web'
+          token: ${{ secrets.CAPROVER_APP_TOKEN }}
+          image: 'ghcr.io/aaronspindler/aaronspindler.com-web:latest'
+
+      - name: Deploy Celery
+        uses: caprover/deploy-from-github@main
+        with:
+          server: ${{ secrets.CAPROVER_SERVER }}
+          app: 'aaronspindler-celery'
+          token: ${{ secrets.CAPROVER_APP_TOKEN }}
+          image: 'ghcr.io/aaronspindler/aaronspindler.com-celery:latest'
+
+      - name: Deploy Celerybeat
+        uses: caprover/deploy-from-github@main
+        with:
+          server: ${{ secrets.CAPROVER_SERVER }}
+          app: 'aaronspindler-celerybeat'
+          token: ${{ secrets.CAPROVER_APP_TOKEN }}
+          image: 'ghcr.io/aaronspindler/aaronspindler.com-celerybeat:latest'
+
+      - name: Deploy Flower (if changed)
+        if: contains(github.event.workflow_run.head_commit.message, 'flower')
+        uses: caprover/deploy-from-github@main
+        with:
+          server: ${{ secrets.CAPROVER_SERVER }}
+          app: 'aaronspindler-flower'
+          token: ${{ secrets.CAPROVER_APP_TOKEN }}
+          image: 'ghcr.io/aaronspindler/aaronspindler.com-flower:latest'
+```
+
+### Manual Deployment
+
+For manual deployments using CapRover CLI:
+
+```bash
+# Install CapRover CLI
+npm install -g caprover
+
+# Login to CapRover
+caprover login
+
+# Deploy from captain-definition
+caprover deploy
+
+# Or deploy specific image
+caprover deploy -i ghcr.io/aaronspindler/aaronspindler.com-web:latest
 ```
 
 ## CI/CD Pipeline
 
-The project uses GitHub Actions for continuous integration and deployment automation. The CI/CD pipeline ensures code quality through automated testing, linting, and security scanning before deployment.
+The project uses GitHub Actions for continuous integration and deployment automation, achieving a **44% runtime reduction** through optimization.
 
-### Key Features
-- **Automated Testing**: Runs comprehensive test suite on every push and PR
-- **Parallel Execution**: Tests split across 6 parallel jobs for faster feedback
-- **Docker Integration**: Uses GitHub Container Registry for efficient image distribution
-- **Security Scanning**: CodeQL analysis and Copilot Autofix for vulnerability detection
+### Workflow Architecture
 
-### Workflow Triggers
-- Push to `main` branch
-- Pull requests
-- Manual workflow dispatch
-- Scheduled security scans (daily)
+#### Test Pipeline (`test.yml`)
+- **Build Phase**: Single Docker build with GHCR caching
+- **Test Suite**: Comprehensive tests with PostgreSQL, Redis, QuestDB
+- **Parallel Processing**: Coverage and production builds run concurrently
+- **Validation**: Linting, type checking, security scanning
 
-### Pre-deployment Checks
-Before deployment, the CI/CD pipeline ensures:
-- All tests pass (Django tests across 6 parallel jobs)
-- Code passes linting (Ruff)
-- Type checking succeeds (MyPy)
-- No security vulnerabilities detected (CodeQL)
-- Docker images build successfully
+#### Deployment Pipeline (`deploy.yml`)
+- **Trigger**: Automatic after successful tests on main branch
+- **Services**: Deploys web, celery, celerybeat, flower to CapRover
+- **Images**: Uses pre-built, tested images from GHCR
+- **Zero-downtime**: Health check based routing
+
+### Pre-deployment Validation
+
+The CI/CD pipeline ensures quality through:
+1. **Test Suite**: Complete Django test coverage
+2. **Code Quality**: Ruff linting and formatting
+3. **Type Safety**: MyPy static type checking
+4. **Security**: CodeQL vulnerability scanning
+5. **Build Verification**: Successful Docker image builds
 
 ### GitHub Container Registry
-Production deployments use pre-built images from GHCR:
-```bash
-# Pull the latest tested image
-docker pull ghcr.io/aaronspindler/aaronspindler.com:latest
 
-# Or specific commit
-docker pull ghcr.io/aaronspindler/aaronspindler.com:sha-<commit-sha>
+Production uses pre-built, tested images:
+```bash
+# Service images
+ghcr.io/aaronspindler/aaronspindler.com-web:latest
+ghcr.io/aaronspindler/aaronspindler.com-celery:latest
+ghcr.io/aaronspindler/aaronspindler.com-celerybeat:latest
+ghcr.io/aaronspindler/aaronspindler.com-flower:latest
+
+# Tagged by commit
+ghcr.io/aaronspindler/aaronspindler.com-web:sha-<commit>
 ```
 
-For detailed CI/CD information, see:
-- [CI/CD Pipeline Documentation](features/ci-cd.md) - Complete CI/CD guide
-- [Optimization Report](features/ci-cd-optimization-report.md) - Performance improvements
-- [GitHub Workflows](.github/workflows/) - Workflow definitions
+**Related Documentation:**
+- [CI/CD Pipeline](features/ci-cd.md) - Complete pipeline documentation
+- [Docker Architecture](infrastructure/docker.md) - Container details
+- [Troubleshooting CI/CD](troubleshooting/ci-cd.md) - Common issues
 
 ## Database Setup
 
@@ -853,21 +953,26 @@ open http://localhost:5555
 
 ## Related Documentation
 
-### Core Documentation
-- [Architecture](architecture.md) - System design and infrastructure
-- [CI/CD Pipeline](features/ci-cd.md) - Continuous integration and deployment
-- [Maintenance](maintenance.md) - Post-deployment operations and monitoring
-- [Testing](testing.md) - Pre-deployment testing with Docker
-- [Commands](commands.md) - Operational management commands
-- [Documentation Index](README.md) - Complete documentation map
+### Infrastructure & Architecture
+- [Docker & Containers](infrastructure/docker.md) - Complete Docker architecture
+- [Infrastructure Architecture](infrastructure/architecture.md) - System design
+- [CI/CD Pipeline](features/ci-cd.md) - Build and deployment automation
+- [Troubleshooting CI/CD](troubleshooting/ci-cd.md) - Common deployment issues
+
+### Operations & Maintenance
+- [Maintenance Guide](maintenance.md) - Post-deployment operations
+- [Testing Guide](testing.md) - Test strategy and Docker testing
+- [Commands Reference](commands.md) - Management commands
+- [Quick Start](quick-start.md) - Fast setup guide
 
 ### App-Specific Deployment
-- [FeeFiFoFunds](apps/feefifofunds/) - QuestDB deployment requirements
-- [Photos](apps/photos/) - S3 configuration for media storage
-- [Omas Coffee](apps/omas/) - Multi-domain DNS configuration
+- [FeeFiFoFunds](apps/feefifofunds/) - QuestDB setup and configuration
+- [Photos](apps/photos/) - S3 and media storage
+- [Omas Coffee](apps/omas/) - Multi-domain configuration
 
-### Deployment Files
-- Docker Configuration: `deployment/Dockerfile`
-- Compose File: `deployment/docker-compose.test.yml`
-- Environment Template: `.env.example`
-- Captain Definition: `captain-definition` (CapRover deployment)
+### Configuration Files
+- **Docker**: `deployment/*.Dockerfile` - Service containers
+- **Docker Bake**: `docker-bake.hcl` - Multi-target builds
+- **Test Environment**: `docker-compose.test.yml` - CI/CD testing
+- **CapRover**: `captain-definition` - Deployment configuration
+- **Environment**: `.env.example` - Configuration template
