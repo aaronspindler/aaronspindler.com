@@ -109,7 +109,7 @@ class ResumeContextProcessorTest(TestCase):
         request = self.factory.get("/")
         request.custom_attr = "test_value"
 
-        _context = resume_context(request)
+        resume_context(request)
 
         # Request should not be modified
         self.assertEqual(request.custom_attr, "test_value")

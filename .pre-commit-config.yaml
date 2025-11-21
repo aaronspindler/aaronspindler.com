@@ -12,7 +12,7 @@ repos:
     hooks:
       - id: ruff
         name: ruff linter + import sorting
-        args: [--fix]  # Auto-fix issues where possible
+        args: [--fix, --unsafe-fixes]  # Auto-fix issues including unused locals
       - id: ruff-format  # Ruff's formatter (compatible with Black)
         name: ruff formatter
 

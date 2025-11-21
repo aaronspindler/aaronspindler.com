@@ -128,7 +128,7 @@ class ExifExtractorTestCase(TestCase):
         # Check that all values are serializable
         import json
 
-        _json_str = json.dumps(serializable)  # Should not raise error
+        json.dumps(serializable)  # Should not raise error
 
         self.assertEqual(serializable["Make"], "Canon")
         self.assertEqual(serializable["Model"], "EOS R5")
@@ -644,7 +644,7 @@ class DuplicateDetectorTestCase(TestCase):
                 mock_hash.return_value = Mock(__str__=Mock(return_value="hash123"))
 
                 test_file = BytesIO(b"image_data")
-                _hash_value = DuplicateDetector.compute_perceptual_hash(test_file)
+                DuplicateDetector.compute_perceptual_hash(test_file)
 
                 # Verify RGBA was converted
                 mock_new.assert_called_once_with("RGB", (100, 100), (255, 255, 255))
@@ -711,7 +711,7 @@ class DuplicateDetectorTestCase(TestCase):
 
         # Create existing photos
         existing1 = Photo.objects.create(title="Photo 1", file_hash="hash123", perceptual_hash="phash1")
-        _photo2 = Photo.objects.create(title="Photo 2", file_hash="hash456", perceptual_hash="phash2")
+        Photo.objects.create(title="Photo 2", file_hash="hash456", perceptual_hash="phash2")
 
         # Setup mocks
         mock_file_hash.return_value = "hash123"  # Matches existing1
@@ -734,7 +734,7 @@ class DuplicateDetectorTestCase(TestCase):
 
         # Create existing photos
         existing1 = Photo.objects.create(title="Photo 1", file_hash="hash1", perceptual_hash="phash1")
-        _photo2 = Photo.objects.create(title="Photo 2", file_hash="hash2", perceptual_hash="phash2")
+        Photo.objects.create(title="Photo 2", file_hash="hash2", perceptual_hash="phash2")
 
         # Setup mocks
         mock_file_hash.return_value = "hash_new"  # No exact match
@@ -766,7 +766,7 @@ class DuplicateDetectorTestCase(TestCase):
         """Test finding duplicates with exact_match_only flag."""
         from photos.models import Photo
 
-        _ = Photo.objects.create(title="Photo", file_hash="hash123", perceptual_hash="phash")
+        Photo.objects.create(title="Photo", file_hash="hash123", perceptual_hash="phash")
 
         mock_file_hash.return_value = "hash456"  # No match
 

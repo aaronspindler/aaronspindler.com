@@ -344,8 +344,8 @@ class AdminIntegrationTest(TestCase):
     def test_admin_filters_work(self):
         """Test that filters in admin work correctly."""
         # Create comments with different statuses
-        _approved_comment = BlogCommentFactory.create_approved_comment(content="Approved comment")
-        _spam_comment = BlogCommentFactory.create_comment(content="Spam comment", status="spam")
+        BlogCommentFactory.create_approved_comment(content="Approved comment")
+        BlogCommentFactory.create_comment(content="Spam comment", status="spam")
 
         self.client.login(username=self.superuser.username, password="testpass123")
 

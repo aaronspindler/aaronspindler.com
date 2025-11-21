@@ -80,7 +80,7 @@ line-ending = "auto"
 "pages/management/commands/optimize_js.py" = ["F841"]
 
 # Allow undefined names in test patches (mocked decorators)
-"photos/tests/test_tasks.py" = ["F821", "F841"]
+"photos/tests/test_tasks.py" = ["F821"]
 
 # Allow unused variables in forms (validation side effects)
 "photos/forms.py" = ["F841"]
