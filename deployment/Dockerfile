@@ -109,7 +109,7 @@ RUN python manage.py build_css
 
 # Collect and optimize static files at build time
 # This ensures all static files are properly hashed and available in the image
-RUN python manage.py collectstatic_optimize
+RUN python manage.py collectstatic
 
 # Expose port 80
 EXPOSE 80
