@@ -766,7 +766,7 @@ class DuplicateDetectorTestCase(TestCase):
         """Test finding duplicates with exact_match_only flag."""
         from photos.models import Photo
 
-        _photo = Photo.objects.create(title="Photo", file_hash="hash123", perceptual_hash="phash")
+        _ = Photo.objects.create(title="Photo", file_hash="hash123", perceptual_hash="phash")
 
         mock_file_hash.return_value = "hash456"  # No match
 
