@@ -34,7 +34,7 @@ class AccountsURLTest(SimpleTestCase):
         url = reverse("account_login")
         self.assertIsNotNone(url)
         # Typically this would be /accounts/login/
-        self.assertTrue("/login/" in url)
+        self.assertIn("/login/", url)
 
     def test_signup_redirect_target(self):
         """Test that the signup redirect target (login) is available."""

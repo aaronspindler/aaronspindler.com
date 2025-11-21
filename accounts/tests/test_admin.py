@@ -49,7 +49,7 @@ class CustomUserAdminTest(TestCase):
         response = self.client.get(url)
         # Should redirect to login
         self.assertEqual(response.status_code, 302)
-        self.assertTrue("/admin/login/" in response.url)
+        self.assertIn("/admin/login/", response.url)
 
     def test_admin_superuser_access(self):
         """Test that superuser can access user admin."""

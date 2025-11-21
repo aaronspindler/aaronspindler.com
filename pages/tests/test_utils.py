@@ -11,7 +11,7 @@ class GetBooksTest(TestCase):
         books = get_books()
 
         self.assertIsInstance(books, list)
-        self.assertTrue(len(books) > 0)
+        self.assertGreater(len(books), 0)
 
     def test_get_books_structure(self):
         """Test that books have the correct structure."""
@@ -54,12 +54,12 @@ class GetBooksTest(TestCase):
         # Find a book with favourite_quote
         books_with_quotes = [book for book in books if "favourite_quote" in book]
 
-        self.assertTrue(len(books_with_quotes) > 0)
+        self.assertGreater(len(books_with_quotes), 0)
 
         # Check the structure of books with quotes
         for book in books_with_quotes:
             self.assertIsInstance(book["favourite_quote"], str)
-            self.assertTrue(len(book["favourite_quote"]) > 0)
+            self.assertGreater(len(book["favourite_quote"]), 0)
 
     def test_get_books_cover_images(self):
         """Test that cover images have correct format."""
@@ -103,7 +103,7 @@ class GetBooksTest(TestCase):
             author = book["author"]
 
             # Author should not be empty
-            self.assertTrue(len(author) > 0)
+            self.assertGreater(len(author), 0)
 
             # Author should not have leading/trailing whitespace
             self.assertEqual(author, author.strip())
