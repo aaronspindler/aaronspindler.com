@@ -2,7 +2,7 @@
 Django==5.2.8
 
 # Django Extensions
-django-allauth==65.13.0
+django-allauth==65.13.1
 django-celery-beat==2.8.1
 django-environ==0.12.0
 django-redis==6.0.0
@@ -37,7 +37,7 @@ beautifulsoup4==4.14.2
 pyppeteer==2.0.0
 
 # AWS SDK
-boto3==1.41.0
+boto3==1.41.1
 
 # HTTP Client
 requests==2.32.5

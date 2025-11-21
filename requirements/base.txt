@@ -22,13 +22,13 @@ billiard==4.2.2 \
     --hash=sha256:4bc05dcf0d1cc6addef470723aac2a6232f3c7ed7475b0b580473a9145829457 \
     --hash=sha256:e815017a062b714958463e07ba15981d802dc53d41c5b69d28c5a7c238f8ecf3
     # via celery
-boto3==1.41.0 \
-    --hash=sha256:73bf7f63152406404c0359c013a692e884b98a3b297160058a38f00ef19e375b \
-    --hash=sha256:d5c454bb23655b052073c8dc6703dda5360825b72b1691822ae7709050b96390
+boto3==1.41.1 \
+    --hash=sha256:05009dadcb0c63a2a4a11780f615362a811aa85e7a6950f2793ecf8055fcd1f2 \
+    --hash=sha256:fdee48cff828cfe0fb66295ae4d5f47736ee35f11e1de6be6c6dcd910f0810a4
     # via -r requirements/base.in
-botocore==1.41.0 \
-    --hash=sha256:555afbf86a644bfa4ebd7bd98d717b53b792e6bbb2c49f2b308fb06964cf1655 \
-    --hash=sha256:a5018d6268eee358dfc5d86e596c3062b4e225690acaf946f54c00063b804bf8
+botocore==1.41.1 \
+    --hash=sha256:0db40b7dbddef56fe8cfa06b5eda73b327786db9d64c09c3a616fc9b5548120d \
+    --hash=sha256:e98095492ef8f18d0d6a02ba87d9135c663d4627322e049228143b3a4ef4c2a3
     # via
     #   boto3
     #   s3transfer
@@ -392,9 +392,9 @@ django==5.2.8 \
     #   django-redis
     #   django-storages
     #   django-timezone-field
-django-allauth==65.13.0 \
-    --hash=sha256:119c0cf1cc2e0d1a0fe2f13588f30951d64989256084de2d60f13ab9308f9fa0 \
-    --hash=sha256:7d7b7e7ad603eb3864c142f051e2cce7be2f9a9c6945a51172ec83d48c6c843b
+django-allauth==65.13.1 \
+    --hash=sha256:2887294beedfd108b4b52ebd182e0ed373deaeb927fc5a22f77bbde3174704a6 \
+    --hash=sha256:2af0d07812f8c1a8e3732feaabe6a9db5ecf3fad6b45b6a0f7fd825f656c5a15
     # via -r requirements/base.in
 django-celery-beat==2.8.1 \
     --hash=sha256:da2b1c6939495c05a551717509d6e3b79444e114a027f7b77bf3727c2a39d171 \
@@ -952,9 +952,9 @@ requests==2.32.5 \
     # via
     #   -r requirements/base.in
     #   finnhub-python
-s3transfer==0.14.0 \
-    --hash=sha256:ea3b790c7077558ed1f02a3072fb3cb992bbbd253392f4b6e9e8976941c7d456 \
-    --hash=sha256:eff12264e7c8b4985074ccce27a3b38a485bb7f7422cc8046fee9be4983e4125
+s3transfer==0.15.0 \
+    --hash=sha256:6f8bf5caa31a0865c4081186689db1b2534cef721d104eb26101de4b9d6a5852 \
+    --hash=sha256:d36fac8d0e3603eff9b5bfa4282c7ce6feb0301a633566153cbd0b93d11d8379
     # via boto3
 scipy==1.16.2 \
     --hash=sha256:024dd4a118cccec09ca3209b7e8e614931a6ffb804b2a601839499cb88bdf925 \
