@@ -13,7 +13,7 @@ class PhotoAlbumSitemap(Sitemap):
     """Sitemap for photo albums"""
 
     changefreq = "weekly"
-    priority = 0.7
+    # priority is defined as a method below
     protocol = "https"
 
     def items(self):
@@ -53,7 +53,7 @@ class PhotoSitemap(Sitemap):
     """Sitemap for individual photos (if you have individual photo pages)"""
 
     changefreq = "monthly"
-    priority = 0.5
+    # priority is defined as a method below
     protocol = "https"
     limit = 1000  # Limit number of URLs per sitemap
 
