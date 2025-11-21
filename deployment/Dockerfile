@@ -1,19 +1,3 @@
-# syntax=docker/dockerfile:1.4
-# Optimized for CI/CD with lightweight pyppeteer for screenshot generation
-#
-# Uses Python slim base image with minimal Chromium installation
-# BuildKit cache mounts for pip, npm, and apt packages
-#
-# Build args:
-#   - SKIP_JS_BUILD=1: Skip JavaScript build for test environments (saves ~10-20s)
-#
-# Performance:
-#   - Image size: ~800MB optimized for production
-#   - First build: ~2-3 minutes
-#   - Rebuild with code changes: ~30-60 seconds
-#   - Rebuild with dependencies: ~1-2 minutes
-#   - Test build (SKIP_JS_BUILD=1): ~20-40s faster
-
 FROM python:3.13-slim
 
 # Set Python environment variables
@@ -96,10 +80,8 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY deployment/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# Copy static files and build configuration (needed for JS build)
-COPY static/ ./static/
+# Copy scripts (needed for JS build)
 COPY scripts/ ./scripts/
-COPY omas/static/ ./omas/static/
 
 # Build and optimize JavaScript files (skip during test builds with --build-arg SKIP_JS_BUILD=1)
 ARG SKIP_JS_BUILD=0
@@ -121,8 +103,9 @@ RUN echo "=== Verifying template availability ===" && \
 # PurgeCSS will scan all templates to determine which CSS to keep
 RUN python manage.py build_css
 
-# Note: collectstatic_optimize runs in docker-entrypoint.sh (needs runtime environment)
-# Running it here with limited build-time environment creates incomplete static files
+# Collect and optimize static files at build time
+# This ensures all static files are properly hashed and available in the image
+RUN python manage.py collectstatic_optimize --no-input
 
 # Expose port 80
 EXPOSE 80
