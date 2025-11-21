@@ -30,7 +30,7 @@ class StaticViewSitemap(Sitemap):
 class BlogPostSitemap(Sitemap):
     """Sitemap for blog posts"""
 
-    priority = 0.8
+    # priority is defined as a method below
     changefreq = "weekly"
     protocol = "https"
 

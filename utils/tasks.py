@@ -44,6 +44,7 @@ def send_email(email_pk):
     email.html_body = html_body
     email.sent = timezone.now()
     email.save()
+    return True
 
 
 @shared_task
@@ -72,6 +73,7 @@ def send_text_message(text_message_pk):
     text_message.message = message
     text_message.sent = timezone.now()
     text_message.save()
+    return True
 
 
 # Lighthouse monitoring tasks
