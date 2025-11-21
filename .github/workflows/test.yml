@@ -220,37 +220,10 @@ jobs:
   test-suite:
     runs-on: ubuntu-latest
     needs: build-docker-image
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: read  # Required for pulling test images from GHCR
-    strategy:
-      fail-fast: false
-      matrix:
-        # Phase 3 Priority 4 & 5: Dynamic test splitting with balanced groups
-        # Groups rebalanced based on actual timing data from previous runs
-        # Smart test selection: Matrix can be conditionally modified based on changed files
-        test-group:
-          - name: "accounts-config"
-            apps: "accounts config"
-            estimated_time: 12
-            paths: ["accounts/**", "config/**"]
-          - name: "pages-utils"
-            apps: "pages utils"
-            estimated_time: 14
-            paths: ["pages/**", "utils/**"]
-          - name: "blog"
-            apps: "blog"
-            estimated_time: 15
-            paths: ["blog/**"]
-          - name: "photos"
-            apps: "photos"
-            estimated_time: 13
-            paths: ["photos/**"]
-          # - name: "feefifofunds"
-          #   apps: "feefifofunds"
-          #   estimated_time: 10
-          #   paths: ["feefifofunds/**"]
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
 
@@ -281,9 +254,8 @@ jobs:
           timeout 30 sh -c 'until docker compose ${{ env.TEST_COMPOSE_FILES }} exec -T questdb echo "QuestDB is ready" 2>/dev/null; do sleep 1; done'
 
           echo "✅ All services are healthy and ready"
-          echo "Estimated test time for this group: ${{ matrix.test-group.estimated_time }} minutes"
 
-      - name: Run tests for ${{ matrix.test-group.name }}
+      - name: Run all tests
         run: |
           COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
           mkdir -p ./test_output
@@ -296,30 +268,30 @@ jobs:
             export PYTHONDONTWRITEBYTECODE=1 &&
             export PYTHONUNBUFFERED=1 &&
             export COVERAGE_RCFILE=/code/pyproject.toml &&
-            export TEST_OUTPUT_DIR=/code/test_output/test-results-${{ matrix.test-group.name }} &&
-            coverage run manage.py test ${{ matrix.test-group.apps }} \
+            export TEST_OUTPUT_DIR=/code/test_output/test-results &&
+            coverage run manage.py test accounts config pages utils blog photos \
               --settings=config.settings_test \
               --no-input \
               --verbosity=2 \
               --timing &&
             coverage report &&
-            coverage xml -o /code/test_output/coverage-${{ matrix.test-group.name }}.xml
+            coverage xml -o /code/test_output/coverage.xml
           "
 
-          echo "✅ Tests completed"
+          echo "✅ All tests completed"
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
-          name: coverage-${{ matrix.test-group.name }}
-          path: ./test_output/coverage-${{ matrix.test-group.name }}.xml
+          name: coverage
+          path: ./test_output/coverage.xml
           retention-days: 1
 
       - name: Upload test results artifact
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
-          name: test-results-${{ matrix.test-group.name }}
-          path: ./test_output/test-results-${{ matrix.test-group.name }}/
+          name: test-results
+          path: ./test_output/test-results/
           retention-days: 1
 
       - name: Cleanup
@@ -339,55 +311,22 @@ jobs:
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
 
-      - name: Download coverage artifacts
+      - name: Download coverage artifact
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53  # v6.0.0
         with:
-          pattern: coverage-*
-          merge-multiple: true
-          path: ./coverage-reports
+          name: coverage
+          path: ./
 
-      - name: Download test results artifacts
+      - name: Download test results artifact
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53  # v6.0.0
         with:
-          pattern: test-results-*
-          merge-multiple: true
+          name: test-results
           path: ./test-results
-
-      - name: Set up Python
-        uses: actions/setup-python@bfc4944b43a5d84377eca3cf6ab5b7992ba61923  # v6.0.0
-        with:
-          python-version: '3.12.2'
-
-      - name: Cache Python dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pip
-            ~/.local
-          key: ${{ runner.os }}-pip-coverage-${{ env.PIP_CACHE_VERSION }}-${{ hashFiles('requirements/*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-coverage-${{ env.PIP_CACHE_VERSION }}-
-
-      - name: Install coverage
-        run: |
-          pip install coverage
-
-      - name: Merge coverage files
-        run: |
-          ls -la ./coverage-reports/
-          if ls ./coverage-reports/coverage-*.xml 1> /dev/null 2>&1; then
-            cp ./coverage-reports/coverage-*.xml .
-            echo "Found coverage files:"
-            ls -la coverage-*.xml
-          else
-            echo "No coverage files found, creating empty one"
-            echo '<?xml version="1.0"?><coverage></coverage>' > coverage.xml
-          fi
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7  # v5.5.1
         with:
-          files: ./coverage-*.xml
+          files: ./coverage.xml
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
