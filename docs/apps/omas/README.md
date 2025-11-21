@@ -27,44 +27,17 @@ The Omas Coffee app serves a separate website at `omas.coffee` domain from the s
 
 ### Brand & Design Documentation
 
-**Which Document Should I Use?**
+**Note:** Brand and design documentation has been moved to `/design/omas/` to keep technical documentation separate from design assets.
 
-| Need | Use This Document |
-|------|-------------------|
-| Understand the brand mission and values | [Brand Foundation](brand-foundation.md) |
-| Use the logo correctly | [Brand Standards](brand-standards.md) |
-| Get color codes for design work | [Brand Standards](brand-standards.md) |
-| Choose typography/fonts | [Brand Standards](brand-standards.md) |
-| Understand design philosophy | [Design Guidelines](design-guidelines.md) |
-| Design for website/digital | [Digital Design](digital-design.md) |
-| Design for coffee cart/physical | [Physical Design](physical-design.md) |
-| Complete project overview | [Design Brief](DESIGN_BRIEF.md) |
+**Available Design Documents:**
+- Brand Foundation - Mission, values, brand personality
+- Brand Standards - Logo, colors, typography
+- Design Guidelines - Design philosophy and principles
+- Digital Design - Website and digital asset guidelines
+- Physical Design - Coffee cart and physical branding
+- Design Brief - Complete project overview
 
-**Brand Documentation Files:**
-
-- **[Brand Foundation](brand-foundation.md)** - Mission, values, brand personality
-  - **Use when**: Understanding the brand's purpose and target audience
-  - **Contains**: Brand mission, vision, core values, personality traits
-
-- **[Brand Standards](brand-standards.md)** - Logo, colors, typography (Most commonly used)
-  - **Use when**: Designing anything with Omas branding
-  - **Contains**: Logo variations, color palette (hex codes), typography system, usage rules
-
-- **[Design Guidelines](design-guidelines.md)** - Design principles
-  - **Use when**: Making design decisions or creating new materials
-  - **Contains**: Design philosophy, visual language, consistency standards
-
-- **[Digital Design](digital-design.md)** - Website and digital presence
-  - **Use when**: Working on website, social media, or digital materials
-  - **Contains**: Website design principles, UI components, responsive design
-
-- **[Physical Design](physical-design.md)** - Coffee cart specifications
-  - **Use when**: Building or modifying the physical coffee cart
-  - **Contains**: Cart dimensions, equipment specs, material selections
-
-- **[Design Brief](DESIGN_BRIEF.md)** - Complete project specification
-  - **Use when**: Need comprehensive project overview
-  - **Contains**: Full project requirements, technical specs, implementation plan
+**Location:** `/design/omas/`
 
 ### Related Documentation
 

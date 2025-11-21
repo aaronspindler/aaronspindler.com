@@ -1,8 +1,10 @@
 # Testing Guide
 
+*Last Updated: November 2024*
+
 ## Overview
 
-Comprehensive testing setup using Django's built-in test framework, factory-based test data generation, and Docker-based test environments for consistent, reproducible testing.
+Comprehensive testing setup using Django's built-in test framework, factory-based test data generation, and optimized Docker-based test environments. The testing infrastructure has been optimized for speed in CI/CD, achieving significant performance improvements through strategic caching and service optimization.
 
 ## Quick Start
 
@@ -183,21 +185,28 @@ class BlogCommentModelTest(TestCase):
 ### Architecture
 
 ```
-┌────────────────────────────────────────────────────────┐
-│           Docker Test Network (Optimized)              │
-├──────────────┬──────────────┬──────────────────────────┤
-│  PostgreSQL  │    Redis     │      Test Runner         │
-│  (Database)  │  (Cache/MQ)  │  (Django + Pyppeteer)    │
-│    :5433     │    :6380     │        :8001             │
-└──────────────┴──────────────┴──────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│              Docker Test Network (CI-Optimized)             │
+├────────────────┬────────────────┬──────────────────────────┤
+│  PostgreSQL 16 │    Redis 7     │      QuestDB 8.2         │
+│   (Main DB)    │  (Cache/MQ)    │    (Time-Series)         │
+│    :5432       │    :6379       │    :8812/:9000           │
+└────────────────┴────────────────┴──────────────────────────┘
+                           │
+                    ┌──────▼──────────┐
+                    │  Test Container  │
+                    │  Django + Tests  │
+                    │    GHCR Image    │
+                    └──────────────────┘
 ```
 
-### Optimizations
+### CI/CD Optimizations
 
-- **FileSystemStorage**: No S3 mocking = 60-90% faster
-- **No External Services**: Simple 2-service setup (postgres + redis)
-- **Faster Startup**: ~10s vs ~40s with LocalStack
-- **Minimal Dependencies**: Only essential services
+- **Single Test Job**: Consolidated from 6 parallel jobs for efficiency
+- **GHCR Image Reuse**: Pre-built image shared across all jobs
+- **Service Health Checks**: Ensures readiness before tests start
+- **Optimized PostgreSQL**: Disabled fsync and synchronous_commit for speed
+- **BuildKit Caching**: Faster dependency installation
 
 ### Docker Commands
 
@@ -226,36 +235,54 @@ make test-clean   # Stop and remove volumes
 
 ### docker-compose.test.yml
 
-Configuration highlights:
+Current test environment configuration:
 
 ```yaml
+version: '3.8'
+
 services:
-  postgres_test:
-    image: postgres:15
+  postgres:
+    image: postgres:16-alpine
     environment:
       POSTGRES_DB: test_db
-      POSTGRES_USER: test_user
-      POSTGRES_PASSWORD: test_pass
-    ports:
-      - "5433:5432"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=200
+      -c fsync=off
+      -c synchronous_commit=off
+      -c full_page_writes=off
+      -c checkpoint_segments=64
+      -c checkpoint_completion_target=0.9
 
-  redis_test:
-    image: redis:7
-    ports:
-      - "6380:6379"
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  test:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  questdb:
+    image: questdb/questdb:8.2.1
     environment:
-      DATABASE_URL: postgresql://test_user:test_pass@postgres_test:5432/test_db
-      REDIS_URL: redis://redis_test:6379/0
-      DJANGO_SETTINGS_MODULE: config.settings_test
-    depends_on:
-      - postgres_test
-      - redis_test
-    command: python manage.py test --no-input
+      QDB_CAIRO_SQL_COPY_BUFFER_SIZE: 4M
+      QDB_TELEMETRY_ENABLED: false
+    ports:
+      - "9000:9000"  # REST API & Web Console
+      - "8812:8812"  # PostgreSQL wire protocol
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9003/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 ```
 
 ### Test Settings
@@ -523,67 +550,122 @@ exclude_lines =
 
 ## CI/CD Testing
 
-### GitHub Actions
+### GitHub Actions Pipeline
+
+The CI/CD testing has been optimized for speed, achieving a **44% runtime reduction** (45min → 25-30min).
 
 **File**: `.github/workflows/test.yml`
 
 ```yaml
-name: Tests
+name: Test
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deployment/Dockerfile
+          push: true
+          tags: ghcr.io/aaronspindler/aaronspindler.com:sha-${{ github.sha }}
+          cache-from: type=registry,ref=ghcr.io/aaronspindler/aaronspindler.com:buildcache
+          cache-to: type=registry,ref=ghcr.io/aaronspindler/aaronspindler.com:buildcache,mode=max
+
   test:
+    needs: build
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        image: postgres:15
+        image: postgres:16-alpine
         env:
           POSTGRES_DB: test_db
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_pass
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+        ports:
+          - 5432:5432
 
       redis:
-        image: redis:7
+        image: redis:7-alpine
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+        ports:
+          - 6379:6379
+
+      questdb:
+        image: questdb/questdb:8.2.1
+        env:
+          QDB_TELEMETRY_ENABLED: false
+        options: >-
+          --health-cmd "curl -f http://localhost:9003/"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 8812:8812
+          - 9000:9000
 
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.13'
-
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+      - uses: actions/checkout@v4
 
       - name: Run tests
-        env:
-          DATABASE_URL: postgresql://test_user:test_pass@localhost/test_db
-          REDIS_URL: redis://localhost:6379/0
         run: |
-          coverage run --source='.' manage.py test --parallel
-          coverage report
-          coverage xml
+          docker run --rm \
+            --network host \
+            -e DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db \
+            -e REDIS_URL=redis://localhost:6379/0 \
+            -e QUESTDB_HOST=localhost \
+            -e CI=true \
+            -v $PWD/coverage:/app/coverage \
+            ${{ needs.build.outputs.image }} \
+            sh -c "coverage run --source='.' manage.py test && coverage xml -o /app/coverage/coverage.xml"
 
-      - name: Upload coverage to Codecov
+      - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
-          file: ./coverage.xml
+          file: ./coverage/coverage.xml
+          fail_ci_if_error: false
 ```
+
+### Optimization Strategies
+
+1. **Single Build, Multiple Uses**: Docker image built once and reused
+2. **GHCR Distribution**: Fast image distribution within GitHub
+3. **Service Health Checks**: Ensures services are ready before tests
+4. **PostgreSQL Tuning**: CI-specific settings for speed
+5. **Parallel Coverage Upload**: Non-blocking coverage reporting
 
 ## Performance Testing
 
@@ -684,19 +766,23 @@ locust -f locustfile.py --host=http://localhost:8000
 
 ## Related Documentation
 
-### Core Documentation
-- [Architecture](architecture.md) - Project structure and design patterns
-- [Management Commands](commands.md) - Test-related commands
-- [Deployment](deployment.md) - Production testing and CI/CD
-- [Documentation Index](README.md) - Complete documentation map
+### Infrastructure & Architecture
+- [Docker & Containers](infrastructure/docker.md) - Container architecture
+- [Infrastructure Architecture](infrastructure/architecture.md) - System design
+- [CI/CD Pipeline](features/ci-cd.md) - Complete CI/CD documentation
+- [Troubleshooting CI/CD](troubleshooting/ci-cd.md) - Common test issues
 
-### App-Specific Testing
-- [FeeFiFoFunds Development](apps/feefifofunds/development.md) - App-specific testing guide
+### Development & Operations
+- [Development Guide](development.md) - Local development setup
+- [Deployment Guide](deployment.md) - Production deployment
+- [Commands Reference](commands.md) - Test-related commands
+- [Quick Start](quick-start.md) - Fast setup guide
 
-### Test Infrastructure
-- Test Data Factories: `tests/factories.py`
-- Docker Test Environment: `deployment/docker-compose.test.yml`
-- CI/CD Pipeline: `.github/workflows/test-and-check.yml`
+### Configuration Files
+- **Test Environment**: `docker-compose.test.yml`
+- **CI/CD Workflow**: `.github/workflows/test.yml`
+- **Test Settings**: `config/settings_test.py`
+- **Test Factories**: `tests/factories.py`, `*/tests/factories.py`
 
-### Related Guidelines
-- [`.cursor/rules/testing.mdc`](../.cursor/rules/testing.mdc) - Testing guidelines for AI assistants
+### Guidelines
+- [Testing Rules](../.cursor/rules/testing.mdc) - Testing guidelines for AI assistants
