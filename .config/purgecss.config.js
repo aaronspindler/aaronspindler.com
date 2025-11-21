@@ -24,7 +24,7 @@ module.exports = {
     'feefifofunds/**/*.py',
     'projects/**/*.py'
   ],
-  css: ['static/css/**/*.css'],
+  // Note: css files are passed via command line, not in config
   defaultExtractor: content => {
     // Capture as liberally as possible, including things like `h-(screen-1.5)`
     const broadMatches = content.match(/[^<>"'`\s]*[^<>"'`\s:]/g) || []
@@ -65,6 +65,7 @@ module.exports = {
       'visible',
       'collapsed',
       'expanded',
+      'fonts-loaded',  // Added by JavaScript
       // Form-related
       'invalid',
       'valid',
@@ -89,7 +90,14 @@ module.exports = {
       /^-webkit-/,
       /^-moz-/,
       /^-ms-/,
-      /^-o-/
+      /^-o-/,
+      // Dynamic patterns for template-generated classes
+      /^model-/,              // Matches model-user, model-post, etc.
+      /^reply-depth-\d+$/,    // Matches reply-depth-1 through reply-depth-9
+      /^comment-\d+$/,        // Matches comment-123, etc.
+      /^reply-form-/,         // Matches reply-form-123, etc.
+      /^score-/,              // Matches score-good, score-average, score-poor
+      /^category-/            // Matches any category-* class
     ],
     deep: [
       // Deep scan for dynamically generated classes

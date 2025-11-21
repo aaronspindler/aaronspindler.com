@@ -94,18 +94,9 @@ RUN if [ "$SKIP_JS_BUILD" = "0" ]; then npm run build:js; else echo "Skipping JS
 # Copy rest of application code (changes most frequently - keep last!)
 COPY . /code/
 
-# Verify templates are available before CSS build (temporary debugging)
-RUN echo "=== Verifying template availability ===" && \
-    find templates -name "*.html" -type f | wc -l && \
-    echo "templates/*.html files found" && \
-    find blog/templates -name "*.html" -type f | wc -l && \
-    echo "blog/templates/*.html files found" && \
-    ls -la .config/ && \
-    echo "=== Config files verified ==="
-
 # Build CSS with all templates now available
 # PurgeCSS will scan all templates to determine which CSS to keep
-RUN python manage.py build_css --no-purge
+RUN python manage.py build_css
 
 # Collect and optimize static files at build time
 # This ensures all static files are properly hashed and available in the image

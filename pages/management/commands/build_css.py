@@ -158,18 +158,41 @@ class Command(BaseCommand):
 
         output_path = input_path.parent / "combined.purged.css"
 
+        # PurgeCSS v7 has issues with config file when --css and --output are specified
+        # Pass content paths directly as a workaround
+        content_paths = [
+            "templates/**/*.html",
+            "blog/templates/**/*.html",
+            "pages/templates/**/*.html",
+            "accounts/templates/**/*.html",
+            "photos/templates/**/*.html",
+            "feefifofunds/templates/**/*.html",
+            "projects/templates/**/*.html",
+            "utils/templates/**/*.html",
+            "omas/templates/**/*.html",
+            "static/js/**/*.js",
+            "omas/static/**/*.js",
+        ]
+
+        # Build command with content arguments
+        command = [
+            "npx",
+            "purgecss",
+            "--css",
+            str(input_path),
+            "--config",
+            ".config/purgecss.config.js",
+            "--output",
+            str(output_path),
+        ]
+
+        # Add content paths
+        for path in content_paths:
+            command.extend(["--content", path])
+
         try:
             subprocess.run(
-                [
-                    "npx",
-                    "purgecss",
-                    "--css",
-                    str(input_path),
-                    "--config",
-                    ".config/purgecss.config.js",
-                    "--output",
-                    str(output_path),
-                ],
+                command,
                 capture_output=True,
                 text=True,
                 check=True,
