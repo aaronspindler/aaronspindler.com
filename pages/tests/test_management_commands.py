@@ -258,4 +258,4 @@ class BuildCssCommandTest(TestCase):
             css_files = list(Path(self.css_dir).glob("combined.min.css*"))
             gz_files = [f for f in css_files if f.suffix == ".gz"]
 
-            self.assertTrue(len(gz_files) > 0)
+            self.assertGreater(len(gz_files), 0)
