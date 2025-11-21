@@ -122,10 +122,19 @@ def _get_graph_data(request):
         data = json.loads(request.body) if request.body else {}
         operation = data.get("operation", "full_graph")
 
+        def refresh_handler():
+            return build_knowledge_graph(force_refresh=True)
+
+        def post_graph_handler():
+            return _get_post_graph_from_data(data)
+
+        def full_graph_handler():
+            return build_knowledge_graph()
+
         operations = {
-            "refresh": lambda: build_knowledge_graph(force_refresh=True),
-            "post_graph": lambda: _get_post_graph_from_data(data),
-            "full_graph": lambda: build_knowledge_graph(),
+            "refresh": refresh_handler,
+            "post_graph": post_graph_handler,
+            "full_graph": full_graph_handler,
         }
 
         handler = operations.get(operation, operations["full_graph"])
