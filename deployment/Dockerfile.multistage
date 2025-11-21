@@ -170,8 +170,9 @@ CMD ["celery", "--app", "config.celery", "beat", "--loglevel", "info", "--schedu
 FROM runtime-full AS celery-unified
 
 # Run Celery worker with Beat scheduler included (-B flag)
-# This eliminates the need for separate celerybeat service
-CMD ["celery", "--app", "config.celery", "worker", "--beat", "--loglevel", "info", "--concurrency", "200", "-P", "gevent", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+# Note: Using prefork pool (default) because -B doesn't work with gevent
+# Adjust concurrency based on your needs (default is number of CPUs)
+CMD ["celery", "--app", "config.celery", "worker", "--beat", "--loglevel", "info", "--concurrency", "4", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
 
 # =============================================================================
 # Stage 6: Test Image (skips JS build)
