@@ -170,7 +170,7 @@ class ExifExtractor:
                 return f"{int(value)}mm"
             else:
                 return f"{value:.1f}mm"
-        except:
+        except Exception:
             return str(focal_length)
 
     @staticmethod
@@ -185,7 +185,7 @@ class ExifExtractor:
                 value = float(aperture)
 
             return f"f/{value:.1f}"
-        except:
+        except Exception:
             return str(aperture)
 
     @staticmethod
@@ -216,7 +216,7 @@ class ExifExtractor:
                     return f"1/{int(1 / value)}"  # Convert to fraction format
                 else:
                     return f"{value:.1f}s"
-        except:
+        except Exception:
             return str(shutter_speed)
 
     @staticmethod
@@ -273,7 +273,7 @@ class ExifExtractor:
             s = value[2][0] / value[2][1] if value[2][1] != 0 else 0
 
             return d + (m / 60.0) + (s / 3600.0)
-        except:
+        except Exception:
             return 0
 
 
