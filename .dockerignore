@@ -1,0 +1,112 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+.venv
+.env
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Django
+*.log
+*.pot
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+static_root/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.cursor/
+
+# Documentation
+*.md
+docs/
+README.md
+DEPLOYMENT_GUIDE.md
+LICENSE
+
+# Docker (avoid recursive copies)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+captain-definition*
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Testing - tests run in Docker, no need in image
+tests/
+test_*.py
+*_test.py
+coverage.xml
+*.cover
+test_output/
+coverage-*/
+
+# Node modules - already installed via COPY package*.json
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+tmp/
+temp/
+dump.rdb
+nohup.out
+
+# Project-specific
+projects/
+backups/
+feefifofunds/data/*
+
+# Pre-commit
+.pre-commit-config.yaml
+.pre-commit-config.yaml.backup
+
+# Lighthouse
+.lighthouseci/
+
+# Claude Flow generated files
+.claude/settings.local.json
+.mcp.json
+claude-flow.config.json
+.swarm/
+.hive-mind/
+.claude-flow/
+memory/
+coordination/
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+hive-mind-prompt-*.txt

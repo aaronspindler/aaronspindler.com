@@ -9,14 +9,20 @@
     "build:js": "npm run minify:js && npm run compress:js",
     "minify:js": "terser static/js/base-optimized.js -o static/js/base-optimized.min.js -c -m && terser static/js/knowledge_graph.js -o static/js/knowledge_graph.min.js -c -m && terser static/js/search-autocomplete.js -o static/js/search-autocomplete.min.js -c -m && terser omas/static/omas/js/german-translations.js -o omas/static/omas/js/german-translations.min.js -c -m",
     "compress:js": "node scripts/compress-js.js",
-    "build:all": "npm run build:css && npm run build:js"
+    "build:all": "npm run build:css && npm run build:js",
+    "watch:css": "nodemon --watch static/css -e css --exec 'python manage.py build_css --dev'",
+    "watch:js": "nodemon --watch static/js -e js --exec 'npm run build:js'",
+    "watch": "concurrently \"npm run watch:css\" \"npm run watch:js\"",
+    "dev": "concurrently \"npm run watch\" \"python manage.py runserver\""
   },
   "devDependencies": {
     "@lhci/cli": "^0.15.1",
     "autoprefixer": "^10.4.22",
-    "lighthouse": "^13.0.1",
+    "concurrently": "^9.2.1",
     "cssnano": "^7.1.2",
     "cssnano-preset-advanced": "^7.0.10",
+    "lighthouse": "^13.0.1",
+    "nodemon": "^3.1.11",
     "postcss": "^8.4.32",
     "postcss-cli": "^11.0.0",
     "postcss-import": "^16.1.1",

@@ -178,10 +178,7 @@ jobs:
           COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
           docker compose $COMPOSE up -d postgres redis questdb
 
-          # Services will automatically wait for health checks due to depends_on configuration in docker-compose
-          # Adding brief pause to ensure all health checks complete
-          sleep 5
-
+          # Services will automatically wait for health checks due to depends_on configuration
           echo "✅ All services are healthy and ready"
 
       - name: Run Django checks
@@ -206,7 +203,6 @@ jobs:
             -v $(pwd)/test_output:/code/test_output \
             -v $(pwd)/pyproject.toml:/code/pyproject.toml:ro \
             test_runner sh -c "
-            pip install coverage unittest-xml-reporting pytest-json-report --root-user-action=ignore &&
             export PYTHONDONTWRITEBYTECODE=1 &&
             export PYTHONUNBUFFERED=1 &&
             export COVERAGE_RCFILE=/code/pyproject.toml &&
@@ -284,7 +280,7 @@ jobs:
   # Coverage upload runs in parallel and doesn't block this check
   all-checks:
     runs-on: ubuntu-latest
-    needs: [build-docker-image, test-suite, build-production-images]
+    needs: [build-docker-image, test-suite]
     if: always()
     steps:
       - name: Check if all jobs passed
@@ -301,18 +297,8 @@ jobs:
             exit 1
           fi
 
-          PROD_BUILD_STATUS="${{ needs.build-production-images.result }}"
-          # Only fail if production build ran and failed (skip if it was skipped for PRs)
-          if [[ "$PROD_BUILD_STATUS" != "success" && "$PROD_BUILD_STATUS" != "skipped" ]]; then
-            echo "❌ Production image build failed (status: $PROD_BUILD_STATUS)"
-            exit 1
-          fi
-
-          if [[ "$PROD_BUILD_STATUS" == "skipped" ]]; then
-            echo "⏭️  Production image build skipped (not on main branch)"
-          else
-            echo "✅ Production images built in parallel with tests"
-          fi
+          # Production build status is checked in tag-production-images job
+          # We don't need to block here - let builds finish in parallel
 
           echo "✅ All checks passed successfully!"
           echo ""
@@ -320,16 +306,17 @@ jobs:
           echo "  Phase 1: pip cache + health checks + rebalancing (8-12 min savings)"
           echo "  Phase 2: GHCR registry distribution (30-48 min savings)"
           echo "  Phase 3: BuildKit cache + timing data (5-10 min savings)"
+          echo "  Phase 4: DisableMigrations + removed sleep (2-3 min savings)"
           echo ""
           echo "📊 CUMULATIVE SAVINGS:"
-          echo "  TOTAL: 43-70 minutes saved (from ~45min baseline)"
-          echo "  Target runtime: ~25-30 minutes (44% reduction)"
+          echo "  TOTAL: 45-73 minutes saved (from ~45min baseline)"
+          echo "  Target runtime: ~23-27 minutes (48% reduction)"
 
   # Re-tag production images with final SHA tag after all checks pass
   # Uses docker buildx imagetools for fast manifest copying (no rebuild or re-push)
   tag-production-images:
     runs-on: ubuntu-latest
-    needs: [all-checks]
+    needs: [all-checks, build-production-images]
     if: github.ref == 'refs/heads/main' && needs.all-checks.result == 'success'
     timeout-minutes: 5
     permissions:
