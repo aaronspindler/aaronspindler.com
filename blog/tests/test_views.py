@@ -200,8 +200,8 @@ class CommentSubmissionTest(TestCase):
             if hasattr(response, "context") and response.context:
                 if "comment_form" in response.context:
                     form = response.context["comment_form"]
-                    print(f"Form errors: {form.errors}")
-                    print(f"Form is_bound: {form.is_bound}")
+                    print(f"Form errors: {form.errors}")  # noqa: T201
+                    print(f"Form is_bound: {form.is_bound}")  # noqa: T201
                     if form.is_bound:
                         print(f"Form data: {form.data}")
                         print(f"Form cleaned_data: {getattr(form, 'cleaned_data', 'Not cleaned')}")

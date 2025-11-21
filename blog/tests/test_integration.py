@@ -103,7 +103,7 @@ class BlogIntegrationTest(TransactionTestCase):
         child2 = BlogCommentFactory.create_approved_comment(content="Child 2", author=self.staff_user, parent=parent)
 
         # Create grandchild
-        grandchild = BlogCommentFactory.create_approved_comment(content="Grandchild", author=self.user, parent=child1)
+        _grandchild = BlogCommentFactory.create_approved_comment(content="Grandchild", author=self.user, parent=child1)
 
         # Test blog view includes nested structure
         response = self.client.get("/b/tech/0001_test_post/")
@@ -145,7 +145,7 @@ class BlogIntegrationTest(TransactionTestCase):
 
         form_data = MockDataFactory.get_common_form_data()["comment_form"]
         form_data.update({"content": spam_content, "author_name": "Spammer"})
-        response = self.client.post("/b/tech/test_post/comment/", form_data)
+        _response = self.client.post("/b/tech/test_post/comment/", form_data)
 
         # Form should reject due to too many URLs
         comments = BlogComment.objects.filter(content=spam_content)

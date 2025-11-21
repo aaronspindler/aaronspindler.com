@@ -88,7 +88,7 @@ class PhotoBulkUploadForm(forms.Form):
                         raise ValidationError(f"{filename}: Exact duplicate of '{duplicate}'")
 
                 if duplicates["similar_images"]:
-                    similar_count = len(duplicates["similar_images"])
+                    _similar_count = len(duplicates["similar_images"])
 
                 photo = Photo(
                     image=image_file,
