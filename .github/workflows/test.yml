@@ -203,6 +203,7 @@ jobs:
             -v $(pwd)/test_output:/code/test_output \
             -v $(pwd)/pyproject.toml:/code/pyproject.toml:ro \
             test_runner sh -c "
+            pip install unittest-xml-reporting pytest-json-report --root-user-action=ignore &&
             export PYTHONDONTWRITEBYTECODE=1 &&
             export PYTHONUNBUFFERED=1 &&
             export COVERAGE_RCFILE=/code/pyproject.toml &&
