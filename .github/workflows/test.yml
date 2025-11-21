@@ -97,11 +97,13 @@ jobs:
           DOCKER_BUILDKIT: 1
           BUILDKIT_INLINE_CACHE: 1
         with:
-          files: deployment/docker-bake.hcl
+          files: deployment/docker-bake.multistage.hcl
           targets: test
           push: true
           set: |
+            *.cache-from=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/cache:test
             *.cache-from=type=gha,scope=buildx-test-${{ env.DOCKER_CACHE_VERSION }}
+            *.cache-to=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/cache:test,mode=max
             *.cache-to=type=gha,mode=max,scope=buildx-test-${{ env.DOCKER_CACHE_VERSION }}
 
   # Build production images in parallel with tests (push with temp tag)
@@ -140,11 +142,13 @@ jobs:
           DOCKER_BUILDKIT: 1
           BUILDKIT_INLINE_CACHE: 1
         with:
-          files: deployment/docker-bake.hcl
-          targets: production
+          files: deployment/docker-bake.multistage.hcl
+          targets: essential
           push: true
           set: |
+            *.cache-from=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/cache:prod
             *.cache-from=type=gha,scope=buildx-prod-${{ env.DOCKER_CACHE_VERSION }}
+            *.cache-to=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/cache:prod,mode=max
             *.cache-to=type=gha,mode=max,scope=buildx-prod-${{ env.DOCKER_CACHE_VERSION }}
           provenance: false
           sbom: false
@@ -334,17 +338,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Re-tag all production images with commit SHA
+      - name: Re-tag essential production images with commit SHA
         run: |
-          # Re-tag all images in parallel for faster completion
-          # Note: Flower (monitoring tool) could be moved to separate workflow if build time optimization needed (~20-30s savings)
-          for service in web celery celerybeat flower; do
+          # Re-tag only essential images (web + celery-unified) for faster completion
+          for service in web celery; do
             docker buildx imagetools create \
               --tag ${{ env.REGISTRY }}/${{ github.repository }}-${service}:${{ github.sha }} \
               ${{ env.REGISTRY }}/${{ github.repository }}-${service}:build-${{ github.run_id }} &
           done
           wait
-          echo "✅ All images re-tagged with commit SHA"
+          echo "✅ Essential images re-tagged with commit SHA"
 
   # Cleanup old test images from GHCR to avoid storage bloat
   # Keeps only the last 10 test images (sufficient for debugging recent runs)
