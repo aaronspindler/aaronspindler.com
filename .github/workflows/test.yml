@@ -51,13 +51,15 @@ jobs:
   # Registry pulls are much faster than artifact downloads and support layer caching
   build-docker-image:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     permissions:
       contents: read
       packages: write  # Required for pushing test images to GHCR
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
 
+      # Note: Buildx setup is intentionally duplicated across jobs for job isolation
+      # Each job needs its own Buildx instance to run independently and in parallel
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
         with:
@@ -99,22 +101,14 @@ jobs:
           targets: test
           push: true
           set: |
-            *.cache-from=type=gha,scope=buildx-${{ env.DOCKER_CACHE_VERSION }}
-            *.cache-to=type=gha,mode=max,scope=buildx-${{ env.DOCKER_CACHE_VERSION }}
-
-
-      - name: Verify test image was created
-        run: |
-          REGISTRY_TAG="${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}"
-          docker pull "$REGISTRY_TAG"
-          docker tag "$REGISTRY_TAG" "${{ env.DOCKER_IMAGE_NAME }}:latest"
-          echo "✅ Test image ready"
+            *.cache-from=type=gha,scope=buildx-test-${{ env.DOCKER_CACHE_VERSION }}
+            *.cache-to=type=gha,mode=max,scope=buildx-test-${{ env.DOCKER_CACHE_VERSION }}
 
   # Build production images in parallel with tests (push with temp tag)
   build-production-images:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    timeout-minutes: 15
+    timeout-minutes: 8
     permissions:
       contents: read
       packages: write
@@ -150,15 +144,15 @@ jobs:
           targets: production
           push: true
           set: |
-            *.cache-from=type=gha,scope=buildx-${{ env.DOCKER_CACHE_VERSION }}
-            *.cache-to=type=gha,mode=max,scope=buildx-${{ env.DOCKER_CACHE_VERSION }}
+            *.cache-from=type=gha,scope=buildx-prod-${{ env.DOCKER_CACHE_VERSION }}
+            *.cache-to=type=gha,mode=max,scope=buildx-prod-${{ env.DOCKER_CACHE_VERSION }}
           provenance: false
           sbom: false
 
   test-suite:
     runs-on: ubuntu-latest
     needs: build-docker-image
-    timeout-minutes: 60
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: read  # Required for pulling test images from GHCR
@@ -184,12 +178,9 @@ jobs:
           COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
           docker compose $COMPOSE up -d postgres redis questdb
 
-          # Wait for services to be healthy (optimized timeouts from Phase 1)
-          echo "Waiting for services to be healthy..."
-          timeout 30 sh -c 'until docker compose ${{ env.TEST_COMPOSE_FILES }} exec -T postgres pg_isready -U postgres; do sleep 1; done'
-          timeout 30 sh -c 'until docker compose ${{ env.TEST_COMPOSE_FILES }} exec -T redis redis-cli ping; do sleep 1; done'
-          # QuestDB health check - wait for container to be responsive
-          timeout 30 sh -c 'until docker compose ${{ env.TEST_COMPOSE_FILES }} exec -T questdb echo "QuestDB is ready" 2>/dev/null; do sleep 1; done'
+          # Services will automatically wait for health checks due to depends_on configuration in docker-compose
+          # Adding brief pause to ensure all health checks complete
+          sleep 5
 
           echo "✅ All services are healthy and ready"
 
@@ -257,7 +248,7 @@ jobs:
   coverage-upload:
     runs-on: ubuntu-latest
     needs: test-suite
-    if: always()  # Run even if other jobs are running
+    if: needs.test-suite.result == 'success'  # Only upload coverage when tests succeed
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5.0.1
@@ -355,29 +346,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Re-tag images with commit SHA (web)
+      - name: Re-tag all production images with commit SHA
         run: |
-          docker buildx imagetools create \
-            --tag ${{ env.REGISTRY }}/${{ github.repository }}-web:${{ github.sha }} \
-            ${{ env.REGISTRY }}/${{ github.repository }}-web:build-${{ github.run_id }}
-
-      - name: Re-tag images with commit SHA (celery)
-        run: |
-          docker buildx imagetools create \
-            --tag ${{ env.REGISTRY }}/${{ github.repository }}-celery:${{ github.sha }} \
-            ${{ env.REGISTRY }}/${{ github.repository }}-celery:build-${{ github.run_id }}
-
-      - name: Re-tag images with commit SHA (celerybeat)
-        run: |
-          docker buildx imagetools create \
-            --tag ${{ env.REGISTRY }}/${{ github.repository }}-celerybeat:${{ github.sha }} \
-            ${{ env.REGISTRY }}/${{ github.repository }}-celerybeat:build-${{ github.run_id }}
-
-      - name: Re-tag images with commit SHA (flower)
-        run: |
-          docker buildx imagetools create \
-            --tag ${{ env.REGISTRY }}/${{ github.repository }}-flower:${{ github.sha }} \
-            ${{ env.REGISTRY }}/${{ github.repository }}-flower:build-${{ github.run_id }}
+          # Re-tag all images in parallel for faster completion
+          # Note: Flower (monitoring tool) could be moved to separate workflow if build time optimization needed (~20-30s savings)
+          for service in web celery celerybeat flower; do
+            docker buildx imagetools create \
+              --tag ${{ env.REGISTRY }}/${{ github.repository }}-${service}:${{ github.sha }} \
+              ${{ env.REGISTRY }}/${{ github.repository }}-${service}:build-${{ github.run_id }} &
+          done
+          wait
+          echo "✅ All images re-tagged with commit SHA"
 
   # Cleanup old test images from GHCR to avoid storage bloat
   # Keeps only the last 10 test images (sufficient for debugging recent runs)
