@@ -10,20 +10,12 @@ import os
 
 from django.conf import settings
 from django.core.management import call_command
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from PIL import Image
 
 
 class Command(BaseCommand):
     help = "Collect static files and optimize images"
-
-    def add_arguments(self, parser):
-        parser.add_argument(
-            "--verbosity",
-            type=int,
-            default=1,
-            help="Verbosity level (0=minimal, 1=normal, 2=verbose)",
-        )
 
     def handle(self, *args, **options):
         verbosity = options.get("verbosity", 1)
@@ -63,6 +55,7 @@ class Command(BaseCommand):
         static_root = settings.STATIC_ROOT
         optimized_count = 0
         error_count = 0
+        failed_files = []
 
         for root, _dirs, files in os.walk(static_root):
             for file in files:
@@ -73,10 +66,15 @@ class Command(BaseCommand):
                         optimized_count += 1
                     except Exception as e:
                         error_count += 1
-                        self.stderr.write(self.style.WARNING(f"Failed to optimize {file_path}: {str(e)}"))
+                        failed_files.append(file_path)
+                        self.stderr.write(self.style.ERROR(f"Failed to optimize {file_path}: {str(e)}"))
 
         if error_count > 0:
-            self.stdout.write(self.style.WARNING(f"Optimized {optimized_count} images with {error_count} errors"))
+            error_msg = f"Image optimization failed for {error_count} files:\n" + "\n".join(
+                f"  - {f}" for f in failed_files
+            )
+            self.stderr.write(self.style.ERROR(error_msg))
+            raise CommandError(f"Failed to optimize {error_count} images. See errors above.")
         else:
             self.stdout.write(
                 self.style.SUCCESS(f"Static files collected and {optimized_count} images optimized successfully!")
