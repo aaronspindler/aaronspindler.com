@@ -85,8 +85,8 @@ class MassiveDataSource:
         except Exception as e:
             error_msg = str(e).lower()
             if "not found" in error_msg or "404" in error_msg:
-                raise DataNotFoundError(f"Ticker '{ticker}' not found on Massive.com")
-            raise DataSourceError(f"Failed to fetch data from Massive.com: {str(e)}")
+                raise DataNotFoundError(f"Ticker '{ticker}' not found on Massive.com") from e
+            raise DataSourceError(f"Failed to fetch data from Massive.com: {str(e)}") from e
 
     def fetch_grouped_daily(self, date: date) -> dict:
         """
@@ -126,7 +126,7 @@ class MassiveDataSource:
             return results
 
         except Exception as e:
-            raise DataSourceError(f"Failed to fetch grouped daily data: {str(e)}")
+            raise DataSourceError(f"Failed to fetch grouped daily data: {str(e)}") from e
 
     def _transform_result(self, ticker: str, agg) -> dict:
         """Transform Polygon.io Agg object to standard format."""

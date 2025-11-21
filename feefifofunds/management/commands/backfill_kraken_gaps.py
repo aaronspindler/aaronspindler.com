@@ -578,7 +578,7 @@ class Command(BaseCommand):
 
     def _export_unfillable_gaps(self, gaps: List[Gap], filepath: str):
         """Export unfillable gaps to CSV."""
-        with open(filepath, "w", newline="") as csvfile:
+        with open(filepath, "w", encoding="utf-8", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(
                 [

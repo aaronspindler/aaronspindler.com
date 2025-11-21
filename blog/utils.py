@@ -49,7 +49,7 @@ def get_all_blog_posts():
     blog_posts = []
     blog_templates_path = os.path.join(settings.BASE_DIR, "blog", "templates", "blog")
 
-    for root, dirs, files in os.walk(blog_templates_path):
+    for root, _dirs, files in os.walk(blog_templates_path):
         rel_path = os.path.relpath(root, blog_templates_path)
 
         # Skip root level - all posts must be in categories

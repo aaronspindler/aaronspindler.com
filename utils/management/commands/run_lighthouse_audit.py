@@ -62,7 +62,7 @@ class Command(BaseCommand):
             if os.path.exists(chrome_path):
                 try:
                     chrome_version = subprocess.run(
-                        [chrome_path, "--version"], capture_output=True, text=True, timeout=5
+                        [chrome_path, "--version"], check=False, capture_output=True, text=True, timeout=5
                     )
                     self.stdout.write(f"Chrome found: {chrome_version.stdout.strip()}")
                 except Exception:
@@ -71,7 +71,7 @@ class Command(BaseCommand):
                 logger.warning(f"Chrome binary not found at {chrome_path}")
 
             # Create a temporary file for the JSON output
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp_file:
+            with tempfile.NamedTemporaryFile(encoding="utf-8", mode="w", suffix=".json", delete=False) as tmp_file:
                 output_path = tmp_file.name
 
             # Chrome flags for containerized environments (single string)
@@ -146,7 +146,7 @@ class Command(BaseCommand):
                     raise CommandError("No Lighthouse report found in output directory")
 
                 # Read the first JSON report
-                with open(json_files[0], "r") as f:
+                with open(json_files[0], "r", encoding="utf-8") as f:
                     report = json.load(f)
 
                 # Clean up the output directory
@@ -158,7 +158,7 @@ class Command(BaseCommand):
                 self.stdout.write("Successfully ran audit using native lighthouse")
 
                 # Read the JSON report from native lighthouse
-                with open(output_path, "r") as f:
+                with open(output_path, "r", encoding="utf-8") as f:
                     report = json.load(f)
 
                 # Clean up the temp file
@@ -203,14 +203,14 @@ class Command(BaseCommand):
                 )
             )
 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             logger.error("Lighthouse audit timed out after 5 minutes")
-            raise CommandError("Lighthouse audit timed out after 5 minutes")
+            raise CommandError("Lighthouse audit timed out after 5 minutes") from e
         except FileNotFoundError as e:
             logger.error(f"Command not found: {e}")
             raise CommandError(
                 "Unable to run Lighthouse. Make sure @lhci/cli is installed:\n  npm install --save-dev @lhci/cli"
-            )
+            ) from e
         except Exception as e:
             logger.error(f"Unexpected error during Lighthouse audit: {e}")
-            raise CommandError(f"Unexpected error: {e}")
+            raise CommandError(f"Unexpected error: {e}") from e

@@ -56,9 +56,9 @@ class BlogTasksTest(TestCase):
     @patch("django.core.management.call_command")
     def test_generate_knowledge_graph_screenshot_failure(self, mock_call_command):
         """Test screenshot generation task handles errors."""
-        mock_call_command.side_effect = Exception("Screenshot error")
+        mock_call_command.side_effect = RuntimeError("Screenshot error")
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(RuntimeError):
             generate_knowledge_graph_screenshot()
 
 

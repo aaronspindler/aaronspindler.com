@@ -25,7 +25,7 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
             logger.debug("RequestFingerprintMiddleware initialized")
         except Exception as e:
             logger.error(f"Failed to initialize RequestFingerprintMiddleware: {e}")
-            raise MiddlewareNotUsed(f"RequestFingerprintMiddleware disabled: {e}")
+            raise MiddlewareNotUsed(f"RequestFingerprintMiddleware disabled: {e}") from e
 
     def process_request(self, request):
         """

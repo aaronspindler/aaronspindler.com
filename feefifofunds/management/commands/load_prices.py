@@ -52,8 +52,10 @@ class Command(BaseCommand):
 
         try:
             asset = Asset.objects.get(ticker=ticker)
-        except Asset.DoesNotExist:
-            raise CommandError(f"Asset '{ticker}' not found. Create it first via Django admin or create_asset command.")
+        except Asset.DoesNotExist as e:
+            raise CommandError(
+                f"Asset '{ticker}' not found. Create it first via Django admin or create_asset command."
+            ) from e
 
         end_date = date.today()
         start_date = end_date - timedelta(days=days)
@@ -83,7 +85,7 @@ class Command(BaseCommand):
         try:
             price_data = self._fetch_price_data(ticker, source, start_date, end_date)
         except DataSourceError as e:
-            raise CommandError(f"Failed to fetch data: {str(e)}")
+            raise CommandError(f"Failed to fetch data: {str(e)}") from e
 
         if not price_data:
             self.stdout.write(self.style.WARNING(f"No price data found for {ticker} from {source}"))

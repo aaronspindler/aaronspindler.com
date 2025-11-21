@@ -162,7 +162,7 @@ class SequentialIngestor:
             return True
 
         # More efficient: check first two lines without loading entire file
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             if not f.readline():  # Empty file
                 return True
             if not f.readline():  # Only header line
@@ -227,7 +227,7 @@ class SequentialIngestor:
 
         try:
             with Sender.from_conf(self.ilp_conf) as sender:
-                with open(filepath, "r", buffering=8192) as csvfile:
+                with open(filepath, "r", encoding="utf-8", buffering=8192) as csvfile:
                     # Check and skip header if present
                     first_line = csvfile.readline()
                     has_header = self._is_header_line(first_line)

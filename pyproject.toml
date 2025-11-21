@@ -17,16 +17,28 @@ target-version = "py313"
 [tool.ruff.lint]
 # Enable commonly used rules
 select = [
-    "E",   # pycodestyle errors
-    "F",   # pyflakes
-    "W",   # pycodestyle warnings
-    "I",   # isort (import sorting)
+    "E",    # pycodestyle errors (includes E722 - bare except)
+    "F",    # pyflakes (includes F841 - unused variables)
+    "W",    # pycodestyle warnings
+    "I",    # isort (import sorting)
+    "B",    # flake8-bugbear (general code quality)
+    "PLW",  # pylint warnings (includes PLW0108 - unnecessary lambda, requires --preview)
+    "PT",   # flake8-pytest-style (test quality checks)
 ]
 
 # Ignore specific rules
 ignore = [
     "E501",  # Line too long (handled by ruff format)
+    "PT009", # Allow unittest-style assertions (Django uses unittest.TestCase pattern)
+    "PT027", # Allow unittest-style assertRaises (Django uses unittest.TestCase pattern)
 ]
+
+# Auto-fix capable rules
+fixable = ["ALL"]
+unfixable = []
+
+# Enable preview rules (required for some PLW rules like PLW0108)
+preview = true
 
 [tool.ruff.format]
 # Ruff's formatter settings (Black-compatible)
@@ -35,9 +47,10 @@ indent-style = "space"
 line-ending = "auto"
 
 [tool.ruff.lint.per-file-ignores]
-# Allow star imports and unused variables in test files - they're used for test discovery
-"**/tests/*.py" = ["F403", "F405", "F841"]
-"**/test_*.py" = ["F403", "F405", "F841"]
+# Allow star imports in test files - they're used for test discovery
+# Note: F841 (unused variables) removed - these should be caught and prefixed with _
+"**/tests/*.py" = ["F403", "F405"]
+"**/test_*.py" = ["F403", "F405"]
 
 # Allow unused imports in __init__.py files
 "**/__init__.py" = ["F401"]

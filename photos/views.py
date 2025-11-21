@@ -54,6 +54,6 @@ def download_photo(request, slug, photo_id):
 
         except requests.RequestException as e:
             print(f"Error downloading photo from S3: {e}")
-            raise Http404("Error accessing photo file from S3")
+            raise Http404("Error accessing photo file from S3") from None
 
     raise Http404("Photo has no image file")

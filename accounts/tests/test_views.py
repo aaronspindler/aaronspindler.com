@@ -35,9 +35,9 @@ class SignupDisabledViewTest(TestCase):
         request = self.factory.get("/accounts/signup/")
 
         # Add message storage to request
-        setattr(request, "session", "session")
+        request.session = "session"
         messages = FallbackStorage(request)
-        setattr(request, "_messages", messages)
+        request._messages = messages
 
         response = signup_disabled(request)
 

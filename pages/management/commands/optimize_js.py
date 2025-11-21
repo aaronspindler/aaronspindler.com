@@ -37,6 +37,7 @@ class Command(BaseCommand):
                 # Run npm minification
                 result = subprocess.run(
                     ["npm", "run", "minify:js"],
+                    check=False,
                     capture_output=True,
                     text=True,
                     cwd=settings.BASE_DIR,
@@ -55,6 +56,7 @@ class Command(BaseCommand):
                 # Run compression
                 result = subprocess.run(
                     ["npm", "run", "compress:js"],
+                    check=False,
                     capture_output=True,
                     text=True,
                     cwd=settings.BASE_DIR,

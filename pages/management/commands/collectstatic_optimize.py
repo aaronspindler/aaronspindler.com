@@ -22,7 +22,7 @@ class Command(BaseCommand):
 
         self.stdout.write("Optimizing images...")
         static_root = settings.STATIC_ROOT
-        for root, dirs, files in os.walk(static_root):
+        for root, _dirs, files in os.walk(static_root):
             for file in files:
                 if file.lower().endswith((".png", ".jpg", ".jpeg", ".gif")):
                     file_path = os.path.join(root, file)
@@ -42,11 +42,11 @@ class Command(BaseCommand):
                 original_size = os.path.getsize(file_path)
 
                 if file_path.lower().endswith((".jpg", ".jpeg")):
-                    img = img.convert("RGB")
-                    img.save(file_path, optimize=True, quality=80)
+                    converted_img = img.convert("RGB")
+                    converted_img.save(file_path, optimize=True, quality=80)
                 elif file_path.lower().endswith(".png"):
-                    img = img.convert("RGBA")
-                    img.save(file_path, optimize=True, compress_level=9)
+                    converted_img = img.convert("RGBA")
+                    converted_img.save(file_path, optimize=True, compress_level=9)
                 elif file_path.lower().endswith(".gif"):
                     img.save(file_path, optimize=True)
 

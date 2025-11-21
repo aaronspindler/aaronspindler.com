@@ -468,7 +468,7 @@ class PhotoAdmin(admin.ModelAdmin):
 
         # Report duplicates
         duplicate_count = 0
-        for file_hash, photos in hash_groups.items():
+        for _file_hash, photos in hash_groups.items():
             if len(photos) > 1:
                 duplicate_count += 1
                 photos_str = ", ".join([f"#{p.pk}" for p in photos])

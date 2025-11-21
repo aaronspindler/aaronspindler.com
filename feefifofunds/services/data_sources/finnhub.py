@@ -68,7 +68,7 @@ class FinnhubDataSource:
         except DataNotFoundError:
             raise
         except Exception as e:
-            raise DataSourceError(f"Failed to fetch data from Finnhub: {str(e)}")
+            raise DataSourceError(f"Failed to fetch data from Finnhub: {str(e)}") from e
 
     def _transform_results(self, ticker: str, data: dict) -> List[dict]:
         """Transform Finnhub response to standard format."""

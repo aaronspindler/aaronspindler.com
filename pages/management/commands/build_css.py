@@ -91,7 +91,7 @@ class Command(BaseCommand):
             "fast-font.css",
         ]
 
-        with open(combined_path, "w") as combined_file:
+        with open(combined_path, "w", encoding="utf-8") as combined_file:
             for css_file in css_files:
                 file_path = static_dir / css_file
                 if file_path.exists():

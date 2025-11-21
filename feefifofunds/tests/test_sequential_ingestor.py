@@ -49,7 +49,7 @@ class SequentialIngestorUnitTest(TestCase):
         self.assertEqual(actual_count, expected_count, message)
 
         # Verify files are tuples of (filepath, file_type, ticker)
-        for filepath, file_type, ticker in files:
+        for filepath, file_type, _ticker in files:
             actual_file_type = file_type
             expected_file_type = "ohlcv"
             message = f"File type is {actual_file_type}, expected {expected_file_type}"

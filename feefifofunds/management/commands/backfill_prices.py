@@ -145,8 +145,8 @@ class Command(BaseCommand):
             ticker = options["ticker"].upper()
             try:
                 assets = [Asset.objects.get(ticker=ticker)]
-            except Asset.DoesNotExist:
-                raise CommandError(f"Asset '{ticker}' not found")
+            except Asset.DoesNotExist as e:
+                raise CommandError(f"Asset '{ticker}' not found") from e
 
         dry_run_label = " [DRY RUN]" if dry_run else ""
         self.stdout.write(f"📅 {start_date} → {end_date}{dry_run_label}\n")
@@ -260,7 +260,7 @@ class Command(BaseCommand):
         try:
             data_source = MassiveDataSource()
         except DataSourceError as e:
-            raise CommandError(f"Failed to initialize data source: {str(e)}")
+            raise CommandError(f"Failed to initialize data source: {str(e)}") from e
 
         total_created = 0
         total_updated = 0

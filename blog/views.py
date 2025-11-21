@@ -65,7 +65,7 @@ def render_blog_template(request, category, template_name):
         # Handle both template not found and other errors
         from django.http import Http404
 
-        raise Http404("Blog post not found")
+        raise Http404("Blog post not found") from None
 
 
 @require_http_methods(["GET", "POST"])
@@ -261,7 +261,7 @@ def submit_comment(request, category, template_name):
         # If blog template doesn't exist, return 404
         from django.http import Http404
 
-        raise Http404("Blog post not found")
+        raise Http404("Blog post not found") from None
 
 
 def reply_to_comment(request, comment_id):

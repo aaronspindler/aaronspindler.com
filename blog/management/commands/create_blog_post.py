@@ -54,7 +54,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Blog number: {next_number:04d}"))
 
         except Exception as e:
-            raise CommandError(f"Error creating blog post: {e}")
+            raise CommandError(f"Error creating blog post: {e}") from e
 
     def _get_next_blog_number(self):
         """
@@ -131,7 +131,7 @@ class Command(BaseCommand):
         template_content = self._get_template_content(title)
 
         # Write the file
-        with open(file_path, "w") as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(template_content)
 
         return file_path

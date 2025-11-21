@@ -119,7 +119,7 @@ class DraftsSitemap(Sitemap):
         template_dir = os.path.join(settings.BASE_DIR, "blog", "templates", "drafts")
 
         if os.path.exists(template_dir):
-            for root, dirs, files in os.walk(template_dir):
+            for root, _dirs, files in os.walk(template_dir):
                 for filename in files:
                     if filename.endswith(".html"):
                         # Get relative path from drafts directory

@@ -144,7 +144,7 @@ class BuildCssCommandTest(TestCase):
 
         # Create test CSS files
         for filename in ["base.css", "theme-toggle.css"]:
-            Path(os.path.join(self.css_dir, filename)).write_text("body { color: red; }")
+            Path(os.path.join(self.css_dir, filename)).write_text("body { color: red; }", encoding="utf-8")
 
         # Create the expected output files that PostCSS would create
         processed_css = Path(self.css_dir) / "combined.processed.css"
@@ -169,7 +169,7 @@ class BuildCssCommandTest(TestCase):
         mock_run.return_value = MagicMock(returncode=0)
 
         # Create test CSS files
-        Path(os.path.join(self.css_dir, "base.css")).write_text("body { }")
+        Path(os.path.join(self.css_dir, "base.css")).write_text("body { }", encoding="utf-8")
 
         # Create the expected output files that PostCSS would create
         processed_css = Path(self.css_dir) / "combined.processed.css"
@@ -193,7 +193,7 @@ class BuildCssCommandTest(TestCase):
         # Create test CSS content
         css_content = "body { margin: 10px; color: #ffffff; }"
         css_file = os.path.join(self.css_dir, "base.css")
-        Path(css_file).write_text(css_content)
+        Path(css_file).write_text(css_content, encoding="utf-8")
 
         # Create the expected output files that PostCSS would create
         processed_css = Path(self.css_dir) / "combined.processed.css"
@@ -214,7 +214,7 @@ class BuildCssCommandTest(TestCase):
             self.assertIn("Combining CSS files", output)
 
             # Verify source file remains unchanged
-            source_content = Path(css_file).read_text()
+            source_content = Path(css_file).read_text(encoding="utf-8")
             self.assertEqual(source_content.strip(), css_content.strip())
 
     @patch("pages.management.commands.build_css.settings")
@@ -226,7 +226,7 @@ class BuildCssCommandTest(TestCase):
         mock_settings.BASE_DIR = self.temp_dir
         mock_run.side_effect = subprocess.CalledProcessError(1, "postcss", output="", stderr="PostCSS failed")
 
-        Path(os.path.join(self.css_dir, "base.css")).write_text("body { }")
+        Path(os.path.join(self.css_dir, "base.css")).write_text("body { }", encoding="utf-8")
 
         out = StringIO()
         # Should not raise exception
@@ -240,7 +240,7 @@ class BuildCssCommandTest(TestCase):
         """Test CSS compression (gzip/brotli)."""
         mock_settings.BASE_DIR = self.temp_dir
 
-        Path(os.path.join(self.css_dir, "base.css")).write_text("body { color: red; }")
+        Path(os.path.join(self.css_dir, "base.css")).write_text("body { color: red; }", encoding="utf-8")
 
         # Create the expected output files that PostCSS would create
         processed_css = Path(self.css_dir) / "combined.processed.css"

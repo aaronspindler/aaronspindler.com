@@ -95,14 +95,14 @@ class BaseDataSource(ABC):
                 response.raise_for_status()
                 return response.json()
 
-            except requests.exceptions.Timeout:
+            except requests.exceptions.Timeout as e:
                 if attempt == max_retries - 1:
-                    raise DataSourceError(f"Request timeout after {max_retries} attempts")
+                    raise DataSourceError(f"Request timeout after {max_retries} attempts") from e
                 time.sleep(2**attempt)
 
             except requests.exceptions.RequestException as e:
                 if attempt == max_retries - 1:
-                    raise DataSourceError(f"Request failed: {str(e)}")
+                    raise DataSourceError(f"Request failed: {str(e)}") from e
                 time.sleep(2**attempt)
 
         raise DataSourceError("Max retries exceeded")

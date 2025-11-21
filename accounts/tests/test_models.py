@@ -58,7 +58,9 @@ class CustomUserModelTest(TestCase):
 
     def test_duplicate_username(self):
         """Test that duplicate usernames are not allowed."""
-        with self.assertRaises(Exception):
+        from django.db import IntegrityError
+
+        with self.assertRaises(IntegrityError):
             UserFactory.create_user(
                 username=self.user_data["username"],  # Same as existing user
                 email="different@example.com",

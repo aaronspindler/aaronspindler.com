@@ -196,10 +196,12 @@ class CommentVoteModelTest(TestCase):
 
     def test_vote_uniqueness(self):
         """Test that a user can only vote once per comment."""
+        from django.db import IntegrityError
+
         CommentVote.objects.create(comment=self.comment, user=self.user1, vote_type="upvote")
 
         # Try to create another vote from same user
-        with self.assertRaises(Exception):
+        with self.assertRaises(IntegrityError):
             CommentVote.objects.create(comment=self.comment, user=self.user1, vote_type="downvote")
 
     def test_vote_count_updates(self):

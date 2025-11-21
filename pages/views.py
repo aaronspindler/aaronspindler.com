@@ -50,7 +50,7 @@ def robotstxt(request):
     """Serve robots.txt from static file."""
     robots_path = os.path.join(settings.BASE_DIR, "static", "robots.txt")
 
-    with open(robots_path, "r") as f:
+    with open(robots_path, "r", encoding="utf-8") as f:
         content = f.read()
     return HttpResponse(content, content_type="text/plain")
 
@@ -73,7 +73,7 @@ def resume(request):
         return response
     except Exception as e:
         logger.error(f"Error serving resume file: {e}")
-        raise Http404("Error serving resume")
+        raise Http404("Error serving resume") from None
 
 
 def home(request):
