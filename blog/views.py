@@ -75,23 +75,38 @@ def knowledge_graph_api(request):
     try:
         graph_data = _get_graph_data(request)
 
+        # Ensure graph_data doesn't contain any exception information
+        # Sanitize the data structure to prevent stack trace exposure
+        sanitized_data = {
+            "nodes": graph_data.get("nodes", []),
+            "edges": graph_data.get("edges", []),
+            "metrics": graph_data.get("metrics", {}),
+        }
+        # Only include errors if they're safe, generic messages
+        if "errors" in graph_data:
+            sanitized_data["errors"] = [
+                str(err) if isinstance(err, str) else "An error occurred" for err in graph_data.get("errors", [])
+            ]
+
         response_data = {
             "status": "success",
-            "data": graph_data,
+            "data": sanitized_data,
             "metadata": {
-                "nodes_count": len(graph_data.get("nodes", [])),
-                "edges_count": len(graph_data.get("edges", [])),
-                "has_errors": bool(graph_data.get("errors", [])),
+                "nodes_count": len(sanitized_data.get("nodes", [])),
+                "edges_count": len(sanitized_data.get("edges", [])),
+                "has_errors": bool(sanitized_data.get("errors", [])),
             },
         }
 
         return JsonResponse(response_data)
 
-    except ValueError as e:
-        logger.error(f"ValueError in knowledge graph API: {str(e)}")
+    except ValueError:
+        # Log error without exposing details to user
+        logger.error("ValueError in knowledge graph API", exc_info=False)
         return JsonResponse({"error": "Invalid request data"}, status=400)
-    except Exception as e:
-        logger.error(f"Error in knowledge graph API: {str(e)}", exc_info=True)
+    except Exception:
+        # Log full error details server-side only, don't expose to client
+        logger.error("Error in knowledge graph API", exc_info=True)
         return JsonResponse(
             {
                 "status": "error",
