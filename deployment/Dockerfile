@@ -105,7 +105,7 @@ RUN echo "=== Verifying template availability ===" && \
 
 # Build CSS with all templates now available
 # PurgeCSS will scan all templates to determine which CSS to keep
-RUN python manage.py build_css
+RUN python manage.py build_css --no-purge
 
 # Collect and optimize static files at build time
 # This ensures all static files are properly hashed and available in the image
