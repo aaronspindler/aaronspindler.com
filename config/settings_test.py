@@ -173,18 +173,6 @@ PASSWORD_HASHERS = [
 ]
 
 
-# Disable migrations for faster test runs
-# Saves 2-3 minutes per test run by using Django's model-to-schema approach
-class DisableMigrations:
-    def __contains__(self, item):
-        return True
-
-    def __getitem__(self, item):
-        return None
-
-
-MIGRATION_MODULES = DisableMigrations()
-
 # File upload settings for tests
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
