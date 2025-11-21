@@ -83,6 +83,10 @@ RUN chmod +x /docker-entrypoint.sh
 # Copy scripts (needed for JS build)
 COPY scripts/ ./scripts/
 
+# Copy static directories (needed for JS build - terser needs these files)
+COPY static/ ./static/
+COPY omas/static/ ./omas/static/
+
 # Build and optimize JavaScript files (skip during test builds with --build-arg SKIP_JS_BUILD=1)
 ARG SKIP_JS_BUILD=0
 RUN if [ "$SKIP_JS_BUILD" = "0" ]; then npm run build:js; else echo "Skipping JS build for tests"; fi
