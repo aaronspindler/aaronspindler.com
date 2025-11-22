@@ -28,6 +28,8 @@ class Gap:
 
     asset: Asset
     interval_minutes: int
+    quote_currency: str
+    source: str
     start_date: datetime
     end_date: datetime
     missing_candles: int
@@ -84,6 +86,18 @@ class GapDetector:
             queryset = queryset.filter(tier=self.tier_filter)
         return list(queryset)
 
+    def get_asset_interval_combinations(self, asset_id: int) -> List[Tuple[int, str, str]]:
+        """Get all (interval_minutes, quote_currency, source) tuples for an asset from Kraken sources."""
+        query = """
+        SELECT DISTINCT interval_minutes, quote_currency, source
+        FROM assetprice
+        WHERE asset_id = %s AND source IN ('kraken', 'kraken_api')
+        ORDER BY interval_minutes, quote_currency, source
+        """
+        with connections["questdb"].cursor() as cursor:
+            cursor.execute(query, [asset_id])
+            return [(row[0], row[1], row[2]) for row in cursor.fetchall()]
+
     def get_asset_intervals(self, asset_id: int) -> List[int]:
         """Get all intervals that have data for this asset."""
         query = """
@@ -96,42 +110,46 @@ class GapDetector:
             cursor.execute(query, [asset_id])
             return [row[0] for row in cursor.fetchall()]
 
-    def get_date_range(self, asset_id: int, interval_minutes: int) -> Optional[Tuple[datetime, datetime]]:
-        """Get min and max timestamps for an asset/interval combination."""
+    def get_date_range(
+        self, asset_id: int, interval_minutes: int, quote_currency: str, source: str
+    ) -> Optional[Tuple[datetime, datetime]]:
+        """Get min and max timestamps for an asset/interval/quote_currency/source combination."""
         query = """
         SELECT MIN(time), MAX(time)
         FROM assetprice
-        WHERE asset_id = %s AND interval_minutes = %s
+        WHERE asset_id = %s AND interval_minutes = %s AND quote_currency = %s AND source = %s
         """
         with connections["questdb"].cursor() as cursor:
-            cursor.execute(query, [asset_id, interval_minutes])
+            cursor.execute(query, [asset_id, interval_minutes, quote_currency, source])
             result = cursor.fetchone()
             if result and result[0] and result[1]:
                 return result[0], result[1]
         return None
 
-    def get_existing_dates(self, asset_id: int, interval_minutes: int) -> set:
-        """Get all distinct dates that have data."""
+    def get_existing_dates(self, asset_id: int, interval_minutes: int, quote_currency: str, source: str) -> set:
+        """Get all distinct dates that have data for an asset/interval/quote_currency/source combination."""
         query = """
         SELECT DISTINCT DATE(time) as date
         FROM assetprice
-        WHERE asset_id = %s AND interval_minutes = %s
+        WHERE asset_id = %s AND interval_minutes = %s AND quote_currency = %s AND source = %s
         ORDER BY date
         """
         with connections["questdb"].cursor() as cursor:
-            cursor.execute(query, [asset_id, interval_minutes])
+            cursor.execute(query, [asset_id, interval_minutes, quote_currency, source])
             return {row[0] for row in cursor.fetchall()}
 
-    def get_records_per_day(self, asset_id: int, interval_minutes: int) -> Dict[date, int]:
-        """Get record counts per day."""
+    def get_records_per_day(
+        self, asset_id: int, interval_minutes: int, quote_currency: str, source: str
+    ) -> Dict[date, int]:
+        """Get record counts per day for an asset/interval/quote_currency/source combination."""
         query = """
         SELECT DATE(time) as date, COUNT(*) as count
         FROM assetprice
-        WHERE asset_id = %s AND interval_minutes = %s
+        WHERE asset_id = %s AND interval_minutes = %s AND quote_currency = %s AND source = %s
         GROUP BY DATE(time)
         """
         with connections["questdb"].cursor() as cursor:
-            cursor.execute(query, [asset_id, interval_minutes])
+            cursor.execute(query, [asset_id, interval_minutes, quote_currency, source])
             return {row[0]: row[1] for row in cursor.fetchall()}
 
     def calculate_expected_records_per_day(self, interval_minutes: int) -> int:
@@ -139,19 +157,21 @@ class GapDetector:
         minutes_per_day = 24 * 60
         return minutes_per_day // interval_minutes
 
-    def detect_last_to_now_gap(self, asset: Asset, interval_minutes: int) -> Optional[Gap]:
+    def detect_last_to_now_gap(
+        self, asset: Asset, interval_minutes: int, quote_currency: str, source: str
+    ) -> Optional[Gap]:
         """
         Detect a single gap from the last record timestamp to now.
 
-        Returns None if no data exists for this asset/interval combination.
+        Returns None if no data exists for this asset/interval/quote_currency/source combination.
         """
         query = """
         SELECT MAX(time) as max_time
         FROM assetprice
-        WHERE asset_id = %s AND interval_minutes = %s
+        WHERE asset_id = %s AND interval_minutes = %s AND quote_currency = %s AND source = %s
         """
         with connections["questdb"].cursor() as cursor:
-            cursor.execute(query, [asset.id, interval_minutes])
+            cursor.execute(query, [asset.id, interval_minutes, quote_currency, source])
             result = cursor.fetchone()
 
             if not result or not result[0]:
@@ -174,6 +194,8 @@ class GapDetector:
         return Gap(
             asset=asset,
             interval_minutes=interval_minutes,
+            quote_currency=quote_currency,
+            source=source,
             start_date=last_timestamp,
             end_date=now,
             missing_candles=missing_candles,
@@ -183,25 +205,25 @@ class GapDetector:
         )
 
     def detect_gaps(self, asset: Asset, from_last: bool = False) -> List[Gap]:
-        """Detect all gaps for an asset."""
+        """Detect all gaps for an asset, separately for each (interval_minutes, quote_currency, source) combination."""
         gaps = []
-        intervals = self.get_asset_intervals(asset.id)
+        combinations = self.get_asset_interval_combinations(asset.id)
 
         if from_last:
-            for interval_minutes in intervals:
-                gap = self.detect_last_to_now_gap(asset, interval_minutes)
+            for interval_minutes, quote_currency, source in combinations:
+                gap = self.detect_last_to_now_gap(asset, interval_minutes, quote_currency, source)
                 if gap:
                     gaps.append(gap)
             return gaps
 
-        for interval_minutes in intervals:
-            date_range = self.get_date_range(asset.id, interval_minutes)
+        for interval_minutes, quote_currency, source in combinations:
+            date_range = self.get_date_range(asset.id, interval_minutes, quote_currency, source)
             if not date_range:
                 continue
 
             min_date, max_date = date_range
-            existing_dates = self.get_existing_dates(asset.id, interval_minutes)
-            records_per_day = self.get_records_per_day(asset.id, interval_minutes)
+            existing_dates = self.get_existing_dates(asset.id, interval_minutes, quote_currency, source)
+            records_per_day = self.get_records_per_day(asset.id, interval_minutes, quote_currency, source)
             expected_count = self.calculate_expected_records_per_day(interval_minutes)
 
             current_date = min_date.date()
@@ -228,6 +250,8 @@ class GapDetector:
                         Gap(
                             asset=asset,
                             interval_minutes=interval_minutes,
+                            quote_currency=quote_currency,
+                            source=source,
                             start_date=datetime.combine(gap_start, datetime.min.time()).replace(tzinfo=timezone.utc),
                             end_date=gap_end_dt,
                             missing_candles=missing_candles,
@@ -251,6 +275,8 @@ class GapDetector:
                     Gap(
                         asset=asset,
                         interval_minutes=interval_minutes,
+                        quote_currency=quote_currency,
+                        source=source,
                         start_date=datetime.combine(gap_start, datetime.min.time()).replace(tzinfo=timezone.utc),
                         end_date=gap_end_dt,
                         missing_candles=missing_candles,
@@ -291,8 +317,8 @@ class GapBackfiller:
             (success, records_inserted, error_message)
         """
         try:
-            base_ticker, quote_currency = self._get_kraken_pair_info(gap.asset.ticker)
-            kraken_pair = base_ticker + quote_currency
+            base_ticker = self._get_kraken_base_ticker(gap.asset.ticker)
+            kraken_pair = self._build_kraken_pair(base_ticker, gap.quote_currency)
 
             price_data = self.kraken.fetch_historical_prices(
                 pair=kraken_pair,
@@ -304,25 +330,41 @@ class GapBackfiller:
             if not price_data:
                 return False, 0, "No data returned from Kraken"
 
-            records_inserted = self._write_to_questdb(gap.asset, price_data, quote_currency, gap.interval_minutes)
+            records_inserted = self._write_to_questdb(
+                gap.asset, price_data, gap.quote_currency, gap.interval_minutes, gap.source
+            )
             return True, records_inserted, None
 
         except Exception as e:
             return False, 0, str(e)
 
-    def _get_kraken_pair_info(self, ticker: str) -> Tuple[str, str]:
-        """Get Kraken pair information for a ticker."""
+    def _get_kraken_base_ticker(self, ticker: str) -> str:
+        """Convert ticker to Kraken base ticker format."""
         ticker_to_kraken = {
             "BTC": "XBT",
             "DOGE": "XDG",
         }
+        return ticker_to_kraken.get(ticker, ticker)
 
-        kraken_base = ticker_to_kraken.get(ticker, ticker)
-        quote = "USD"
-        return kraken_base, quote
+    def _build_kraken_pair(self, base_ticker: str, quote_currency: str) -> str:
+        """Build Kraken pair string from base ticker and quote currency."""
+        # Reverse mapping from normalized quote currency to Kraken format
+        # Kraken uses Z-prefixed versions for fiat currencies (ZUSD, ZEUR, etc.)
+        normalized_to_kraken = {
+            "USD": "ZUSD",
+            "EUR": "ZEUR",
+            "GBP": "ZGBP",
+            "JPY": "ZJPY",
+            "CAD": "ZCAD",
+            "CHF": "ZCHF",
+            "AUD": "ZAUD",
+            "AED": "ZAED",
+        }
+        kraken_quote = normalized_to_kraken.get(quote_currency, quote_currency)
+        return base_ticker + kraken_quote
 
     def _write_to_questdb(
-        self, asset: Asset, price_data: List[dict], quote_currency: str, interval_minutes: int
+        self, asset: Asset, price_data: List[dict], quote_currency: str, interval_minutes: int, source: str
     ) -> int:
         """Write price data to QuestDB using ILP."""
         records_inserted = 0
@@ -332,7 +374,7 @@ class GapBackfiller:
                 for data in price_data:
                     sender.row(
                         "assetprice",
-                        symbols={"quote_currency": quote_currency, "source": "kraken_api"},
+                        symbols={"quote_currency": quote_currency, "source": source},
                         columns={
                             "asset_id": asset.id,
                             "open": float(data["open"]),
@@ -500,7 +542,7 @@ class Command(BaseCommand):
                 days = (gap.end_date - gap.start_date).days
                 self.stdout.write(
                     f"  ⚠ {gap.start_date.date()} → {gap.end_date.date()} "
-                    f"({days} days, interval: {gap.interval_minutes} min)"
+                    f"({days} days, interval: {gap.interval_minutes} min, {gap.quote_currency})"
                 )
                 self.stdout.write(
                     f"    └─ Kraken supports: {', '.join(str(i) for i in sorted(GapBackfiller.KRAKEN_SUPPORTED_INTERVALS))}"
@@ -529,7 +571,7 @@ class Command(BaseCommand):
                 days = (gap.end_date - gap.start_date).days
                 self.stdout.write(
                     f"  ✓ {gap.start_date.date()} → {gap.end_date.date()} "
-                    f"({days} days, ~{gap.missing_candles} candles, interval: {gap.interval_minutes} min)"
+                    f"({days} days, ~{gap.missing_candles} candles, interval: {gap.interval_minutes} min, {gap.quote_currency})"
                 )
                 self.stdout.write(
                     f"    └─ {gap.candles_from_today} candles from today (limit: {GapClassifier.MAX_CANDLES}) ✓"
@@ -560,7 +602,7 @@ class Command(BaseCommand):
                 overflow_days = gap.overflow_candles * gap.interval_minutes // 1440
                 self.stdout.write(
                     f"  ✗ {gap.start_date.date()} → {gap.end_date.date()} "
-                    f"({days} days, ~{gap.missing_candles} candles, interval: {gap.interval_minutes} min)"
+                    f"({days} days, ~{gap.missing_candles} candles, interval: {gap.interval_minutes} min, {gap.quote_currency})"
                 )
                 self.stdout.write(
                     f"    └─ {gap.candles_from_today} candles from today (limit: {GapClassifier.MAX_CANDLES}) ✗"
@@ -585,6 +627,8 @@ class Command(BaseCommand):
                     "asset_ticker",
                     "tier",
                     "interval_minutes",
+                    "quote_currency",
+                    "source",
                     "gap_start",
                     "gap_end",
                     "missing_candles",
@@ -598,6 +642,8 @@ class Command(BaseCommand):
                         gap.asset.ticker,
                         gap.asset.tier,
                         gap.interval_minutes,
+                        gap.quote_currency,
+                        gap.source,
                         gap.start_date.date(),
                         gap.end_date.date(),
                         gap.missing_candles,
@@ -623,7 +669,7 @@ class Command(BaseCommand):
         for i, gap in enumerate(gaps, 1):
             self.stdout.write(
                 f"\n[{i}/{len(gaps)}] Backfilling {gap.asset.ticker} "
-                f"({gap.start_date.date()} → {gap.end_date.date()}, {gap.interval_minutes} min)..."
+                f"({gap.start_date.date()} → {gap.end_date.date()}, {gap.interval_minutes} min, {gap.quote_currency})..."
             )
 
             success, records, error = backfiller.backfill_gap(gap)
