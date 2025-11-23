@@ -169,6 +169,16 @@ CMD ["celery", "--app", "config.celery", "beat", "--loglevel", "info", "--schedu
 # =============================================================================
 FROM runtime-full AS celery-unified
 
+# Override healthcheck from runtime-full - celery doesn't expose HTTP
+HEALTHCHECK NONE
+
+# Copy celery-specific entrypoint (before switching to appuser)
+COPY deployment/docker-entrypoint-celery.sh /docker-entrypoint-celery.sh
+RUN chmod +x /docker-entrypoint-celery.sh
+
+# Override entrypoint for celery (no migrations/collectstatic needed)
+ENTRYPOINT ["/docker-entrypoint-celery.sh"]
+
 # Run Celery worker with Beat scheduler included (-B flag)
 # Note: Using prefork pool (default) because -B doesn't work with gevent
 # Adjust concurrency based on your needs (default is number of CPUs)
