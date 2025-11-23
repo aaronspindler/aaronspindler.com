@@ -172,9 +172,14 @@ FROM runtime-full AS celery-unified
 # Override healthcheck from runtime-full - celery doesn't expose HTTP
 HEALTHCHECK NONE
 
-# Copy celery-specific entrypoint (before switching to appuser)
-COPY deployment/docker-entrypoint-celery.sh /docker-entrypoint-celery.sh
-RUN chmod +x /docker-entrypoint-celery.sh
+# Switch back to root to copy and set permissions
+USER root
+
+# Copy celery-specific entrypoint with correct permissions
+COPY --chown=appuser:appuser --chmod=755 deployment/docker-entrypoint-celery.sh /docker-entrypoint-celery.sh
+
+# Switch back to non-root user
+USER appuser
 
 # Override entrypoint for celery (no migrations/collectstatic needed)
 ENTRYPOINT ["/docker-entrypoint-celery.sh"]
