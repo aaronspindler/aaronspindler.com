@@ -720,8 +720,8 @@ const SEARCH_CONFIG = {
 
 ## Related Documentation
 
-- [Blog System](blog-system.md) - Blog post indexing
-- [Photo Management](photo-management.md) - Photo/album indexing
+- [Blog System](../apps/blog/blog-system.md) - Blog post indexing
+- [Photo Management](../apps/photos/photo-management.md) - Photo/album indexing
 - [Management Commands](../commands.md) - rebuild_search_index command
 - [API Reference](../api.md) - Search API documentation
 - [Architecture](../architecture.md) - Search system architecture

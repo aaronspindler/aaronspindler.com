@@ -20,9 +20,9 @@ The CI/CD pipeline ensures code quality, runs comprehensive tests, and automates
 
 ## Workflow Architecture
 
-### Main Test Pipeline (`test.yml`)
+### Main Pipeline (`pipeline.yml`)
 
-The primary CI workflow provides comprehensive testing and validation:
+The primary CI/CD workflow provides comprehensive testing, validation, and deployment:
 
 **Triggers:**
 - Push to `main` branch
@@ -60,12 +60,12 @@ The primary CI workflow provides comprehensive testing and validation:
    - Ensures only validated images are used in production
    - Atomic operation to prevent partial deployments
 
-### Deployment Pipeline (`deploy.yml`)
+### Deployment Phase
 
-Automated deployment triggered on successful test completion:
+Automated deployment integrated into the main pipeline after successful tests:
 
 **Workflow:**
-1. Triggered by `workflow_run` event from test pipeline
+1. Runs after successful test completion on main branch
 2. Deploys 4 services to CapRover:
    - `web`: Main Django application
    - `celery`: Async task worker (200 concurrent with gevent)
@@ -173,7 +173,7 @@ ghcr.io/aaronspindler/aaronspindler.com-flower:latest
 
 ### Docker Bake Configuration
 
-The project uses Docker Bake (`docker-bake.hcl`) for multi-target builds:
+The project uses Docker Bake (`deployment/docker-bake.multistage.hcl`) for multi-target builds:
 
 **Targets:**
 - `web`: Main Django application
@@ -322,7 +322,7 @@ pre-commit run --all-files
 make test
 
 # Build Docker images locally
-docker buildx bake -f docker-bake.hcl test
+docker buildx bake -f deployment/docker-bake.multistage.hcl test
 
 # Run with docker-compose
 docker-compose -f docker-compose.test.yml up
@@ -340,10 +340,10 @@ gh run list
 gh run view <run-id>
 
 # Test Docker build locally
-docker buildx build -f deployment/Dockerfile .
+docker buildx build -f deployment/Dockerfile.multistage .
 
 # Validate docker-compose
-docker-compose -f docker-compose.test.yml config
+docker-compose -f deployment/docker-compose.test.yml config
 
 # Check pre-commit issues
 pre-commit run --all-files --verbose
@@ -402,17 +402,17 @@ docker buildx build --no-cache .
 ## Configuration Files
 
 ### Workflow Files
-- `.github/workflows/test.yml`: Main CI pipeline
-- `.github/workflows/deploy.yml`: Deployment automation
+- `.github/workflows/pipeline.yml`: Main CI/CD pipeline (test and deployment)
 - `.github/workflows/codeql.yml`: Security scanning
 - `.github/workflows/cleanup-*.yml`: Housekeeping tasks
+- `.github/workflows/dependabot-lockfile-regen.yml`: Dependency lockfile automation
 - `.github/dependabot.yml`: Dependency updates
 
 ### Docker Configuration
-- `deployment/Dockerfile`: Main application image
-- `deployment/*.Dockerfile`: Service-specific images
-- `docker-bake.hcl`: Multi-target build configuration
-- `docker-compose.test.yml`: Test environment setup
+- `deployment/Dockerfile.multistage`: Main application image with multi-stage builds
+- `deployment/docker-bake.multistage.hcl`: Multi-target build configuration
+- `deployment/docker-compose.test.yml`: Test environment setup
+- `deployment/docker-compose.test.ci.yml`: CI-specific test overrides
 - `.dockerignore`: Build context exclusions
 
 ### Quality Tools
@@ -456,4 +456,4 @@ docker buildx build --no-cache .
 - [Architecture Overview](../infrastructure/architecture.md) - System design and infrastructure
 - [Testing Guide](../testing.md) - Test strategy and implementation
 - [Troubleshooting CI/CD](../troubleshooting/ci-cd.md) - Common issues and solutions
-- [Performance Optimization Case Study](../case-studies/ci-cd-optimization.md) - Optimization journey
+- [Deployment Optimization Recommendations](../architecture/deployment-optimization-recommendations.md) - Optimization journey

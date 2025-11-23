@@ -554,7 +554,7 @@ exclude_lines =
 
 The CI/CD testing has been optimized for speed, achieving a **44% runtime reduction** (45min → 25-30min).
 
-**File**: `.github/workflows/test.yml`
+**File**: `.github/workflows/pipeline.yml`
 
 ```yaml
 name: Test
@@ -779,10 +779,10 @@ locust -f locustfile.py --host=http://localhost:8000
 - [Quick Start](quick-start.md) - Fast setup guide
 
 ### Configuration Files
-- **Test Environment**: `docker-compose.test.yml`
-- **CI/CD Workflow**: `.github/workflows/test.yml`
+- **Test Environment**: `deployment/docker-compose.test.yml`
+- **CI/CD Workflow**: `.github/workflows/pipeline.yml`
 - **Test Settings**: `config/settings_test.py`
-- **Test Factories**: `tests/factories.py`, `*/tests/factories.py`
+- **Test Factories**: `*/tests/factories.py` (app-specific factories)
 
 ### Guidelines
 - [Testing Rules](../.cursor/rules/testing.mdc) - Testing guidelines for AI assistants

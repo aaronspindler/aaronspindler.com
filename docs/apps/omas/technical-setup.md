@@ -296,6 +296,6 @@ Potential improvements for the German translation system:
 
 ## Related Documentation
 
-- [Architecture Documentation](../architecture.md) - Multi-domain routing details
-- [Deployment Documentation](../deployment.md) - Production deployment configuration
-- [Commands Documentation](../commands.md) - Management commands for static files
+- [Architecture Documentation](../../architecture.md) - Multi-domain routing details
+- [Deployment Documentation](../../deployment.md) - Production deployment configuration
+- [Commands Documentation](../../commands.md) - Management commands for static files

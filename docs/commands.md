@@ -60,7 +60,7 @@ python manage.py create_blog_post --title "Your Post Title" --category tech
 
 **Options**:
 - `--title` (required): Title of the blog post
-- `--category` (required): Category (personal, projects, reviews, tech)
+- `--category` (required): Category (hobbies, personal, projects, reviews, tech)
 
 **Examples**:
 ```bash
@@ -72,7 +72,7 @@ python manage.py create_blog_post --title "Weekend Adventures" --category person
 ```
 
 **Output**:
-- Creates file at `templates/blog/<category>/####_Post_Title.html`
+- Creates file at `blog/templates/blog/<category>/####_Post_Title.html`
 - Automatically assigns next available blog number
 - Includes template with metadata blocks
 

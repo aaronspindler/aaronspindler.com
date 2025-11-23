@@ -40,11 +40,11 @@ echo "REDIS_URL=redis://localhost:6379/0" >> .env
 ## 3. Start Services (2 min)
 
 ```bash
-# Start PostgreSQL, Redis, and QuestDB
-docker-compose -f docker-compose.dev.yml up -d
+# Start PostgreSQL, Redis, and QuestDB using test environment
+docker-compose -f deployment/docker-compose.test.yml up -d postgres redis questdb
 
 # Verify services are running
-docker-compose -f docker-compose.dev.yml ps
+docker-compose -f deployment/docker-compose.test.yml ps
 ```
 
 ## 4. Initialize Database (2 min)
@@ -113,17 +113,17 @@ python manage.py dbshell
 ### Docker
 
 ```bash
-# Start all services
-docker-compose -f docker-compose.dev.yml up -d
+# Start all services (using test compose file)
+docker-compose -f deployment/docker-compose.test.yml up -d postgres redis questdb
 
 # Stop all services
-docker-compose -f docker-compose.dev.yml down
+docker-compose -f deployment/docker-compose.test.yml down
 
 # View logs
-docker-compose -f docker-compose.dev.yml logs -f
+docker-compose -f deployment/docker-compose.test.yml logs -f
 
 # Clean everything
-docker-compose -f docker-compose.dev.yml down -v
+docker-compose -f deployment/docker-compose.test.yml down -v
 ```
 
 ### Static Files
@@ -193,11 +193,11 @@ pre-commit install
 
 ## Docker Development (Alternative)
 
-Run everything in Docker:
+Run everything in Docker using the test environment:
 
 ```bash
-# Build and start all services
-docker-compose -f docker-compose.dev.yml up --build
+# Start services only (use local code with runserver)
+docker-compose -f deployment/docker-compose.test.yml up -d postgres redis questdb
 
 # Access at http://localhost:8000
 ```

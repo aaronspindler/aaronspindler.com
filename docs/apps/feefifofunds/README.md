@@ -73,7 +73,7 @@ FeeFiFoFunds is a Django application for tracking financial asset prices over ti
 - [Deployment](../../deployment.md) - QuestDB deployment requirements
 
 **Related Features:**
-- [Request Tracking](../../../docs/features/request-tracking.md) - Similar analytics patterns
+- [Request Tracking](../../features/request-tracking.md) - Similar analytics patterns
 
 ## Quick Start
 
@@ -170,8 +170,7 @@ feefifofunds/
 ├── models/               # Database models
 │   ├── __init__.py
 │   ├── asset.py          # Asset model (PostgreSQL)
-│   ├── price.py          # AssetPrice model (QuestDB)
-│   └── trade.py          # Trade model (QuestDB)
+│   └── price.py          # AssetPrice model (QuestDB)
 │
 ├── services/             # Business logic
 │   ├── __init__.py

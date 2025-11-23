@@ -19,7 +19,7 @@ Complete guide for setting up and using QuestDB with the FeeFiFoFunds applicatio
 QuestDB is a high-performance time-series database optimized for financial data. The FeeFiFoFunds application uses a hybrid database approach:
 
 - **PostgreSQL (default database)**: Asset model (relational data)
-- **QuestDB (questdb database)**: AssetPrice and Trade models (time-series data)
+- **QuestDB (questdb database)**: AssetPrice model (time-series data)
 
 ### Why QuestDB?
 
@@ -43,7 +43,6 @@ Asset.objects.all()  # → default database
 
 # Routes to QuestDB
 AssetPrice.objects.all()  # → questdb database
-Trade.objects.all()  # → questdb database
 ```
 
 ### Model Configuration
@@ -53,7 +52,7 @@ Trade.objects.all()  # → questdb database
 - Uses Django migrations
 - Has ForeignKey relationships
 
-**AssetPrice & Trade Models (QuestDB)**:
+**AssetPrice Model (QuestDB)**:
 - Not managed by Django (`managed=False`)
 - Schema created manually via `setup_questdb_schema` command
 - Uses `asset_id` integer field instead of ForeignKey
@@ -110,7 +109,6 @@ Run the schema initialization command:
 
 **What this does**:
 - Creates `assetprice` table with optimized QuestDB schema
-- Creates `trade` table with optimized QuestDB schema
 - Uses QuestDB-specific features: `SYMBOL` types, `PARTITION BY DAY`, designated timestamps
 
 ### 4. Run Django Migrations
@@ -121,7 +119,7 @@ Migrate the Asset model to PostgreSQL:
 ./venv/bin/python manage.py migrate
 ```
 
-This creates the `Asset` table in the default (PostgreSQL) database. AssetPrice and Trade are NOT migrated (they're `managed=False`).
+This creates the `Asset` table in the default (PostgreSQL) database. AssetPrice is NOT migrated (it's `managed=False`).
 
 ### 5. Verify Setup
 
@@ -130,9 +128,9 @@ This creates the `Asset` table in the default (PostgreSQL) database. AssetPrice 
 ./venv/bin/python manage.py dbshell
 \dt feefifofunds_*
 
-# Check QuestDB (assetprice, trade tables)
+# Check QuestDB (assetprice table)
 # Access web console at https://questdb.yourdomain.com
-SELECT * FROM tables() WHERE table_name IN ('assetprice', 'trade');
+SELECT * FROM tables() WHERE table_name = 'assetprice';
 ```
 
 ---
@@ -154,19 +152,6 @@ CREATE TABLE assetprice (
     interval_minutes INT,
     trade_count INT,
     quote_currency SYMBOL CAPACITY 256 CACHE,  -- Optimized for repeated values
-    source SYMBOL CAPACITY 256 CACHE,
-    created_at TIMESTAMP
-) timestamp(time) PARTITION BY DAY;
-```
-
-**Trade Table**:
-```sql
-CREATE TABLE trade (
-    asset_id INT,
-    time TIMESTAMP,              -- Designated timestamp
-    price DOUBLE,
-    volume DOUBLE,
-    quote_currency SYMBOL CAPACITY 256 CACHE,
     source SYMBOL CAPACITY 256 CACHE,
     created_at TIMESTAMP
 ) timestamp(time) PARTITION BY DAY;
@@ -230,7 +215,7 @@ For schema changes, you must drop and recreate tables.
 ### Querying from Django
 
 ```python
-from feefifofunds.models import Asset, AssetPrice, Trade
+from feefifofunds.models import Asset, AssetPrice
 
 # Get asset from PostgreSQL
 asset = Asset.objects.get(ticker="BTC")
@@ -319,7 +304,6 @@ AND interval_minutes = 1440;
 **Count records by source**:
 ```sql
 SELECT source, count() FROM assetprice;
-SELECT source, count() FROM trade;
 ```
 
 ---

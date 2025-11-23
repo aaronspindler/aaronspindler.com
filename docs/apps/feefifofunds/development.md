@@ -171,7 +171,7 @@ feefifofunds/
 ├── apps.py
 ├── models/               # Database models
 │   ├── __init__.py
-│   ├── asset.py          # Universal Asset model (PostgreSQL)
+│   ├── asset.py          # Asset model (PostgreSQL)
 │   └── price.py          # AssetPrice model (QuestDB)
 │
 ├── services/             # Business logic

@@ -22,7 +22,7 @@
 
 | Category | Technologies | Documentation |
 |----------|--------------|--------------|
-| Backend | Django 5.2.5, Python 3.13, PostgreSQL 15+, Celery, Redis | [Architecture](docs/architecture.md) |
+| Backend | Django 5.2.8, Python 3.13, PostgreSQL 15+, Celery, Redis | [Architecture](docs/architecture.md) |
 | Frontend | D3.js, Vanilla JavaScript, PostCSS, Prism.js | - |
 | Infrastructure | Docker, Gunicorn, WhiteNoise (static), AWS S3 (media) | [Deployment](docs/deployment.md) |
 | Search | PostgreSQL FTS with pg_trgm for typo tolerance | [Search](docs/features/search.md) |
@@ -68,7 +68,7 @@ For Docker setup, see [Deployment documentation](docs/deployment.md). For projec
 ### Docker Setup
 
 ```bash
-docker build -f deployment/Dockerfile -t aaronspindler.com .
+docker build -f deployment/Dockerfile.multistage -t aaronspindler.com .
 docker run -p 80:80 --env-file .env.production aaronspindler.com
 ```
 

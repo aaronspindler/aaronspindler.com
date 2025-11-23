@@ -37,8 +37,8 @@ The photos app provides comprehensive photo management with automatic image proc
 - [Deployment](../../deployment.md) - S3 configuration for production
 
 **Related Features:**
-- [Search System](../../../docs/features/search.md) - Photos are searchable
-- [Performance Monitoring](../../../docs/features/performance-monitoring.md) - Image optimization tracking
+- [Search System](../../features/search.md) - Photos are searchable
+- [Performance Monitoring](../../features/performance-monitoring.md) - Image optimization tracking
 
 ## Quick Start
 

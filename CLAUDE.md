@@ -58,7 +58,7 @@ See [.cursor/rules/](.cursor/rules/) for detailed AI guidance:
 For detailed documentation, see [docs/commands.md](docs/commands.md)
 
 **Frequently Used:**
-- `python manage.py rebuild_graph` - Rebuild knowledge graph from blog posts
+- `python manage.py rebuild_knowledge_graph` - Rebuild knowledge graph from blog posts
 - `python manage.py rebuild_search_index` - Regenerate PostgreSQL full-text search indexes
 - `python manage.py clear_cache` - Clear Redis cache
 - `python manage.py collectstatic --noinput` - Collect static files for production

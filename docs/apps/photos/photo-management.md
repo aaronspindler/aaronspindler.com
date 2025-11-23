@@ -521,7 +521,7 @@ EXIF_FIELDS = [
 
 ## Related Documentation
 
-- [Search System](search.md) - Full-text search implementation
-- [Management Commands](../commands.md) - Command reference
-- [API Reference](../api.md) - API documentation
-- [Deployment](../deployment.md) - S3 configuration
+- [Search System](../../features/search.md) - Full-text search implementation
+- [Management Commands](../../commands.md) - Command reference
+- [API Reference](../../api.md) - API documentation
+- [Deployment](../../deployment.md) - S3 configuration

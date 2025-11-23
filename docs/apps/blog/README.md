@@ -7,13 +7,13 @@
 The blog app provides a unique template-based blogging system where blog posts are HTML templates with extracted metadata. This approach offers maximum flexibility for rich content while maintaining a clean architecture.
 
 **Key Features:**
-- Template-based blog posts stored in `templates/blog/`
+- Template-based blog posts stored in `blog/templates/blog/`
 - Automatic metadata extraction from template blocks
 - Interactive knowledge graph visualization with D3.js
 - Comment system with voting
 - Syntax highlighting with Prism.js
 - View count tracking
-- Category-based organization
+- Category-based organization (hobbies, personal, projects, reviews, tech)
 
 ## Documentation
 
@@ -43,9 +43,9 @@ The blog app provides a unique template-based blogging system where blog posts a
 - [API Reference](../../api.md) - Blog and knowledge graph API endpoints
 
 **Related Features:**
-- [Search System](../../../docs/features/search.md) - Blog posts are searchable
-- [Performance Monitoring](../../../docs/features/performance-monitoring.md) - Graph screenshot generation pattern
-- [Request Tracking](../../../docs/features/request-tracking.md) - Blog visit tracking
+- [Search System](../../features/search.md) - Blog posts are searchable
+- [Performance Monitoring](../../features/performance-monitoring.md) - Graph screenshot generation pattern
+- [Request Tracking](../../features/request-tracking.md) - Blog visit tracking
 
 ## Quick Start
 
@@ -53,8 +53,8 @@ The blog app provides a unique template-based blogging system where blog posts a
 
 1. **Create template file**:
    ```bash
-   # Create in templates/blog/[category]/[slug].html
-   touch templates/blog/tech/my-new-post.html
+   # Create in blog/templates/blog/[category]/[slug].html
+   touch blog/templates/blog/tech/my-new-post.html
    ```
 
 2. **Add metadata blocks**:

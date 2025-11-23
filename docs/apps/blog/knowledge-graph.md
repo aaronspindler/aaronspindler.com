@@ -411,15 +411,15 @@ node.on('contextmenu', (event, d) => {
 ## Related Documentation
 
 ### Core Documentation
-- [Architecture](../architecture.md) - Technical implementation details and design patterns
-- [Management Commands](../commands.md#blog--knowledge-graph) - Graph-related commands
-- [API Reference](../api.md) - Complete API endpoints including graph data
-- [Documentation Index](../README.md) - Complete documentation map
+- [Architecture](../../architecture.md) - Technical implementation details and design patterns
+- [Management Commands](../../commands.md#blog--knowledge-graph) - Graph-related commands
+- [API Reference](../../api.md) - Complete API endpoints including graph data
+- [Documentation Index](../../README.md) - Complete documentation map
 
 ### Related Features
 - [Blog System](blog-system.md) - Blog post structure and metadata extraction
-- [Performance Monitoring](performance-monitoring.md) - Lighthouse audits and screenshots
-- [Photo Management](photo-management.md) - Similar screenshot generation pattern
+- [Performance Monitoring](../../features/performance-monitoring.md) - Lighthouse audits and screenshots
+- [Photo Management](../photos/photo-management.md) - Similar screenshot generation pattern
 
 ### Implementation Files
 - Graph Builder: `blog/knowledge_graph.py`

@@ -145,9 +145,9 @@ These projects are independent and should not be confused with Django apps in th
 - **Caching System**: 20-minute cache with smart invalidation
 
 **Template System**:
-- Blog posts stored as HTML templates in `templates/blog/<category>/`
+- Blog posts stored as HTML templates in `blog/templates/blog/<category>/`
 - Metadata extracted from template blocks
-- Categories: personal, projects, reviews, tech
+- Categories: hobbies, personal, projects, reviews, tech
 - Automatic numbering system (e.g., `0001_Post_Title.html`)
 
 ### omas/ - Omas Coffee Website
@@ -293,11 +293,8 @@ These projects are independent and should not be confused with Django apps in th
   - Open, high, low, close, volume data
   - Multiple timeframes (1m, 5m, 15m, 60m, 1440m/daily, etc.)
   - Quote currency and data source tracking
+  - Trade count for each candle
   - Partitioned by day for optimal query performance
-- **Trade** (`trade.py` in QuestDB): Individual trade records with microsecond precision
-  - Tick-level price and volume data
-  - Quote currency and source tracking
-  - Partitioned by day for efficient queries
 
 **Data Sources** (`services/data_sources/`):
 - **BaseDataSource** (`base.py`): Abstract base class for all data source integrations
@@ -412,7 +409,7 @@ This project uses two approaches for organizing Django models:
 ## Technology Stack
 
 ### Backend
-- **Django 5.2.5**: Web framework
+- **Django 5.2.8**: Web framework
 - **Python 3.13**: Programming language
 - **PostgreSQL 15+**: Database with full-text search extensions
 - **Celery**: Async task queue

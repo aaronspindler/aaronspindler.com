@@ -19,7 +19,7 @@ The blog system uses a unique template-based approach where blog posts are HTML 
 
 ### Template Format
 
-Blog posts are stored in `templates/blog/<category>/####_Post_Name.html`:
+Blog posts are stored in `blog/templates/blog/<category>/####_Post_Name.html`:
 
 ```html
 {% extends "blog/blog_post.html" %}
@@ -56,6 +56,7 @@ A brief description of your blog post for search engines and social media.
 ### Categories
 
 **Available Categories**:
+- **hobbies**: Hobby-related posts and interests
 - **personal**: Personal stories, experiences, life updates
 - **projects**: Project showcases, technical deep-dives
 - **reviews**: Product reviews, book reviews, service reviews
@@ -92,7 +93,7 @@ The command will:
 
 2. **Create the template file**:
    ```
-   templates/blog/<category>/####_Post_Name.html
+   blog/templates/blog/<category>/####_Post_Name.html
    ```
 
 3. **Add metadata and content** using the template format above
@@ -332,6 +333,6 @@ post = get_blog_post_by_slug(category='tech', slug='post-slug')
 ## Related Documentation
 
 - [Knowledge Graph](knowledge-graph.md) - Post relationship visualization
-- [Search System](search.md) - Full-text search implementation
-- [Management Commands](../commands.md) - Complete command reference
-- [Architecture](../architecture.md) - Technical implementation details
+- [Search System](../../features/search.md) - Full-text search implementation
+- [Management Commands](../../commands.md) - Complete command reference
+- [Architecture](../../architecture.md) - Technical implementation details

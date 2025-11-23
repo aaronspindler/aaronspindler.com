@@ -147,11 +147,11 @@ python manage.py runserver_plus
 #### Start All Services (Docker)
 
 ```bash
-# Start PostgreSQL, Redis, QuestDB
-docker-compose -f docker-compose.dev.yml up -d
+# Start PostgreSQL, Redis, QuestDB (using test environment)
+docker-compose -f deployment/docker-compose.test.yml up -d postgres redis questdb
 
 # Check service health
-docker-compose -f docker-compose.dev.yml ps
+docker-compose -f deployment/docker-compose.test.yml ps
 ```
 
 #### Start Services Individually
@@ -536,60 +536,16 @@ class BlogPostTestCase(TestCase):
 
 ```bash
 # Build development image
-docker build -f deployment/Dockerfile --target development -t aaronspindler-dev .
+docker build -f deployment/Dockerfile.multistage -t aaronspindler-dev .
 
-# Run with volume mounts
-docker run -it \
-  -v $(pwd):/app \
-  -p 8000:8000 \
-  --env-file .env \
-  aaronspindler-dev
+# Start services (PostgreSQL, Redis, QuestDB)
+docker-compose -f deployment/docker-compose.test.yml up -d postgres redis questdb
 
-# Use Docker Compose
-docker-compose -f docker-compose.dev.yml up
+# Run Django locally with services in Docker
+python manage.py runserver
 ```
 
-### Docker Compose Development
-
-**docker-compose.dev.yml**:
-```yaml
-version: '3.8'
-
-services:
-  web:
-    build:
-      context: .
-      dockerfile: deployment/Dockerfile
-      target: development
-    volumes:
-      - .:/app
-      - /app/node_modules
-    ports:
-      - "8000:8000"
-    environment:
-      - DEBUG=True
-    command: python manage.py runserver 0.0.0.0:8000
-
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_DB=aaronspindler_dev
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    ports:
-      - "5432:5432"
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
-  questdb:
-    image: questdb/questdb:8.2.1
-    ports:
-      - "9000:9000"
-      - "8812:8812"
-```
+**Note**: The project uses `deployment/docker-compose.test.yml` for local development services. A dedicated `docker-compose.dev.yml` can be created if needed for a full containerized development environment.
 
 ### Debugging Docker
 

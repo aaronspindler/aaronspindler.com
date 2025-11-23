@@ -443,7 +443,7 @@ Retrieve comments for a blog post.
 **Endpoint**: `GET /b/<category>/<slug>/comments/`
 
 **URL Parameters**:
-- `category`: Blog category (personal, projects, reviews, tech)
+- `category`: Blog category (hobbies, personal, projects, reviews, tech)
 - `slug`: Post slug
 
 **Query Parameters**:

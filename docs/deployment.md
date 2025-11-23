@@ -107,17 +107,17 @@ ghcr.io/aaronspindler/aaronspindler.com-flower:latest
 
 ### Docker Bake Build System
 
-The project uses Docker Bake (`docker-bake.hcl`) for multi-target builds:
+The project uses Docker Bake (`deployment/docker-bake.multistage.hcl`) for multi-target builds:
 
 ```hcl
 # Build all production images
-docker buildx bake -f docker-bake.hcl production
+docker buildx bake -f deployment/docker-bake.multistage.hcl production
 
 # Build specific service
-docker buildx bake -f docker-bake.hcl web
+docker buildx bake -f deployment/docker-bake.multistage.hcl web
 
 # Push to registry
-docker buildx bake -f docker-bake.hcl production --push
+docker buildx bake -f deployment/docker-bake.multistage.hcl production --push
 ```
 
 **Targets:**
@@ -128,7 +128,7 @@ docker buildx bake -f docker-bake.hcl production --push
 
 ### Optimized Dockerfiles
 
-#### Web Container (`deployment/Dockerfile`)
+#### Web Container (`deployment/Dockerfile.multistage`)
 ```dockerfile
 # syntax=docker/dockerfile:1.4
 FROM python:3.13-slim
@@ -971,8 +971,8 @@ open http://localhost:5555
 - [Omas Coffee](apps/omas/) - Multi-domain configuration
 
 ### Configuration Files
-- **Docker**: `deployment/*.Dockerfile` - Service containers
-- **Docker Bake**: `docker-bake.hcl` - Multi-target builds
-- **Test Environment**: `docker-compose.test.yml` - CI/CD testing
+- **Docker**: `deployment/Dockerfile.multistage` - Multi-stage service container
+- **Docker Bake**: `deployment/docker-bake.multistage.hcl` - Multi-target builds
+- **Test Environment**: `deployment/docker-compose.test.yml` - CI/CD testing
 - **CapRover**: `captain-definition` - Deployment configuration
 - **Environment**: `.env.example` - Configuration template
