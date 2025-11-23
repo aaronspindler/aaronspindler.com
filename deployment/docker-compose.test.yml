@@ -66,7 +66,8 @@ services:
   web:
     build:
       context: ..
-      dockerfile: deployment/Dockerfile
+      dockerfile: deployment/Dockerfile.multistage
+      target: runtime-full
     command: >
       sh -c "
         echo 'Waiting for services to be healthy...' &&
@@ -114,7 +115,8 @@ services:
   celery_worker:
     build:
       context: ..
-      dockerfile: deployment/celery.Dockerfile
+      dockerfile: deployment/Dockerfile.multistage
+      target: runtime-full
     command: celery -A config worker -l info --concurrency=2
     volumes:
       - ..:/code
@@ -139,7 +141,8 @@ services:
   celery_beat:
     build:
       context: ..
-      dockerfile: deployment/celerybeat.Dockerfile
+      dockerfile: deployment/Dockerfile.multistage
+      target: runtime-minimal
     command: celery -A config beat -l info
     volumes:
       - ..:/code
@@ -163,7 +166,8 @@ services:
   flower:
     build:
       context: ..
-      dockerfile: deployment/flower.Dockerfile
+      dockerfile: deployment/Dockerfile.multistage
+      target: runtime-minimal
     command: >
       celery -A config flower
       --port=5555
@@ -191,7 +195,8 @@ services:
   test_runner:
     build:
       context: ..
-      dockerfile: deployment/Dockerfile
+      dockerfile: deployment/Dockerfile.multistage
+      target: test
     command: >
       sh -c "
         echo 'Waiting for services to be ready...' &&
