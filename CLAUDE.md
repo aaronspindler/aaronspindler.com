@@ -1,3 +1,73 @@
+# Project-Specific Context - aaronspindler.com
+
+## Project Overview
+This is a Django-based personal website (aaronspindler.com) with the following features:
+- Blog with knowledge graph visualization
+- Photo management with EXIF extraction
+- Full-text search (PostgreSQL)
+- Performance monitoring (Lighthouse)
+- Multi-domain support (omas.coffee)
+- FeeFiFoFunds: Multi-asset tracking with PostgreSQL + QuestDB
+
+## 📚 Documentation
+
+**All documentation is in `docs/`** - Start at [docs/README.md](docs/README.md)
+
+Key docs:
+- [Architecture](docs/architecture.md) - System design and app structure
+- [Commands](docs/commands.md) - All management commands
+- [Testing](docs/testing.md) - Test guidelines and factories
+- [Deployment](docs/deployment.md) - Production setup
+
+## AI Development Guidelines
+
+### Cursor Rules
+See [.cursor/rules/](.cursor/rules/) for detailed AI guidance:
+- **documentation.mdc**: Update docs/ for all changes
+- **git-operations.mdc**: NEVER commit/push without permission
+- **testing.mdc**: Do NOT write new tests unless requested
+- **dependencies.mdc**: Use uv for dependency management
+
+### Critical Rules
+
+1. **Documentation**: Update `docs/` for all code changes
+2. **Testing**: Do NOT write new tests unless requested (but DO update existing tests)
+3. **Git**: NEVER commit/push without permission
+4. **Dependencies**: Edit `.in` files, then regenerate `.txt` with uv
+
+## Technical Stack
+- **Databases**:
+  - PostgreSQL (primary data and full-text search)
+  - QuestDB (time-series metrics at 50K-100K records/sec)
+  - Redis (caching/sessions)
+- **Python Version**: 3.13
+- **Code Standards**:
+  - 120-character line limit
+  - Ruff for formatting/linting
+
+## Quick Setup
+1. Activate virtual environment
+2. Install `uv`
+3. Run pip to install base requirements
+4. Initialize database with migrations
+5. Create admin account
+6. Launch development server
+
+## Common Django Management Commands
+
+For detailed documentation, see [docs/commands.md](docs/commands.md)
+
+**Frequently Used:**
+- `python manage.py rebuild_graph` - Rebuild knowledge graph from blog posts
+- `python manage.py rebuild_search_index` - Regenerate PostgreSQL full-text search indexes
+- `python manage.py clear_cache` - Clear Redis cache
+- `python manage.py collectstatic --noinput` - Collect static files for production
+
+**Data Ingestion:**
+- See `docs/commands.md` for photo EXIF extraction and data import workflows
+
+---
+
 # Claude Code Configuration - SPARC Development Environment
 
 ## 🚨 CRITICAL: CONCURRENT EXECUTION & FILE MANAGEMENT
