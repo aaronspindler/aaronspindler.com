@@ -67,11 +67,17 @@ CACHES = {
         "LOCATION": REDIS_URL,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "IGNORE_EXCEPTIONS": True,  # Don't fail tests if Redis is temporarily unavailable
         },
         "KEY_PREFIX": "test",
         "TIMEOUT": 300,
     }
 }
+
+# Use database-backed sessions for tests (more reliable than cache-backed)
+# Cache-backed sessions can fail if Redis isn't ready during parallel test runs
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_COOKIE_AGE = 86400  # 24 hours
 
 # Celery configuration for testing
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/1")
