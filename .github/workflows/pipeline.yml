@@ -149,13 +149,51 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run Django checks and tests
+      - name: Pull test image from GHCR
         run: |
-          docker run --rm \
-            -e SECRET_KEY="${{ env.SECRET_KEY }}" \
-            -e PYTHONUNBUFFERED=1 \
-            ${{ env.REGISTRY }}/${{ github.repository }}/test-runner:${{ env.TEST_IMAGE_TAG }} \
-            bash -c "python manage.py check && python manage.py test --parallel --verbosity=2"
+          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}
+          docker tag ${{ env.REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }} ${{ env.DOCKER_IMAGE_NAME }}:latest
+          echo "✅ Test image ready"
+
+      - name: Start test services
+        run: |
+          echo "Starting database services..."
+          COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
+          docker compose $COMPOSE up -d postgres redis questdb
+          echo "✅ Test services started"
+
+      - name: Run Django checks
+        run: |
+          COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
+          echo "Running migrations check..."
+          docker compose $COMPOSE run --rm test_runner \
+            python manage.py makemigrations --check --dry-run --settings=config.settings_test
+
+          echo "Running system check..."
+          docker compose $COMPOSE run --rm test_runner \
+            python manage.py check --deploy --settings=config.settings_test
+
+          echo "✅ Django checks passed"
+
+      - name: Run all tests
+        run: |
+          COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
+          docker compose $COMPOSE run --rm test_runner sh -c "
+            python manage.py test accounts config pages utils blog photos \
+              --settings=config.settings_test \
+              --no-input \
+              --verbosity=2 \
+              --parallel \
+              --timing
+          "
+          echo "✅ All tests completed"
+
+      - name: Cleanup test services
+        if: always()
+        run: |
+          COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
+          docker compose $COMPOSE down -v
+          echo "✅ Test services cleaned up"
 
   # ============================================================================
   # STAGE 4: Tag Production Images (Only on main after tests pass)
