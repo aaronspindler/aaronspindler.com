@@ -7,7 +7,7 @@
 ### 🎯 Primary Documentation
 
 **Unified Ingestion Architecture** ⭐
-- **[Complete Architecture Guide](./UNIFIED_INGESTION_ARCHITECTURE.md)** - Comprehensive documentation of the unified Kraken ingestion system
+- **[Complete Architecture Guide](../../docs/apps/feefifofunds/unified-ingestion-architecture.md)** - Comprehensive documentation of the unified Kraken ingestion system
   - Architecture overview and design principles
   - Core components and data models
   - Security features and performance optimizations
@@ -17,18 +17,18 @@
 
 **Getting Started:**
 - [Quick Start Guide](#quick-start) - Get up and running in 5 minutes
-- [Architecture Overview](./UNIFIED_INGESTION_ARCHITECTURE.md#architecture-overview) - System design and components
-- [Usage Guide](./UNIFIED_INGESTION_ARCHITECTURE.md#usage-guide) - Command reference and examples
+- [Architecture Overview](../../docs/apps/feefifofunds/unified-ingestion-architecture.md#architecture-overview) - System design and components
+- [Usage Guide](../../docs/apps/feefifofunds/unified-ingestion-architecture.md#usage-guide) - Command reference and examples
 
 **Developer Resources:**
-- [Development Guide](./UNIFIED_INGESTION_ARCHITECTURE.md#development-guide) - Testing and debugging
-- [API Documentation](./UNIFIED_INGESTION_ARCHITECTURE.md#api-integration) - External API integration
-- [Database Schema](./UNIFIED_INGESTION_ARCHITECTURE.md#database-design) - PostgreSQL and QuestDB schemas
+- [Development Guide](../../docs/apps/feefifofunds/unified-ingestion-architecture.md#development-guide) - Testing and debugging
+- [API Documentation](../../docs/apps/feefifofunds/unified-ingestion-architecture.md#api-integration) - External API integration
+- [Database Schema](../../docs/apps/feefifofunds/unified-ingestion-architecture.md#database-design) - PostgreSQL and QuestDB schemas
 
 **Operations:**
-- [Performance Tuning](./UNIFIED_INGESTION_ARCHITECTURE.md#performance-optimizations) - Connection pooling and caching
-- [Monitoring Guide](./UNIFIED_INGESTION_ARCHITECTURE.md#monitoring--observability) - Metrics and alerting
-- [Troubleshooting](./UNIFIED_INGESTION_ARCHITECTURE.md#troubleshooting) - Common issues and solutions
+- [Performance Tuning](../../docs/apps/feefifofunds/unified-ingestion-architecture.md#performance-optimizations) - Connection pooling and caching
+- [Monitoring Guide](../../docs/apps/feefifofunds/unified-ingestion-architecture.md#monitoring--observability) - Metrics and alerting
+- [Troubleshooting](../../docs/apps/feefifofunds/unified-ingestion-architecture.md#troubleshooting) - Common issues and solutions
 
 ## 🏃 Quick Start
 
@@ -56,7 +56,7 @@ python manage.py createsuperuser
 open http://localhost:8000/admin/
 ```
 
-See the [Unified Ingestion Architecture](./UNIFIED_INGESTION_ARCHITECTURE.md) for detailed setup instructions and architecture explanation.
+See the [Unified Ingestion Architecture](../../docs/apps/feefifofunds/unified-ingestion-architecture.md) for detailed setup instructions and architecture explanation.
 
 ## 📊 Current Status
 
@@ -107,11 +107,11 @@ See the [Unified Ingestion Architecture](./UNIFIED_INGESTION_ARCHITECTURE.md) fo
 - Machine learning price predictions
 - Multi-user support with permissions
 
-See the [Unified Ingestion Architecture](./UNIFIED_INGESTION_ARCHITECTURE.md#architecture-overview) for complete technical details.
+See the [Unified Ingestion Architecture](../../docs/apps/feefifofunds/unified-ingestion-architecture.md#architecture-overview) for complete technical details.
 
 ## 🤝 Contributing
 
-See the [Development Guide](./UNIFIED_INGESTION_ARCHITECTURE.md#development-guide) for:
+See the [Development Guide](../../docs/apps/feefifofunds/unified-ingestion-architecture.md#development-guide) for:
 - Local development setup and environment configuration
 - Running tests with coverage reporting
 - Performance testing and benchmarking
@@ -153,4 +153,4 @@ bandit -r feefifofunds/
 
 ---
 
-**📖 Documentation Structure**: All documentation for the unified ingestion system is contained in [UNIFIED_INGESTION_ARCHITECTURE.md](./UNIFIED_INGESTION_ARCHITECTURE.md), providing a single source of truth for architecture, implementation, and operational details.
+**📖 Documentation Structure**: All documentation for the unified ingestion system is contained in [unified-ingestion-architecture.md](../../docs/apps/feefifofunds/unified-ingestion-architecture.md), providing a single source of truth for architecture, implementation, and operational details.

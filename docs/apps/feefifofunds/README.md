@@ -18,6 +18,13 @@ FeeFiFoFunds is a Django application for tracking financial asset prices over ti
 
 ### Core Documentation
 
+- **[Unified Ingestion Architecture](unified-ingestion-architecture.md)** ⭐ - Production-ready Kraken ingestion system
+  - Enterprise-grade architecture with security and performance optimizations
+  - Connection pooling, caching, and rate limiting
+  - Gap detection and intelligent backfilling
+  - Comprehensive monitoring and observability
+  - Troubleshooting guide and best practices
+
 - **[Overview](overview.md)** - Complete system architecture and feature guide
   - Hybrid database approach (PostgreSQL + QuestDB)
   - Data models (Asset, AssetPrice)
