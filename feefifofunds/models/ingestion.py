@@ -266,7 +266,7 @@ class DataCoverageRange(TimestampedModel):
         ranges = list(cls.objects.filter(asset=asset, interval_minutes=interval_minutes).order_by("start_date"))
 
         if len(ranges) <= 1:
-            return
+            return ranges  # Fixed: Return consistent type (list) instead of implicit None
 
         merged = []
         current = ranges[0]

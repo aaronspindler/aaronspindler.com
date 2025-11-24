@@ -71,7 +71,7 @@ def backfill_gaps_incremental(
     logger.info(f"Processing {assets.count()} assets for tier {tier}")
 
     # Initialize Kraken data source and QuestDB client
-    kraken = KrakenDataSource(database="questdb")
+    kraken = KrakenDataSource()  # Fixed: KrakenDataSource doesn't accept 'database' parameter
     questdb = QuestDBClient(database="questdb")
 
     # Summary statistics
@@ -143,7 +143,7 @@ def backfill_gaps_incremental(
 
                     # Create GapRecord for tracking
                     with transaction.atomic():
-                        gap_record = GapRecord.objects.create(
+                        GapRecord.objects.create(  # Fixed: Removed unused variable assignment
                             asset=asset,
                             interval_minutes=interval_minutes,
                             gap_start=gap_start,

@@ -11,6 +11,8 @@ from typing import Any, List
 
 from django.db import connections
 
+from feefifofunds.config.database_pool import ConnectionPoolManager
+
 logger = logging.getLogger(__name__)
 
 
@@ -213,3 +215,30 @@ class QuestDBClient:
         if not isinstance(value, datetime):
             raise ValueError(f"Invalid {param_name}: expected datetime, got {type(value).__name__}")
         return value
+
+    def check_pool_health(self) -> bool:
+        """
+        Check if the connection pool is healthy.
+
+        Returns:
+            True if pool is healthy, False otherwise
+        """
+        return ConnectionPoolManager.monitor_pool_health(self.database)
+
+    def get_pool_stats(self) -> dict:
+        """
+        Get current connection pool statistics.
+
+        Returns:
+            Dictionary with pool statistics
+        """
+        return ConnectionPoolManager.get_pool_stats(self.database)
+
+    def warm_pool(self, num_connections: int = 5):
+        """
+        Pre-warm the connection pool.
+
+        Args:
+            num_connections: Number of connections to pre-establish
+        """
+        ConnectionPoolManager.warm_connection_pool(self.database, num_connections)
