@@ -20,8 +20,8 @@ gevent==25.9.1
 gunicorn==23.0.0
 
 # Database Drivers
-psycopg==3.2.12
-psycopg-binary==3.2.12
+psycopg==3.2.13
+psycopg-binary==3.2.13
 questdb==4.0.0
 
 # Caching & Message Broker
@@ -37,7 +37,7 @@ beautifulsoup4==4.14.2
 pyppeteer==2.0.0
 
 # AWS SDK
-boto3==1.41.1
+boto3==1.41.2
 
 # HTTP Client
 requests==2.32.5
