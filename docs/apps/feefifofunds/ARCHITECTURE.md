@@ -1,27 +1,59 @@
-# Unified Kraken Ingestion Architecture
+# FeeFiFoFunds - Unified Ingestion Architecture
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [System Architecture](#system-architecture)
+3. [Core Components](#core-components)
+4. [Data Flow](#data-flow)
+5. [Security Features](#security-features)
+6. [Performance Optimizations](#performance-optimizations)
+7. [Reliability & Resilience](#reliability--resilience)
+8. [Database Design](#database-design)
+9. [API Integration](#api-integration)
+10. [Monitoring & Observability](#monitoring--observability)
+11. [Implementation Status](#implementation-status)
+12. [Usage Guide](#usage-guide)
+13. [Troubleshooting](#troubleshooting)
+
+---
 
 ## Overview
 
 The Unified Kraken Ingestion system provides a production-ready, enterprise-grade solution for ingesting and managing cryptocurrency OHLCV (Open, High, Low, Close, Volume) data from Kraken. Built with security, performance, and reliability as core principles, the system handles millions of data points efficiently while maintaining data integrity and completeness.
 
-## Table of Contents
+### Key Improvements Over Legacy System
 
-1. [Architecture Overview](#architecture-overview)
-2. [Core Components](#core-components)
-3. [Data Flow](#data-flow)
-4. [Security Features](#security-features)
-5. [Performance Optimizations](#performance-optimizations)
-6. [Reliability & Resilience](#reliability--resilience)
-7. [Database Design](#database-design)
-8. [API Integration](#api-integration)
-9. [Monitoring & Observability](#monitoring--observability)
-10. [Usage Guide](#usage-guide)
-11. [Development Guide](#development-guide)
-12. [Troubleshooting](#troubleshooting)
+**Legacy System (3 disconnected steps):**
+```
+Step 1: ingest_sequential (historical CSV)
+    ↓
+Step 2: ingest_sequential (quarterly files)
+    ↓
+Step 3: backfill_kraken_gaps (API backfill)
+```
 
-## Architecture Overview
+**Problems:**
+- No coordination between steps
+- Manual file management required
+- No visibility into overall progress
+- Re-running requires moving files back from `ingested/`
+- Gap detection happens after ingestion (too late)
+- No persistent state tracking
+- Can't resume interrupted ingestions
 
-The Unified Kraken Ingestion system follows a modular, layered architecture designed for scalability and maintainability:
+**Unified System:**
+```
+Single Command: python manage.py ingest_unified_kraken --tier TIER1 --complete
+    ↓
+Unified workflow with state tracking, intelligent routing, and automatic gap detection
+```
+
+---
+
+## System Architecture
+
+### Layered Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -57,6 +89,9 @@ The Unified Kraken Ingestion system follows a modular, layered architecture desi
 3. **Performance First**: Connection pooling, caching, and batch operations
 4. **Fault Tolerance**: Circuit breakers, retry logic, and graceful degradation
 5. **Observability**: Comprehensive logging, metrics, and monitoring
+6. **Resumability**: All state tracked in database for recovery from failures
+
+---
 
 ## Core Components
 
@@ -67,6 +102,19 @@ Tracks high-level ingestion jobs with status, metrics, and error handling:
 - Job lifecycle management (PENDING → RUNNING → COMPLETED/FAILED)
 - Progress tracking and duration calculation
 - Error capture with traceback for debugging
+- Resumability support
+
+**Fields:**
+```python
+job_id = UUIDField(primary_key=True)
+tier = CharField(max_length=20)  # TIER1, TIER2, etc.
+intervals = JSONField()  # [60, 1440]
+start_date, end_date = DateField()
+status = CharField(choices=[PENDING, RUNNING, COMPLETED, FAILED, PAUSED])
+assets_count, total_files, files_ingested, records_ingested = IntegerField()
+csv_source_dir = CharField(max_length=500)
+api_backfill_enabled, auto_gap_fill = BooleanField()
+```
 
 #### FileIngestionRecord
 Manages individual CSV file processing:
@@ -74,17 +122,51 @@ Manages individual CSV file processing:
 - Processing status tracking
 - Date range and record count metadata
 
+**Fields:**
+```python
+job = ForeignKey(IngestionJob)
+file_path = CharField(max_length=500, unique=True)
+file_hash = CharField(max_length=64)  # SHA-256
+asset = ForeignKey(Asset)
+interval_minutes = IntegerField()
+status = CharField(choices=[PENDING, INGESTING, COMPLETED, FAILED, SKIPPED])
+records_count = BigIntegerField()
+date_range_start, date_range_end = DateTimeField()
+```
+
 #### DataCoverageRange
 Maintains continuous data coverage ranges:
 - Automatic range merging for overlapping data
 - Source tracking (CSV, API, or MIXED)
 - Last verification timestamps
 
+**Fields:**
+```python
+asset = ForeignKey(Asset)
+interval_minutes = IntegerField()
+start_date, end_date = DateTimeField()
+source = CharField(choices=[CSV, API, MIXED])
+record_count = BigIntegerField()
+last_verified = DateTimeField(auto_now=True)
+```
+
 #### GapRecord
 Identifies and tracks data gaps:
 - API fillability calculation (720-candle limit)
 - Backfill attempt tracking
 - CSV file recommendations for unfillable gaps
+
+**Fields:**
+```python
+asset = ForeignKey(Asset)
+interval_minutes = IntegerField()
+gap_start, gap_end = DateTimeField()
+missing_candles = IntegerField()
+is_api_fillable = BooleanField()
+overflow_candles = IntegerField(default=0)
+status = CharField(choices=[DETECTED, BACKFILLING, FILLED, UNFILLABLE, FAILED])
+required_csv_file = CharField(max_length=255, null=True)
+```
 
 ### 2. Service Layer
 
@@ -96,7 +178,7 @@ query = "SELECT * FROM assetprice WHERE asset_id = %s AND time >= %s"
 results = client.execute_query(query, [asset_id, start_date])
 ```
 
-Features:
+**Features:**
 - SQL injection prevention via parameterization
 - Connection pool health monitoring
 - Type validation for all parameters
@@ -107,6 +189,30 @@ Intelligent routing between CSV files and Kraken API:
 - Prioritizes local CSV files when available
 - Falls back to API for recent data
 - Respects API rate limits and data availability
+- Handles 720-candle API limitation
+
+**Key Logic:**
+```python
+def create_ingestion_plan(start_date, end_date, available_csv_files):
+    """
+    Routes data to appropriate source (CSV vs API) based on:
+    1. Date range (historical vs recent)
+    2. API 720-candle limit
+    3. CSV file availability
+    """
+    api_cutoff = calculate_api_cutoff_date(interval_minutes)
+
+    # Historical data (before API cutoff) → CSV
+    if start_date < api_cutoff:
+        if csv_files_exist:
+            plan.add_csv_source(...)
+        else:
+            plan.add_missing_csv(...)  # Needs download
+
+    # Recent data (within API limit) → API
+    if end_date >= api_cutoff:
+        plan.add_api_source(...)
+```
 
 #### CoverageTracker (`services/coverage_tracker.py`)
 Manages data coverage ranges:
@@ -114,11 +220,67 @@ Manages data coverage ranges:
 - Tracks data sources for each range
 - Provides coverage completeness metrics
 
+**Workflow:**
+1. Query QuestDB for actual data ranges
+2. Create/update DataCoverageRange entries
+3. Merge overlapping/adjacent ranges
+4. Update record counts
+
 #### IntegratedGapDetector (`services/gap_detector.py`)
 Sophisticated gap detection and classification:
 - Identifies missing data periods
 - Classifies gaps as API-fillable or CSV-required
 - Generates actionable gap reports
+
+**Algorithm:**
+```python
+def detect_gaps_for_asset(asset, interval, expected_start, expected_end):
+    # 1. Query DataCoverageRange for this asset/interval
+    coverage_ranges = DataCoverageRange.objects.filter(...)
+
+    # 2. Find missing date ranges
+    gaps = []
+    current_date = expected_start
+
+    for coverage in coverage_ranges.order_by('start_date'):
+        if coverage.start_date > current_date:
+            # Gap found!
+            gap = create_gap(current_date, coverage.start_date)
+            gaps.append(gap)
+        current_date = max(current_date, coverage.end_date)
+
+    # 3. Final gap if coverage doesn't reach end
+    if current_date < expected_end:
+        gap = create_gap(current_date, expected_end)
+        gaps.append(gap)
+
+    return gaps
+```
+
+**720-Candle API Limitation:**
+Kraken's REST API only returns the last 720 candles, which means:
+- **Daily (1440 min)**: ~2 years from today
+- **Hourly (60 min)**: 30 days from today
+- **5-minute**: ~2.5 days from today
+
+Gaps older than these limits **cannot** be filled via API and require CSV export from Kraken.
+
+#### CompletenessReporter (`services/completeness_reporter.py`)
+Generates tier-based completeness reports:
+- Calculates completeness percentages
+- Identifies assets requiring attention
+- Provides actionable recommendations
+
+**Report Structure:**
+```python
+class CompletenessReport:
+    tier: str
+    overall_completeness_pct: float
+    total_assets: int
+    total_gaps: int
+    intervals: Dict[int, IntervalCompleteness]
+    # IntervalCompleteness contains per-interval metrics
+```
 
 #### CacheManager (`services/cache_manager.py`)
 Multi-tier caching strategy:
@@ -167,6 +329,8 @@ def external_service_call():
     pass
 ```
 
+---
+
 ## Data Flow
 
 ### 1. CSV Ingestion Flow
@@ -190,12 +354,83 @@ Gap Record → API Request → Rate Limiting → Data Validation → QuestDB Ins
   Priority    Retry Logic   Circuit Break   Pydantic      Batch Insert
 ```
 
+### 4. Complete Unified Workflow
+```
+1. Initialize or resume job
+   ├─ Create IngestionJob record
+   └─ Check for existing PAUSED/FAILED jobs
+
+2. Discover available data sources
+   ├─ Scan CSV directory for files
+   ├─ Parse filenames (asset, interval)
+   └─ Calculate API-fillable range
+
+3. Create ingestion plan
+   ├─ Route historical data → CSV
+   ├─ Route recent data → API
+   └─ Identify missing CSV files
+
+4. Execute CSV ingestion
+   ├─ Process files sequentially
+   ├─ Create FileIngestionRecord per file
+   ├─ Move completed files to ingested/
+   └─ Track progress in IngestionJob
+
+5. Update coverage ranges
+   ├─ Query QuestDB for actual data
+   ├─ Create/update DataCoverageRange
+   └─ Merge overlapping ranges
+
+6. Detect gaps
+   ├─ Compare expected vs actual coverage
+   ├─ Calculate missing candles
+   ├─ Classify API fillability
+   └─ Create GapRecord entries
+
+7. Backfill fillable gaps via API
+   ├─ Query fillable GapRecords
+   ├─ Rate-limited API calls
+   ├─ Update GapRecord status
+   └─ Update coverage after fills
+
+8. Generate completeness report
+   ├─ Calculate metrics per asset/interval
+   ├─ Display formatted report
+   └─ Export unfillable gap list
+
+9. Mark job complete
+   └─ Update IngestionJob status
+```
+
+---
+
 ## Security Features
 
 ### SQL Injection Prevention
 - **Parameterized Queries**: All database queries use parameter binding
 - **Input Validation**: Pydantic models validate and sanitize all inputs
 - **Type Checking**: Runtime type validation for all parameters
+
+**Before (Vulnerable):**
+```python
+# ❌ VULNERABLE - f-string query construction
+query = f"""
+    SELECT COUNT(*) FROM assetprice
+    WHERE asset_id = {asset.id}
+      AND interval_minutes = {interval_minutes}
+"""
+```
+
+**After (Safe):**
+```python
+# ✅ SAFE - Parameterized query with validation
+count = questdb_client.count_candles(
+    asset_id=asset.id,  # Validated as integer
+    interval_minutes=interval_minutes,  # Validated as integer
+    start_date=start_date,  # Validated as datetime
+    end_date=end_date  # Validated as datetime
+)
+```
 
 ### API Security
 - **Rate Limiting**: Configurable per-endpoint rate limits
@@ -206,6 +441,8 @@ Gap Record → API Request → Rate Limiting → Data Validation → QuestDB Ins
 - **Transaction Management**: ACID compliance for critical operations
 - **Duplicate Prevention**: SHA-256 hashing for file deduplication
 - **Validation Layers**: Multi-stage validation pipeline
+
+---
 
 ## Performance Optimizations
 
@@ -260,6 +497,22 @@ REDIS_POOL_CONFIG = {
 - API backfill: 720 candles per request
 - Database inserts: 5,000 records per transaction
 
+### Performance Benchmarks
+
+**Ingestion Speed:**
+- **CSV Processing**: 50,000-100,000 records/second
+- **API Backfill**: 720 candles/request (1 request/second)
+- **Gap Detection**: 10,000 assets in < 5 seconds
+- **Cache Hit Rate**: > 80% in production
+
+**Resource Usage:**
+- **Memory**: 500MB-2GB depending on batch sizes
+- **CPU**: 2-4 cores for parallel processing
+- **Network**: 10-50 Mbps during active ingestion
+- **Storage**: ~1GB per million OHLCV records
+
+---
+
 ## Reliability & Resilience
 
 ### Retry Strategies
@@ -285,6 +538,8 @@ States: CLOSED → OPEN → HALF_OPEN → CLOSED
 2. API failure → Use cached data
 3. QuestDB unavailable → Queue for later
 
+---
+
 ## Database Design
 
 ### PostgreSQL Schema (Metadata)
@@ -308,11 +563,37 @@ CREATE TABLE feefifofunds_file_ingestion_record (
     status VARCHAR(20),
     -- metrics and timestamps
 );
+
+-- Coverage tracking
+CREATE TABLE feefifofunds_data_coverage_range (
+    id BIGSERIAL PRIMARY KEY,
+    asset_id INT REFERENCES feefifofunds_asset,
+    interval_minutes INT,
+    start_date TIMESTAMP,
+    end_date TIMESTAMP,
+    source VARCHAR(20),
+    record_count BIGINT,
+    last_verified TIMESTAMP
+);
+
+-- Gap tracking
+CREATE TABLE feefifofunds_gap_record (
+    id BIGSERIAL PRIMARY KEY,
+    asset_id INT REFERENCES feefifofunds_asset,
+    interval_minutes INT,
+    gap_start TIMESTAMP,
+    gap_end TIMESTAMP,
+    missing_candles INT,
+    is_api_fillable BOOLEAN,
+    overflow_candles INT,
+    status VARCHAR(20),
+    required_csv_file VARCHAR(255)
+);
 ```
 
 ### QuestDB Schema (Time-Series)
 ```sql
--- OHLCV data
+-- OHLCV data with DEDUP enabled (migration 0003+)
 CREATE TABLE IF NOT EXISTS assetprice (
     asset_id INT,
     interval_minutes INT,
@@ -322,9 +603,19 @@ CREATE TABLE IF NOT EXISTS assetprice (
     low DOUBLE,
     close DOUBLE,
     volume DOUBLE,
-    trade_count INT
-) TIMESTAMP(time) PARTITION BY DAY;
+    trade_count INT,
+    quote_currency SYMBOL CAPACITY 256 CACHE,
+    source SYMBOL CAPACITY 256 CACHE
+) TIMESTAMP(time) PARTITION BY DAY
+DEDUP UPSERT KEYS(time, asset_id, interval_minutes, source, quote_currency);
 ```
+
+**DEDUP Feature (QuestDB 7.3+):**
+- Ensures idempotent re-ingestion (safe to re-run)
+- Upsert behavior: newer data overwrites older on conflict
+- No duplicate records created
+
+---
 
 ## API Integration
 
@@ -338,6 +629,8 @@ CREATE TABLE IF NOT EXISTS assetprice (
 1. **Initial Load**: CSV files for historical data
 2. **Incremental Updates**: API for recent data
 3. **Gap Filling**: Intelligent routing between sources
+
+---
 
 ## Monitoring & Observability
 
@@ -367,9 +660,43 @@ job.progress_pct  # Real-time progress percentage
 - API error rate > 10%
 - Gap count > 100 per asset
 
+---
+
+## Implementation Status
+
+### ✅ Completed Components
+
+**Database Models (4/4):**
+- ✅ IngestionJob
+- ✅ FileIngestionRecord
+- ✅ DataCoverageRange
+- ✅ GapRecord
+
+**Core Services (5/5):**
+- ✅ QuestDBClient (security layer)
+- ✅ DataSourceRouter
+- ✅ CoverageTracker
+- ✅ IntegratedGapDetector
+- ✅ CompletenessReporter
+
+**Celery Tasks (4/4):**
+- ✅ backfill_gaps_incremental
+- ✅ cleanup_old_gap_records
+- ✅ report_data_completeness
+- ✅ validate_recent_data
+
+### 🚧 In Progress
+
+**Unified Command:**
+- ⏳ `ingest_unified_kraken` management command
+- Estimated: 2-3 days
+
+---
+
 ## Usage Guide
 
 ### Basic Ingestion
+
 ```bash
 # Ingest TIER1 assets (fastest)
 python manage.py ingest_unified_kraken --tier TIER1 --intervals 60 1440
@@ -382,6 +709,7 @@ python manage.py generate_completeness_report --tier TIER1
 ```
 
 ### Advanced Options
+
 ```bash
 # Resume interrupted job
 python manage.py ingest_unified_kraken --resume-job <job_id>
@@ -398,6 +726,7 @@ python manage.py ingest_unified_kraken --tier ALL --dry-run
 ```
 
 ### Celery Tasks
+
 ```python
 # Schedule periodic backfill
 from feefifofunds.tasks import backfill_gaps_incremental
@@ -412,40 +741,7 @@ backfill_gaps_incremental.apply_async(
 )
 ```
 
-## Development Guide
-
-### Running Tests
-```bash
-# Run all FeeFiFoFunds tests
-python manage.py test feefifofunds
-
-# Run specific test module
-python manage.py test feefifofunds.tests.test_services
-
-# With coverage
-coverage run --source='feefifofunds' manage.py test feefifofunds
-coverage report
-```
-
-### Performance Testing
-```python
-# Connection pool warming
-from feefifofunds.config.database_pool import ConnectionPoolManager
-
-ConnectionPoolManager.warm_connection_pool("questdb", num_connections=10)
-
-# Cache preloading
-from feefifofunds.services.cache_manager import CacheManager
-
-for asset_id in tier1_assets:
-    CacheManager.set_asset(asset_id, asset_data)
-```
-
-### Debugging Tips
-1. **Enable SQL logging**: `export DEBUG_SQL=1`
-2. **Monitor pool stats**: Check `/admin/feefifofunds/poolstats/`
-3. **Cache debugging**: Use Redis CLI for cache inspection
-4. **Gap analysis**: Query `GapRecord` model for patterns
+---
 
 ## Troubleshooting
 
@@ -531,19 +827,7 @@ python manage.py shell
 >>> CacheManager.clear_all(prefix="feefifofunds")
 ```
 
-## Performance Benchmarks
-
-### Ingestion Speed
-- **CSV Processing**: 50,000-100,000 records/second
-- **API Backfill**: 720 candles/request (1 request/second)
-- **Gap Detection**: 10,000 assets in < 5 seconds
-- **Cache Hit Rate**: > 80% in production
-
-### Resource Usage
-- **Memory**: 500MB-2GB depending on batch sizes
-- **CPU**: 2-4 cores for parallel processing
-- **Network**: 10-50 Mbps during active ingestion
-- **Storage**: ~1GB per million OHLCV records
+---
 
 ## Best Practices
 
@@ -570,6 +854,17 @@ python manage.py shell
 - Use parameterized queries exclusively
 - Rotate API keys regularly
 - Monitor for unusual access patterns
+
+---
+
+## Related Documentation
+
+- [OPERATIONS.md](OPERATIONS.md) - Commands and operational workflows
+- [INTEGRATIONS.md](INTEGRATIONS.md) - Data source integrations
+- [SETUP.md](SETUP.md) - Development environment setup
+- [README.md](README.md) - Overview and quick start
+
+---
 
 ## Conclusion
 
