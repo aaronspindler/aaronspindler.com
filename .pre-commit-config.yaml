@@ -8,7 +8,7 @@
 repos:
   # Ruff - Fast Python linter with import sorting built-in
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.5
+    rev: v0.14.6
     hooks:
       - id: ruff
         name: ruff linter + import sorting
@@ -18,7 +18,7 @@ repos:
 
   # Django - Automatic Django code upgrades
   - repo: https://github.com/adamchainz/django-upgrade
-    rev: '1.21.0'
+    rev: '1.29.1'
     hooks:
       - id: django-upgrade
         name: django-upgrade - Modernize Django code
@@ -26,7 +26,7 @@ repos:
 
   # Security - Python security linter
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.10
+    rev: 1.9.2
     hooks:
       - id: bandit
         name: bandit - Security linter
