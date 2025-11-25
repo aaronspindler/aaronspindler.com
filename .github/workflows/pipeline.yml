@@ -22,10 +22,10 @@ on:
       - '.gitignore'
   workflow_dispatch:
 
-# Cancel in-progress test runs on PRs, but not on main (for safety)
+# Cancel in-progress test runs
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: true
 
 env:
   SECRET_KEY: "FAKE_SECRET_KEY"
