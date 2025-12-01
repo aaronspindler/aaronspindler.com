@@ -293,19 +293,31 @@ jobs:
           TEST_RESULT: ${{ needs.test-suite.result }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
         run: |
-          echo "📊 Pipeline Summary"
-          echo "=================="
-          echo "Branch: ${{ github.ref_name }}"
-          echo "Commit: ${{ github.sha }}"
-          echo "Tests: ${TEST_RESULT}"
-          echo "Deploy: ${DEPLOY_RESULT}"
+          echo "## 📊 Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pipeline Flow" >> $GITHUB_STEP_SUMMARY
+          echo '```mermaid' >> $GITHUB_STEP_SUMMARY
+          echo "graph LR" >> $GITHUB_STEP_SUMMARY
+          echo "    A[build-test-image] --> C[test-suite]" >> $GITHUB_STEP_SUMMARY
+          echo "    B[build-production-images] --> D[tag-production-images]" >> $GITHUB_STEP_SUMMARY
+          echo "    C --> D" >> $GITHUB_STEP_SUMMARY
+          echo "    D --> E[deploy]" >> $GITHUB_STEP_SUMMARY
+          echo "    E --> F[pipeline-summary]" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | ${TEST_RESULT} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy | ${DEPLOY_RESULT} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
           if [[ "${TEST_RESULT}" == "success" && "${DEPLOY_RESULT}" == "success" ]]; then
-            echo "✅ Pipeline completed successfully!"
-            echo "🚀 Production deployment: LIVE"
+            echo "✅ **Pipeline completed successfully!**" >> $GITHUB_STEP_SUMMARY
+            echo "🚀 **Production deployment: LIVE**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Pipeline failed"
-            echo "Tests: ${TEST_RESULT}"
-            echo "Deploy: ${DEPLOY_RESULT}"
+            echo "❌ **Pipeline failed**" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi

@@ -2,7 +2,7 @@ name: Housekeeping - Container Registry Cleanup
 
 on:
   workflow_run:
-    workflows: ["Deploy to Production"]
+    workflows: ["Pipeline - Build, Test, Deploy"]
     types: [completed]
     branches: [main]
 
