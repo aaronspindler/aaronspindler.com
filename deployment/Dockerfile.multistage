@@ -165,7 +165,42 @@ USER appuser
 CMD ["celery", "--app", "config.celery", "beat", "--loglevel", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
 
 # =============================================================================
-# Stage 5: Unified Celery (Worker + Beat combined)
+# Stage 5: Celery Worker (separate from Beat)
+# Requires Chromium for Lighthouse audits and screenshot generation
+# =============================================================================
+FROM runtime-full AS celery-worker
+
+# Override healthcheck from runtime-full - celery doesn't expose HTTP
+HEALTHCHECK NONE
+
+# Switch back to root to copy and set permissions
+USER root
+
+# Copy celery-specific entrypoint with correct permissions
+COPY --chown=appuser:appuser --chmod=755 deployment/docker-entrypoint-celery.sh /docker-entrypoint-celery.sh
+
+# Switch back to non-root user
+USER appuser
+
+# Override entrypoint for celery (no migrations/collectstatic needed)
+ENTRYPOINT ["/docker-entrypoint-celery.sh"]
+
+# Run Celery worker only (Beat runs in separate container)
+CMD ["celery", "--app", "config.celery", "worker", "--loglevel", "info", "--concurrency", "4"]
+
+# =============================================================================
+# Stage 6: Celery Beat Scheduler (separate from Worker)
+# Lightweight container - no Chromium needed
+# =============================================================================
+FROM runtime-minimal AS celerybeat
+
+# Default command runs the beat scheduler with database backend
+CMD ["celery", "--app", "config.celery", "beat", "--loglevel", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+
+# =============================================================================
+# Stage 7: Unified Celery (Worker + Beat combined) - DEPRECATED
+# Not recommended due to Docker nofile limit issues with -B flag
+# See: https://github.com/celery/celery/issues/8306
 # =============================================================================
 FROM runtime-full AS celery-unified
 
@@ -190,7 +225,7 @@ ENTRYPOINT ["/docker-entrypoint-celery.sh"]
 CMD ["celery", "--app", "config.celery", "worker", "--beat", "--loglevel", "info", "--concurrency", "4", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
 
 # =============================================================================
-# Stage 6: Test Image (skips JS build)
+# Stage 8: Test Image (skips JS build)
 # =============================================================================
 FROM builder AS test
 ARG SKIP_JS_BUILD=1

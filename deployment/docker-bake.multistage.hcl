@@ -59,15 +59,28 @@ target "web" {
 }
 
 # =============================================================================
-# Unified Celery Service (Worker + Beat combined)
+# Celery Worker (separate from Beat for production reliability)
 # =============================================================================
-target "celery-unified" {
+target "celery-worker" {
   inherits = ["_common"]
   dockerfile = "deployment/Dockerfile.multistage"
-  target = "celery-unified"
+  target = "celery-worker"
   tags = [
     "${REGISTRY}/${IMAGE_PREFIX}-celery:${TAG}",
     "${REGISTRY}/${IMAGE_PREFIX}-celery:latest"
+  ]
+}
+
+# =============================================================================
+# Celery Beat Scheduler (separate process for reliable task scheduling)
+# =============================================================================
+target "celerybeat" {
+  inherits = ["_common"]
+  dockerfile = "deployment/Dockerfile.multistage"
+  target = "celerybeat"
+  tags = [
+    "${REGISTRY}/${IMAGE_PREFIX}-celerybeat:${TAG}",
+    "${REGISTRY}/${IMAGE_PREFIX}-celerybeat:latest"
   ]
 }
 
@@ -88,40 +101,28 @@ target "flower" {
 # Build Groups
 # =============================================================================
 
-# Essential services (web + celery-unified)
+# Essential services (web + separate celery worker and beat)
 # This is the recommended production setup
 group "essential" {
-  targets = ["web", "celery-unified"]
+  targets = ["web", "celery-worker", "celerybeat"]
 }
 
 # Full production (includes optional Flower)
 group "production" {
-  targets = ["web", "celery-unified", "flower"]
+  targets = ["web", "celery-worker", "celerybeat", "flower"]
 }
 
-# Legacy targets for backward compatibility
-# These maintain separate worker/beat services
-target "celery-legacy" {
+# =============================================================================
+# Deprecated: Unified Celery (Worker + Beat combined)
+# Not recommended due to Docker nofile limit issues with -B flag
+# See: https://github.com/celery/celery/issues/8306
+# =============================================================================
+target "celery-unified" {
   inherits = ["_common"]
   dockerfile = "deployment/Dockerfile.multistage"
-  target = "runtime-full"
+  target = "celery-unified"
   tags = [
-    "${REGISTRY}/${IMAGE_PREFIX}-celery-worker:${TAG}",
-    "${REGISTRY}/${IMAGE_PREFIX}-celery-worker:latest"
+    "${REGISTRY}/${IMAGE_PREFIX}-celery:${TAG}",
+    "${REGISTRY}/${IMAGE_PREFIX}-celery:latest"
   ]
-}
-
-target "celerybeat-legacy" {
-  inherits = ["_common"]
-  dockerfile = "deployment/Dockerfile.multistage"
-  target = "runtime-minimal"
-  tags = [
-    "${REGISTRY}/${IMAGE_PREFIX}-celerybeat:${TAG}",
-    "${REGISTRY}/${IMAGE_PREFIX}-celerybeat:latest"
-  ]
-}
-
-# Legacy full production (4 services)
-group "production-legacy" {
-  targets = ["web", "celery-legacy", "celerybeat-legacy", "flower"]
 }
