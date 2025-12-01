@@ -27,7 +27,7 @@ jobs:
         package:
           - aaronspindler.com-web
           - aaronspindler.com-celery
-          # Removed: celerybeat (now part of celery-unified)
+          - aaronspindler.com-celerybeat
           - aaronspindler.com-flower
 
     steps:
