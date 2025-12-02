@@ -217,8 +217,9 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://127.0.0.1:80/healthcheck || exit 1
 
-# Flower monitoring dashboard (persistence disabled due to Python 3.13 shelve/dbm incompatibility)
-CMD ["celery", "--app", "config.celery", "flower", "--port=80", "--persistent=false"]
+# Flower monitoring dashboard with persistence
+# Initialize gdbm file first (Python 3.13 shelve can't create new dbm files)
+CMD ["sh", "-c", "python -c \"import dbm.gnu; dbm.gnu.open('/data/flower.db', 'c').close()\" && celery --app config.celery flower --port=80 --persistent=true --db=/data/flower.db"]
 
 # =============================================================================
 # Stage 9: Unified Celery (Worker + Beat combined) - DEPRECATED
