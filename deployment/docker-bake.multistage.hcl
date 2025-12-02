@@ -85,7 +85,7 @@ target "celerybeat" {
 }
 
 # =============================================================================
-# Flower (Monitoring) - Optional/On-Demand
+# Flower (Celery Monitoring)
 # =============================================================================
 target "flower" {
   inherits = ["_common"]
@@ -101,13 +101,7 @@ target "flower" {
 # Build Groups
 # =============================================================================
 
-# Essential services (web + separate celery worker and beat)
-# This is the recommended production setup
-group "essential" {
-  targets = ["web", "celery-worker", "celerybeat"]
-}
-
-# Full production (includes optional Flower)
+# All production services
 group "production" {
   targets = ["web", "celery-worker", "celerybeat", "flower"]
 }

@@ -121,7 +121,7 @@ jobs:
           BUILDKIT_INLINE_CACHE: 1
         with:
           files: deployment/docker-bake.multistage.hcl
-          targets: essential
+          targets: production
           push: true
           set: |
             *.cache-from=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/cache:prod
@@ -216,7 +216,7 @@ jobs:
 
       - name: Re-tag production images with commit SHA
         run: |
-          for service in web celery celerybeat; do
+          for service in web celery celerybeat flower; do
             docker buildx imagetools create \
               --tag ${{ env.REGISTRY }}/${{ github.repository }}-${service}:${{ github.sha }} \
               ${{ env.REGISTRY }}/${{ github.repository }}-${service}:build-${{ github.run_id }} &
@@ -244,6 +244,9 @@ jobs:
           - name: celerybeat
             token: CAPROVER_CELERYBEAT_APP_TOKEN
             app_name: CAPROVER_CELERYBEAT_APP_NAME
+          - name: flower
+            token: CAPROVER_FLOWER_APP_TOKEN
+            app_name: CAPROVER_FLOWER_APP_NAME
       fail-fast: false
 
     steps:
