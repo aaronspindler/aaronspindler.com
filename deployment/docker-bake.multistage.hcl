@@ -90,7 +90,7 @@ target "celerybeat" {
 target "flower" {
   inherits = ["_common"]
   dockerfile = "deployment/Dockerfile.multistage"
-  target = "runtime-minimal"
+  target = "flower"
   tags = [
     "${REGISTRY}/${IMAGE_PREFIX}-flower:${TAG}",
     "${REGISTRY}/${IMAGE_PREFIX}-flower:latest"

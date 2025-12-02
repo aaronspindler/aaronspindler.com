@@ -206,7 +206,16 @@ FROM runtime-minimal AS celerybeat
 CMD ["celery", "--app", "config.celery", "beat", "--loglevel", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
 
 # =============================================================================
-# Stage 7: Unified Celery (Worker + Beat combined) - DEPRECATED
+# Stage 7: Flower (Celery Monitoring)
+# Lightweight container - no Chromium needed
+# =============================================================================
+FROM runtime-minimal AS flower
+
+# Flower monitoring dashboard
+CMD ["celery", "--app", "config.celery", "flower", "--port=80", "--persistent=true", "--db=/data/flower.db"]
+
+# =============================================================================
+# Stage 9: Unified Celery (Worker + Beat combined) - DEPRECATED
 # Not recommended due to Docker nofile limit issues with -B flag
 # See: https://github.com/celery/celery/issues/8306
 # =============================================================================
@@ -233,7 +242,7 @@ ENTRYPOINT ["/docker-entrypoint-celery.sh"]
 CMD ["celery", "--app", "config.celery", "worker", "--beat", "--loglevel", "info", "--concurrency", "4", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
 
 # =============================================================================
-# Stage 8: Test Image (skips JS build)
+# Stage 10: Test Image (skips JS build)
 # =============================================================================
 FROM builder AS test
 ARG SKIP_JS_BUILD=1
