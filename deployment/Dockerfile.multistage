@@ -211,14 +211,14 @@ CMD ["celery", "--app", "config.celery", "beat", "--loglevel", "info", "--schedu
 # =============================================================================
 FROM runtime-minimal AS flower
 
-EXPOSE 5555
+EXPOSE 80
 
 # Flower health check endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://127.0.0.1:5555/healthcheck || exit 1
+    CMD curl -f http://127.0.0.1:80/healthcheck || exit 1
 
 # Flower monitoring dashboard (persistence disabled due to Python 3.13 shelve/dbm incompatibility)
-CMD ["celery", "--app", "config.celery", "flower", "--port=5555", "--persistent=false"]
+CMD ["celery", "--app", "config.celery", "flower", "--port=80", "--persistent=false"]
 
 # =============================================================================
 # Stage 9: Unified Celery (Worker + Beat combined) - DEPRECATED
