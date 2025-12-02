@@ -149,6 +149,14 @@ CMD ["gunicorn", "--bind", ":80", "--workers", "8", "config.wsgi", "--log-level"
 # =============================================================================
 FROM base AS runtime-minimal
 
+# Install gdbm backend for Python shelve (required by Flower for state persistence)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
+    python3-gdbm \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
