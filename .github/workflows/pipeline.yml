@@ -241,12 +241,8 @@ jobs:
           - name: celery
             token: CAPROVER_CELERY_APP_TOKEN
             app_name: CAPROVER_CELERY_APP_NAME
-          - name: celerybeat
-            token: CAPROVER_CELERYBEAT_APP_TOKEN
-            app_name: CAPROVER_CELERYBEAT_APP_NAME
-          - name: flower
-            token: CAPROVER_FLOWER_APP_TOKEN
-            app_name: CAPROVER_FLOWER_APP_NAME
+          # NOTE: celerybeat and flower are deployed separately via deploy-celery-services.yml
+          # They don't need redeployment on every commit since they don't run task code
       fail-fast: false
 
     steps:

@@ -1,0 +1,108 @@
+name: Deploy Celery Services
+
+run-name: "Deploy ${{ inputs.services }} (${{ inputs.image_tag || 'latest' }})"
+
+on:
+  workflow_dispatch:
+    inputs:
+      services:
+        description: 'Which services to deploy'
+        required: true
+        type: choice
+        options:
+          - both
+          - flower
+          - celerybeat
+        default: 'both'
+      image_tag:
+        description: 'Image tag to deploy (commit SHA). Leave empty for latest from main.'
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  get-latest-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.get-tag.outputs.tag }}
+    steps:
+      - name: Get image tag
+        id: get-tag
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+            echo "Using provided tag: ${{ inputs.image_tag }}"
+          else
+            # Get the latest commit SHA from main branch
+            LATEST_SHA=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/commits/main" | jq -r '.sha')
+            echo "tag=${LATEST_SHA}" >> $GITHUB_OUTPUT
+            echo "Using latest main commit: ${LATEST_SHA}"
+          fi
+
+  deploy-flower:
+    runs-on: ubuntu-latest
+    needs: [get-latest-tag]
+    if: inputs.services == 'both' || inputs.services == 'flower'
+    steps:
+      - name: Deploy Flower to CapRover
+        run: |
+          IMAGE_TAG="${{ needs.get-latest-tag.outputs.image_tag }}"
+          echo "Deploying Flower with image tag: ${IMAGE_TAG}"
+
+          docker run caprover/cli-caprover:latest caprover deploy \
+            --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
+            --appToken "${{ secrets.CAPROVER_FLOWER_APP_TOKEN }}" \
+            --appName "${{ secrets.CAPROVER_FLOWER_APP_NAME }}" \
+            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-flower:${IMAGE_TAG}"
+
+          echo "Flower deployed successfully"
+
+  deploy-celerybeat:
+    runs-on: ubuntu-latest
+    needs: [get-latest-tag]
+    if: inputs.services == 'both' || inputs.services == 'celerybeat'
+    steps:
+      - name: Deploy Celerybeat to CapRover
+        run: |
+          IMAGE_TAG="${{ needs.get-latest-tag.outputs.image_tag }}"
+          echo "Deploying Celerybeat with image tag: ${IMAGE_TAG}"
+
+          docker run caprover/cli-caprover:latest caprover deploy \
+            --caproverUrl "${{ secrets.CAPROVER_SERVER }}" \
+            --appToken "${{ secrets.CAPROVER_CELERYBEAT_APP_TOKEN }}" \
+            --appName "${{ secrets.CAPROVER_CELERYBEAT_APP_NAME }}" \
+            --imageName "${{ env.REGISTRY }}/${{ github.repository }}-celerybeat:${IMAGE_TAG}"
+
+          echo "Celerybeat deployed successfully"
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: [get-latest-tag, deploy-flower, deploy-celerybeat]
+    if: always()
+    steps:
+      - name: Deployment Summary
+        env:
+          FLOWER_RESULT: ${{ needs.deploy-flower.result }}
+          CELERYBEAT_RESULT: ${{ needs.deploy-celerybeat.result }}
+          IMAGE_TAG: ${{ needs.get-latest-tag.outputs.image_tag }}
+        run: |
+          echo "## Celery Services Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Image Tag | \`${IMAGE_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ inputs.services }}" == "both" || "${{ inputs.services }}" == "flower" ]]; then
+            echo "| Flower | ${FLOWER_RESULT} |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [[ "${{ inputs.services }}" == "both" || "${{ inputs.services }}" == "celerybeat" ]]; then
+            echo "| Celerybeat | ${CELERYBEAT_RESULT} |" >> $GITHUB_STEP_SUMMARY
+          fi
