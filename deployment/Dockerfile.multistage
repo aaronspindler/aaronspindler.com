@@ -211,8 +211,8 @@ CMD ["celery", "--app", "config.celery", "beat", "--loglevel", "info", "--schedu
 # =============================================================================
 FROM runtime-minimal AS flower
 
-# Flower monitoring dashboard
-CMD ["celery", "--app", "config.celery", "flower", "--port=80", "--persistent=true", "--db=/data/flower.db"]
+# Flower monitoring dashboard (persistence disabled due to Python 3.13 shelve/dbm incompatibility)
+CMD ["celery", "--app", "config.celery", "flower", "--port=80", "--persistent=false"]
 
 # =============================================================================
 # Stage 9: Unified Celery (Worker + Beat combined) - DEPRECATED
