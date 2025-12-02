@@ -86,10 +86,11 @@ RUN python manage.py collectstatic --no-input
 # =============================================================================
 FROM base AS runtime-full
 
-# Install Chromium and dependencies for screenshot generation
+# Install Chromium, Node.js (for Lighthouse), and dependencies for screenshot generation
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
+    # Chromium and dependencies
     chromium \
     chromium-driver \
     fonts-liberation \
@@ -113,6 +114,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libxkbcommon0 \
     libxrandr2 \
     xdg-utils \
+    # Node.js for Lighthouse CLI (used by Celery worker)
+    nodejs \
+    npm \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -123,7 +127,7 @@ RUN mkdir -p $PYPPETEER_HOME && chmod -R 755 $PYPPETEER_HOME \
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Copy application code from builder (includes built assets)
+# Copy application code from builder (includes built assets and node_modules for Lighthouse)
 COPY --from=builder --chown=appuser:appuser /code /code
 
 # Copy entrypoint script
