@@ -1,5 +1,5 @@
 # Core Django Framework
-Django==5.2.8
+Django==5.2.9
 
 # Django Extensions
 django-allauth==65.13.1
