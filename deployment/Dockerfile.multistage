@@ -226,7 +226,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 # Flower monitoring dashboard with persistence
 # Ensure /data exists and has correct permissions, then initialize gdbm file and run as appuser
-CMD ["sh", "-c", "mkdir -p /data && chown appuser:appuser /data && su appuser -c 'python -c \"import dbm.gnu; dbm.gnu.open(\"/data/flower.db\", \"c\").close()\" && celery --app config.celery flower --port=80 --persistent=true --db=/data/flower.db'"]
+CMD ["sh", "-c", "mkdir -p /data && chown appuser:appuser /data && su appuser -c 'python -c \"import dbm.gnu; dbm.gnu.open(\\\"/data/flower.db\\\", \\\"c\\\").close()\" && celery --app config.celery flower --port=80 --persistent=true --db=/data/flower.db'"]
 
 # =============================================================================
 # Stage 9: Unified Celery (Worker + Beat combined) - DEPRECATED
