@@ -153,22 +153,11 @@ CMD ["gunicorn", "--bind", ":80", "--workers", "8", "config.wsgi", "--log-level"
 # =============================================================================
 FROM base AS runtime-minimal
 
-# Install gdbm backend for Python shelve (required by Flower for state persistence)
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && apt-get install -y --no-install-recommends \
-    python3-gdbm \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Copy only application code (no Chromium, no build tools)
 COPY --chown=appuser:appuser . /code/
-
-# Create data directory for Flower
-RUN mkdir -p /data && chown appuser:appuser /data
 
 # Switch to non-root user
 USER appuser
@@ -212,11 +201,12 @@ CMD ["celery", "--app", "config.celery", "beat", "--loglevel", "info", "--schedu
 # =============================================================================
 # Stage 7: Flower (Celery Monitoring)
 # Lightweight container - no Chromium needed
+# Queries task data from Redis (Celery broker/backend)
 # =============================================================================
 FROM runtime-minimal AS flower
 
-# Switch back to root to ensure /data permissions at runtime
-USER root
+# Run as non-root user (inherited from runtime-minimal)
+USER appuser
 
 EXPOSE 80
 
@@ -224,9 +214,8 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://127.0.0.1:80/healthcheck || exit 1
 
-# Flower monitoring dashboard with persistence
-# Ensure /data exists and has correct permissions, then initialize gdbm file and run as appuser
-CMD ["sh", "-c", "mkdir -p /data && chown appuser:appuser /data && su appuser -c 'python -c \"import dbm.gnu; dbm.gnu.open(\\\"/data/flower.db\\\", \\\"c\\\").close()\" && celery --app config.celery flower --port=80 --persistent=true --db=/data/flower.db'"]
+# Flower monitoring dashboard (queries Redis for task data)
+CMD ["celery", "--app", "config.celery", "flower", "--port=80"]
 
 # =============================================================================
 # Stage 9: Unified Celery (Worker + Beat combined) - DEPRECATED
