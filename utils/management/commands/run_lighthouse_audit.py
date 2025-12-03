@@ -82,6 +82,14 @@ class Command(BaseCommand):
             # --headless: Run in headless mode (no GUI)
             chrome_flags = "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu --headless"
 
+            # Set up environment for npm/npx to use writable directories
+            # This is needed because the Celery worker's home directory may not exist or be writable
+            temp_dir = tempfile.gettempdir()
+            npm_env = os.environ.copy()
+            npm_env["HOME"] = temp_dir
+            npm_env["npm_config_cache"] = os.path.join(temp_dir, ".npm")
+            npm_env["npm_config_prefix"] = os.path.join(temp_dir, ".npm-global")
+
             # Try native lighthouse first (more reliable with Chrome flags)
             self.stdout.write("Attempting to run audit with native lighthouse...")
             result = subprocess.run(
@@ -99,6 +107,7 @@ class Command(BaseCommand):
                 text=True,
                 check=False,
                 timeout=300,  # 5 minute timeout
+                env=npm_env,
             )
 
             # If native lighthouse failed, try @lhci/cli as fallback
@@ -111,7 +120,7 @@ class Command(BaseCommand):
 
                 # @lhci/cli saves to .lighthouseci directory by default
                 # Use /tmp for containerized environments where /code may not be writable
-                output_dir = os.path.join(tempfile.gettempdir(), ".lighthouseci")
+                output_dir = os.path.join(temp_dir, ".lighthouseci")
 
                 # Clean up any existing reports
                 if os.path.exists(output_dir):
@@ -136,8 +145,6 @@ class Command(BaseCommand):
 
                 # Try with @lhci/cli, running from the temp directory to avoid permission issues
                 # By setting cwd to the temp directory, @lhci/cli will create .lighthouseci there
-                temp_dir = tempfile.gettempdir()
-
                 result = subprocess.run(
                     [
                         "npx",
@@ -154,6 +161,7 @@ class Command(BaseCommand):
                     check=False,
                     timeout=300,
                     cwd=temp_dir,
+                    env=npm_env,
                 )
 
                 # Clean up the config file
