@@ -6,8 +6,13 @@ from django.core.cache import cache
 logger = logging.getLogger(__name__)
 
 
-@shared_task
-def rebuild_knowledge_graph(force_refresh=False):
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    max_retries=3,
+)
+def rebuild_knowledge_graph(self, force_refresh=False):
     """
     Rebuild the knowledge graph cache periodically.
 
@@ -23,11 +28,17 @@ def rebuild_knowledge_graph(force_refresh=False):
         return graph_data
     except Exception as e:
         logger.error(f"Error rebuilding knowledge graph: {e}")
-        return None
+        raise
 
 
-@shared_task
-def generate_knowledge_graph_screenshot():
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=1800,  # Max 30 minutes (this is a heavy task)
+    max_retries=2,
+)
+def generate_knowledge_graph_screenshot(self):
     """
     Generate a static screenshot of the knowledge graph for faster loading.
 

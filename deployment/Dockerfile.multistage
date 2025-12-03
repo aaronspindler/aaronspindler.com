@@ -187,7 +187,8 @@ USER appuser
 ENTRYPOINT ["/docker-entrypoint-celery.sh"]
 
 # Run Celery worker only (Beat runs in separate container)
-CMD ["celery", "--app", "config.celery", "worker", "--loglevel", "info", "--concurrency", "4"]
+# Consumes all queues: default, notifications, and heavy tasks
+CMD ["celery", "--app", "config.celery", "worker", "--loglevel", "info", "--concurrency", "4", "-Q", "default,notifications,heavy"]
 
 # =============================================================================
 # Stage 6: Celery Beat Scheduler (separate from Worker)
@@ -242,7 +243,7 @@ ENTRYPOINT ["/docker-entrypoint-celery.sh"]
 # Run Celery worker with Beat scheduler included (-B flag)
 # Note: Using prefork pool (default) because -B doesn't work with gevent
 # Adjust concurrency based on your needs (default is number of CPUs)
-CMD ["celery", "--app", "config.celery", "worker", "--beat", "--loglevel", "info", "--concurrency", "4", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+CMD ["celery", "--app", "config.celery", "worker", "--beat", "--loglevel", "info", "--concurrency", "4", "-Q", "default,notifications,heavy", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
 
 # =============================================================================
 # Stage 10: Test Image (skips JS build)

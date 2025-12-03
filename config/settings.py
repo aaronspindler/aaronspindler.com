@@ -380,6 +380,37 @@ CELERY_RESULT_EXPIRES = 7776000
 CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_SEND_SENT_EVENT = True
 
+# Task reliability - acknowledge after completion, re-queue on worker death
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+
+# Soft time limit - allows graceful cleanup before hard kill
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes
+
+# Worker memory protection - restart workers periodically
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
+CELERY_WORKER_MAX_MEMORY_PER_CHILD = 200000  # 200MB in KB
+
+# Better for long-running tasks (Lighthouse, screenshots)
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+
+# Result compression to save Redis memory
+CELERY_RESULT_COMPRESSION = "gzip"
+
+# Visibility timeout (longer than longest task)
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "visibility_timeout": 43200,  # 12 hours
+}
+
+# Task queue routing
+CELERY_TASK_ROUTES = {
+    "utils.tasks.run_lighthouse_audit": {"queue": "heavy"},
+    "blog.tasks.generate_knowledge_graph_screenshot": {"queue": "heavy"},
+    "utils.tasks.send_email": {"queue": "notifications"},
+    "utils.tasks.send_text_message": {"queue": "notifications"},
+}
+CELERY_TASK_DEFAULT_QUEUE = "default"
+
 RESUME_ENABLED = env("RESUME_ENABLED", default=True)
 RESUME_FILENAME = env("RESUME_FILENAME", default="Aaron_Spindler_Resume_2025.pdf")
 

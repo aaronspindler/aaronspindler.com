@@ -13,8 +13,14 @@ def get_notification_config():
     return NotificationConfig.objects.first()
 
 
-@shared_task
-def send_email(email_pk):
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=600,  # Max 10 minutes between retries
+    max_retries=3,
+)
+def send_email(self, email_pk):
     notification_config = get_notification_config()
     if not notification_config.emails_enabled:
         return False
@@ -47,8 +53,14 @@ def send_email(email_pk):
     return True
 
 
-@shared_task
-def send_text_message(text_message_pk):
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=600,  # Max 10 minutes between retries
+    max_retries=3,
+)
+def send_text_message(self, text_message_pk):
     notification_config = get_notification_config()
     if not notification_config.text_messages_enabled:
         return False
@@ -95,8 +107,14 @@ def test_celery_beat():
     return "Test task completed"
 
 
-@shared_task
-def run_lighthouse_audit():
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=1800,  # Max 30 minutes (this is a heavy task)
+    max_retries=2,
+)
+def run_lighthouse_audit(self):
     """
     Celery task to run a Lighthouse audit.
     Scheduled to run daily via Celery Beat.
