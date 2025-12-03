@@ -117,10 +117,26 @@ class Command(BaseCommand):
                 if os.path.exists(output_dir):
                     shutil.rmtree(output_dir)
 
-                # Try with @lhci/cli
-                # Set LHCI_BUILD_DIR to use our custom output directory
-                env = os.environ.copy()
-                env["LHCI_BUILD_DIR"] = output_dir
+                # Create a temporary lighthouserc.json config file
+                # This is the most reliable way to configure @lhci/cli output directory
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".json", delete=False, encoding="utf-8"
+                ) as config_file:
+                    config_path = config_file.name
+                    json.dump(
+                        {
+                            "ci": {
+                                "collect": {
+                                    "settings": {"chromeFlags": chrome_flags},
+                                }
+                            }
+                        },
+                        config_file,
+                    )
+
+                # Try with @lhci/cli, running from the temp directory to avoid permission issues
+                # By setting cwd to the temp directory, @lhci/cli will create .lighthouseci there
+                temp_dir = tempfile.gettempdir()
 
                 result = subprocess.run(
                     [
@@ -131,13 +147,17 @@ class Command(BaseCommand):
                         "--numberOfRuns=1",
                         f"--chromePath={chrome_path}",
                         f"--chrome-flags={chrome_flags}",
+                        f"--config={config_path}",
                     ],
                     capture_output=True,
                     text=True,
                     check=False,
                     timeout=300,
-                    env=env,
+                    cwd=temp_dir,
                 )
+
+                # Clean up the config file
+                os.unlink(config_path)
 
                 if result.returncode != 0:
                     logger.error(f"@lhci/cli also failed: {result.stderr}")
