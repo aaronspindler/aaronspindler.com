@@ -1,6 +1,9 @@
 import json
 import logging
+import os
+from datetime import datetime, timezone
 
+from django.conf import settings
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -454,3 +457,120 @@ def vote_comment(request, comment_id):
             "user_vote": user_vote,
         }
     )
+
+
+@require_http_methods(["GET"])
+def blog_posts_api(request):
+    """
+    Public API endpoint for recent blog posts.
+
+    Used by GitHub Actions to update README files with latest blog posts.
+    Returns posts sorted by post number (newest first).
+
+    Query parameters:
+        limit: Number of posts to return (default: 5, max: 50)
+
+    Response format:
+        {
+            "status": "success",
+            "data": {
+                "posts": [
+                    {
+                        "title": "Post Title",
+                        "url": "https://aaronspindler.com/b/category/template_name/",
+                        "category": "tech",
+                        "published_at": "2024-11-15T10:30:00Z",
+                        "post_number": "0007"
+                    }
+                ]
+            },
+            "metadata": {
+                "total_posts": 7,
+                "returned_posts": 5
+            }
+        }
+    """
+    try:
+        limit = min(int(request.GET.get("limit", 5)), 50)
+    except (ValueError, TypeError):
+        limit = 5
+
+    try:
+        posts = _get_blog_posts_for_api()
+        total_posts = len(posts)
+
+        # Sort by post number descending (newest first)
+        posts.sort(key=lambda x: x["post_number"], reverse=True)
+
+        # Apply limit
+        posts = posts[:limit]
+
+        return JsonResponse(
+            {
+                "status": "success",
+                "data": {"posts": posts},
+                "metadata": {
+                    "total_posts": total_posts,
+                    "returned_posts": len(posts),
+                },
+            }
+        )
+
+    except Exception:
+        logger.error("Error in blog posts API", exc_info=True)
+        return JsonResponse(
+            {
+                "status": "error",
+                "error": "An error occurred while fetching blog posts",
+            },
+            status=500,
+        )
+
+
+def _get_blog_posts_for_api():
+    """
+    Scan blog templates directory and return list of posts with metadata.
+
+    Returns list of dicts with title, url, category, published_at, and post_number.
+    """
+    posts = []
+    template_dir = os.path.join(settings.BASE_DIR, "blog", "templates", "blog")
+
+    categories = ["personal", "projects", "reviews", "tech", "hobbies"]
+
+    for category in categories:
+        category_path = os.path.join(template_dir, category)
+        if not os.path.exists(category_path):
+            continue
+
+        for filename in os.listdir(category_path):
+            if not filename.endswith(".html"):
+                continue
+
+            # Skip non-blog files (must start with a number)
+            if not filename[0].isdigit():
+                continue
+
+            template_name = filename[:-5]  # Remove .html extension
+
+            # Extract post number and title from filename
+            parts = template_name.split("_", 1)
+            post_number = parts[0]
+            title = parts[1].replace("_", " ") if len(parts) > 1 else template_name
+
+            # Get file modification time as published date
+            file_path = os.path.join(category_path, filename)
+            timestamp = os.path.getmtime(file_path)
+            published_at = datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat()
+
+            posts.append(
+                {
+                    "title": title,
+                    "url": f"https://aaronspindler.com/b/{category}/{template_name}/",
+                    "category": category,
+                    "published_at": published_at,
+                    "post_number": post_number,
+                }
+            )
+
+    return posts

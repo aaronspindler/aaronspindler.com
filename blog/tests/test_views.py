@@ -635,3 +635,219 @@ class KnowledgeGraphAPITest(TestCase):
         self.assertEqual(data["status"], "error")
         # After security fix, error messages are generic
         self.assertEqual(data["error"], "An error occurred while processing your request")
+
+
+class BlogPostsAPITest(TestCase):
+    """Test blog posts API endpoint for GitHub README integration."""
+
+    def setUp(self):
+        self.client = Client()
+
+    @patch("blog.views._get_blog_posts_for_api")
+    def test_blog_posts_api_success(self, mock_get_posts):
+        """Test successful GET request returns posts."""
+        mock_get_posts.return_value = [
+            {
+                "title": "Test Post One",
+                "url": "https://aaronspindler.com/b/tech/0002_Test_Post_One/",
+                "category": "tech",
+                "published_at": "2024-11-15T10:30:00+00:00",
+                "post_number": "0002",
+            },
+            {
+                "title": "Test Post Two",
+                "url": "https://aaronspindler.com/b/personal/0001_Test_Post_Two/",
+                "category": "personal",
+                "published_at": "2024-11-10T08:00:00+00:00",
+                "post_number": "0001",
+            },
+        ]
+
+        response = self.client.get("/api/posts/")
+
+        actual_status = response.status_code
+        expected_status = 200
+        message = f"Expected status {expected_status}, got {actual_status}"
+        self.assertEqual(actual_status, expected_status, message)
+
+        data = json.loads(response.content)
+
+        actual_api_status = data["status"]
+        expected_api_status = "success"
+        message = f"Expected API status '{expected_api_status}', got '{actual_api_status}'"
+        self.assertEqual(actual_api_status, expected_api_status, message)
+
+        actual_returned = data["metadata"]["returned_posts"]
+        expected_returned = 2
+        message = f"Expected {expected_returned} returned posts, got {actual_returned}"
+        self.assertEqual(actual_returned, expected_returned, message)
+
+        # Verify posts are sorted by post_number descending
+        posts = data["data"]["posts"]
+        actual_first_post_number = posts[0]["post_number"]
+        expected_first_post_number = "0002"
+        message = f"Expected first post number '{expected_first_post_number}', got '{actual_first_post_number}'"
+        self.assertEqual(actual_first_post_number, expected_first_post_number, message)
+
+    @patch("blog.views._get_blog_posts_for_api")
+    def test_blog_posts_api_limit_parameter(self, mock_get_posts):
+        """Test limit query parameter restricts number of posts returned."""
+        mock_get_posts.return_value = [
+            {
+                "title": f"Post {i}",
+                "url": f"url{i}",
+                "category": "tech",
+                "published_at": "2024-01-01",
+                "post_number": f"000{i}",
+            }
+            for i in range(10, 0, -1)
+        ]
+
+        response = self.client.get("/api/posts/?limit=3")
+
+        actual_status = response.status_code
+        expected_status = 200
+        message = f"Expected status {expected_status}, got {actual_status}"
+        self.assertEqual(actual_status, expected_status, message)
+
+        data = json.loads(response.content)
+
+        actual_returned = data["metadata"]["returned_posts"]
+        expected_returned = 3
+        message = f"Expected {expected_returned} posts with limit=3, got {actual_returned}"
+        self.assertEqual(actual_returned, expected_returned, message)
+
+        actual_total = data["metadata"]["total_posts"]
+        expected_total = 10
+        message = f"Expected total_posts {expected_total}, got {actual_total}"
+        self.assertEqual(actual_total, expected_total, message)
+
+    @patch("blog.views._get_blog_posts_for_api")
+    def test_blog_posts_api_limit_max_enforced(self, mock_get_posts):
+        """Test that limit parameter is capped at 50."""
+        mock_get_posts.return_value = [
+            {
+                "title": f"Post {i}",
+                "url": f"url{i}",
+                "category": "tech",
+                "published_at": "2024-01-01",
+                "post_number": f"{i:04d}",
+            }
+            for i in range(100, 0, -1)
+        ]
+
+        response = self.client.get("/api/posts/?limit=100")
+
+        data = json.loads(response.content)
+
+        actual_returned = data["metadata"]["returned_posts"]
+        expected_returned = 50
+        message = f"Expected max {expected_returned} posts even with limit=100, got {actual_returned}"
+        self.assertEqual(actual_returned, expected_returned, message)
+
+    @patch("blog.views._get_blog_posts_for_api")
+    def test_blog_posts_api_invalid_limit_uses_default(self, mock_get_posts):
+        """Test that invalid limit parameter falls back to default of 5."""
+        mock_get_posts.return_value = [
+            {
+                "title": f"Post {i}",
+                "url": f"url{i}",
+                "category": "tech",
+                "published_at": "2024-01-01",
+                "post_number": f"000{i}",
+            }
+            for i in range(10, 0, -1)
+        ]
+
+        response = self.client.get("/api/posts/?limit=invalid")
+
+        data = json.loads(response.content)
+
+        actual_returned = data["metadata"]["returned_posts"]
+        expected_returned = 5
+        message = f"Expected default {expected_returned} posts with invalid limit, got {actual_returned}"
+        self.assertEqual(actual_returned, expected_returned, message)
+
+    @patch("blog.views._get_blog_posts_for_api")
+    def test_blog_posts_api_empty_response(self, mock_get_posts):
+        """Test API returns empty list when no posts exist."""
+        mock_get_posts.return_value = []
+
+        response = self.client.get("/api/posts/")
+
+        actual_status = response.status_code
+        expected_status = 200
+        message = f"Expected status {expected_status}, got {actual_status}"
+        self.assertEqual(actual_status, expected_status, message)
+
+        data = json.loads(response.content)
+
+        actual_posts = data["data"]["posts"]
+        expected_posts = []
+        message = f"Expected empty posts list, got {actual_posts}"
+        self.assertEqual(actual_posts, expected_posts, message)
+
+        actual_total = data["metadata"]["total_posts"]
+        expected_total = 0
+        message = f"Expected total_posts 0, got {actual_total}"
+        self.assertEqual(actual_total, expected_total, message)
+
+    @patch("blog.views._get_blog_posts_for_api")
+    def test_blog_posts_api_error_handling(self, mock_get_posts):
+        """Test error handling returns 500 with generic message."""
+        mock_get_posts.side_effect = Exception("Test error")
+
+        response = self.client.get("/api/posts/")
+
+        actual_status = response.status_code
+        expected_status = 500
+        message = f"Expected status {expected_status}, got {actual_status}"
+        self.assertEqual(actual_status, expected_status, message)
+
+        data = json.loads(response.content)
+
+        actual_api_status = data["status"]
+        expected_api_status = "error"
+        message = f"Expected API status '{expected_api_status}', got '{actual_api_status}'"
+        self.assertEqual(actual_api_status, expected_api_status, message)
+
+        actual_error = data["error"]
+        expected_error = "An error occurred while fetching blog posts"
+        message = f"Expected error '{expected_error}', got '{actual_error}'"
+        self.assertEqual(actual_error, expected_error, message)
+
+    def test_blog_posts_api_only_allows_get(self):
+        """Test that POST/PUT/DELETE methods are not allowed."""
+        response = self.client.post("/api/posts/")
+
+        actual_status = response.status_code
+        expected_status = 405
+        message = f"Expected status {expected_status} for POST, got {actual_status}"
+        self.assertEqual(actual_status, expected_status, message)
+
+    @patch("blog.views._get_blog_posts_for_api")
+    def test_blog_posts_api_response_structure(self, mock_get_posts):
+        """Test response contains all required fields."""
+        mock_get_posts.return_value = [
+            {
+                "title": "Knowledge Graph",
+                "url": "https://aaronspindler.com/b/tech/0005_Knowledge_Graph/",
+                "category": "tech",
+                "published_at": "2024-11-15T10:30:00+00:00",
+                "post_number": "0005",
+            },
+        ]
+
+        response = self.client.get("/api/posts/")
+        data = json.loads(response.content)
+
+        # Check top-level structure
+        self.assertIn("status", data, "Response missing 'status' field")
+        self.assertIn("data", data, "Response missing 'data' field")
+        self.assertIn("metadata", data, "Response missing 'metadata' field")
+
+        # Check post structure
+        post = data["data"]["posts"][0]
+        required_fields = ["title", "url", "category", "published_at", "post_number"]
+        for field in required_fields:
+            self.assertIn(field, post, f"Post missing required field '{field}'")

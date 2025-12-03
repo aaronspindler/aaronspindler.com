@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    blog_posts_api,
     delete_comment,
     knowledge_graph_api,
     knowledge_graph_screenshot,
@@ -21,6 +22,8 @@ urlpatterns = [
     path("comment/<int:comment_id>/moderate/", moderate_comment, name="moderate_comment"),
     path("comment/<int:comment_id>/delete/", delete_comment, name="delete_comment"),
     path("comment/<int:comment_id>/vote/", vote_comment, name="vote_comment"),
+    # Blog API endpoints
+    path("api/posts/", blog_posts_api, name="blog_posts_api"),
     # Knowledge graph API endpoints
     path("api/knowledge-graph/", knowledge_graph_api, name="knowledge_graph_api"),
     path(
