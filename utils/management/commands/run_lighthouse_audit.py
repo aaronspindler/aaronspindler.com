@@ -110,13 +110,18 @@ class Command(BaseCommand):
                 os.unlink(output_path)
 
                 # @lhci/cli saves to .lighthouseci directory by default
-                output_dir = ".lighthouseci"
+                # Use /tmp for containerized environments where /code may not be writable
+                output_dir = os.path.join(tempfile.gettempdir(), ".lighthouseci")
 
                 # Clean up any existing reports
                 if os.path.exists(output_dir):
                     shutil.rmtree(output_dir)
 
                 # Try with @lhci/cli
+                # Set LHCI_BUILD_DIR to use our custom output directory
+                env = os.environ.copy()
+                env["LHCI_BUILD_DIR"] = output_dir
+
                 result = subprocess.run(
                     [
                         "npx",
@@ -131,6 +136,7 @@ class Command(BaseCommand):
                     text=True,
                     check=False,
                     timeout=300,
+                    env=env,
                 )
 
                 if result.returncode != 0:
