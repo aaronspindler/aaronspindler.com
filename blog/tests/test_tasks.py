@@ -37,11 +37,17 @@ class BlogTasksTest(TestCase):
     @patch("blog.knowledge_graph.build_knowledge_graph")
     def test_rebuild_knowledge_graph_failure(self, mock_build_graph):
         """Test knowledge graph rebuild task handles errors."""
-        mock_build_graph.side_effect = Exception("Test error")
+        mock_build_graph.side_effect = RuntimeError("Test error")
 
-        result = rebuild_knowledge_graph()
+        # Task has autoretry configured, so calling it raises Retry exception
+        # Use .run() to bypass Celery's retry machinery and test the error handling
+        with self.assertRaises(RuntimeError) as context:
+            rebuild_knowledge_graph.run(force_refresh=False)
 
-        self.assertIsNone(result)
+        actual_message = str(context.exception)
+        expected_message = "Test error"
+        message = f"Expected '{expected_message}', got '{actual_message}'"
+        self.assertEqual(actual_message, expected_message, message)
 
     @patch("django.core.management.call_command")
     def test_generate_knowledge_graph_screenshot_success(self, mock_call_command):
@@ -209,13 +215,15 @@ class TaskIntegrationTest(TestCase):
         """Test that tasks log appropriately."""
         mock_build_graph.return_value = {"nodes": [], "edges": []}
 
-        rebuild_knowledge_graph()
+        # Use .run() to bypass Celery retry machinery
+        rebuild_knowledge_graph.run(force_refresh=False)
 
         mock_logger.info.assert_called_with("Knowledge graph rebuilt and cached successfully")
 
-        # Test error logging
-        mock_build_graph.side_effect = Exception("Error")
-        rebuild_knowledge_graph()
+        # Test error logging - use .run() and expect exception
+        mock_build_graph.side_effect = RuntimeError("Error")
+        with self.assertRaises(RuntimeError):
+            rebuild_knowledge_graph.run(force_refresh=False)
 
         self.assertTrue(mock_logger.error.called)
         error_call = mock_logger.error.call_args[0][0]
