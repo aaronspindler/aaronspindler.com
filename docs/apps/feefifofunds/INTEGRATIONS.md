@@ -1,21 +1,29 @@
-# Data Sources System
+# FeeFiFoFunds - Data Source Integrations
+
+Complete guide for integrating external financial data APIs and managing data models.
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Available Data Sources](#available-data-sources)
+3. [Data Models](#data-models)
+4. [Data Transfer Objects (DTOs)](#data-transfer-objects-dtos)
+5. [Creating a Data Source](#creating-a-data-source)
+6. [Massive.com Integration](#massivecom-integration)
+7. [Rate Limiting](#rate-limiting)
+8. [Error Handling](#error-handling)
+9. [Caching](#caching)
+10. [Monitoring](#monitoring)
+11. [Best Practices](#best-practices)
+12. [Troubleshooting](#troubleshooting)
+
+---
 
 ## Overview
 
 The Data Sources system provides a standardized framework for integrating external financial data APIs (Yahoo Finance, Alpha Vantage, Finnhub, Massive.com, etc.) into the FeeFiFoFunds application. It includes rate limiting, error handling, caching, monitoring, and data validation to ensure reliable and cost-effective data acquisition.
 
-## Available Data Sources
-
-| Source | Free Tier | Historical Data | Real-Time | Best For |
-|--------|-----------|-----------------|-----------|----------|
-| **Massive.com** | 100 req/sec | 2 years | No | Historical backloads |
-| Yahoo Finance | Unlimited | Years | 15-min delay | General purpose |
-| Finnhub | 60 calls/min | Limited | Yes | Real-time updates |
-| Alpha Vantage | 5 calls/min | 20+ years | Yes | Research/analysis |
-
-See [Massive.com Integration](massive-integration.md) for detailed documentation on the Massive.com data source.
-
-## Features
+### Features
 
 - **Standardized Interface**: Abstract base class ensures consistent integration across all data sources
 - **Rate Limiting**: Automatic rate limit enforcement to prevent API overages and account suspension
@@ -26,40 +34,112 @@ See [Massive.com Integration](massive-integration.md) for detailed documentation
 - **Auto-Recovery**: Automatic disable after 5 consecutive failures, prevents cascading issues
 - **Audit Trail**: Complete DataSync records for compliance and debugging
 
-## Architecture
+---
 
-### Components
+## Available Data Sources
 
+| Source | Free Tier | Historical Data | Real-Time | Best For |
+|--------|-----------|-----------------|-----------|----------|
+| **Massive.com** | 100 req/sec | 2 years | No | Historical backloads |
+| Yahoo Finance | Unlimited | Years | 15-min delay | General purpose |
+| Finnhub | 60 calls/min | Limited | Yes | Real-time updates |
+| Alpha Vantage | 5 calls/min | 20+ years | Yes | Research/analysis |
+
+---
+
+## Data Models
+
+FeeFiFoFunds uses a hybrid database architecture for optimal performance:
+
+### PostgreSQL Models (Metadata)
+
+#### Asset Model
+Universal model for all asset types stored in PostgreSQL.
+
+**Fields:**
+```python
+ticker = CharField(max_length=20, unique=True)  # BTC, AAPL, GLD
+name = CharField(max_length=255)  # Full asset name
+category = CharField(max_length=20, choices=[STOCK, CRYPTO, COMMODITY, CURRENCY])
+tier = CharField(max_length=20, choices=[TIER1, TIER2, TIER3, TIER4, UNCLASSIFIED])
+description = TextField(blank=True)
+active = BooleanField(default=True)
+created_at, updated_at = DateTimeField()
 ```
-feefifofunds/services/data_sources/
-├── __init__.py          # Package exports
-├── base.py              # BaseDataSource abstract class
-├── dto.py               # Data Transfer Objects
-├── finnhub.py           # Finnhub API integration
-└── massive.py           # Massive.com API integration
+
+**Usage:**
+```python
+from feefifofunds.models import Asset
+
+# Query by category
+crypto_assets = Asset.objects.filter(category='CRYPTO')
+
+# Query by tier
+tier1_assets = Asset.objects.filter(tier='TIER1')
+
+# Get specific asset
+btc = Asset.objects.get(ticker='BTC')
 ```
 
-### Data Flow
+---
 
+### QuestDB Models (Time-Series)
+
+#### AssetPrice Model
+OHLCV (Open/High/Low/Close/Volume) price records stored in QuestDB for high-performance time-series queries.
+
+**Fields:**
+```python
+asset_id = IntegerField()  # Reference to Asset.id in PostgreSQL
+time = DateTimeField()  # QuestDB designated timestamp
+open = DecimalField(max_digits=20, decimal_places=8)
+high = DecimalField(max_digits=20, decimal_places=8)
+low = DecimalField(max_digits=20, decimal_places=8)
+close = DecimalField(max_digits=20, decimal_places=8)
+volume = DecimalField(max_digits=20, decimal_places=8)
+interval_minutes = SmallIntegerField()  # 1, 5, 15, 30, 60, 240, 1440
+trade_count = IntegerField(null=True)
+quote_currency = CharField(max_length=10)  # SYMBOL type in QuestDB
+source = CharField(max_length=50)  # SYMBOL type in QuestDB
 ```
-External API → BaseDataSource → DTO Validation → Database Model
-                    ↓
-              Rate Limiting
-              Error Handling
-              Caching
-              Monitoring
+
+**QuestDB Schema:**
+```sql
+CREATE TABLE assetprice (
+    asset_id INT,
+    time TIMESTAMP,
+    open DOUBLE,
+    high DOUBLE,
+    low DOUBLE,
+    close DOUBLE,
+    volume DOUBLE,
+    interval_minutes INT,
+    trade_count INT,
+    quote_currency SYMBOL CAPACITY 256 CACHE,
+    source SYMBOL CAPACITY 256 CACHE
+) TIMESTAMP(time) PARTITION BY DAY
+DEDUP UPSERT KEYS(time, asset_id, interval_minutes, source, quote_currency);
 ```
 
-### Database Models
+**Usage:**
+```python
+from feefifofunds.models import AssetPrice
+from django.db import connections
 
-**DataSource Model**: Tracks data source configuration and health
-- Configuration: base_url, rate limits, API key requirements
-- Monitoring: requests_today, last_request_time, reliability_score
-- Status: ACTIVE, INACTIVE, ERROR, RATE_LIMITED, MAINTENANCE
+# Query recent prices (use QuestDB connection)
+with connections['questdb'].cursor() as cursor:
+    cursor.execute("""
+        SELECT asset_id, time, close, volume
+        FROM assetprice
+        WHERE asset_id = 1
+        AND interval_minutes = 1440
+        ORDER BY time DESC
+        LIMIT 100
+    """)
+    rows = cursor.fetchall()
+```
 
-**DataSync Model**: Audit trail for all synchronization operations
-- Tracks: sync_type, status, timing, records processed
-- Stores: request_params, response_metadata, error_details
+---
 
 ## Data Transfer Objects (DTOs)
 
@@ -70,7 +150,7 @@ Standardizes fund information from various APIs.
 **Required Fields**:
 ```python
 ticker: str              # Fund ticker symbol (e.g., "VTI")
-name: str               # Full fund name (e.g., "Vanguard Total Stock Market ETF")
+name: str               # Full fund name
 ```
 
 **Fund Classification**:
@@ -111,9 +191,11 @@ source: str                         # Data source identifier
 fetched_at: datetime                # Timestamp of fetch
 ```
 
+---
+
 ### PerformanceDataDTO
 
-Standardizes OHLCV (Open, High, Low, Close, Volume) price data.
+Standardizes OHLCV price data.
 
 **Required Fields**:
 ```python
@@ -143,6 +225,8 @@ interval: str = "1D"               # Data interval (1D, 1W, 1M, 1Q, 1Y)
 source: str                        # Data source identifier
 fetched_at: datetime               # Timestamp of fetch
 ```
+
+---
 
 ### HoldingDataDTO
 
@@ -181,6 +265,8 @@ as_of_date: Optional[date]         # Data as-of date
 source: str                        # Data source identifier
 fetched_at: datetime               # Timestamp of fetch
 ```
+
+---
 
 ## Creating a Data Source
 
@@ -259,6 +345,8 @@ class YahooFinanceDataSource(BaseDataSource):
         raise NotImplementedError("Yahoo Finance does not provide holdings data")
 ```
 
+---
+
 ### Step 2: Register Data Source
 
 ```python
@@ -277,6 +365,8 @@ def get_data_source(name: str, api_key: str = None):
         raise ValueError(f"Unknown data source: {name}")
     return DATA_SOURCES[name](api_key=api_key)
 ```
+
+---
 
 ### Step 3: Use Data Source
 
@@ -297,6 +387,162 @@ except DataNotFoundError:
 except RateLimitError:
     print("Rate limit exceeded")
 ```
+
+---
+
+## Massive.com Integration
+
+The Massive.com (formerly Polygon.io) data source integration enables the FeeFiFoFunds app to fetch historical and daily stock/ETF price data from Massive.com's free API. This provides comprehensive OHLCV data for up to 2 years of history.
+
+### Features
+
+- **Historical Data Backloading**: Fetch up to 730 days (2 years) of historical price data
+- **Daily Updates**: Automated daily price updates for all active funds
+- **Fund Auto-Creation**: Automatically create fund records when fetching data
+- **Transaction Safety**: All database operations wrapped in atomic transactions
+- **DataSync Tracking**: Comprehensive audit trail of all data fetches
+- **Input Validation**: Ticker format and date range validation
+- **Rate Limiting**: Built-in awareness of API rate limits (~100 req/sec)
+
+### Free Tier Capabilities
+
+Massive.com's free tier provides generous limits:
+
+- **Rate Limit**: ~100 requests/second (soft limit, no hard daily cap)
+- **Historical Data**: 2 years at minute-level granularity
+- **Data Type**: End-of-day OHLCV data (no real-time on free tier)
+- **Best For**: Historical data backloading and batch processing
+
+**Note**: For real-time data, consider using Finnhub after initial backload with Massive.com.
+
+### Setup
+
+#### 1. Get API Key
+
+1. Visit [massive.com](https://massive.com)
+2. Sign up for free account
+3. Generate API key from dashboard
+
+#### 2. Configure Environment
+
+Add to `.env` file:
+
+```bash
+MASSIVE_API_KEY=your_api_key_here
+```
+
+Or set environment variable:
+
+```bash
+export MASSIVE_API_KEY=your_api_key_here
+```
+
+#### 3. Verify Setup
+
+```bash
+# Test connection
+python manage.py shell
+>>> from feefifofunds.services.data_sources.massive import MassiveDataSource
+>>> ds = MassiveDataSource()
+>>> print(ds.display_name)
+Massive.com
+```
+
+### Usage
+
+#### Initial Backload
+
+For new funds or historical data recovery:
+
+```bash
+# Single fund with auto-creation
+python manage.py backload_massive SPY --create-fund --days 730
+
+# Multiple funds
+python manage.py backload_massive SPY QQQ VOO VTI --create-fund --days 730
+
+# All existing funds
+python manage.py backload_massive --all --days 730
+```
+
+#### Daily Updates
+
+For ongoing price updates:
+
+```bash
+# Update all active funds
+python manage.py update_massive_daily
+
+# Update specific funds
+python manage.py update_massive_daily SPY QQQ
+
+# Catch up after weekend
+python manage.py update_massive_daily --days 5
+```
+
+### API Reference
+
+#### MassiveDataSource Methods
+
+**`fetch_fund_info(ticker: str) -> FundDataDTO`**
+
+Fetch basic fund information including name, exchange, and current price.
+
+**Parameters**:
+- `ticker`: Stock/ETF ticker symbol (e.g., 'SPY', 'AAPL')
+
+**Returns**: `FundDataDTO` with fund metadata
+
+**Example**:
+```python
+from feefifofunds.services.data_sources.massive import MassiveDataSource
+
+ds = MassiveDataSource()
+fund_data = ds.fetch_fund_info('SPY')
+print(f"{fund_data.name}: ${fund_data.current_price}")
+```
+
+---
+
+**`fetch_historical_prices(ticker: str, start_date: date, end_date: date, interval: str = "1D") -> List[PerformanceDataDTO]`**
+
+Fetch historical OHLCV data for a date range.
+
+**Parameters**:
+- `ticker`: Ticker symbol
+- `start_date`: Start date for historical data
+- `end_date`: End date for historical data
+- `interval`: Data interval ('1D', '1W', '1M')
+
+**Returns**: List of `PerformanceDataDTO` objects
+
+**Example**:
+```python
+from datetime import date, timedelta
+from feefifofunds.services.data_sources.massive import MassiveDataSource
+
+ds = MassiveDataSource()
+end_date = date.today()
+start_date = end_date - timedelta(days=30)
+
+prices = ds.fetch_historical_prices('AAPL', start_date, end_date)
+for price in prices:
+    print(f"{price.date}: ${price.close_price}")
+```
+
+---
+
+**`fetch_recent_days(ticker: str, days: int = 730) -> List[PerformanceDataDTO]`**
+
+Convenience method to fetch recent historical data.
+
+**Parameters**:
+- `ticker`: Ticker symbol
+- `days`: Number of days to fetch (max 730)
+
+**Returns**: List of `PerformanceDataDTO` objects
+
+---
 
 ## Rate Limiting
 
@@ -343,6 +589,8 @@ def can_make_request(self) -> bool:
         increment=True
     )
 ```
+
+---
 
 ## Error Handling
 
@@ -392,6 +640,8 @@ After 5 consecutive failures, the data source automatically:
 2. Stops making requests (`can_make_request()` returns `False`)
 3. Requires manual re-enable in Django admin
 
+---
+
 ## Caching
 
 ### Automatic Caching
@@ -437,6 +687,8 @@ cache.delete_pattern("fund_info:*")
 # Clear all data for a ticker
 cache.delete_pattern(f"*:VTI")
 ```
+
+---
 
 ## Monitoring
 
@@ -504,46 +756,7 @@ for sync in recent_syncs:
         print(f"  Error: {sync.error_message}")
 ```
 
-## Configuration
-
-### Environment Variables
-
-```bash
-# Data source API keys
-YAHOO_FINANCE_API_KEY=your-key-here
-ALPHA_VANTAGE_API_KEY=your-key-here
-FINNHUB_API_KEY=your-key-here
-
-# Rate limiting (optional, overrides defaults)
-YAHOO_FINANCE_RATE_LIMIT=2000
-YAHOO_FINANCE_RATE_PERIOD=3600
-
-# Caching
-CACHE_BACKEND=redis
-REDIS_URL=redis://localhost:6379/0
-```
-
-### Django Settings
-
-```python
-# settings.py
-
-# Data source configuration
-DATA_SOURCE_SETTINGS = {
-    "yahoo_finance": {
-        "api_key": env("YAHOO_FINANCE_API_KEY", default=None),
-        "rate_limit_requests": env.int("YAHOO_FINANCE_RATE_LIMIT", default=2000),
-        "rate_limit_period": env.int("YAHOO_FINANCE_RATE_PERIOD", default=3600),
-        "cache_timeout": 3600,  # 1 hour
-    },
-    "alpha_vantage": {
-        "api_key": env("ALPHA_VANTAGE_API_KEY"),
-        "rate_limit_requests": env.int("ALPHA_VANTAGE_RATE_LIMIT", default=5),
-        "rate_limit_period": env.int("ALPHA_VANTAGE_RATE_PERIOD", default=60),
-        "cache_timeout": 7200,  # 2 hours
-    },
-}
-```
+---
 
 ## Best Practices
 
@@ -567,6 +780,8 @@ def fetch_fund_info(self, ticker: str) -> dict:
     return self._make_request(url)  # Raw dict, no validation
 ```
 
+---
+
 ### 2. Always Use Decimal for Money
 
 **Do**:
@@ -578,6 +793,8 @@ price = Decimal(str(api_response["price"]))  # Precise
 ```python
 price = float(api_response["price"])  # Loses precision
 ```
+
+---
 
 ### 3. Handle Missing Data Gracefully
 
@@ -593,6 +810,8 @@ if "expenseRatio" in data:
 expense_ratio = Decimal(str(data["expenseRatio"]))  # KeyError if missing
 ```
 
+---
+
 ### 4. Use Caching for Expensive Operations
 
 **Do**:
@@ -604,6 +823,8 @@ return self._get_cached_or_fetch(cache_key, fetch_func, 3600)
 ```python
 return fetch_func()  # Always hits API
 ```
+
+---
 
 ### 5. Create Sync Records for Audit
 
@@ -622,6 +843,8 @@ except Exception as e:
     raise
 ```
 
+---
+
 ## Troubleshooting
 
 ### Rate Limit Exceeded
@@ -635,6 +858,8 @@ except Exception as e:
 4. Use caching to reduce API calls
 5. Schedule data fetches during off-peak hours
 
+---
+
 ### Data Source Auto-Disabled
 
 **Symptoms**: `status = ERROR`, requests failing with "Source is disabled"
@@ -645,6 +870,8 @@ except Exception as e:
 3. Reset `consecutive_failures` to 0
 4. Change `status` back to ACTIVE
 5. Test with single request before batch operations
+
+---
 
 ### DTO Validation Errors
 
@@ -657,6 +884,8 @@ except Exception as e:
 4. Validate currency codes (ISO 4217)
 5. Review API response format changes
 
+---
+
 ### Caching Issues
 
 **Symptoms**: Stale data, cache misses
@@ -667,6 +896,8 @@ except Exception as e:
 3. Check cache key format (consistent naming)
 4. Clear cache: `python manage.py clear_cache`
 5. Adjust cache_timeout for your use case
+
+---
 
 ### Missing API Data
 
@@ -679,10 +910,11 @@ except Exception as e:
 4. Handle missing data with Optional fields
 5. Log missing data for investigation
 
+---
+
 ## Related Documentation
 
-- [Architecture](../architecture.md) - System design and data flow
-- [API Reference](../api.md) - API endpoints for data sources
-- [Commands](../commands.md) - Management commands for data syncing
-- [Testing](../testing.md) - Testing data source integrations
-- [Deployment](../deployment.md) - Production configuration for data sources
+- [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture and design
+- [OPERATIONS.md](OPERATIONS.md) - Commands and workflows
+- [SETUP.md](SETUP.md) - Development environment setup
+- [README.md](README.md) - Overview and quick start

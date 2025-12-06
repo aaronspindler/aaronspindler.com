@@ -18,51 +18,36 @@ FeeFiFoFunds is a Django application for tracking financial asset prices over ti
 
 ### Core Documentation
 
-- **[Overview](overview.md)** - Complete system architecture and feature guide
-  - Hybrid database approach (PostgreSQL + QuestDB)
-  - Data models (Asset, AssetPrice)
-  - Management commands
-  - Usage examples
-  - Configuration
-  - Troubleshooting
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** ⭐ - System architecture and design
+  - Unified ingestion architecture
+  - Core components and services
+  - Security features and SQL injection prevention
+  - Performance optimizations and benchmarks
+  - Database design (PostgreSQL + QuestDB)
+  - Implementation status and roadmap
 
-- **[Development Guide](development.md)** - Local setup and contribution guidelines
-  - Development setup and prerequisites
-  - Project structure
-  - Common development tasks
-  - Testing guide
-  - Debugging tips
-  - Contribution guidelines
+- **[OPERATIONS.md](OPERATIONS.md)** - Commands and operational workflows
+  - Management commands reference
+  - Kraken OHLCV ingestion workflows
+  - Celery automated tasks
+  - Common operational procedures
+  - Troubleshooting guide
 
-### Data Ingestion
-
-- **[Kraken OHLCV Ingestion](ohlcv-ingestion.md)** - Fast CSV data ingestion (50K-100K records/sec)
-  - QuestDB ILP ingestion
-  - OHLCV candlestick data
-  - Tier-based filtering
-  - File management
-  - Performance optimization
-
-- **[Massive.com Integration](massive-integration.md)** - Stock/ETF data from Massive.com API
-  - Historical stock/ETF data (2 years free)
-  - Grouped endpoint optimization
-  - Backfill commands
-  - Rate limiting
-
-- **[Data Sources Framework](data-sources.md)** - External API integration patterns
-  - BaseDataSource pattern
+- **[INTEGRATIONS.md](INTEGRATIONS.md)** - Data source integrations
+  - Data sources framework (BaseDataSource)
+  - Massive.com (Polygon.io) integration
   - Finnhub integration
-  - Massive.com integration
-  - DTOs and transformations
+  - Data Transfer Objects (DTOs)
+  - Rate limiting and error handling
+  - Monitoring and best practices
 
-### Database
-
-- **[QuestDB Setup](questdb-setup.md)** - Time-series database configuration
-  - Installation and setup
-  - Schema initialization
-  - PARTITION BY DAY
-  - SYMBOL types
-  - Performance tuning
+- **[SETUP.md](SETUP.md)** - Development environment setup
+  - Installation and prerequisites
+  - Database setup (PostgreSQL + QuestDB)
+  - QuestDB configuration and schema
+  - Development workflows
+  - Testing and debugging
+  - Contribution guidelines
 
 ### Related Documentation
 
@@ -95,7 +80,7 @@ python manage.py shell
 >>> Asset.objects.count()
 ```
 
-**See [Overview](overview.md) for complete setup guide.**
+**See [SETUP.md](SETUP.md) for complete installation guide.**
 
 ### Full Kraken OHLCV Ingestion
 
@@ -107,7 +92,7 @@ python manage.py ingest_sequential --yes
 python manage.py ingest_sequential --intervals 60,1440 --yes
 ```
 
-**See [Kraken OHLCV Ingestion](ohlcv-ingestion.md) for detailed guide.**
+**See [OPERATIONS.md](OPERATIONS.md) for detailed command reference.**
 
 ### API Data Sources
 
@@ -122,7 +107,7 @@ python manage.py backfill_prices --source massive --days 365 --all --grouped
 python manage.py backfill_prices --ticker BTC --source finnhub --days 365
 ```
 
-**See [Massive Integration](massive-integration.md) and [Data Sources](data-sources.md) for details.**
+**See [INTEGRATIONS.md](INTEGRATIONS.md) for data source integration details.**
 
 ## Architecture
 
@@ -139,7 +124,7 @@ python manage.py backfill_prices --ticker BTC --source finnhub --days 365
 - PARTITION BY DAY for optimal queries
 - SYMBOL types for repeated strings
 
-**See [Overview](overview.md#architecture) for complete architecture details.**
+**See [ARCHITECTURE.md](ARCHITECTURE.md) for complete architecture details.**
 
 ### Data Models
 
@@ -159,7 +144,7 @@ python manage.py backfill_prices --ticker BTC --source finnhub --days 365
 - Microsecond precision timestamps
 - Fields: asset_id, time, price, volume
 
-**See [Overview](overview.md#data-models) for complete model documentation.**
+**See [INTEGRATIONS.md](INTEGRATIONS.md) for complete model documentation.**
 
 ## Project Structure
 
@@ -220,7 +205,7 @@ MASSIVE_API_KEY=your_massive_api_key
 FINNHUB_API_KEY=your_finnhub_api_key
 ```
 
-**See [Overview](overview.md#configuration) and [Deployment](../../deployment.md) for complete configuration.**
+**See [SETUP.md](SETUP.md) and [Deployment](../../deployment.md) for complete configuration.**
 
 ## Performance
 
@@ -234,7 +219,7 @@ FINNHUB_API_KEY=your_finnhub_api_key
 - **Symbol caching**: Repeated strings cached in memory
 - **Time-series indexes**: Automatic optimization
 
-**See [QuestDB Setup](questdb-setup.md) for tuning details.**
+**See [SETUP.md](SETUP.md) for QuestDB tuning details.**
 
 ## Future Enhancements
 
@@ -263,19 +248,19 @@ FINNHUB_API_KEY=your_finnhub_api_key
 - Trend detection
 - Anomaly detection
 
-**See [Overview](overview.md#future-architecture) for complete roadmap.**
+**See [ARCHITECTURE.md](ARCHITECTURE.md) for implementation roadmap.**
 
 ## Contributing
 
 When contributing to FeeFiFoFunds:
 
-1. **Follow development guide**: See [Development Guide](development.md)
+1. **Follow development guide**: See [SETUP.md](SETUP.md)
 2. **Test with QuestDB**: Ensure QuestDB connection works
 3. **Test ingestion**: Verify data ingestion with sample files
 4. **Document changes**: Update relevant docs in this directory
-5. **Update commands.md**: If adding new management commands
+5. **Update OPERATIONS.md**: If adding new management commands
 
-**See [Development Guide](development.md) for complete contribution guidelines.**
+**See [SETUP.md](SETUP.md) for complete contribution guidelines.**
 
 ## Troubleshooting
 
@@ -290,7 +275,7 @@ When contributing to FeeFiFoFunds:
 - Check file paths and permissions
 - Monitor QuestDB logs for errors
 
-**See [Overview](overview.md#troubleshooting) for complete troubleshooting guide.**
+**See [OPERATIONS.md](OPERATIONS.md) and [SETUP.md](SETUP.md) for complete troubleshooting guides.**
 
 ---
 
