@@ -1,5 +1,5 @@
 # Core Django Framework
-Django==5.2.8
+Django==5.2.9
 
 # Django Extensions
 django-allauth==65.13.1
@@ -12,7 +12,7 @@ django-storages==1.14.6
 whitenoise[brotli]==6.11.0
 
 # Task Queue & Background Jobs
-celery==5.5.3
+celery==5.6.0
 flower==2.0.1
 gevent==25.9.1
 
@@ -20,9 +20,9 @@ gevent==25.9.1
 gunicorn==23.0.0
 
 # Database Drivers
-psycopg==3.2.13
-psycopg-binary==3.2.13
-questdb==4.0.0
+psycopg==3.3.2
+psycopg-binary==3.3.2
+questdb==4.1.0
 
 # Caching & Message Broker
 redis==7.1.0
@@ -33,17 +33,17 @@ ImageHash==4.3.2
 numpy==2.3.5
 
 # Web Scraping & Browser Automation
-beautifulsoup4==4.14.2
+beautifulsoup4==4.14.3
 pyppeteer==2.0.0
 
 # AWS SDK
-boto3==1.41.3
+boto3==1.42.4
 
 # HTTP Client
 requests==2.32.5
 
 # Financial Data APIs
-finnhub-python==2.4.25
+finnhub-python==2.4.26
 polygon-api-client==1.15.4
 
 # Testing & Coverage

@@ -86,10 +86,11 @@ RUN python manage.py collectstatic --no-input
 # =============================================================================
 FROM base AS runtime-full
 
-# Install Chromium and dependencies for screenshot generation
+# Install Chromium, Node.js (for Lighthouse), and dependencies for screenshot generation
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
+    # Chromium and dependencies
     chromium \
     chromium-driver \
     fonts-liberation \
@@ -113,6 +114,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libxkbcommon0 \
     libxrandr2 \
     xdg-utils \
+    # Node.js for Lighthouse CLI (used by Celery worker)
+    nodejs \
+    npm \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -123,7 +127,7 @@ RUN mkdir -p $PYPPETEER_HOME && chmod -R 755 $PYPPETEER_HOME \
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Copy application code from builder (includes built assets)
+# Copy application code from builder (includes built assets and node_modules for Lighthouse)
 COPY --from=builder --chown=appuser:appuser /code /code
 
 # Copy entrypoint script
@@ -155,9 +159,6 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 # Copy only application code (no Chromium, no build tools)
 COPY --chown=appuser:appuser . /code/
 
-# Create data directory for Flower
-RUN mkdir -p /data && chown appuser:appuser /data
-
 # Switch to non-root user
 USER appuser
 
@@ -165,7 +166,62 @@ USER appuser
 CMD ["celery", "--app", "config.celery", "beat", "--loglevel", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
 
 # =============================================================================
-# Stage 5: Unified Celery (Worker + Beat combined)
+# Stage 5: Celery Worker (separate from Beat)
+# Requires Chromium for Lighthouse audits and screenshot generation
+# =============================================================================
+FROM runtime-full AS celery-worker
+
+# Override healthcheck from runtime-full - celery doesn't expose HTTP
+HEALTHCHECK NONE
+
+# Switch back to root to copy and set permissions
+USER root
+
+# Copy celery-specific entrypoint with correct permissions
+COPY --chown=appuser:appuser --chmod=755 deployment/docker-entrypoint-celery.sh /docker-entrypoint-celery.sh
+
+# Switch back to non-root user
+USER appuser
+
+# Override entrypoint for celery (no migrations/collectstatic needed)
+ENTRYPOINT ["/docker-entrypoint-celery.sh"]
+
+# Run Celery worker only (Beat runs in separate container)
+# Consumes all queues: default, notifications, and heavy tasks
+CMD ["celery", "--app", "config.celery", "worker", "--loglevel", "info", "--concurrency", "4", "-Q", "default,notifications,heavy"]
+
+# =============================================================================
+# Stage 6: Celery Beat Scheduler (separate from Worker)
+# Lightweight container - no Chromium needed
+# =============================================================================
+FROM runtime-minimal AS celerybeat
+
+# Default command runs the beat scheduler with database backend
+CMD ["celery", "--app", "config.celery", "beat", "--loglevel", "info", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+
+# =============================================================================
+# Stage 7: Flower (Celery Monitoring)
+# Lightweight container - no Chromium needed
+# Queries task data from Redis (Celery broker/backend)
+# =============================================================================
+FROM runtime-minimal AS flower
+
+# Run as non-root user (inherited from runtime-minimal)
+USER appuser
+
+EXPOSE 80
+
+# Flower health check endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://127.0.0.1:80/healthcheck || exit 1
+
+# Flower monitoring dashboard (queries Redis for task data)
+CMD ["celery", "--app", "config.celery", "flower", "--port=80"]
+
+# =============================================================================
+# Stage 9: Unified Celery (Worker + Beat combined) - DEPRECATED
+# Not recommended due to Docker nofile limit issues with -B flag
+# See: https://github.com/celery/celery/issues/8306
 # =============================================================================
 FROM runtime-full AS celery-unified
 
@@ -187,10 +243,10 @@ ENTRYPOINT ["/docker-entrypoint-celery.sh"]
 # Run Celery worker with Beat scheduler included (-B flag)
 # Note: Using prefork pool (default) because -B doesn't work with gevent
 # Adjust concurrency based on your needs (default is number of CPUs)
-CMD ["celery", "--app", "config.celery", "worker", "--beat", "--loglevel", "info", "--concurrency", "4", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+CMD ["celery", "--app", "config.celery", "worker", "--beat", "--loglevel", "info", "--concurrency", "4", "-Q", "default,notifications,heavy", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
 
 # =============================================================================
-# Stage 6: Test Image (skips JS build)
+# Stage 10: Test Image (skips JS build)
 # =============================================================================
 FROM builder AS test
 ARG SKIP_JS_BUILD=1

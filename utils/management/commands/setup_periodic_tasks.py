@@ -15,6 +15,31 @@ class Command(BaseCommand):
     help = "Setup periodic tasks for Celery Beat"
 
     def handle(self, *args, **options):
+        # Test task every minute (for verifying Celery Beat is working)
+        schedule_every_minute, created = CrontabSchedule.objects.get_or_create(
+            minute="*",
+            hour="*",
+            day_of_week="*",
+            day_of_month="*",
+            month_of_year="*",
+        )
+
+        test_task, created = PeriodicTask.objects.update_or_create(
+            name="Test Celery Beat (every minute)",
+            defaults={
+                "task": "utils.tasks.test_celery_beat",
+                "crontab": schedule_every_minute,
+                "kwargs": json.dumps({}),
+                "enabled": True,
+                "description": "Test task to verify Celery Beat is working - runs every minute",
+            },
+        )
+
+        if created:
+            self.stdout.write(self.style.SUCCESS(f"Successfully created periodic task: {test_task.name}"))
+        else:
+            self.stdout.write(self.style.SUCCESS(f"Successfully updated periodic task: {test_task.name}"))
+
         # Daily Lighthouse audit at 2 AM
         schedule_daily_2am, created = CrontabSchedule.objects.get_or_create(
             minute="0",

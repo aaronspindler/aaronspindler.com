@@ -117,7 +117,7 @@ services:
       context: ..
       dockerfile: deployment/Dockerfile.multistage
       target: runtime-full
-    command: celery -A config worker -l info --concurrency=2
+    command: celery -A config worker -l info --concurrency=2 -Q default,notifications,heavy
     volumes:
       - ..:/code
     environment:
@@ -171,14 +171,9 @@ services:
     command: >
       celery -A config flower
       --port=5555
-      --persistent=true
-      --db=/data/flower.db
       --max_tasks=50000
-      --state_save_interval=10000
     ports:
       - "5556:5555"  # Use different port to avoid conflicts
-    volumes:
-      - flower_data:/data
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings_test
       - SECRET_KEY=test-secret-key-for-testing-only
@@ -243,7 +238,6 @@ volumes:
   questdb_test_data:
   static_volume:
   media_volume:
-  flower_data:
 
 networks:
   test_network:

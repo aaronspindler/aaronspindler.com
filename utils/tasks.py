@@ -13,8 +13,14 @@ def get_notification_config():
     return NotificationConfig.objects.first()
 
 
-@shared_task
-def send_email(email_pk):
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=600,  # Max 10 minutes between retries
+    max_retries=3,
+)
+def send_email(self, email_pk):
     notification_config = get_notification_config()
     if not notification_config.emails_enabled:
         return False
@@ -47,8 +53,14 @@ def send_email(email_pk):
     return True
 
 
-@shared_task
-def send_text_message(text_message_pk):
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=600,  # Max 10 minutes between retries
+    max_retries=3,
+)
+def send_text_message(self, text_message_pk):
     notification_config = get_notification_config()
     if not notification_config.text_messages_enabled:
         return False
@@ -76,23 +88,42 @@ def send_text_message(text_message_pk):
     return True
 
 
-# Lighthouse monitoring tasks
-import logging as lighthouse_logger
+# Logging for celery tasks
+import logging
 
-lighthouse_log = lighthouse_logger.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 @shared_task
-def run_lighthouse_audit():
+def test_celery_beat():
+    """
+    Simple test task to verify Celery Beat is working.
+    Scheduled to run every minute for testing purposes.
+    """
+    logger.info("=" * 50)
+    logger.info("TEST CELERY BEAT TASK EXECUTED SUCCESSFULLY")
+    logger.info(f"Current time: {timezone.now()}")
+    logger.info("=" * 50)
+    return "Test task completed"
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=1800,  # Max 30 minutes (this is a heavy task)
+    max_retries=2,
+)
+def run_lighthouse_audit(self):
     """
     Celery task to run a Lighthouse audit.
     Scheduled to run daily via Celery Beat.
     """
     url = "https://aaronspindler.com"
     try:
-        lighthouse_log.info(f"Starting scheduled Lighthouse audit for {url}...")
+        logger.info(f"Starting scheduled Lighthouse audit for {url}...")
         call_command("run_lighthouse_audit")
-        lighthouse_log.info("Lighthouse audit completed successfully")
+        logger.info("Lighthouse audit completed successfully")
     except Exception as e:
-        lighthouse_log.error(f"Lighthouse audit failed: {e}")
+        logger.error(f"Lighthouse audit failed: {e}")
         raise

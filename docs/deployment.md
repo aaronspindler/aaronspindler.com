@@ -274,56 +274,29 @@ QUESTDB_PORT=8812
 
 ### Automated Deployment Workflow
 
-The GitHub Actions deployment pipeline (`deploy.yml`) automatically deploys on successful tests:
+The GitHub Actions deployment pipeline (`pipeline.yml`) automatically deploys **web** and **celery worker** on successful tests to the main branch.
 
-```yaml
-name: Deploy to CapRover
+**Services deployed on every commit:**
+- `web` - Django application
+- `celery` - Async task worker
 
-on:
-  workflow_run:
-    workflows: ["Test"]
-    types: [completed]
-    branches: [main]
+**Services deployed manually (via `deploy-celery-services.yml`):**
+- `celerybeat` - Task scheduler (only needs redeployment when beat schedule changes)
+- `flower` - Monitoring dashboard (rarely needs redeployment)
 
-jobs:
-  deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
+### Manual Celery Services Deployment
 
-    steps:
-      - name: Deploy Web
-        uses: caprover/deploy-from-github@main
-        with:
-          server: ${{ secrets.CAPROVER_SERVER }}
-          app: 'aaronspindler-web'
-          token: ${{ secrets.CAPROVER_APP_TOKEN }}
-          image: 'ghcr.io/aaronspindler/aaronspindler.com-web:latest'
+To deploy Celerybeat and/or Flower, use the **Deploy Celery Services** workflow:
 
-      - name: Deploy Celery
-        uses: caprover/deploy-from-github@main
-        with:
-          server: ${{ secrets.CAPROVER_SERVER }}
-          app: 'aaronspindler-celery'
-          token: ${{ secrets.CAPROVER_APP_TOKEN }}
-          image: 'ghcr.io/aaronspindler/aaronspindler.com-celery:latest'
+1. Go to **Actions** → **Deploy Celery Services**
+2. Click **Run workflow**
+3. Select which services to deploy (`both`, `flower`, or `celerybeat`)
+4. Optionally specify a commit SHA (defaults to latest on main)
 
-      - name: Deploy Celerybeat
-        uses: caprover/deploy-from-github@main
-        with:
-          server: ${{ secrets.CAPROVER_SERVER }}
-          app: 'aaronspindler-celerybeat'
-          token: ${{ secrets.CAPROVER_APP_TOKEN }}
-          image: 'ghcr.io/aaronspindler/aaronspindler.com-celerybeat:latest'
-
-      - name: Deploy Flower (if changed)
-        if: contains(github.event.workflow_run.head_commit.message, 'flower')
-        uses: caprover/deploy-from-github@main
-        with:
-          server: ${{ secrets.CAPROVER_SERVER }}
-          app: 'aaronspindler-flower'
-          token: ${{ secrets.CAPROVER_APP_TOKEN }}
-          image: 'ghcr.io/aaronspindler/aaronspindler.com-flower:latest'
-```
+This workflow is useful when:
+- The Celery beat schedule changes (new tasks, different intervals)
+- Flower or Celery versions are updated
+- Configuration changes affecting these services
 
 ### Manual Deployment
 
@@ -355,11 +328,17 @@ The project uses GitHub Actions for continuous integration and deployment automa
 - **Parallel Processing**: Coverage and production builds run concurrently
 - **Validation**: Linting, type checking, security scanning
 
-#### Deployment Pipeline (`deploy.yml`)
+#### Deployment Pipeline (`pipeline.yml`)
 - **Trigger**: Automatic after successful tests on main branch
-- **Services**: Deploys web, celery, celerybeat, flower to CapRover
+- **Services**: Deploys web and celery worker to CapRover (celerybeat and flower deploy separately)
 - **Images**: Uses pre-built, tested images from GHCR
 - **Zero-downtime**: Health check based routing
+
+#### Celery Services Deployment (`deploy-celery-services.yml`)
+- **Trigger**: Manual workflow dispatch
+- **Services**: Celerybeat and/or Flower
+- **Options**: Deploy both, flower only, or celerybeat only
+- **Image Tag**: Specify commit SHA or use latest from main
 
 ### Pre-deployment Validation
 

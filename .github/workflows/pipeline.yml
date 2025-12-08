@@ -50,7 +50,7 @@ jobs:
     timeout-minutes: 8
     steps:
       - name: Checkout code
-        uses: actions/checkout@c2d88d3ecc89a9ef08eebf45d9637801dcee7eb5  # v5.0.1
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v5.0.1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
@@ -68,7 +68,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push test image to GHCR
-        uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c  # v5.10.0
+        uses: docker/bake-action@5be5f02ff8819ecd3092ea6b2e6261c31774f2b4  # v5.10.0
         env:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_PREFIX: ${{ github.repository }}
@@ -94,7 +94,7 @@ jobs:
     timeout-minutes: 8
     steps:
       - name: Checkout code
-        uses: actions/checkout@c2d88d3ecc89a9ef08eebf45d9637801dcee7eb5  # v5.0.1
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v5.0.1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435  # v3.11.1
@@ -112,7 +112,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push production images with temporary tag
-        uses: docker/bake-action@3acf805d94d93a86cce4ca44798a76464a75b88c  # v5.10.0
+        uses: docker/bake-action@5be5f02ff8819ecd3092ea6b2e6261c31774f2b4  # v5.10.0
         env:
           REGISTRY: ${{ env.REGISTRY }}
           IMAGE_PREFIX: ${{ github.repository }}
@@ -121,7 +121,7 @@ jobs:
           BUILDKIT_INLINE_CACHE: 1
         with:
           files: deployment/docker-bake.multistage.hcl
-          targets: essential
+          targets: production
           push: true
           set: |
             *.cache-from=type=registry,ref=${{ env.REGISTRY }}/${{ github.repository }}/cache:prod
@@ -140,7 +140,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@c2d88d3ecc89a9ef08eebf45d9637801dcee7eb5  # v5.0.1
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v5.0.1
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef  # v3.6.0
@@ -216,7 +216,7 @@ jobs:
 
       - name: Re-tag production images with commit SHA
         run: |
-          for service in web celery; do
+          for service in web celery celerybeat flower; do
             docker buildx imagetools create \
               --tag ${{ env.REGISTRY }}/${{ github.repository }}-${service}:${{ github.sha }} \
               ${{ env.REGISTRY }}/${{ github.repository }}-${service}:build-${{ github.run_id }} &
@@ -241,6 +241,8 @@ jobs:
           - name: celery
             token: CAPROVER_CELERY_APP_TOKEN
             app_name: CAPROVER_CELERY_APP_NAME
+          # NOTE: celerybeat and flower are deployed separately via deploy-celery-services.yml
+          # They don't need redeployment on every commit since they don't run task code
       fail-fast: false
 
     steps:
@@ -293,19 +295,31 @@ jobs:
           TEST_RESULT: ${{ needs.test-suite.result }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
         run: |
-          echo "📊 Pipeline Summary"
-          echo "=================="
-          echo "Branch: ${{ github.ref_name }}"
-          echo "Commit: ${{ github.sha }}"
-          echo "Tests: ${TEST_RESULT}"
-          echo "Deploy: ${DEPLOY_RESULT}"
+          echo "## 📊 Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pipeline Flow" >> $GITHUB_STEP_SUMMARY
+          echo '```mermaid' >> $GITHUB_STEP_SUMMARY
+          echo "graph LR" >> $GITHUB_STEP_SUMMARY
+          echo "    A[build-test-image] --> C[test-suite]" >> $GITHUB_STEP_SUMMARY
+          echo "    B[build-production-images] --> D[tag-production-images]" >> $GITHUB_STEP_SUMMARY
+          echo "    C --> D" >> $GITHUB_STEP_SUMMARY
+          echo "    D --> E[deploy]" >> $GITHUB_STEP_SUMMARY
+          echo "    E --> F[pipeline-summary]" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests | ${TEST_RESULT} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deploy | ${DEPLOY_RESULT} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
           if [[ "${TEST_RESULT}" == "success" && "${DEPLOY_RESULT}" == "success" ]]; then
-            echo "✅ Pipeline completed successfully!"
-            echo "🚀 Production deployment: LIVE"
+            echo "✅ **Pipeline completed successfully!**" >> $GITHUB_STEP_SUMMARY
+            echo "🚀 **Production deployment: LIVE**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Pipeline failed"
-            echo "Tests: ${TEST_RESULT}"
-            echo "Deploy: ${DEPLOY_RESULT}"
+            echo "❌ **Pipeline failed**" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi

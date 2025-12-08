@@ -179,9 +179,44 @@ def hello_world():
 
 ## API Endpoints
 
-- `GET /blog/api/graph/data/` - Knowledge graph data (nodes and links)
-- `GET /blog/api/graph/screenshot/` - Latest graph screenshot
-- `POST /blog/api/comments/{id}/vote/` - Vote on comment
+- `GET /api/posts/` - Recent blog posts (for GitHub README integration)
+- `GET /api/knowledge-graph/` - Knowledge graph data (nodes and links)
+- `GET /api/knowledge-graph/screenshot/` - Latest graph screenshot
+- `POST /comment/{id}/vote/` - Vote on comment
+
+### Blog Posts API
+
+Public endpoint for fetching recent blog posts. Used by GitHub Actions to update profile README.
+
+```bash
+# Get 5 most recent posts (default)
+curl https://aaronspindler.com/api/posts/
+
+# Get custom number of posts (max 50)
+curl https://aaronspindler.com/api/posts/?limit=10
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "data": {
+    "posts": [
+      {
+        "title": "The Results Of Cutting Out The Bloat",
+        "url": "https://aaronspindler.com/b/tech/0007_The_Results_Of_Cutting_Out_The_Bloat/",
+        "category": "tech",
+        "published_at": "2024-11-15T10:30:00+00:00",
+        "post_number": "0007"
+      }
+    ]
+  },
+  "metadata": {
+    "total_posts": 7,
+    "returned_posts": 5
+  }
+}
+```
 
 **See [API Reference](../../api.md#blog--knowledge-graph) for complete API documentation.**
 
