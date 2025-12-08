@@ -7,7 +7,6 @@ from django.db import connection
 from django.db.models import Count
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
-from django.views.decorators.cache import cache_page
 
 from blog.utils import get_all_blog_posts, get_blog_from_template_name
 from pages.utils import get_books, get_projects
@@ -77,11 +76,9 @@ def resume(request):
         raise Http404("Error serving resume") from None
 
 
-@cache_page(60 * 5)  # Cache homepage for 5 minutes
 def home(request):
     """
     Display home page with blog posts, projects, books, and photo albums.
-    Uses caching for performance optimization.
     """
     logger.info("Home page requested")
 
