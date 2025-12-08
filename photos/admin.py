@@ -3,7 +3,7 @@ from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
 
-from .forms import PhotoBulkUploadForm
+from .forms import PhotoAlbumForm, PhotoBulkUploadForm
 from .models import Photo, PhotoAlbum
 
 
@@ -547,6 +547,7 @@ class PhotoAdmin(admin.ModelAdmin):
 
 @admin.register(PhotoAlbum)
 class PhotoAlbumAdmin(admin.ModelAdmin):
+    form = PhotoAlbumForm
     list_display = (
         "title",
         "slug",
@@ -562,7 +563,7 @@ class PhotoAlbumAdmin(admin.ModelAdmin):
     list_editable = ("is_private", "allow_downloads")
     search_fields = ("title", "description", "slug")
     filter_horizontal = ("photos",)
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("created_at", "updated_at", "share_url_display", "share_analytics")
     prepopulated_fields = {"slug": ("title",)}
 
     fieldsets = (
@@ -572,6 +573,13 @@ class PhotoAlbumAdmin(admin.ModelAdmin):
             {
                 "fields": ("is_private", "allow_downloads"),
                 "description": "Privacy and download settings for this album",
+            },
+        ),
+        (
+            "External Sharing (Private Albums Only)",
+            {
+                "fields": ("share_url_display", "share_analytics"),
+                "description": "Private albums can be shared externally using the share link below",
             },
         ),
         ("Photos", {"fields": ("photos",)}),
@@ -604,3 +612,39 @@ class PhotoAlbumAdmin(admin.ModelAdmin):
             return format_html('<span style="color: #28a745;">✓ Enabled</span>')
         else:
             return format_html('<span style="color: #6c757d;">✗ Disabled</span>')
+
+    @admin.display(description="Share Link")
+    def share_url_display(self, obj):
+        if not obj.is_private:
+            return "Public albums don't need share links"
+
+        # Build the full share URL with query parameter
+        from django.urls import reverse
+
+        base_url = f"https://aaronspindler.com{reverse('photos:album_detail', kwargs={'slug': obj.slug})}"
+        url = f"{base_url}?token={obj.share_token}"
+
+        return format_html(
+            '<input type="text" value="{}" id="share-url-{}" readonly style="width: 400px; margin-right: 10px;">'
+            "<button onclick=\"navigator.clipboard.writeText('{}'); "
+            "this.innerHTML='✓ Copied!'; setTimeout(() => this.innerHTML='📋 Copy', 2000)\" "
+            'style="cursor: pointer;">📋 Copy</button>',
+            url,
+            obj.id,
+            url,
+        )
+
+    @admin.display(description="Share Analytics")
+    def share_analytics(self, obj):
+        if not obj.is_private:
+            return "—"
+
+        if obj.share_access_count == 0:
+            return "No views yet"
+
+        last_accessed = obj.share_last_accessed.strftime("%Y-%m-%d %H:%M") if obj.share_last_accessed else "Never"
+        return format_html(
+            "<strong>{}</strong> views<br><small>Last accessed: {}</small>",
+            obj.share_access_count,
+            last_accessed,
+        )

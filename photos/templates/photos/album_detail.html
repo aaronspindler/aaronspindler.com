@@ -298,6 +298,8 @@
         {% endfor %}
     ];
     const albumSlug = "{{ album.slug }}";
+    const shareToken = "{{ share_token|default:'' }}";
+    const tokenParam = shareToken ? `?token=${shareToken}` : '';
 
     // Preload cache for lightbox images
     const imageCache = new Map();
@@ -528,7 +530,7 @@
 
     // Download photo function using server endpoint
     function downloadPhoto(photoId) {
-        window.location.href = `/photos/album/${albumSlug}/photo/${photoId}/download/`;
+        window.location.href = `/photos/album/${albumSlug}/photo/${photoId}/download/${tokenParam}`;
     }
 
     // Download current photo in lightbox

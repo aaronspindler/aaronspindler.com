@@ -1,11 +1,23 @@
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.utils import timezone
 
 from .models import Photo, PhotoAlbum
 
 
 def album_detail(request, slug):
-    if request.user.is_authenticated and request.user.is_staff:
+    # Check for share token in query params
+    token = request.GET.get("token")
+
+    # If token provided, validate it
+    if token:
+        album = get_object_or_404(PhotoAlbum, slug=slug, share_token=token, is_private=True)
+        # Update analytics
+        album.share_access_count += 1
+        album.share_last_accessed = timezone.now()
+        album.save(update_fields=["share_access_count", "share_last_accessed"])
+    # Otherwise, use existing staff/public logic
+    elif request.user.is_authenticated and request.user.is_staff:
         album = get_object_or_404(PhotoAlbum, slug=slug)
     else:
         album = get_object_or_404(PhotoAlbum, slug=slug, is_private=False)
@@ -15,13 +27,25 @@ def album_detail(request, slug):
     return render(
         request,
         "photos/album_detail.html",
-        {"album": album, "photos": photos, "allow_downloads": album.allow_downloads},
+        {
+            "album": album,
+            "photos": photos,
+            "allow_downloads": album.allow_downloads,
+            "share_token": token if token else None,
+        },
     )
 
 
 def download_photo(request, slug, photo_id):
     """Download a single photo from an album."""
-    if request.user.is_authenticated and request.user.is_staff:
+    # Check for share token in query params
+    token = request.GET.get("token")
+
+    # If token provided, validate it
+    if token:
+        album = get_object_or_404(PhotoAlbum, slug=slug, share_token=token, is_private=True)
+    # Otherwise, use existing staff/public logic
+    elif request.user.is_authenticated and request.user.is_staff:
         album = get_object_or_404(PhotoAlbum, slug=slug)
     else:
         album = get_object_or_404(PhotoAlbum, slug=slug, is_private=False)
