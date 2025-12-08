@@ -22,6 +22,14 @@
                 d3Script.onload = function() {
                     var kgScript = document.createElement('script');
                     kgScript.src = '{% static "js/knowledge_graph.min.js" %}';
+                    kgScript.onload = function() {
+                        // Manually instantiate since DOMContentLoaded already fired
+                        try {
+                            new HomepageKnowledgeGraph();
+                        } catch(e) {
+                            console.error('Failed to initialize knowledge graph:', e);
+                        }
+                    };
                     document.body.appendChild(kgScript);
                 };
                 document.body.appendChild(d3Script);
