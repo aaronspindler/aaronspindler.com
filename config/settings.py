@@ -62,6 +62,7 @@ MIDDLEWARE = [
     "config.domain_routing.DomainRoutingMiddleware",  # Domain-based URL routing (must be first)
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",  # Serve static files
+    "django.middleware.gzip.GZipMiddleware",  # Compress dynamic HTML responses
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -279,7 +280,6 @@ if not DEBUG:
     CSP_SCRIPT_SRC = (
         "'self'",
         "'unsafe-inline'",
-        "https://d3js.org",
         "https://cdnjs.cloudflare.com",
     )
     CSP_FONT_SRC = ("'self'", "https://fonts.cdnfonts.com")

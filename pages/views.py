@@ -7,6 +7,7 @@ from django.db import connection
 from django.db.models import Count
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import render
+from django.views.decorators.cache import cache_page
 
 from blog.utils import get_all_blog_posts, get_blog_from_template_name
 from pages.utils import get_books, get_projects
@@ -76,6 +77,7 @@ def resume(request):
         raise Http404("Error serving resume") from None
 
 
+@cache_page(60 * 5)  # Cache homepage for 5 minutes
 def home(request):
     """
     Display home page with blog posts, projects, books, and photo albums.
@@ -148,20 +150,32 @@ def home(request):
             # Handle errors gracefully - provide empty list as fallback
             books = []
 
-    # Photo Albums - Get public albums with annotated photo counts for efficiency
-    albums = PhotoAlbum.objects.filter(is_private=False).annotate(photo_count=Count("photos")).order_by("-created_at")
+    # Photo Albums (24 hour cache)
+    albums_cache_key = "home_albums_v1"
+    album_data = cache.get(albums_cache_key)
 
-    album_data = []
-    for album in albums:
-        # Get random cover photo using database-level selection
-        cover_photo = album.photos.order_by("?").first()
-        album_data.append(
-            {
-                "album": album,
-                "cover_photo": cover_photo,
-                "photo_count": album.photo_count,
-            }
-        )
+    if not album_data:
+        try:
+            albums = (
+                PhotoAlbum.objects.filter(is_private=False)
+                .annotate(photo_count=Count("photos"))
+                .order_by("-created_at")
+            )
+
+            album_data = []
+            for album in albums:
+                # Get random cover photo using database-level selection
+                cover_photo = album.photos.order_by("?").first()
+                album_data.append(
+                    {
+                        "album": album,
+                        "cover_photo": cover_photo,
+                        "photo_count": album.photo_count,
+                    }
+                )
+            cache.set(albums_cache_key, album_data, 86400)  # Cache for 24 hours
+        except Exception:
+            album_data = []
 
     return render(
         request,
