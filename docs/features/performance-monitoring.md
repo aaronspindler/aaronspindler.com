@@ -552,6 +552,46 @@ LIGHTHOUSE_ALERT_EMAIL=admin@example.com
 LIGHTHOUSE_RETENTION_DAYS=90
 ```
 
+## Performance Optimizations
+
+The following optimizations have been implemented to improve Lighthouse Performance scores:
+
+### Response Compression
+
+- **GZipMiddleware**: Compresses dynamic HTML responses (static files already compressed by WhiteNoise)
+
+### Caching Strategy
+
+- **Homepage HTTP Caching**: `@cache_page(300)` decorator for 5-minute full-page caching
+- **Data-Level Caching**: Blog posts (1hr), projects (24hr), books (24hr), photo albums (24hr)
+
+### JavaScript Optimization
+
+- **Self-Hosted D3.js**: Moved from CDN to local hosting (`static/js/vendor/d3.v7.min.js`) for:
+  - 1-year cache headers via WhiteNoise
+  - Elimination of external DNS/TLS overhead
+  - Better control over versioning
+
+- **Lazy Loading Knowledge Graph**: D3.js and knowledge graph scripts load via Intersection Observer only when scrolled into view (200px rootMargin for preloading)
+
+### Font Optimization
+
+- **Reduced Font Preloads**: Only the regular weight font is preloaded; medium and bold weights load on demand via `font-display: swap`
+
+### Resource Hints Cleanup
+
+- **Removed D3.js Preconnect**: Since D3.js is now self-hosted, removed unnecessary preconnect and dns-prefetch directives
+
+### Expected Impact
+
+| Optimization | LCP | TBT | FCP |
+|--------------|-----|-----|-----|
+| GZipMiddleware | + | + | ++ |
+| Homepage caching | +++ | + | ++ |
+| Self-hosted D3.js | ++ | + | + |
+| Lazy load knowledge graph | +++ | ++ | ++ |
+| Reduced font preloads | ++ | + | ++ |
+
 ## Related Documentation
 
 - [Management Commands](../commands.md) - run_lighthouse_audit, setup_periodic_tasks
