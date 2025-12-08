@@ -185,8 +185,8 @@ def knowledge_graph_screenshot(request):
                 response["Pragma"] = "no-cache"
                 response["Expires"] = "0"
                 return response
-            except Exception as e:
-                logger.error(f"Error reading screenshot from database: {str(e)}")
+            except Exception:
+                logger.error("Error reading screenshot from database", exc_info=True)
                 return JsonResponse({"error": "Failed to read screenshot from database."}, status=500)
 
     except KnowledgeGraphScreenshot.DoesNotExist:
