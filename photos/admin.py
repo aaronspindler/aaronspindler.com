@@ -3,7 +3,7 @@ from django.shortcuts import redirect, render
 from django.urls import path, reverse
 from django.utils.html import format_html
 
-from .forms import PhotoBulkUploadForm
+from .forms import PhotoAlbumForm, PhotoBulkUploadForm
 from .models import Photo, PhotoAlbum
 
 
@@ -547,6 +547,7 @@ class PhotoAdmin(admin.ModelAdmin):
 
 @admin.register(PhotoAlbum)
 class PhotoAlbumAdmin(admin.ModelAdmin):
+    form = PhotoAlbumForm
     list_display = (
         "title",
         "slug",
