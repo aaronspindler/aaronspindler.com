@@ -1,0 +1,31 @@
+name: Housekeeping - Docker Host Cleanup
+
+on:
+  # schedule:
+  #   - cron: '0 4 * * *'  # Daily at 4 AM UTC
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: self-hosted
+    timeout-minutes: 10
+    steps:
+      - name: Prune unused Docker resources
+        run: |
+          echo "=== Docker Disk Usage Before ==="
+          docker system df
+
+          echo "=== Pruning stopped containers ==="
+          docker container prune -f --filter "until=24h"
+
+          echo "=== Pruning unused images ==="
+          docker image prune -af --filter "until=48h"
+
+          echo "=== Pruning unused volumes ==="
+          docker volume prune -f
+
+          echo "=== Pruning build cache ==="
+          docker builder prune -af --keep-storage=5GB
+
+          echo "=== Docker Disk Usage After ==="
+          docker system df
