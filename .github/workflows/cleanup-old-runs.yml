@@ -21,7 +21,7 @@ on:
 jobs:
   # First job: discover all workflows to process
   discover:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       workflows: ${{ steps.get-workflows.outputs.workflows }}
       workflow_count: ${{ steps.get-workflows.outputs.count }}
@@ -48,7 +48,7 @@ jobs:
   cleanup:
     needs: discover
     if: needs.discover.outputs.workflow_count > 0
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       actions: write
       contents: read
@@ -140,7 +140,7 @@ jobs:
   summary:
     needs: [discover, cleanup]
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       actions: read
       contents: read

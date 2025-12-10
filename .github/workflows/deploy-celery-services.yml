@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   get-latest-tag:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       image_tag: ${{ steps.get-tag.outputs.tag }}
     steps:
@@ -47,7 +47,7 @@ jobs:
           fi
 
   deploy-flower:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [get-latest-tag]
     if: inputs.services == 'both' || inputs.services == 'flower'
     steps:
@@ -65,7 +65,7 @@ jobs:
           echo "Flower deployed successfully"
 
   deploy-celerybeat:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [get-latest-tag]
     if: inputs.services == 'both' || inputs.services == 'celerybeat'
     steps:
@@ -83,7 +83,7 @@ jobs:
           echo "Celerybeat deployed successfully"
 
   summary:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [get-latest-tag, deploy-flower, deploy-celerybeat]
     if: always()
     steps:

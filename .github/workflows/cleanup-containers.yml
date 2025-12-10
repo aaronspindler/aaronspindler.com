@@ -14,7 +14,7 @@ on:
 
 jobs:
   cleanup:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     # Only run if the triggering workflow succeeded or if manually triggered/scheduled
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
 

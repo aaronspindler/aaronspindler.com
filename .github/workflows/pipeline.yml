@@ -46,7 +46,7 @@ jobs:
   # STAGE 1: Build Test Image
   # ============================================================================
   build-test-image:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 8
     steps:
       - name: Checkout code
@@ -89,7 +89,7 @@ jobs:
   # STAGE 2: Build Production Images (Parallel with Tests)
   # ============================================================================
   build-production-images:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.ref == 'refs/heads/main'
     timeout-minutes: 8
     steps:
@@ -135,7 +135,7 @@ jobs:
   # STAGE 3: Run Tests
   # ============================================================================
   test-suite:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [build-test-image]
     timeout-minutes: 15
     steps:
@@ -199,7 +199,7 @@ jobs:
   # STAGE 4: Tag Production Images (Only on main after tests pass)
   # ============================================================================
   tag-production-images:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [test-suite, build-production-images]
     if: github.ref == 'refs/heads/main' && needs.test-suite.result == 'success'
     timeout-minutes: 5
@@ -228,7 +228,7 @@ jobs:
   # STAGE 5: Deploy to Production (Only on main after tagging)
   # ============================================================================
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [tag-production-images]
     if: github.ref == 'refs/heads/main' && needs.tag-production-images.result == 'success'
     timeout-minutes: 10
@@ -266,7 +266,7 @@ jobs:
   # STAGE 6: Cleanup
   # ============================================================================
   cleanup-test-images:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [test-suite]
     if: always()
     timeout-minutes: 5
@@ -286,7 +286,7 @@ jobs:
   # Pipeline Summary
   # ============================================================================
   pipeline-summary:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [test-suite, deploy]
     if: always() && github.ref == 'refs/heads/main'
     steps:
