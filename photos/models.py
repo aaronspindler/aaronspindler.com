@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
@@ -271,6 +272,18 @@ class PhotoAlbum(models.Model):
     is_private = models.BooleanField(default=False)
 
     allow_downloads = models.BooleanField(default=False)
+
+    # External sharing fields
+    share_token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        db_index=True,
+        help_text="Unique token for sharing this private album externally",
+    )
+    share_access_count = models.PositiveIntegerField(
+        default=0, help_text="Number of times the share link has been accessed"
+    )
+    share_last_accessed = models.DateTimeField(null=True, blank=True, help_text="Last time the share link was accessed")
 
     # PostgreSQL full-text search vector
     search_vector = SearchVectorField(null=True, blank=True)

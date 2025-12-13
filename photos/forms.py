@@ -4,7 +4,7 @@ from django.forms import ClearableFileInput
 
 from photos.image_utils import DuplicateDetector
 
-from .models import Photo
+from .models import Photo, PhotoAlbum
 
 
 class MultipleFileInput(ClearableFileInput):
@@ -106,3 +106,16 @@ class PhotoBulkUploadForm(forms.Form):
                 result["errors"].append((filename, f"Upload failed: {str(e)}"))
 
         return result
+
+
+class PhotoAlbumForm(forms.ModelForm):
+    """Form for PhotoAlbum that explicitly allows empty albums."""
+
+    class Meta:
+        model = PhotoAlbum
+        fields = ["title", "slug", "description", "is_private", "allow_downloads", "photos"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Explicitly mark photos as not required
+        self.fields["photos"].required = False
