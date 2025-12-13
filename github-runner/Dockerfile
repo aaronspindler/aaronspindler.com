@@ -23,8 +23,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create runner user with docker group access
-RUN useradd -m docker && \
-    usermod -aG docker docker && \
+RUN if ! id -u docker > /dev/null 2>&1; then \
+        useradd -m -g docker docker; \
+    else \
+        usermod -aG docker docker; \
+    fi && \
     echo "docker ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 WORKDIR /home/docker
