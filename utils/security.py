@@ -254,6 +254,11 @@ def get_request_fingerprint_data(request) -> Dict[str, Any]:
         ip_address = get_client_ip(request)
         headers = get_request_headers(request)
 
+        # Extract query parameters as a dictionary
+        query_params = dict(request.GET.lists()) if request.GET else {}
+        # Convert single-item lists to single values for cleaner storage
+        query_params = {k: v[0] if len(v) == 1 else v for k, v in query_params.items()}
+
         return {
             "ip_address": ip_address,
             "user_agent": request.headers.get("user-agent", "unknown"),
@@ -262,6 +267,7 @@ def get_request_fingerprint_data(request) -> Dict[str, Any]:
             "fingerprint_no_ip": generate_fingerprint(request, include_ip=False),
             "method": request.method,
             "path": request.path,
+            "query_params": query_params,
             "is_secure": request.is_secure(),
             "is_ajax": request.headers.get("X-Requested-With") == "XMLHttpRequest",
         }
@@ -276,6 +282,7 @@ def get_request_fingerprint_data(request) -> Dict[str, Any]:
             "fingerprint_no_ip": "error",
             "method": "unknown",
             "path": "unknown",
+            "query_params": {},
             "is_secure": False,
             "is_ajax": False,
         }

@@ -84,6 +84,7 @@ class TrackedRequest(models.Model):
     )
     method = models.CharField(max_length=10, db_index=True)
     path = models.CharField(max_length=2048)
+    query_params = models.JSONField(default=dict, blank=True, help_text="Query string parameters")
     is_secure = models.BooleanField(default=False)
     is_ajax = models.BooleanField(default=False)
 
@@ -184,6 +185,7 @@ class TrackedRequest(models.Model):
             ip_address=ip_address_obj,
             method=fp_data["method"],
             path=fp_data["path"],
+            query_params=fp_data["query_params"],
             is_secure=fp_data["is_secure"],
             is_ajax=fp_data["is_ajax"],
             user_agent=fp_data["user_agent"],

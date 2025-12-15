@@ -251,6 +251,7 @@ class TrackedRequestAdmin(admin.ModelAdmin):
         "ip_address",
         "method",
         "path",
+        "query_params",
         "is_secure",
         "is_ajax",
         "user_agent",

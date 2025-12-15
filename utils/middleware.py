@@ -37,40 +37,18 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
         try:
             # Import here to avoid circular imports
             from utils.models import TrackedRequest
-            from utils.security import get_client_ip, is_global_ip
-
-            # Skip certain paths to avoid excessive logging
-            skip_paths = [
-                "/static/",
-                "/media/",
-                "/favicon.ico",
-                "/robots.txt",
-                "/health",
-                "/admin/jsi18n/",
-            ]
-
-            # Check if we should skip this path
-            if any(request.path.startswith(path) for path in skip_paths):
-                return None
-
-            # Only store requests from global (routable) IP addresses
-            # This excludes private, loopback, multicast, and other reserved ranges
-            client_ip = get_client_ip(request)
-            if not is_global_ip(client_ip):
-                logger.debug(f"Skipping non-global IP {client_ip}: {request.method} {request.path}")
-                return None
 
             # Create fingerprint record
-            fingerprint = TrackedRequest.create_from_request(request)
+            tracked_request = TrackedRequest.create_from_request(request)
 
             # Attach to request for potential use in views
-            request.fingerprint = fingerprint
+            request.tracked_request = tracked_request
 
             # Log if suspicious
-            if fingerprint.is_suspicious:
+            if tracked_request.is_suspicious:
                 logger.warning(
                     f"Suspicious request detected: {request.method} {request.path} | "
-                    f"IP: {fingerprint.ip_address} | Reason: {fingerprint.suspicious_reason}"
+                    f"IP: {tracked_request.ip_address} | Reason: {tracked_request.suspicious_reason}"
                 )
 
         except Exception as e:
