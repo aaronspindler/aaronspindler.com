@@ -15,7 +15,6 @@ Comprehensive reference for all Django management commands in the project.
 | `optimize_js` | Static | Minify JavaScript |
 | `collectstatic_optimize` | Static | Collect and optimize static files |
 | `run_lighthouse_audit` | Monitoring | Run performance audit |
-| `remove_local_fingerprints` | Security | Remove local IP records |
 | `ingest_sequential` | FeeFiFoFunds | Fast Kraken OHLCV ingestion |
 | `backfill_prices` | FeeFiFoFunds | Backfill historical prices |
 | `load_prices` | FeeFiFoFunds | Load prices from APIs |
@@ -283,24 +282,6 @@ python manage.py run_lighthouse_audit --url https://example.com
 **Requirements**:
 - Lighthouse installed: `npm install -g lighthouse`
 - Chromium/Chrome available
-
-### remove_local_fingerprints
-
-Remove request fingerprints from local/private IP addresses.
-
-**Usage**:
-```bash
-python manage.py remove_local_fingerprints
-```
-
-**Options**:
-- `--dry-run`: Preview which records would be deleted
-- `--limit N`: Limit number of records to delete
-
-**What It Removes**:
-- Local IPs: `127.0.0.1`, `::1`, `localhost`
-- Private ranges: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
-- Link-local: `169.254.0.0/16`, `fe80::/10`
 
 ### setup_periodic_tasks
 

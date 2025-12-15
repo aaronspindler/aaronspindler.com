@@ -110,25 +110,6 @@ def my_view(request):
             print(f"Location: {city}, {country}")
 ```
 
-## Local IP Cleanup
-
-Remove historical local IP records:
-
-```bash
-# Preview deletions (dry-run)
-python manage.py remove_local_fingerprints --dry-run
-
-# Delete local IP records
-python manage.py remove_local_fingerprints
-
-# Limit deletions
-python manage.py remove_local_fingerprints --limit 100
-```
-
-**Use Case**:
-- One-time cleanup after deploying local IP filtering
-- Remove development/testing records from production
-- Clean up historical data
 
 ## Suspicious Request Detection
 
@@ -394,14 +375,6 @@ class Command(BaseCommand):
 3. Process in smaller batches with `--limit`
 4. Space out processing across multiple days
 
-### Local IPs Being Tracked
-
-**Solutions**:
-1. Verify middleware is latest version
-2. Check IP detection logic in middleware
-3. Run cleanup: `python manage.py remove_local_fingerprints`
-4. Check for proxy/load balancer forwarding headers
-
 ### Suspicious Requests Not Detected
 
 **Solutions**:
@@ -453,7 +426,6 @@ GEOLOCATION_API_URL = 'http://ip-api.com/batch'
 
 ## Related Documentation
 
-- [Management Commands](../commands.md) - remove_local_fingerprints
 - [Architecture](../architecture.md) - Middleware and security design
 - [Maintenance](../maintenance.md) - Data retention and cleanup
 - [Deployment](../deployment.md) - Production security configuration
