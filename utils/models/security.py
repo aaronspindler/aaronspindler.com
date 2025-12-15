@@ -42,7 +42,7 @@ class IPAddress(models.Model):
 class Fingerprint(models.Model):
     hash = models.CharField(
         max_length=64,
-        # unique=True,
+        unique=True,
         help_text="SHA256 fingerprint excluding IP (for cross-IP tracking)",
     )
 
