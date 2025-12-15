@@ -136,28 +136,37 @@ def run_lighthouse_audit(self):
 )
 def geolocate_missing_ips(self):
     """
-    Celery task to geolocate IP addresses without geo data.
-    Processes up to 200 IPs in batches of 100, with a limit of 2 batches.
-    Scheduled to run every 15 minutes via Celery Beat.
+    Geolocate IP addresses without geo data.
+    Processes up to 200 global IPs in batches of 100. Skips non-globally-routable IPs.
     """
     from django.db.models import Q
 
     from utils.models.security import IPAddress
-    from utils.security import geolocate_ips_batch
+    from utils.security import geolocate_ips_batch, is_global_ip
 
     try:
         # Find IPs without geo data (null or empty dict)
-        missing_geo_ips = IPAddress.objects.filter(Q(geo_data__isnull=True) | Q(geo_data={}))[:200]
+        missing_geo_ips = IPAddress.objects.filter(Q(geo_data__isnull=True) | Q(geo_data={}))
 
         if not missing_geo_ips:
             logger.info("No IP addresses found that need geolocation")
             return "No IPs to geolocate"
 
-        ip_count = len(missing_geo_ips)
-        logger.info(f"Starting geolocation for {ip_count} IP addresses...")
+        # Filter to only globally-routable IPs (skip private, loopback, etc.)
+        ip_addresses = [ip.ip_address for ip in missing_geo_ips if is_global_ip(ip.ip_address)]
+        skipped_count = len(missing_geo_ips) - len(ip_addresses)
 
-        # Extract IP addresses
-        ip_addresses = [ip.ip_address for ip in missing_geo_ips]
+        if skipped_count > 0:
+            logger.info(f"Skipped {skipped_count} non-global IP addresses")
+
+        if not ip_addresses:
+            logger.info("No globally-routable IP addresses found that need geolocation")
+            return "No global IPs to geolocate"
+
+        ip_addresses = ip_addresses[:200]
+
+        ip_count = len(ip_addresses)
+        logger.info(f"Starting geolocation for {ip_count} IP addresses...")
 
         # Geolocate in batches (100 IPs per batch, max 2 batches = 200 IPs)
         results = geolocate_ips_batch(ip_addresses, batch_size=100, max_batches=2)
