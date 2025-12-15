@@ -1,6 +1,5 @@
 <footer class="footer" role="contentinfo">
     <br>
-    <p>
-      &copy; {% now "Y" %} <a href="https://spindlers.ca" rel="noopener noreferrer" target="_blank" aria-label="Visit Spindlers website">Spindlers</a>. All rights reserved. <a href="https://github.com/aaronspindler/aaronspindler.com" rel="noopener noreferrer" target="_blank" aria-label="View source code on GitHub">Open source</a>{% if show_lighthouse_badge %} <a href="{% url 'lighthouse_history' %}" aria-label="View Lighthouse performance history"><img src="https://img.shields.io/endpoint?url=https://aaronspindler.com/api/lighthouse/badge/" alt="Lighthouse scores: Performance/Accessibility/Best Practices/SEO" loading="lazy" style="display: inline; height: 18px; width: auto; vertical-align: middle; margin: 0;"></a>{% endif %}
-    </p>
+    <p>&copy; {% now "Y" %} <a href="https://spindlers.ca" rel="noopener noreferrer" target="_blank" aria-label="Visit Spindlers website">Spindlers</a>. All rights reserved.{% if show_lighthouse_badge %} <a href="{% url 'lighthouse_history' %}" aria-label="View Lighthouse performance history"><img src="https://img.shields.io/endpoint?url=https://aaronspindler.com/api/lighthouse/badge/" alt="Lighthouse scores: Performance/Accessibility/Best Practices/SEO" loading="lazy" style="display: inline; height: 18px; width: auto; vertical-align: middle; margin: 0;"></a>{% endif %}</p>
+    <p>{% if user.is_authenticated %}Logged in as {{ user.email|default:user.username }} · <a href="{% url 'account_logout' %}">Log out</a>{% else %}<a href="{% url 'account_login' %}">Log in</a>{% if ACCOUNT_ALLOW_REGISTRATION %} · <a href="{% url 'account_signup' %}">Sign up</a>{% endif %}{% endif %}</p>
 </footer>

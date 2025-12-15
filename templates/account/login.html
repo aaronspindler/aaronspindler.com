@@ -1,10 +1,10 @@
 {% extends '_base.html' %}
 
-{% block title %}Sign up{% endblock %}
+{% block title %}Log in{% endblock %}
 
 {% block content %}
 <main class="content" role="main">
-  <h2>Sign up</h2>
+  <h1>Log in</h1>
 
   <form method="post" class="auth-form">
     {% csrf_token %}
@@ -33,14 +33,16 @@
     {% endfor %}
 
     <div style="margin-top: calc(var(--line-height) * 2);">
-      <button type="submit" style="width: auto; min-width: 10ch;">Sign up</button>
+      <button type="submit" style="width: auto; min-width: 10ch;">Log in</button>
     </div>
 
+    {% if ACCOUNT_ALLOW_REGISTRATION %}
     <div style="margin-top: calc(var(--line-height) * 2);">
       <p style="margin: 0;">
-        Already have an account? <a href="{% url 'account_login' %}">Log in</a>
+        Don't have an account? <a href="{% url 'account_signup' %}">Sign up</a>
       </p>
     </div>
+    {% endif %}
   </form>
 </main>
 {% endblock content %}

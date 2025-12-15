@@ -1,4 +1,7 @@
 from django.contrib import admin
+from django.db.models import Count
+from django.urls import reverse
+from django.utils.html import format_html
 
 from .models import (
     Email,
@@ -86,10 +89,10 @@ class HTTPStatusCodeAdmin(admin.ModelAdmin):
 class IPAddressAdmin(admin.ModelAdmin):
     """Admin interface for IPAddress model."""
 
-    list_display = ("ip_address", "location_display", "request_count", "created_at", "updated_at")
+    list_display = ("ip_address", "location_display", "request_count", "view_requests_link", "created_at", "updated_at")
     list_filter = ("created_at", "updated_at", HasGeoDataFilter)
     search_fields = ("ip_address", "geo_data__city", "geo_data__country")
-    readonly_fields = ("ip_address", "geo_data", "created_at", "updated_at", "request_count")
+    readonly_fields = ("ip_address", "geo_data", "created_at", "updated_at", "request_count", "view_requests_link")
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
     actions = ["geolocate_selected", "delete_local_ips"]
@@ -105,10 +108,24 @@ class IPAddressAdmin(admin.ModelAdmin):
             return f"{city}, {country}"
         return country or "Unknown"
 
-    @admin.display(description="Request Count")
+    def get_queryset(self, request):
+        """Annotate queryset with request count for sorting."""
+        queryset = super().get_queryset(request)
+        return queryset.annotate(num_requests=Count("request_fingerprints"))
+
+    @admin.display(description="Request Count", ordering="num_requests")
     def request_count(self, obj):
         """Count of RequestFingerprint records using this IP."""
-        return obj.request_fingerprints.count()
+        return obj.num_requests
+
+    @admin.display(description="View Requests")
+    def view_requests_link(self, obj):
+        """Link to view all requests from this IP address."""
+        count = obj.request_fingerprints.count()
+        if count == 0:
+            return "No requests"
+        url = reverse("admin:utils_requestfingerprint_changelist") + f"?ip_address__id__exact={obj.id}"
+        return format_html('<a href="{}">{} request{}</a>', url, count, "s" if count != 1 else "")
 
     def has_add_permission(self, request):
         """Disable manual creation - IPs created automatically from requests."""
@@ -206,8 +223,11 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         ordering="ip_address__ip_address",
     )
     def ip_display(self, obj):
-        """Display IP address."""
-        return obj.ip_address.ip_address if obj.ip_address else "Unknown"
+        """Display IP address as a clickable link to filter by this IP."""
+        if not obj.ip_address:
+            return "Unknown"
+        url = reverse("admin:utils_requestfingerprint_changelist") + f"?ip_address__id__exact={obj.ip_address.id}"
+        return format_html('<a href="{}">{}</a>', url, obj.ip_address.ip_address)
 
     @admin.display(description="Location")
     def location_display(self, obj):

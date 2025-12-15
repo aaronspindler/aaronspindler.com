@@ -143,6 +143,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "pages.context_processors.resume_context",  # Custom context processor for resume settings
                 "utils.context_processors.lighthouse_badge",  # Lighthouse badge visibility
+                "utils.context_processors.account_settings",  # Account settings (registration enabled, etc.)
             ],
         },
     },
@@ -193,6 +194,7 @@ SITE_ID = 1
 LOGIN_REDIRECT_URL = "home"
 
 ACCOUNT_LOGOUT_REDIRECT_URL = "home"
+ACCOUNT_LOGOUT_ON_GET = True  # Allow logout via GET request (single click, no confirmation)
 
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
