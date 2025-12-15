@@ -42,6 +42,73 @@ def is_local_ip(ip_address: str) -> bool:
     return False
 
 
+def is_reserved_ip(ip_address: str) -> bool:
+    """
+    Check if an IP address is in any reserved range.
+
+    Reserved ranges include:
+    - Private networks (RFC 1918): 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+    - Loopback: 127.0.0.0/8
+    - Link-local: 169.254.0.0/16
+    - Multicast: 224.0.0.0/4 (224-239.x.x.x)
+    - Reserved for future use: 240.0.0.0/4
+    - And more...
+
+    Args:
+        ip_address: IP address string
+
+    Returns:
+        True if the IP is reserved, False otherwise
+    """
+    if not ip_address or ip_address == "unknown":
+        return False
+
+    try:
+        import ipaddress as ipaddr
+
+        ip = ipaddr.ip_address(ip_address)
+
+        # Check if IP is in any reserved range
+        return (
+            ip.is_private  # RFC 1918 private networks
+            or ip.is_loopback  # 127.0.0.0/8
+            or ip.is_link_local  # 169.254.0.0/16
+            or ip.is_multicast  # 224.0.0.0/4 (multicast range)
+            or ip.is_reserved  # Other reserved ranges
+        )
+    except ValueError:
+        # Invalid IP address format - treat as reserved
+        logger.warning(f"Invalid IP address format: {ip_address}")
+        return True
+
+
+def is_global_ip(ip_address: str) -> bool:
+    """
+    Check if an IP address is a global/routable IP address.
+
+    Global IPs are public addresses that can be routed on the internet.
+    This excludes private, loopback, multicast, and other reserved ranges.
+
+    Args:
+        ip_address: IP address string
+
+    Returns:
+        True if the IP is global/routable, False otherwise
+    """
+    if not ip_address or ip_address == "unknown":
+        return False
+
+    try:
+        import ipaddress as ipaddr
+
+        ip = ipaddr.ip_address(ip_address)
+        return ip.is_global
+    except ValueError:
+        # Invalid IP address format
+        logger.warning(f"Invalid IP address format: {ip_address}")
+        return False
+
+
 def get_client_ip(request) -> str:
     """
     Extract the client's IP address from the request.
@@ -343,9 +410,9 @@ def geolocate_ip(ip_address: str) -> Optional[Dict[str, Any]]:
         Free tier limit: 45 requests per minute
         For batch requests, use geolocate_ips_batch()
     """
-    # Skip local/private IPs
-    if is_local_ip(ip_address):
-        logger.debug(f"Skipping geolocation for local/private IP: {ip_address}")
+    # Only geolocate global/routable IPs
+    if not is_global_ip(ip_address):
+        logger.debug(f"Skipping geolocation for non-global IP: {ip_address}")
         return None
 
     try:
@@ -388,11 +455,11 @@ def geolocate_ips_batch(ip_addresses: List[str], batch_size: int = 100) -> Dict[
     """
     results = {}
 
-    # Filter out local/private IPs
-    filtered_ips = [ip for ip in ip_addresses if not is_local_ip(ip)]
+    # Filter out non-global IPs (private, loopback, multicast, reserved, etc.)
+    filtered_ips = [ip for ip in ip_addresses if is_global_ip(ip)]
 
     if not filtered_ips:
-        logger.debug("No valid IPs to geolocate after filtering")
+        logger.debug("No global IPs to geolocate after filtering")
         return results
 
     logger.info(f"Geolocating {len(filtered_ips)} IP addresses in batches of {batch_size}")
