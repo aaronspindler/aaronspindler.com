@@ -4,18 +4,29 @@ from pathlib import Path
 import environ
 import sentry_sdk
 
-sentry_sdk.init(
-    dsn="https://6cc00aa4fcff392a2f82a2b466a7dba8@o555567.ingest.us.sentry.io/4510539542429696",
-    send_default_pii=True,
-    enable_logs=True,
-    traces_sample_rate=1.0,
-    profile_session_sample_rate=1.0,
-    profile_lifecycle="trace",
-)
-
 env = environ.Env(
     DEBUG=(bool, False),
 )
+
+# Only initialize Sentry if not in test mode or CI/CD
+# Check for common CI environment variables and Django test settings
+is_testing = (
+    os.environ.get("CI") == "true"  # GitHub Actions, GitLab CI, etc.
+    or os.environ.get("GITHUB_ACTIONS") == "true"  # GitHub Actions specific
+    or os.environ.get("DJANGO_SETTINGS_MODULE", "").endswith("settings_test")  # Using test settings
+    or "test" in os.environ.get("DJANGO_SETTINGS_MODULE", "")  # Any test settings
+    or "pytest" in os.environ.get("PYTEST_CURRENT_TEST", "")  # Running under pytest
+)
+
+if not is_testing:
+    sentry_sdk.init(
+        dsn="https://6cc00aa4fcff392a2f82a2b466a7dba8@o555567.ingest.us.sentry.io/4510539542429696",
+        send_default_pii=True,
+        enable_logs=True,
+        traces_sample_rate=1.0,
+        profile_session_sample_rate=1.0,
+        profile_lifecycle="trace",
+    )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
