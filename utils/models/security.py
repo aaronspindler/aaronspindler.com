@@ -42,8 +42,7 @@ class IPAddress(models.Model):
 class Fingerprint(models.Model):
     hash_without_ip = models.CharField(
         max_length=64,
-        unique=True,
-        db_index=True,
+        # unique=True,
         help_text="SHA256 fingerprint excluding IP (for cross-IP tracking)",
     )
 
@@ -55,9 +54,9 @@ class Fingerprint(models.Model):
         ordering = ["-last_seen"]
         verbose_name = "Fingerprint"
         verbose_name_plural = "Fingerprints"
-        indexes = [
-            models.Index(fields=["-last_seen"]),
-        ]
+        # indexes = [
+        #     models.Index(fields=["-last_seen"]),
+        # ]
 
     def __str__(self):
         return f"{self.hash_without_ip[:16]}..."
