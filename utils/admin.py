@@ -14,6 +14,26 @@ from .models import (
 )
 
 
+class HasGeoDataFilter(admin.SimpleListFilter):
+    """Filter for IPAddress records with/without geo data."""
+
+    title = "geo data"
+    parameter_name = "has_geo_data"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("yes", "Has geo data"),
+            ("no", "No geo data"),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == "yes":
+            return queryset.exclude(geo_data__isnull=True).exclude(geo_data={})
+        if self.value() == "no":
+            return queryset.filter(geo_data__isnull=True) | queryset.filter(geo_data={})
+        return queryset
+
+
 @admin.register(NotificationConfig)
 class NotificationConfigAdmin(admin.ModelAdmin):
     list_display = (
@@ -67,7 +87,7 @@ class IPAddressAdmin(admin.ModelAdmin):
     """Admin interface for IPAddress model."""
 
     list_display = ("ip_address", "location_display", "request_count", "created_at", "updated_at")
-    list_filter = ("created_at", "updated_at")
+    list_filter = ("created_at", "updated_at", HasGeoDataFilter)
     search_fields = ("ip_address", "geo_data__city", "geo_data__country")
     readonly_fields = ("ip_address", "geo_data", "created_at", "updated_at", "request_count")
     date_hierarchy = "created_at"

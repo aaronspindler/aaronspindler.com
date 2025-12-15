@@ -110,92 +110,6 @@ def my_view(request):
             print(f"Location: {city}, {country}")
 ```
 
-## IP Geolocation
-
-### Batch Processing
-
-Geolocation is performed in batches to avoid latency during request processing:
-
-```bash
-# Interactive mode (shows stats, waits for confirmation)
-python manage.py geolocate_fingerprints
-
-# Automated mode (skip confirmation)
-python manage.py geolocate_fingerprints --yes
-
-# Limit processing
-python manage.py geolocate_fingerprints --limit 100
-
-# Re-geolocate all (including existing)
-python manage.py geolocate_fingerprints --force
-
-# Custom batch size
-python manage.py geolocate_fingerprints --batch-size 50
-```
-
-**Command Options**:
-- `--limit`: Maximum records to process
-- `--force`: Re-geolocate all records (including those with existing geo_data)
-- `--batch-size`: IPs per batch request (default: 100, max: 100)
-- `--yes`: Skip confirmation prompt (for automated runs)
-
-### Interactive vs Automated Mode
-
-**Interactive Mode** (default):
-- Displays statistics (total records, unique IPs)
-- Shows estimated API calls
-- Waits for Enter key before proceeding
-- Useful for manual runs to review scope
-
-**Automated Mode** (`--yes` flag):
-- Skips confirmation prompt
-- Immediately starts processing
-- Useful for cron jobs, Celery tasks, CI/CD
-
-### ip-api.com Integration
-
-**Free Tier Limits**:
-- Single endpoint: 45 requests/minute
-- Batch endpoint: 15 requests/minute
-- Batch size: Up to 100 IPs per request
-
-**Rate Limiting**:
-The command automatically respects rate limits:
-- Uses batch endpoint (15 requests/minute)
-- Waits 4 seconds between batches (safe buffer)
-- Processes 100 IPs per batch
-
-**Data Returned**:
-```json
-{
-  "status": "success",
-  "country": "United States",
-  "countryCode": "US",
-  "region": "CA",
-  "regionName": "California",
-  "city": "San Francisco",
-  "zip": "94105",
-  "lat": 37.7749,
-  "lon": -122.4194,
-  "timezone": "America/Los_Angeles",
-  "isp": "Cloudflare",
-  "org": "Cloudflare, Inc.",
-  "as": "AS13335 Cloudflare, Inc.",
-  "query": "1.1.1.1"
-}
-```
-
-### Privacy & Filtering
-
-**Automatic Filtering**:
-The command automatically skips:
-- Local IPs: `127.0.0.1`, `::1`, `localhost`
-- Private ranges: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
-- Link-local: `169.254.0.0/16`, `fe80::/10`
-
-**Middleware Filtering**:
-Local/private IPs are not tracked at all (request fingerprint not created).
-
 ## Local IP Cleanup
 
 Remove historical local IP records:
@@ -413,46 +327,6 @@ unique_home_visitors = PageVisit.objects.filter(
 ).values('fingerprint__fingerprint_without_ip').distinct().count()
 ```
 
-## Automated Processing
-
-### Celery Task for Geolocation
-
-```python
-# utils/tasks.py
-from celery import shared_task
-from django.core.management import call_command
-
-@shared_task
-def geolocate_fingerprints_task():
-    """Periodic task to geolocate IP addresses."""
-    call_command('geolocate_fingerprints', '--yes', '--limit', '1000')
-
-# Setup periodic task
-from django_celery_beat.models import PeriodicTask, CrontabSchedule
-
-# Run daily at 3 AM
-schedule, _ = CrontabSchedule.objects.get_or_create(
-    minute='0',
-    hour='3',
-    day_of_week='*',
-)
-
-PeriodicTask.objects.get_or_create(
-    name='Daily IP Geolocation',
-    task='utils.tasks.geolocate_fingerprints_task',
-    crontab=schedule,
-)
-```
-
-### Cron Job
-
-Alternative to Celery for geolocation:
-
-```bash
-# Add to crontab
-0 3 * * * cd /path/to/project && /path/to/venv/bin/python manage.py geolocate_fingerprints --yes --limit 1000
-```
-
 ## Data Retention
 
 ### Cleanup Old Records
@@ -579,7 +453,7 @@ GEOLOCATION_API_URL = 'http://ip-api.com/batch'
 
 ## Related Documentation
 
-- [Management Commands](../commands.md) - geolocate_fingerprints, remove_local_fingerprints
+- [Management Commands](../commands.md) - remove_local_fingerprints
 - [Architecture](../architecture.md) - Middleware and security design
 - [Maintenance](../maintenance.md) - Data retention and cleanup
 - [Deployment](../deployment.md) - Production security configuration

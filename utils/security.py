@@ -438,13 +438,16 @@ def geolocate_ip(ip_address: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def geolocate_ips_batch(ip_addresses: List[str], batch_size: int = 100) -> Dict[str, Optional[Dict[str, Any]]]:
+def geolocate_ips_batch(
+    ip_addresses: List[str], batch_size: int = 100, max_batches: Optional[int] = None
+) -> Dict[str, Optional[Dict[str, Any]]]:
     """
     Geolocate multiple IP addresses in batches using ip-api.com batch endpoint.
 
     Args:
         ip_addresses: List of IP addresses to geolocate
         batch_size: Number of IPs per batch (max 100 for free tier)
+        max_batches: Maximum number of batches to process (None = process all)
 
     Returns:
         Dictionary mapping IP addresses to their geolocation data
@@ -462,10 +465,21 @@ def geolocate_ips_batch(ip_addresses: List[str], batch_size: int = 100) -> Dict[
         logger.debug("No global IPs to geolocate after filtering")
         return results
 
-    logger.info(f"Geolocating {len(filtered_ips)} IP addresses in batches of {batch_size}")
+    total_batches = (len(filtered_ips) + batch_size - 1) // batch_size
+    batches_to_process = min(total_batches, max_batches) if max_batches else total_batches
+
+    logger.info(
+        f"Geolocating {len(filtered_ips)} IP addresses in batches of {batch_size} "
+        f"(processing {batches_to_process}/{total_batches} batches)"
+    )
 
     # Process in batches
+    batches_processed = 0
     for i in range(0, len(filtered_ips), batch_size):
+        if max_batches and batches_processed >= max_batches:
+            logger.info(f"Reached max_batches limit ({max_batches}), stopping")
+            break
+
         batch = filtered_ips[i : i + batch_size]
         batch_num = (i // batch_size) + 1
 
@@ -492,7 +506,7 @@ def geolocate_ips_batch(ip_addresses: List[str], batch_size: int = 100) -> Dict[
                     logger.warning(f"Batch {batch_num}: Failed to geolocate {ip}: {result.get('message')}")
                     results[ip] = None
 
-            logger.info(f"Batch {batch_num}/{(len(filtered_ips) + batch_size - 1) // batch_size} completed")
+            logger.info(f"Batch {batch_num}/{total_batches} completed")
 
         except requests.RequestException as e:
             logger.error(f"Error geolocating batch {batch_num}: {e}")
@@ -502,6 +516,8 @@ def geolocate_ips_batch(ip_addresses: List[str], batch_size: int = 100) -> Dict[
             logger.error(f"Unexpected error in batch {batch_num}: {e}", exc_info=True)
             for ip in batch:
                 results[ip] = None
+
+        batches_processed += 1
 
     logger.info(
         f"Geolocation complete: {sum(1 for v in results.values() if v is not None)}/{len(filtered_ips)} successful"

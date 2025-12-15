@@ -1,3 +1,5 @@
+import logging
+
 import boto3
 from celery import shared_task
 from django.apps import apps
@@ -6,6 +8,8 @@ from django.core.mail import send_mail
 from django.core.management import call_command
 from django.template.loader import render_to_string
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 
 def get_notification_config():
@@ -86,12 +90,6 @@ def send_text_message(self, text_message_pk):
     text_message.sent = timezone.now()
     text_message.save()
     return True
-
-
-# Logging for celery tasks
-import logging
-
-logger = logging.getLogger(__name__)
 
 
 @shared_task

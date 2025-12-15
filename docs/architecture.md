@@ -273,7 +273,6 @@ These projects are independent and should not be confused with Django apps in th
 **Management Commands** (`management/`):
 - **rebuild_search_index**: Rebuild full-text search index
 - **clear_cache**: Clear Redis cache
-- **geolocate_fingerprints**: Batch IP geolocation
 - **remove_local_fingerprints**: Clean up local IP records
 - **run_lighthouse_audit**: Manual performance audit
 - **setup_periodic_tasks**: Configure Celery Beat tasks

@@ -15,7 +15,6 @@ Comprehensive reference for all Django management commands in the project.
 | `optimize_js` | Static | Minify JavaScript |
 | `collectstatic_optimize` | Static | Collect and optimize static files |
 | `run_lighthouse_audit` | Monitoring | Run performance audit |
-| `geolocate_fingerprints` | Security | Geolocate IP addresses |
 | `remove_local_fingerprints` | Security | Remove local IP records |
 | `ingest_sequential` | FeeFiFoFunds | Fast Kraken OHLCV ingestion |
 | `backfill_prices` | FeeFiFoFunds | Backfill historical prices |
@@ -284,37 +283,6 @@ python manage.py run_lighthouse_audit --url https://example.com
 **Requirements**:
 - Lighthouse installed: `npm install -g lighthouse`
 - Chromium/Chrome available
-
-### geolocate_fingerprints
-
-Batch process IP addresses to add geolocation data to request fingerprints.
-
-**Usage**:
-```bash
-python manage.py geolocate_fingerprints
-```
-
-**Options**:
-- `--limit N`: Maximum records to process
-- `--force`: Re-geolocate all records
-- `--batch-size N`: IPs per batch request (default: 100)
-- `--yes`: Skip confirmation prompt
-
-**Examples**:
-```bash
-# Interactive mode
-python manage.py geolocate_fingerprints
-
-# Automated mode
-python manage.py geolocate_fingerprints --yes --limit 1000
-```
-
-**How It Works**:
-1. Queries RequestFingerprint records without geo_data
-2. Filters out local/private IPs
-3. Batches IPs to ip-api.com
-4. Updates records with geolocation data
-5. Respects rate limits (15 requests/minute)
 
 ### remove_local_fingerprints
 

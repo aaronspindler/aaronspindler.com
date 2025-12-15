@@ -127,8 +127,7 @@ class RequestFingerprint(models.Model):
 
         Note:
             Geolocation data is stored in the IPAddress model (one per IP).
-            Use the 'geolocate_fingerprints' management command to batch geolocate
-            IP addresses after the records are created.
+            Only global/routable IPs are stored (middleware filters non-global IPs).
         """
         from utils.security import get_request_fingerprint_data, is_suspicious_request, parse_user_agent
 
