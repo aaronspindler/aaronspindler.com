@@ -38,7 +38,7 @@ class BlogIntegrationTest(TransactionTestCase):
         self.mock_blog_data = MockDataFactory.get_mock_blog_data()
 
     @patch("blog.views.get_blog_from_template_name")
-    @patch("utils.models.RequestFingerprint")
+    @patch("utils.models.TrackedRequest")
     def test_complete_comment_workflow(self, mock_request_fingerprint, mock_get_blog):
         """Test complete workflow from submission to approval to voting."""
         mock_get_blog.return_value = self.mock_blog_data
@@ -82,7 +82,7 @@ class BlogIntegrationTest(TransactionTestCase):
         self.assertEqual(reply.parent_id, comment_id)
 
     @patch("blog.views.get_blog_from_template_name")
-    @patch("utils.models.RequestFingerprint")
+    @patch("utils.models.TrackedRequest")
     def test_nested_comment_thread(self, mock_request_fingerprint, mock_get_blog):
         """Test creating and displaying nested comment threads."""
         mock_get_blog.return_value = {
@@ -178,7 +178,7 @@ class BlogIntegrationTest(TransactionTestCase):
         self.assertEqual(rejected, 2)
 
     @patch("blog.views.get_blog_from_template_name")
-    @patch("utils.models.RequestFingerprint")
+    @patch("utils.models.TrackedRequest")
     def test_comment_deletion_cascade(self, mock_request_fingerprint, mock_get_blog):
         """Test that deleting parent comment cascades to replies and votes."""
         mock_get_blog.return_value = {

@@ -158,12 +158,12 @@ docker-compose logs web | grep "slow request"
 ```bash
 # Clean up old request fingerprints (> 90 days)
 docker exec -it website python manage.py shell -c "
-from utils.models import RequestFingerprint
+from utils.models import TrackedRequest
 from datetime import timedelta
 from django.utils import timezone
 
 cutoff = timezone.now() - timedelta(days=90)
-deleted, _ = RequestFingerprint.objects.filter(created_at__lt=cutoff).delete()
+deleted, _ = TrackedRequest.objects.filter(created_at__lt=cutoff).delete()
 print(f'Deleted {deleted} old records')
 "
 
@@ -655,8 +655,8 @@ docker-compose logs web | grep -i "401\|403\|POST /admin"
 
 # Check request fingerprints for suspicious activity
 docker exec -it website python manage.py shell -c "
-from utils.models import RequestFingerprint
-suspicious = RequestFingerprint.objects.filter(is_suspicious=True).order_by('-created_at')[:100]
+from utils.models import TrackedRequest
+suspicious = TrackedRequest.objects.filter(is_suspicious=True).order_by('-created_at')[:100]
 for fp in suspicious:
     print(f'{fp.created_at}: {fp.ip_address} - {fp.path}')
 "

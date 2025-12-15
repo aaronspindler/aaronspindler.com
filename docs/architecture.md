@@ -257,7 +257,7 @@ These projects are independent and should not be confused with Django apps in th
 - Async task processing
 
 **Request Fingerprinting** (`models/security.py`, `middleware.py`):
-- **RequestFingerprint Model**: Tracks all HTTP requests
+- **TrackedRequest Model**: Tracks all HTTP requests
 - IP address tracking with geolocation
 - User agent parsing (browser, OS, device detection)
 - Suspicious request detection

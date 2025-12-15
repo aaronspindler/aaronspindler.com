@@ -12,8 +12,8 @@ from .models import (
     NotificationConfig,
     NotificationEmail,
     NotificationPhoneNumber,
-    RequestFingerprint,
     TextMessage,
+    TrackedRequest,
 )
 
 
@@ -105,20 +105,20 @@ class IPAddressAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Annotate queryset with request count for sorting."""
         queryset = super().get_queryset(request)
-        return queryset.annotate(num_requests=Count("request_fingerprints"))
+        return queryset.annotate(num_requests=Count("tracked_requests"))
 
     @admin.display(description="Request Count", ordering="num_requests")
     def request_count(self, obj):
-        """Count of RequestFingerprint records using this IP."""
+        """Count of TrackedRequest records using this IP."""
         return obj.num_requests
 
     @admin.display(description="View Requests")
     def view_requests_link(self, obj):
         """Link to view all requests from this IP address."""
-        count = obj.request_fingerprints.count()
+        count = obj.tracked_requests.count()
         if count == 0:
             return "No requests"
-        url = reverse("admin:utils_requestfingerprint_changelist") + f"?ip_address__id__exact={obj.id}"
+        url = reverse("admin:utils_trackedrequest_changelist") + f"?ip_address__id__exact={obj.id}"
         return format_html('<a href="{}">{} request{}</a>', url, count, "s" if count != 1 else "")
 
     def has_add_permission(self, request):
@@ -147,16 +147,16 @@ class IPAddressAdmin(admin.ModelAdmin):
 
     @admin.action(description="Delete local/private IP addresses")
     def delete_local_ips(self, request, queryset):
-        """Delete local and private IP addresses (and all related fingerprints)."""
+        """Delete local and private IP addresses (and all related tracked requests)."""
         from utils.security import is_local_ip
 
         local_ips = [ip for ip in queryset if is_local_ip(ip.ip_address)]
         count = len(local_ips)
 
         for ip in local_ips:
-            ip.delete()  # Cascade deletes related RequestFingerprints
+            ip.delete()  # Cascade deletes related TrackedRequests
 
-        self.message_user(request, f"Deleted {count} local/private IP address(es) and their fingerprints.")
+        self.message_user(request, f"Deleted {count} local/private IP address(es) and their tracked requests.")
 
 
 @admin.register(Fingerprint)
@@ -184,7 +184,7 @@ class FingerprintAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Annotate queryset with request count for sorting."""
         queryset = super().get_queryset(request)
-        return queryset.annotate(num_requests=Count("requests"))
+        return queryset.annotate(num_requests=Count("tracked_requests"))
 
     @admin.display(description="Fingerprint")
     def hash_preview(self, obj):
@@ -193,7 +193,7 @@ class FingerprintAdmin(admin.ModelAdmin):
 
     @admin.display(description="Request Count", ordering="num_requests")
     def request_count(self, obj):
-        """Count of RequestFingerprint records with this fingerprint."""
+        """Count of TrackedRequest records with this fingerprint."""
         return obj.num_requests
 
     @admin.display(description="View Requests")
@@ -202,7 +202,7 @@ class FingerprintAdmin(admin.ModelAdmin):
         count = obj.num_requests
         if count == 0:
             return "No requests"
-        url = reverse("admin:utils_requestfingerprint_changelist") + f"?fingerprint_obj__id__exact={obj.id}"
+        url = reverse("admin:utils_trackedrequest_changelist") + f"?fingerprint_obj__id__exact={obj.id}"
         return format_html('<a href="{}">{} request{}</a>', url, count, "s" if count != 1 else "")
 
     def has_add_permission(self, request):
@@ -214,9 +214,9 @@ class FingerprintAdmin(admin.ModelAdmin):
         return False
 
 
-@admin.register(RequestFingerprint)
-class RequestFingerprintAdmin(admin.ModelAdmin):
-    """Admin interface for RequestFingerprint model."""
+@admin.register(TrackedRequest)
+class TrackedRequestAdmin(admin.ModelAdmin):
+    """Admin interface for TrackedRequest model."""
 
     list_display = (
         "created_at",
@@ -274,7 +274,7 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         """Display IP address as a clickable link to filter by this IP."""
         if not obj.ip_address:
             return "Unknown"
-        url = reverse("admin:utils_requestfingerprint_changelist") + f"?ip_address__id__exact={obj.ip_address.id}"
+        url = reverse("admin:utils_trackedrequest_changelist") + f"?ip_address__id__exact={obj.ip_address.id}"
         return format_html('<a href="{}">{}</a>', url, obj.ip_address.ip_address)
 
     @admin.display(description="Location")

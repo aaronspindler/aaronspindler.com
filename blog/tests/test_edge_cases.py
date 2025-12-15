@@ -188,7 +188,7 @@ class EdgeCaseTests(TestCase):
 
     @patch("blog.views.get_blog_from_template_name")
     @patch("blog.models.BlogComment.get_approved_comments")
-    @patch("utils.models.RequestFingerprint")
+    @patch("utils.models.TrackedRequest")
     def test_nonexistent_blog_post(self, mock_request_fingerprint, mock_get_approved, mock_get_blog):
         """Test handling of comments on non-existent blog posts."""
         mock_get_blog.side_effect = Exception("Template not found")
@@ -231,7 +231,7 @@ class EdgeCaseTests(TestCase):
             self.assertEqual(len(result.get("parse_errors", [])), 0)
 
     @patch("blog.views.get_blog_from_template_name")
-    @patch("utils.models.RequestFingerprint")
+    @patch("utils.models.TrackedRequest")
     @patch("blog.models.BlogComment.get_approved_comments")
     @patch("django.urls.reverse")
     def test_concurrent_comment_submission(

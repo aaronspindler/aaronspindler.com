@@ -1,11 +1,11 @@
 from django.core.management.base import BaseCommand
 
-from utils.models.security import IPAddress, RequestFingerprint
+from utils.models.security import IPAddress, TrackedRequest
 from utils.security import is_reserved_ip
 
 
 class Command(BaseCommand):
-    help = "Remove IPAddress records (and their related RequestFingerprint records) with local/private IP addresses"
+    help = "Remove IPAddress records (and their related TrackedRequest records) with local/private IP addresses"
 
     def handle(self, *args, **options):
         # Get all IPAddress records
@@ -25,8 +25,8 @@ class Command(BaseCommand):
         queryset = IPAddress.objects.filter(pk__in=local_ip_pks)
         total_ip_count = queryset.count()
 
-        # Count related RequestFingerprint records
-        total_fingerprint_count = RequestFingerprint.objects.filter(ip_address__pk__in=local_ip_pks).count()
+        # Count related TrackedRequest records
+        total_fingerprint_count = TrackedRequest.objects.filter(ip_address__pk__in=local_ip_pks).count()
 
         delete_ip_count = total_ip_count
         delete_fingerprint_count = total_fingerprint_count
@@ -38,7 +38,7 @@ class Command(BaseCommand):
         # Show IP breakdown with request counts
         ip_breakdown = []
         for ip_obj in local_ip_objs:
-            fingerprint_count = ip_obj.request_fingerprints.count()
+            fingerprint_count = ip_obj.tracked_requests.count()
             ip_breakdown.append((ip_obj.ip_address, fingerprint_count))
 
         # Sort by fingerprint count (descending)
@@ -62,12 +62,12 @@ class Command(BaseCommand):
             )
         )
 
-        # Delete IPAddress records (will cascade delete related RequestFingerprint records)
+        # Delete IPAddress records (will cascade delete related TrackedRequest records)
         _, deletion_info = queryset.delete()
 
         # Get the actual counts from deletion_info
         ip_deleted = deletion_info.get("utils.IPAddress", 0)
-        fingerprint_deleted = deletion_info.get("utils.RequestFingerprint", 0)
+        fingerprint_deleted = deletion_info.get("utils.TrackedRequest", 0)
 
         self.stdout.write("")
         self.stdout.write(

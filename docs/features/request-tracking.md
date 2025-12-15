@@ -16,7 +16,7 @@ Comprehensive request fingerprinting and security monitoring system that tracks 
 - **Batch Processing**: Efficient geolocation via management commands
 - **Historical Data**: Query request patterns and trends
 
-## RequestFingerprint Model
+## TrackedRequest Model
 
 ### Fields
 
@@ -91,7 +91,7 @@ MIDDLEWARE = [
 3. Parses user agent string
 4. Generates fingerprints
 5. Detects suspicious requests
-6. Stores RequestFingerprint record (geolocation happens later via command)
+6. Stores TrackedRequest record (geolocation happens later via command)
 7. Attaches fingerprint to request object
 
 **Accessing in Views**:
@@ -177,7 +177,7 @@ def is_suspicious_request(user_agent, path, ip_address):
     from datetime import timedelta
     from django.utils import timezone
     recent_threshold = timezone.now() - timedelta(minutes=5)
-    recent_count = RequestFingerprint.objects.filter(
+    recent_count = TrackedRequest.objects.filter(
         ip_address=ip_address,
         created_at__gte=recent_threshold
     ).count()
@@ -193,43 +193,43 @@ def is_suspicious_request(user_agent, path, ip_address):
 ### Common Queries
 
 ```python
-from utils.models import RequestFingerprint
+from utils.models import TrackedRequest
 from django.utils import timezone
 from datetime import timedelta
 
 # Get suspicious requests in last 24 hours
-suspicious = RequestFingerprint.objects.filter(
+suspicious = TrackedRequest.objects.filter(
     is_suspicious=True,
     created_at__gte=timezone.now() - timedelta(hours=24)
 )
 
 # Get all requests from specific IP
-ip_requests = RequestFingerprint.objects.filter(
+ip_requests = TrackedRequest.objects.filter(
     ip_address='203.0.113.42'
 ).order_by('-created_at')
 
 # Get user's request history
-user_requests = RequestFingerprint.objects.filter(
+user_requests = TrackedRequest.objects.filter(
     user=request.user
 ).order_by('-created_at')
 
 # Get requests from specific country
-us_requests = RequestFingerprint.objects.filter(
+us_requests = TrackedRequest.objects.filter(
     geo_data__country='United States'
 )
 
 # Get requests from specific city
-nyc_requests = RequestFingerprint.objects.filter(
+nyc_requests = TrackedRequest.objects.filter(
     geo_data__city='New York'
 )
 
 # Get mobile requests
-mobile_requests = RequestFingerprint.objects.filter(
+mobile_requests = TrackedRequest.objects.filter(
     device='Mobile'
 )
 
 # Get requests by browser
-chrome_requests = RequestFingerprint.objects.filter(
+chrome_requests = TrackedRequest.objects.filter(
     browser='Chrome'
 )
 ```
@@ -242,7 +242,7 @@ from django.db.models.functions import TruncDate
 
 # Requests per day (last 30 days)
 thirty_days_ago = timezone.now() - timedelta(days=30)
-daily_requests = RequestFingerprint.objects.filter(
+daily_requests = TrackedRequest.objects.filter(
     created_at__gte=thirty_days_ago
 ).annotate(
     date=TruncDate('created_at')
@@ -251,29 +251,29 @@ daily_requests = RequestFingerprint.objects.filter(
 ).order_by('date')
 
 # Browser distribution
-browser_stats = RequestFingerprint.objects.values('browser').annotate(
+browser_stats = TrackedRequest.objects.values('browser').annotate(
     count=Count('id')
 ).order_by('-count')
 
 # Device distribution
-device_stats = RequestFingerprint.objects.values('device').annotate(
+device_stats = TrackedRequest.objects.values('device').annotate(
     count=Count('id')
 ).order_by('-count')
 
 # Top countries
-country_stats = RequestFingerprint.objects.exclude(
+country_stats = TrackedRequest.objects.exclude(
     geo_data__isnull=True
 ).values('geo_data__country').annotate(
     count=Count('id')
 ).order_by('-count')[:10]
 
 # Unique visitors (by fingerprint_without_ip)
-unique_visitors = RequestFingerprint.objects.values(
+unique_visitors = TrackedRequest.objects.values(
     'fingerprint_without_ip'
 ).distinct().count()
 
 # Authenticated vs anonymous requests
-auth_stats = RequestFingerprint.objects.aggregate(
+auth_stats = TrackedRequest.objects.aggregate(
     authenticated=Count('id', filter=Q(user__isnull=False)),
     anonymous=Count('id', filter=Q(user__isnull=True)),
 )
@@ -305,7 +305,7 @@ def blog_post(request, slug):
 **Fields**:
 - `page_name`: Page identifier
 - `url`: Full URL path
-- `fingerprint`: ForeignKey to RequestFingerprint
+- `fingerprint`: ForeignKey to TrackedRequest
 - `user`: ForeignKey to User (if authenticated)
 - `created_at`: Visit timestamp
 
@@ -333,12 +333,12 @@ unique_home_visitors = PageVisit.objects.filter(
 
 ```python
 # Clean up records older than 90 days
-from utils.models import RequestFingerprint
+from utils.models import TrackedRequest
 from datetime import timedelta
 from django.utils import timezone
 
 ninety_days_ago = timezone.now() - timedelta(days=90)
-deleted = RequestFingerprint.objects.filter(
+deleted = TrackedRequest.objects.filter(
     created_at__lt=ninety_days_ago
 ).delete()
 
@@ -350,12 +350,12 @@ print(f"Deleted {deleted[0]} old records")
 ```python
 # utils/management/commands/cleanup_fingerprints.py
 from django.core.management.base import BaseCommand
-from utils.models import RequestFingerprint
+from utils.models import TrackedRequest
 from datetime import timedelta
 from django.utils import timezone
 
 class Command(BaseCommand):
-    help = 'Clean up old request fingerprints'
+    help = 'Clean up old tracked requests'
 
     def add_arguments(self, parser):
         parser.add_argument('--days', type=int, default=90)
@@ -364,7 +364,7 @@ class Command(BaseCommand):
         days = options['days']
         cutoff = timezone.now() - timedelta(days=days)
 
-        deleted, _ = RequestFingerprint.objects.filter(
+        deleted, _ = TrackedRequest.objects.filter(
             created_at__lt=cutoff
         ).delete()
 

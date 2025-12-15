@@ -62,15 +62,16 @@ class Fingerprint(models.Model):
         return f"{self.hash[:16]}..."
 
 
-class RequestFingerprint(models.Model):
-    # Timestamps
+class TrackedRequest(models.Model):
+    """Tracks individual HTTP requests with fingerprinting and security analysis."""
+
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     # Normalized fingerprint reference
     fingerprint_obj = models.ForeignKey(
         Fingerprint,
         on_delete=models.CASCADE,
-        related_name="requests",
+        related_name="tracked_requests",
         help_text="Normalized fingerprint reference",
     )
 
@@ -78,7 +79,7 @@ class RequestFingerprint(models.Model):
     ip_address = models.ForeignKey(
         IPAddress,
         on_delete=models.CASCADE,
-        related_name="request_fingerprints",
+        related_name="tracked_requests",
         help_text="IP address (with shared geolocation data)",
     )
     method = models.CharField(max_length=10, db_index=True)
@@ -106,11 +107,13 @@ class RequestFingerprint(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="request_fingerprints",
+        related_name="tracked_requests",
     )
 
     class Meta:
         ordering = ["-created_at"]
+        verbose_name = "Tracked Request"
+        verbose_name_plural = "Tracked Requests"
         indexes = [
             models.Index(fields=["ip_address", "-created_at"]),
             models.Index(fields=["is_suspicious", "-created_at"]),
@@ -127,13 +130,13 @@ class RequestFingerprint(models.Model):
     @classmethod
     def create_from_request(cls, request):
         """
-        Create a RequestFingerprint instance from a Django request object.
+        Create a TrackedRequest instance from a Django request object.
 
         Args:
             request: Django HttpRequest object
 
         Returns:
-            RequestFingerprint instance
+            TrackedRequest instance
 
         Note:
             Geolocation data is stored in the IPAddress model (one per IP).

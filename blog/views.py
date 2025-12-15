@@ -32,12 +32,12 @@ def render_blog_template(request, category, template_name):
     try:
         blog_data = get_blog_from_template_name(template_name, category=category)
 
-        # Build page path for view tracking using RequestFingerprint
+        # Build page path for view tracking using TrackedRequest
         page_path = f"/b/{category}/{template_name}/"
 
-        from utils.models import RequestFingerprint
+        from utils.models import TrackedRequest
 
-        views = RequestFingerprint.objects.filter(path=page_path).count()
+        views = TrackedRequest.objects.filter(path=page_path).count()
         blog_data["views"] = views
 
         # Fetch approved comments with optimized queries
@@ -249,9 +249,9 @@ def submit_comment(request, category, template_name):
         blog_data = get_blog_from_template_name(template_name, category=category)
         page_path = f"/b/{category}/{template_name}/"
 
-        from utils.models import RequestFingerprint
+        from utils.models import TrackedRequest
 
-        views = RequestFingerprint.objects.filter(path=page_path).count()
+        views = TrackedRequest.objects.filter(path=page_path).count()
         blog_data["views"] = views
 
         comments = BlogComment.get_approved_comments(template_name, category)

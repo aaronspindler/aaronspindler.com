@@ -14,7 +14,7 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
     """
     Middleware to track request fingerprints for security and analytics.
 
-    This middleware creates a RequestFingerprint record for each request,
+    This middleware creates a TrackedRequest record for each request,
     storing IP address, user agent, headers, and detecting suspicious patterns.
     """
 
@@ -31,12 +31,12 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
         """
         Track request fingerprint.
 
-        Creates a RequestFingerprint record asynchronously to avoid blocking
+        Creates a TrackedRequest record asynchronously to avoid blocking
         the request processing.
         """
         try:
             # Import here to avoid circular imports
-            from utils.models import RequestFingerprint
+            from utils.models import TrackedRequest
             from utils.security import get_client_ip, is_global_ip
 
             # Skip certain paths to avoid excessive logging
@@ -61,7 +61,7 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
                 return None
 
             # Create fingerprint record
-            fingerprint = RequestFingerprint.create_from_request(request)
+            fingerprint = TrackedRequest.create_from_request(request)
 
             # Attach to request for potential use in views
             request.fingerprint = fingerprint
