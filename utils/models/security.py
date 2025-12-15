@@ -54,9 +54,9 @@ class Fingerprint(models.Model):
         ordering = ["-last_seen"]
         verbose_name = "Fingerprint"
         verbose_name_plural = "Fingerprints"
-        # indexes = [
-        #     models.Index(fields=["-last_seen"]),
-        # ]
+        indexes = [
+            models.Index(fields=["hash_without_ip"]),
+        ]
 
     def __str__(self):
         return f"{self.hash_without_ip[:16]}..."
