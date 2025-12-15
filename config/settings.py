@@ -2,6 +2,16 @@ import os
 from pathlib import Path
 
 import environ
+import sentry_sdk
+
+sentry_sdk.init(
+    dsn="https://6cc00aa4fcff392a2f82a2b466a7dba8@o555567.ingest.us.sentry.io/4510539542429696",
+    send_default_pii=True,
+    enable_logs=True,
+    traces_sample_rate=1.0,
+    profile_session_sample_rate=1.0,
+    profile_lifecycle="trace",
+)
 
 env = environ.Env(
     DEBUG=(bool, False),
