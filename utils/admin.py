@@ -171,9 +171,9 @@ class FingerprintAdmin(admin.ModelAdmin):
         "view_requests_link",
     )
     list_filter = ("first_seen", "last_seen")
-    search_fields = ("hash_without_ip",)
+    search_fields = ("hash",)
     readonly_fields = (
-        "hash_without_ip",
+        "hash",
         "first_seen",
         "last_seen",
         "view_requests_link",
@@ -189,7 +189,7 @@ class FingerprintAdmin(admin.ModelAdmin):
     @admin.display(description="Fingerprint")
     def hash_preview(self, obj):
         """Display truncated fingerprint hash."""
-        return obj.hash_without_ip[:16] + "..."
+        return obj.hash[:16] + "..."
 
     @admin.display(description="Request Count", ordering="num_requests")
     def request_count(self, obj):
@@ -241,7 +241,7 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         "ip_address__ip_address",
         "path",
         "user_agent",
-        "fingerprint_obj__hash_without_ip",
+        "fingerprint_obj__hash",
         "ip_address__geo_data__city",
         "ip_address__geo_data__country",
     )
@@ -293,7 +293,7 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         """Display clickable fingerprint preview."""
         if not obj.fingerprint_obj:
             return "None"
-        hash_preview = obj.fingerprint_obj.hash_without_ip[:16] + "..."
+        hash_preview = obj.fingerprint_obj.hash[:16] + "..."
         url = reverse("admin:utils_fingerprint_change", args=[obj.fingerprint_obj.id])
         return format_html('<a href="{}">{}</a>', url, hash_preview)
 

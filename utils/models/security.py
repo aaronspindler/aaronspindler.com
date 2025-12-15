@@ -40,7 +40,7 @@ class IPAddress(models.Model):
 
 
 class Fingerprint(models.Model):
-    hash_without_ip = models.CharField(
+    hash = models.CharField(
         max_length=64,
         # unique=True,
         help_text="SHA256 fingerprint excluding IP (for cross-IP tracking)",
@@ -55,11 +55,11 @@ class Fingerprint(models.Model):
         verbose_name = "Fingerprint"
         verbose_name_plural = "Fingerprints"
         indexes = [
-            models.Index(fields=["hash_without_ip"]),
+            models.Index(fields=["hash"]),
         ]
 
     def __str__(self):
-        return f"{self.hash_without_ip[:16]}..."
+        return f"{self.hash[:16]}..."
 
 
 class RequestFingerprint(models.Model):
@@ -163,7 +163,7 @@ class RequestFingerprint(models.Model):
         from django.utils import timezone
 
         fingerprint_obj, fp_created = Fingerprint.objects.get_or_create(
-            hash_without_ip=fp_data["fingerprint_no_ip"],
+            hash=fp_data["fingerprint_no_ip"],
             defaults={
                 "first_seen": timezone.now(),
                 "last_seen": timezone.now(),
