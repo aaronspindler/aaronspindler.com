@@ -6,7 +6,6 @@ from django.utils.html import format_html
 from .models import (
     Email,
     Fingerprint,
-    HTTPStatusCode,
     IPAddress,
     LighthouseAudit,
     LLMUsage,
@@ -78,12 +77,6 @@ class NotificationPhoneNumberAdmin(admin.ModelAdmin):
     list_filter = ("verified",)
     search_fields = ("phone_number", "user__email")
     readonly_fields = ("created_at", "verified_at", "verification_code")
-
-
-@admin.register(HTTPStatusCode)
-class HTTPStatusCodeAdmin(admin.ModelAdmin):
-    list_display = ("code", "description")
-    search_fields = ("code", "description")
 
 
 @admin.register(IPAddress)
