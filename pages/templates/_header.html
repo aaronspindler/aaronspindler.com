@@ -1,13 +1,14 @@
 <header role="banner">
+  {% url 'resume' as resume_url %}
   <table class="header">
     <tr>
-      <td colspan="2" rowspan="{% if RESUME_ENABLED %}3{% else %}2{% endif %}" class="width-auto">
+      <td colspan="2" rowspan="{% if RESUME_ENABLED and resume_url %}3{% else %}2{% endif %}" class="width-auto">
         <h1 class="title"><a href="/" style="color: inherit; text-decoration: none;">AARON SPINDLER</a></h1>
         <span class="subtitle">An engineer, father, husband, and a proud 🇨🇦</span>
       </td>
-      {% if RESUME_ENABLED %}
+      {% if RESUME_ENABLED and resume_url %}
       <th scope="row">Resume</th>
-      <td class="width-min"><a href="{% url 'resume' %}" aria-label="Download resume">/resume</a></td>
+      <td class="width-min"><a href="{{ resume_url }}" aria-label="Download resume">/resume</a></td>
     </tr>
     <tr>
       {% endif %}
