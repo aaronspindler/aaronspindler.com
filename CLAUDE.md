@@ -37,6 +37,7 @@ See [.cursor/rules/](.cursor/rules/) for detailed AI guidance:
 2. **Testing**: Do NOT write new tests unless requested (but DO update existing tests)
 3. **Git**: NEVER commit/push without permission
 4. **Dependencies**: Edit `.in` files, then regenerate `.txt` with uv
+5. **Comments/Docstrings**: DO NOT add code comments or docstrings unless explicitly requested or the code is genuinely complex and non-obvious. Code should be self-documenting through clear naming and structure. Only add comments for complex algorithms, non-obvious business logic, or when requested by the user
 
 ### Quick Start
 

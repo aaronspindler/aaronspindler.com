@@ -1,10 +1,3 @@
-"""
-Django management command to configure periodic Celery Beat tasks.
-
-Sets up automated tasks for sitemap generation, knowledge graph rebuilding,
-knowledge graph screenshots, and Lighthouse performance audits.
-"""
-
 import json
 
 from django.core.management.base import BaseCommand
