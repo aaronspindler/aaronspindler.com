@@ -1,81 +1,158 @@
-# Request Tracking & Security
+# Request Tracking & Banning System
 
 ## Overview
 
-Comprehensive request fingerprinting and security monitoring system that tracks all HTTP requests, detects suspicious activity, and provides geolocation data for analytics—all while respecting user privacy.
+Comprehensive request fingerprinting, security monitoring, and banning system that tracks HTTP requests, detects suspicious activity, provides geolocation data, and enables blocking bad actors by fingerprint, IP, or user agent pattern.
 
 ## Features
 
-- **Request Fingerprinting**: Unique identifiers for requests with/without IP
-- **User Agent Parsing**: Browser, OS, and device detection
+- **Request Fingerprinting**: Unique identifiers for requests (SHA256 hash of browser characteristics)
+- **User Agent Parsing**: Accurate browser, version, OS, and device detection via `user-agents` library
 - **IP Geolocation**: Batch processing with ip-api.com integration
-- **Suspicious Request Detection**: Automatic bot and scanner identification
+- **Suspicious Request Detection**: Automatic bot, scanner, and malicious path detection
+- **Banning System**: Block bad actors by fingerprint (cross-IP), IP address, or user agent pattern
 - **Privacy-Focused**: Automatically skips local/private IP tracking
+- **Configurable Path Exclusions**: Skip tracking for static files, media, admin assets
 - **User Association**: Links requests to authenticated users
-- **Static File Exclusion**: Skips tracking for assets
-- **Batch Processing**: Efficient geolocation via management commands
-- **Historical Data**: Query request patterns and trends
+- **Referrer Tracking**: Capture traffic sources
 
-## TrackedRequest Model
+## Data Models
 
-### Fields
+### TrackedRequest
+
+Stores individual request data with fingerprinting and security analysis.
 
 **Request Information**:
-- `ip_address`: Client IP address (IPv4 or IPv6)
-- `user_agent`: Raw user agent string
-- `path`: Requested URL path
+- `ip_address`: ForeignKey to IPAddress model
+- `fingerprint_obj`: ForeignKey to Fingerprint model
 - `method`: HTTP method (GET, POST, etc.)
-- `referer`: HTTP referer header
+- `path`: Requested URL path
+- `query_params`: Query string parameters (JSON)
+- `referer`: HTTP Referer header
+- `is_secure`: HTTPS flag
+- `is_ajax`: XMLHttpRequest flag
 
 **Parsed User Agent**:
+- `user_agent`: Raw user agent string
 - `browser`: Browser name (Chrome, Firefox, Safari, etc.)
-- `browser_version`: Browser version
+- `browser_version`: Browser version number
 - `os`: Operating system (Windows, macOS, Linux, etc.)
-- `device`: Device type (Desktop, Mobile, Tablet)
+- `device`: Device type (Desktop, Mobile, Tablet, Bot)
 
-**Fingerprints**:
-- `fingerprint`: Unique hash (includes IP)
-- `fingerprint_without_ip`: Hash without IP (for tracking across IPs)
-
-**Geolocation**:
-- `geo_data`: JSONField with location details
-  - `city`: City name
-  - `region`: State/province
-  - `country`: Country name
-  - `country_code`: ISO country code
-  - `lat`, `lon`: GPS coordinates
-  - `timezone`: Timezone identifier
-  - `isp`: Internet service provider
-  - `org`: Organization
-  - `as`: Autonomous system
+**Headers**:
+- `headers`: Relevant HTTP headers (JSON)
 
 **Security**:
 - `is_suspicious`: Boolean flag for suspicious requests
+- `suspicious_reason`: Why the request was flagged
+
+**Associations**:
 - `user`: ForeignKey to User (if authenticated)
-
-**Timestamps**:
 - `created_at`: Request timestamp
-- `updated_at`: Last update timestamp
 
-### Fingerprint Generation
+### Fingerprint
 
-The system generates two fingerprints for each request:
+SHA256 hash of browser characteristics (excluding IP) for tracking users across IP changes.
 
-**With IP** (tracks specific machines):
+- `hash`: 64-character SHA256 fingerprint
+- `first_seen`: When fingerprint was first seen
+- `last_seen`: Most recent request with this fingerprint
+
+### IPAddress
+
+Stores unique IP addresses with geolocation data.
+
+- `ip_address`: IPv4 or IPv6 address (unique)
+- `geo_data`: JSONField with location details (city, country, lat/lon, ISP, etc.)
+- `created_at`, `updated_at`: Timestamps
+
+### Ban
+
+Block bad actors by fingerprint, IP, or user agent pattern.
+
+- `fingerprint`: ForeignKey to Fingerprint (optional)
+- `ip_address`: ForeignKey to IPAddress (optional)
+- `user_agent_pattern`: Regex pattern to match (optional)
+- `reason`: Why the ban was created
+- `is_active`: Whether ban is currently active
+- `expires_at`: When ban expires (null = permanent)
+- `created_by`: User who created the ban
+- `created_at`: When ban was created
+
+**Note**: At least one target (fingerprint, IP, or user agent pattern) must be specified.
+
+## Configuration
+
+### Django Settings
+
 ```python
-fingerprint = md5(f"{ip_address}{user_agent}{browser}{os}{device}").hexdigest()
-```
+# config/settings.py
 
-**Without IP** (tracks behavior across IPs):
-```python
-fingerprint_without_ip = md5(f"{user_agent}{browser}{os}{device}").hexdigest()
+# Paths to exclude from tracking
+REQUEST_TRACKING_EXCLUDE_PATHS = [
+    '/static/',
+    '/media/',
+    '/favicon.ico',
+    '/robots.txt',
+    '/sitemap.xml',
+    '/admin/jsi18n/',
+    '/__debug__/',
+    '/health/',
+]
+
+# Paths that flag requests as suspicious
+REQUEST_TRACKING_SUSPICIOUS_PATHS = [
+    '/wp-admin',
+    '/wp-login',
+    '/wp-content',
+    '/.env',
+    '/.git',
+    '/.htaccess',
+    '/phpMyAdmin',
+    '/phpmyadmin',
+    '/pma',
+    '/mysql',
+    '/admin.php',
+    '/config.php',
+    '/setup.php',
+    '/install.php',
+    '/xmlrpc.php',
+    '/shell',
+    '/cmd',
+    '/eval',
+]
+
+# User agent patterns that flag requests as suspicious
+REQUEST_TRACKING_SUSPICIOUS_USER_AGENTS = [
+    'curl',
+    'wget',
+    'python-requests',
+    'scrapy',
+    'bot',
+    'crawler',
+    'spider',
+    'nikto',
+    'nmap',
+    'sqlmap',
+    'masscan',
+    'zgrab',
+]
 ```
 
 ## Middleware
 
 ### RequestFingerprintMiddleware
 
-Automatically tracks all requests via Django middleware:
+Automatically tracks requests and enforces bans.
+
+**Flow**:
+1. Skip excluded paths (static, media, etc.)
+2. Skip local/reserved IP addresses
+3. Check IP ban → block if banned
+4. Generate fingerprint → check fingerprint ban → block if banned
+5. Check user agent against ban patterns → block if banned
+6. Track the request
+7. Flag suspicious requests
 
 **Configuration** (`config/settings.py`):
 ```python
@@ -85,96 +162,144 @@ MIDDLEWARE = [
 ]
 ```
 
-**Behavior**:
-1. Checks if path should be tracked (excludes static files, media)
-2. Skips local/private IP addresses (127.0.0.1, 10.x.x.x, 192.168.x.x)
-3. Parses user agent string
-4. Generates fingerprints
-5. Detects suspicious requests
-6. Stores TrackedRequest record (geolocation happens later via command)
-7. Attaches fingerprint to request object
-
 **Accessing in Views**:
 ```python
 def my_view(request):
-    if hasattr(request, 'fingerprint'):
-        fingerprint = request.fingerprint
-        print(f"IP: {fingerprint.ip_address}")
-        print(f"Browser: {fingerprint.browser}")
-        print(f"Device: {fingerprint.device}")
+    if hasattr(request, 'tracked_request'):
+        tr = request.tracked_request
+        print(f"IP: {tr.ip_address.ip_address}")
+        print(f"Browser: {tr.browser} {tr.browser_version}")
+        print(f"Device: {tr.device}")
+        print(f"Fingerprint: {tr.fingerprint_obj.hash[:16]}...")
 
         # Access geolocation (if available)
-        if fingerprint.geo_data:
-            city = fingerprint.geo_data.get('city')
-            country = fingerprint.geo_data.get('country')
+        if tr.ip_address.geo_data:
+            city = tr.ip_address.geo_data.get('city')
+            country = tr.ip_address.geo_data.get('country')
             print(f"Location: {city}, {country}")
 ```
 
+## Banning System
+
+### Creating Bans
+
+**Via Admin Interface**:
+1. Go to Admin → Utils → Bans → Add Ban
+2. Select target: Fingerprint, IP Address, and/or User Agent Pattern
+3. Enter reason and optional expiration
+4. Save
+
+**Via Admin Actions**:
+1. Go to Admin → Utils → Fingerprints or IP Addresses
+2. Select items to ban
+3. Choose "Ban selected fingerprints" or "Ban selected IP addresses" action
+
+**Programmatically**:
+```python
+from utils.models import Ban, Fingerprint, IPAddress
+
+# Ban a fingerprint
+fingerprint = Fingerprint.objects.get(hash='abc123...')
+Ban.objects.create(
+    fingerprint=fingerprint,
+    reason='Automated scraping detected',
+    created_by=admin_user,
+)
+
+# Ban an IP address
+ip = IPAddress.objects.get(ip_address='203.0.113.42')
+Ban.objects.create(
+    ip_address=ip,
+    reason='DDoS source',
+    created_by=admin_user,
+)
+
+# Ban by user agent pattern (regex)
+Ban.objects.create(
+    user_agent_pattern=r'BadBot/\d+',
+    reason='Known malicious bot',
+    created_by=admin_user,
+)
+
+# Temporary ban (expires in 24 hours)
+from django.utils import timezone
+from datetime import timedelta
+
+Ban.objects.create(
+    fingerprint=fingerprint,
+    reason='Rate limit exceeded',
+    expires_at=timezone.now() + timedelta(hours=24),
+    created_by=admin_user,
+)
+```
+
+### Checking Ban Status
+
+```python
+from utils.models import Ban, Fingerprint
+
+# Check if fingerprint is banned
+fingerprint = Fingerprint.objects.get(hash='abc123...')
+active_ban = Ban.objects.filter(
+    fingerprint=fingerprint,
+    is_active=True,
+).filter(
+    Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+).first()
+
+if active_ban:
+    print(f"Banned: {active_ban.reason}")
+```
+
+### Managing Bans
+
+```python
+# Deactivate a ban
+ban.is_active = False
+ban.save()
+
+# Reactivate a ban
+ban.is_active = True
+ban.save()
+
+# Get all effective bans
+from django.db.models import Q
+from django.utils import timezone
+
+effective_bans = Ban.objects.filter(
+    is_active=True,
+).filter(
+    Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+)
+```
 
 ## Suspicious Request Detection
 
 ### Detection Criteria
 
-Requests are flagged as suspicious if user agent contains:
-- `bot`
-- `crawler`
-- `spider`
-- `scraper`
-- `curl`
-- `wget`
-- `python-requests`
-- Scanner patterns (e.g., `nikto`, `nmap`)
+Requests are flagged as suspicious if:
 
-### Custom Detection Logic
+1. **Missing User-Agent header**
+2. **Suspicious user agent patterns** (configurable):
+   - curl, wget, python-requests, scrapy
+   - bot, crawler, spider
+   - nikto, nmap, sqlmap, masscan, zgrab
+3. **Suspicious paths** (configurable):
+   - WordPress paths: /wp-admin, /wp-login, /wp-content
+   - Config files: /.env, /.git, /.htaccess
+   - Admin panels: /phpMyAdmin, /pma
+   - Common attack vectors: /shell, /cmd, /eval
+4. **Missing Accept header**
+5. **Unknown IP address**
 
-Extend suspicious request detection:
-
-```python
-# utils/middleware.py
-def is_suspicious_request(user_agent, path, ip_address):
-    """Custom suspicious request detection."""
-    user_agent_lower = user_agent.lower()
-
-    # Known bad patterns
-    bad_patterns = [
-        'bot', 'crawler', 'spider', 'scraper',
-        'curl', 'wget', 'python-requests',
-        'nikto', 'nmap', 'sqlmap',
-    ]
-
-    if any(pattern in user_agent_lower for pattern in bad_patterns):
-        return True
-
-    # Check for suspicious paths
-    suspicious_paths = [
-        '/admin', '/wp-admin', '/.env',
-        '/phpMyAdmin', '/.git',
-    ]
-
-    if any(path.startswith(sus_path) for sus_path in suspicious_paths):
-        return True
-
-    # Check for excessive requests from single IP
-    from datetime import timedelta
-    from django.utils import timezone
-    recent_threshold = timezone.now() - timedelta(minutes=5)
-    recent_count = TrackedRequest.objects.filter(
-        ip_address=ip_address,
-        created_at__gte=recent_threshold
-    ).count()
-
-    if recent_count > 100:  # More than 100 requests in 5 minutes
-        return True
-
-    return False
-```
+**Note**: Allowed search engine bots (googlebot, bingbot, etc.) are excluded from suspicious detection.
 
 ## Querying Request Data
 
 ### Common Queries
 
 ```python
-from utils.models import TrackedRequest
+from utils.models import TrackedRequest, Fingerprint, IPAddress
 from django.utils import timezone
 from datetime import timedelta
 
@@ -185,34 +310,27 @@ suspicious = TrackedRequest.objects.filter(
 )
 
 # Get all requests from specific IP
+ip_obj = IPAddress.objects.get(ip_address='203.0.113.42')
 ip_requests = TrackedRequest.objects.filter(
-    ip_address='203.0.113.42'
+    ip_address=ip_obj
 ).order_by('-created_at')
 
-# Get user's request history
-user_requests = TrackedRequest.objects.filter(
-    user=request.user
+# Get all requests with a specific fingerprint
+fp = Fingerprint.objects.get(hash='abc123...')
+fp_requests = TrackedRequest.objects.filter(
+    fingerprint_obj=fp
 ).order_by('-created_at')
 
 # Get requests from specific country
 us_requests = TrackedRequest.objects.filter(
-    geo_data__country='United States'
-)
-
-# Get requests from specific city
-nyc_requests = TrackedRequest.objects.filter(
-    geo_data__city='New York'
+    ip_address__geo_data__country='United States'
 )
 
 # Get mobile requests
-mobile_requests = TrackedRequest.objects.filter(
-    device='Mobile'
-)
+mobile_requests = TrackedRequest.objects.filter(device='Mobile')
 
 # Get requests by browser
-chrome_requests = TrackedRequest.objects.filter(
-    browser='Chrome'
-)
+chrome_requests = TrackedRequest.objects.filter(browser='Chrome')
 ```
 
 ### Analytics Queries
@@ -243,15 +361,13 @@ device_stats = TrackedRequest.objects.values('device').annotate(
 
 # Top countries
 country_stats = TrackedRequest.objects.exclude(
-    geo_data__isnull=True
-).values('geo_data__country').annotate(
+    ip_address__geo_data__isnull=True
+).values('ip_address__geo_data__country').annotate(
     count=Count('id')
 ).order_by('-count')[:10]
 
-# Unique visitors (by fingerprint_without_ip)
-unique_visitors = TrackedRequest.objects.values(
-    'fingerprint_without_ip'
-).distinct().count()
+# Unique visitors (by fingerprint)
+unique_visitors = Fingerprint.objects.count()
 
 # Authenticated vs anonymous requests
 auth_stats = TrackedRequest.objects.aggregate(
@@ -260,172 +376,68 @@ auth_stats = TrackedRequest.objects.aggregate(
 )
 ```
 
-## PageVisit Tracking
+## Admin Interface
 
-### Decorator for Views
+### IP Addresses
 
-Track page visits with custom decorator:
+- View all tracked IP addresses with geolocation
+- See request count per IP
+- Filter by geo data availability
+- **Actions**: Ban selected IPs, Delete local/private IPs
 
-```python
-from pages.decorators import track_page_visit
+### Fingerprints
 
-@track_page_visit(page_name='home')
-def home(request):
-    """Home page view with visit tracking."""
-    return render(request, 'pages/home.html')
+- View all tracked fingerprints
+- See request count per fingerprint
+- View first/last seen timestamps
+- **Actions**: Ban selected fingerprints
+- **Indicators**: Shows if fingerprint is currently banned
 
-@track_page_visit(page_name='blog_post')
-def blog_post(request, slug):
-    """Blog post view with visit tracking."""
-    post = get_object_or_404(BlogPost, slug=slug)
-    return render(request, 'blog/post.html', {'post': post})
-```
+### Tracked Requests
 
-### PageVisit Model
+- View all tracked requests
+- Filter by suspicious status, method, date
+- Search by IP, path, user agent, fingerprint
+- Click-through to IP and fingerprint details
 
-**Fields**:
-- `page_name`: Page identifier
-- `url`: Full URL path
-- `fingerprint`: ForeignKey to TrackedRequest
-- `user`: ForeignKey to User (if authenticated)
-- `created_at`: Visit timestamp
+### Bans
 
-**Querying**:
-```python
-from pages.models import PageVisit
-
-# Most visited pages
-popular_pages = PageVisit.objects.values('page_name').annotate(
-    count=Count('id')
-).order_by('-count')
-
-# Visits per page
-home_visits = PageVisit.objects.filter(page_name='home').count()
-
-# Unique visitors per page
-unique_home_visitors = PageVisit.objects.filter(
-    page_name='home'
-).values('fingerprint__fingerprint_without_ip').distinct().count()
-```
-
-## Data Retention
-
-### Cleanup Old Records
-
-```python
-# Clean up records older than 90 days
-from utils.models import TrackedRequest
-from datetime import timedelta
-from django.utils import timezone
-
-ninety_days_ago = timezone.now() - timedelta(days=90)
-deleted = TrackedRequest.objects.filter(
-    created_at__lt=ninety_days_ago
-).delete()
-
-print(f"Deleted {deleted[0]} old records")
-```
-
-### Management Command for Cleanup
-
-```python
-# utils/management/commands/cleanup_fingerprints.py
-from django.core.management.base import BaseCommand
-from utils.models import TrackedRequest
-from datetime import timedelta
-from django.utils import timezone
-
-class Command(BaseCommand):
-    help = 'Clean up old tracked requests'
-
-    def add_arguments(self, parser):
-        parser.add_argument('--days', type=int, default=90)
-
-    def handle(self, *args, **options):
-        days = options['days']
-        cutoff = timezone.now() - timedelta(days=days)
-
-        deleted, _ = TrackedRequest.objects.filter(
-            created_at__lt=cutoff
-        ).delete()
-
-        self.stdout.write(
-            self.style.SUCCESS(
-                f'Deleted {deleted} records older than {days} days'
-            )
-        )
-```
+- Create, view, and manage all bans
+- Filter by status (effective, expired, inactive)
+- **Actions**: Activate/deactivate selected bans
+- See ban target (fingerprint, IP, or UA pattern)
+- Track who created the ban and when
 
 ## Troubleshooting
 
+### Banned User Still Getting Through
+
+1. Check if ban is active: `ban.is_active` should be `True`
+2. Check if ban has expired: `ban.expires_at` should be `None` or in the future
+3. Verify the ban target matches the request
+4. Check middleware order in `settings.py`
+
 ### Geolocation Not Working
 
-**Solutions**:
 1. Check internet connectivity to ip-api.com
 2. Verify no firewall blocking API requests
-3. Check API rate limits (wait if exceeded)
-4. Review command output for error messages
-5. Test single IP manually: `curl http://ip-api.com/json/8.8.8.8`
+3. Check API rate limits (45/min for single, 15/min for batch)
+4. Test manually: `curl http://ip-api.com/json/8.8.8.8`
 
-### Too Many Requests Error
+### Local IPs Being Tracked
 
-**Solutions**:
-1. Reduce batch size: `--batch-size 50`
-2. Wait 1 minute for rate limit reset
-3. Process in smaller batches with `--limit`
-4. Space out processing across multiple days
-
-### Suspicious Requests Not Detected
-
-**Solutions**:
-1. Review detection logic in middleware
-2. Add custom patterns for your use case
-3. Check user agent string format
-4. Test with known bot user agents
-5. Review flagged requests in admin
+1. Verify `is_global_ip()` is filtering correctly
+2. Run cleanup: `python manage.py remove_local_fingerprints`
+3. Check proxy/load balancer headers (X-Forwarded-For)
 
 ### High Database Growth
 
-**Solutions**:
-1. Implement data retention policy
-2. Run cleanup command regularly
-3. Add database indexes for common queries
-4. Consider archiving old data
-5. Exclude more paths from tracking
-
-## Configuration
-
-### Django Settings
-
-```python
-# Request fingerprinting configuration
-REQUEST_FINGERPRINT_ENABLED = True
-
-# Paths to exclude from tracking
-REQUEST_FINGERPRINT_EXCLUDE_PATHS = [
-    '/static/',
-    '/media/',
-    '/favicon.ico',
-    '/robots.txt',
-    '/sitemap.xml',
-]
-
-# Suspicious user agent patterns
-SUSPICIOUS_USER_AGENTS = [
-    'bot', 'crawler', 'spider', 'scraper',
-    'curl', 'wget', 'python-requests',
-]
-
-# Data retention
-REQUEST_FINGERPRINT_RETENTION_DAYS = 90
-
-# Geolocation
-GEOLOCATION_BATCH_SIZE = 100
-GEOLOCATION_API_URL = 'http://ip-api.com/batch'
-```
+1. Add more paths to `REQUEST_TRACKING_EXCLUDE_PATHS`
+2. Ensure indexes are applied for common queries
+3. Consider archiving old data periodically
 
 ## Related Documentation
 
-- [Architecture](../architecture.md) - Middleware and security design
-- [Maintenance](../maintenance.md) - Data retention and cleanup
-- [Deployment](../deployment.md) - Production security configuration
+- [Architecture](../architecture.md) - System design
+- [Maintenance](../maintenance.md) - Monitoring and troubleshooting
+- [Deployment](../deployment.md) - Production configuration

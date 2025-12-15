@@ -442,3 +442,51 @@ MASSIVE_API_KEY = env("MASSIVE_API_KEY", default="")
 # LLM API Keys
 OPENAI_KEY = env("OPENAI_KEY", default="")
 ANTHROPIC_KEY = env("ANTHROPIC_KEY", default="")
+
+# Request Tracking Configuration
+REQUEST_TRACKING_EXCLUDE_PATHS = [
+    "/static/",
+    "/media/",
+    "/favicon.ico",
+    "/robots.txt",
+    "/sitemap.xml",
+    "/admin/jsi18n/",
+    "/__debug__/",
+    "/health/",
+]
+
+REQUEST_TRACKING_SUSPICIOUS_PATHS = [
+    "/wp-admin",
+    "/wp-login",
+    "/wp-content",
+    "/.env",
+    "/.git",
+    "/.htaccess",
+    "/phpMyAdmin",
+    "/phpmyadmin",
+    "/pma",
+    "/mysql",
+    "/admin.php",
+    "/config.php",
+    "/setup.php",
+    "/install.php",
+    "/xmlrpc.php",
+    "/shell",
+    "/cmd",
+    "/eval",
+]
+
+REQUEST_TRACKING_SUSPICIOUS_USER_AGENTS = [
+    "curl",
+    "wget",
+    "python-requests",
+    "scrapy",
+    "bot",
+    "crawler",
+    "spider",
+    "nikto",
+    "nmap",
+    "sqlmap",
+    "masscan",
+    "zgrab",
+]
