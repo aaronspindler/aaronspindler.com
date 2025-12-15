@@ -1,18 +1,7 @@
-"""
-Security-related models for request fingerprinting and tracking.
-"""
-
 from django.db import models
 
 
 class IPAddress(models.Model):
-    """
-    Stores unique IP addresses with their geolocation data.
-
-    Normalized design: geo_data is stored once per IP address, not per request.
-    This reduces storage and allows efficient batch geolocation updates.
-    """
-
     ip_address = models.GenericIPAddressField(unique=True, db_index=True)
     geo_data = models.JSONField(
         blank=True,
@@ -20,7 +9,6 @@ class IPAddress(models.Model):
         help_text="Geographic location data for IP address (city, country, lat/lon, etc.)",
     )
 
-    # Timestamps for tracking
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -46,7 +34,6 @@ class Fingerprint(models.Model):
         help_text="SHA256 fingerprint excluding IP (for cross-IP tracking)",
     )
 
-    # Metadata for analytics
     first_seen = models.DateTimeField(auto_now_add=True, db_index=True)
     last_seen = models.DateTimeField(auto_now=True)
 
@@ -67,7 +54,6 @@ class TrackedRequest(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
-    # Normalized fingerprint reference
     fingerprint_obj = models.ForeignKey(
         Fingerprint,
         on_delete=models.CASCADE,
@@ -75,7 +61,6 @@ class TrackedRequest(models.Model):
         help_text="Normalized fingerprint reference",
     )
 
-    # Request details - IP address as ForeignKey for normalized geo_data
     ip_address = models.ForeignKey(
         IPAddress,
         on_delete=models.CASCADE,
