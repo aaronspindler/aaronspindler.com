@@ -5,6 +5,7 @@ from django.utils.html import format_html
 
 from .models import (
     Email,
+    Fingerprint,
     HTTPStatusCode,
     IPAddress,
     LighthouseAudit,
@@ -165,6 +166,59 @@ class IPAddressAdmin(admin.ModelAdmin):
         self.message_user(request, f"Deleted {count} local/private IP address(es) and their fingerprints.")
 
 
+@admin.register(Fingerprint)
+class FingerprintAdmin(admin.ModelAdmin):
+    """Admin interface for Fingerprint model."""
+
+    list_display = (
+        "hash_preview",
+        "hash_no_ip_preview",
+        "request_count",
+        "first_seen",
+        "last_seen",
+        "view_requests_link",
+    )
+    list_filter = ("first_seen", "last_seen")
+    search_fields = ("hash_with_ip", "hash_without_ip")
+    readonly_fields = (
+        "hash_with_ip",
+        "hash_without_ip",
+        "first_seen",
+        "last_seen",
+        "request_count",
+        "view_requests_link",
+    )
+    date_hierarchy = "first_seen"
+    ordering = ("-last_seen",)
+
+    @admin.display(description="Fingerprint (with IP)")
+    def hash_preview(self, obj):
+        """Display truncated fingerprint with IP."""
+        return obj.hash_with_ip[:16] + "..."
+
+    @admin.display(description="Fingerprint (no IP)")
+    def hash_no_ip_preview(self, obj):
+        """Display truncated fingerprint without IP."""
+        return obj.hash_without_ip[:16] + "..."
+
+    @admin.display(description="View Requests")
+    def view_requests_link(self, obj):
+        """Link to view all requests with this fingerprint."""
+        count = obj.requests.count()
+        if count == 0:
+            return "No requests"
+        url = reverse("admin:utils_requestfingerprint_changelist") + f"?fingerprint_obj__id__exact={obj.id}"
+        return format_html('<a href="{}">{} request{}</a>', url, count, "s" if count != 1 else "")
+
+    def has_add_permission(self, request):
+        """Disable manual creation - fingerprints created automatically from requests."""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Make fingerprints read-only."""
+        return False
+
+
 @admin.register(RequestFingerprint)
 class RequestFingerprintAdmin(admin.ModelAdmin):
     """Admin interface for RequestFingerprint model."""
@@ -172,6 +226,7 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
     list_display = (
         "created_at",
         "ip_display",
+        "fingerprint_preview",
         "method",
         "path",
         "browser",
@@ -191,15 +246,18 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         "ip_address__ip_address",
         "path",
         "user_agent",
-        "fingerprint",
-        "fingerprint_no_ip",
+        "fingerprint_obj__hash_with_ip",
+        "fingerprint_obj__hash_without_ip",
+        "fingerprint",  # Deprecated field, kept for backward compatibility during transition
+        "fingerprint_no_ip",  # Deprecated field, kept for backward compatibility during transition
         "ip_address__geo_data__city",
         "ip_address__geo_data__country",
     )
     readonly_fields = (
         "created_at",
-        "fingerprint",
-        "fingerprint_no_ip",
+        "fingerprint_obj",
+        "fingerprint",  # Deprecated
+        "fingerprint_no_ip",  # Deprecated
         "ip_address",
         "method",
         "path",
@@ -239,6 +297,15 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         if city and country:
             return f"{city}, {country}"
         return country or "Unknown"
+
+    @admin.display(description="Fingerprint")
+    def fingerprint_preview(self, obj):
+        """Display clickable fingerprint preview."""
+        if not obj.fingerprint_obj:
+            return "None"
+        hash_preview = obj.fingerprint_obj.hash_with_ip[:16] + "..."
+        url = reverse("admin:utils_fingerprint_change", args=[obj.fingerprint_obj.id])
+        return format_html('<a href="{}">{}</a>', url, hash_preview)
 
     def has_add_permission(self, request):
         """Disable manual creation - fingerprints should be created from requests."""
