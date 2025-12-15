@@ -89,7 +89,7 @@ class IPAddressAdmin(admin.ModelAdmin):
     readonly_fields = ("ip_address", "geo_data", "created_at", "updated_at", "request_count", "view_requests_link")
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
-    actions = ["geolocate_selected", "delete_local_ips"]
+    actions = ["delete_local_ips"]
 
     @admin.display(description="Location")
     def location_display(self, obj):
@@ -128,22 +128,6 @@ class IPAddressAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         """Make IP addresses read-only."""
         return False
-
-    @admin.action(description="Geolocate selected IP addresses")
-    def geolocate_selected(self, request, queryset):
-        """Geolocate selected IP addresses."""
-        from utils.security import geolocate_ips_batch
-
-        ip_addresses = [ip.ip_address for ip in queryset]
-        results = geolocate_ips_batch(ip_addresses, batch_size=100)
-
-        success_count = 0
-        for ip_str, geo_data in results.items():
-            if geo_data:
-                IPAddress.objects.filter(ip_address=ip_str).update(geo_data=geo_data)
-                success_count += 1
-
-        self.message_user(request, f"Successfully geolocated {success_count} IP address(es).")
 
     @admin.action(description="Delete local/private IP addresses")
     def delete_local_ips(self, request, queryset):
