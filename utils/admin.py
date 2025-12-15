@@ -5,6 +5,7 @@ from .models import (
     HTTPStatusCode,
     IPAddress,
     LighthouseAudit,
+    LLMUsage,
     NotificationConfig,
     NotificationEmail,
     NotificationPhoneNumber,
@@ -242,4 +243,47 @@ class LighthouseAuditAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         """Disable manual adding of audits (should be created via management command)."""
+        return False
+
+
+@admin.register(LLMUsage)
+class LLMUsageAdmin(admin.ModelAdmin):
+    """Admin interface for viewing LLM usage history."""
+
+    list_display = [
+        "created_at",
+        "provider",
+        "model",
+        "prompt_preview",
+        "response_preview",
+    ]
+    list_filter = ["provider", "model", "created_at"]
+    search_fields = ["provider", "model", "prompt", "response"]
+    readonly_fields = [
+        "created_at",
+        "updated_at",
+        "provider",
+        "model",
+        "prompt",
+        "response",
+    ]
+    date_hierarchy = "created_at"
+    ordering = ["-created_at"]
+
+    @admin.display(description="Prompt")
+    def prompt_preview(self, obj):
+        """Display truncated prompt."""
+        return obj.prompt[:100] + "..." if len(obj.prompt) > 100 else obj.prompt
+
+    @admin.display(description="Response")
+    def response_preview(self, obj):
+        """Display truncated response."""
+        return obj.response[:100] + "..." if len(obj.response) > 100 else obj.response
+
+    def has_add_permission(self, request):
+        """Disable manual creation - usage should be tracked automatically."""
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        """Make LLM usage records read-only."""
         return False
