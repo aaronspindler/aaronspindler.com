@@ -25,7 +25,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
         request = self.factory.get("/test/")
         request.META["HTTP_USER_AGENT"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         request.META["HTTP_ACCEPT"] = "text/html"
-        request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
+        request.META["REMOTE_ADDR"] = "8.8.8.8"  # Global IP (Google DNS)
         request.user = MagicMock(is_authenticated=False)
 
         # Clear any existing fingerprints
@@ -62,7 +62,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
             request = self.factory.get(path)
             request.META["HTTP_USER_AGENT"] = "Mozilla/5.0"
             request.META["HTTP_ACCEPT"] = "text/html"
-            request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
+            request.META["REMOTE_ADDR"] = "8.8.8.8"  # Global IP (Google DNS)
             request.user = MagicMock(is_authenticated=False)
 
             middleware.process_request(request)
@@ -78,7 +78,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
         request = self.factory.get("/test/")
         request.META["HTTP_USER_AGENT"] = "curl/7.68.0"
         request.META["HTTP_ACCEPT"] = "*/*"
-        request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
+        request.META["REMOTE_ADDR"] = "8.8.8.8"  # Global IP (Google DNS)
         request.user = MagicMock(is_authenticated=False)
 
         RequestFingerprint.objects.all().delete()
@@ -106,7 +106,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
         request = self.factory.get("/test/")
         request.META["HTTP_USER_AGENT"] = "Mozilla/5.0"
         request.META["HTTP_ACCEPT"] = "text/html"
-        request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
+        request.META["REMOTE_ADDR"] = "8.8.8.8"  # Global IP (Google DNS)
         request.user = MagicMock(is_authenticated=False)
 
         # Mock create_from_request to raise an exception
@@ -137,7 +137,7 @@ class RequestFingerprintMiddlewareTest(TestCase):
         request = self.factory.get("/test/")
         request.META["HTTP_USER_AGENT"] = "Mozilla/5.0"
         request.META["HTTP_ACCEPT"] = "text/html"
-        request.META["REMOTE_ADDR"] = "203.0.113.1"  # Public IP
+        request.META["REMOTE_ADDR"] = "8.8.8.8"  # Global IP (Google DNS)
         request.user = user
 
         RequestFingerprint.objects.all().delete()

@@ -80,8 +80,6 @@ def home(request):
     """
     Display home page with blog posts, projects, books, and photo albums.
     """
-    logger.info("Home page requested")
-
     # Cache blog posts (1 hour TTL)
     blog_cache_key = "home_blog_posts_v2"
     cached_blog_data = cache.get(blog_cache_key)

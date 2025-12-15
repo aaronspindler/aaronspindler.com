@@ -10,134 +10,79 @@ import json
 from django.core.management.base import BaseCommand
 from django_celery_beat.models import CrontabSchedule, PeriodicTask
 
+# Define all periodic tasks here - just add to the list!
+# Format: (name, task_path, cron_schedule, description)
+PERIODIC_TASKS = [
+    # Test tasks
+    (
+        "Test Celery Beat (every minute)",
+        "utils.tasks.test_celery_beat",
+        {"minute": "*", "hour": "*"},
+        "Test task to verify Celery Beat is working - runs every minute",
+    ),
+    # IP geolocation
+    (
+        "Geolocate missing IP addresses",
+        "utils.tasks.geolocate_missing_ips",
+        {"minute": "*/15", "hour": "*"},
+        "Geolocates up to 200 IP addresses without geo data every 15 minutes",
+    ),
+    # Daily tasks
+    (
+        "Run daily Lighthouse audit",
+        "utils.tasks.run_lighthouse_audit",
+        {"minute": "0", "hour": "2"},
+        "Runs a Lighthouse performance audit of the production site every day at 2 AM",
+    ),
+    (
+        "Rebuild and cache sitemap daily",
+        "pages.tasks.rebuild_and_cache_sitemap",
+        {"minute": "0", "hour": "3"},
+        "Rebuilds and caches the sitemap every day at 3 AM",
+    ),
+    (
+        "Generate knowledge graph screenshot",
+        "blog.tasks.generate_knowledge_graph_screenshot",
+        {"minute": "0", "hour": "4"},
+        "Generates a fresh knowledge graph screenshot every day at 4 AM",
+    ),
+    # Recurring tasks
+    (
+        "Rebuild knowledge graph cache",
+        "blog.tasks.rebuild_knowledge_graph",
+        {"minute": "0", "hour": "*/6"},
+        "Rebuilds the knowledge graph cache every 6 hours",
+    ),
+]
+
 
 class Command(BaseCommand):
     help = "Setup periodic tasks for Celery Beat"
 
     def handle(self, *args, **options):
-        # Test task every minute (for verifying Celery Beat is working)
-        schedule_every_minute, created = CrontabSchedule.objects.get_or_create(
-            minute="*",
-            hour="*",
-            day_of_week="*",
-            day_of_month="*",
-            month_of_year="*",
-        )
+        for name, task_path, cron_config, description in PERIODIC_TASKS:
+            # Create cron schedule with defaults for unspecified fields
+            schedule, _ = CrontabSchedule.objects.get_or_create(
+                minute=cron_config.get("minute", "*"),
+                hour=cron_config.get("hour", "*"),
+                day_of_week=cron_config.get("day_of_week", "*"),
+                day_of_month=cron_config.get("day_of_month", "*"),
+                month_of_year=cron_config.get("month_of_year", "*"),
+            )
 
-        test_task, created = PeriodicTask.objects.update_or_create(
-            name="Test Celery Beat (every minute)",
-            defaults={
-                "task": "utils.tasks.test_celery_beat",
-                "crontab": schedule_every_minute,
-                "kwargs": json.dumps({}),
-                "enabled": True,
-                "description": "Test task to verify Celery Beat is working - runs every minute",
-            },
-        )
+            # Create or update the periodic task
+            task, created = PeriodicTask.objects.update_or_create(
+                name=name,
+                defaults={
+                    "task": task_path,
+                    "crontab": schedule,
+                    "kwargs": json.dumps({}),
+                    "enabled": True,
+                    "description": description,
+                },
+            )
 
-        if created:
-            self.stdout.write(self.style.SUCCESS(f"Successfully created periodic task: {test_task.name}"))
-        else:
-            self.stdout.write(self.style.SUCCESS(f"Successfully updated periodic task: {test_task.name}"))
+            action = "Created" if created else "Updated"
+            self.stdout.write(self.style.SUCCESS(f"{action}: {task.name}"))
 
-        # Daily Lighthouse audit at 2 AM
-        schedule_daily_2am, created = CrontabSchedule.objects.get_or_create(
-            minute="0",
-            hour="2",
-            day_of_week="*",
-            day_of_month="*",
-            month_of_year="*",
-        )
-
-        lighthouse_task, created = PeriodicTask.objects.update_or_create(
-            name="Run daily Lighthouse audit",
-            defaults={
-                "task": "utils.tasks.run_lighthouse_audit",
-                "crontab": schedule_daily_2am,
-                "kwargs": json.dumps({}),
-                "enabled": True,
-                "description": "Runs a Lighthouse performance audit of the production site every day at 2 AM",
-            },
-        )
-
-        if created:
-            self.stdout.write(self.style.SUCCESS(f"Successfully created periodic task: {lighthouse_task.name}"))
-        else:
-            self.stdout.write(self.style.SUCCESS(f"Successfully updated periodic task: {lighthouse_task.name}"))
-
-        # Daily sitemap rebuild at 3 AM
-        schedule_daily_3am, created = CrontabSchedule.objects.get_or_create(
-            minute="0",
-            hour="3",
-            day_of_week="*",
-            day_of_month="*",
-            month_of_year="*",
-        )
-
-        task, created = PeriodicTask.objects.update_or_create(
-            name="Rebuild and cache sitemap daily",
-            defaults={
-                "task": "pages.tasks.rebuild_and_cache_sitemap",
-                "crontab": schedule_daily_3am,
-                "kwargs": json.dumps({}),
-                "enabled": True,
-                "description": "Rebuilds and caches the sitemap every day at 3 AM",
-            },
-        )
-
-        if created:
-            self.stdout.write(self.style.SUCCESS(f"Successfully created periodic task: {task.name}"))
-        else:
-            self.stdout.write(self.style.SUCCESS(f"Successfully updated periodic task: {task.name}"))
-
-        # Knowledge graph screenshot generation daily at 4 AM
-        schedule_daily_4am, created = CrontabSchedule.objects.get_or_create(
-            minute="0",
-            hour="4",
-            day_of_week="*",
-            day_of_month="*",
-            month_of_year="*",
-        )
-
-        kg_screenshot_task, created = PeriodicTask.objects.update_or_create(
-            name="Generate knowledge graph screenshot",
-            defaults={
-                "task": "blog.tasks.generate_knowledge_graph_screenshot",
-                "crontab": schedule_daily_4am,
-                "kwargs": json.dumps({}),
-                "enabled": True,
-                "description": "Generates a fresh knowledge graph screenshot every day at 4 AM",
-            },
-        )
-
-        if created:
-            self.stdout.write(self.style.SUCCESS(f"Successfully created periodic task: {kg_screenshot_task.name}"))
-        else:
-            self.stdout.write(self.style.SUCCESS(f"Successfully updated periodic task: {kg_screenshot_task.name}"))
-
-        # Knowledge graph rebuild every 6 hours
-        schedule_every_6_hours, created = CrontabSchedule.objects.get_or_create(
-            minute="0",
-            hour="*/6",
-            day_of_week="*",
-            day_of_month="*",
-            month_of_year="*",
-        )
-
-        kg_task, created = PeriodicTask.objects.update_or_create(
-            name="Rebuild knowledge graph cache",
-            defaults={
-                "task": "blog.tasks.rebuild_knowledge_graph",
-                "crontab": schedule_every_6_hours,
-                "kwargs": json.dumps({}),
-                "enabled": True,
-                "description": "Rebuilds the knowledge graph cache every 6 hours",
-            },
-        )
-
-        if created:
-            self.stdout.write(self.style.SUCCESS(f"Successfully created periodic task: {kg_task.name}"))
-        else:
-            self.stdout.write(self.style.SUCCESS(f"Successfully updated periodic task: {kg_task.name}"))
-
-        self.stdout.write(self.style.SUCCESS("\nAll periodic tasks have been configured successfully!"))
+        self.stdout.write(self.style.SUCCESS(f"\n✓ Configured {len(PERIODIC_TASKS)} periodic tasks successfully!"))
