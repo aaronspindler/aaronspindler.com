@@ -415,3 +415,7 @@ RESUME_ENABLED = env("RESUME_ENABLED", default=True)
 RESUME_FILENAME = env("RESUME_FILENAME", default="Aaron_Spindler_Resume_2025.pdf")
 
 MASSIVE_API_KEY = env("MASSIVE_API_KEY", default="")
+
+# LLM API Keys
+OPENAI_KEY = env("OPENAI_KEY", default="")
+ANTHROPIC_KEY = env("ANTHROPIC_KEY", default="")
