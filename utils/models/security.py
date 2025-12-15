@@ -217,8 +217,6 @@ class RequestFingerprint(models.Model):
 
         return cls.objects.create(
             fingerprint_obj=fingerprint_obj,
-            fingerprint=None,  # Deprecated field
-            fingerprint_no_ip=None,  # Deprecated field
             ip_address=ip_address_obj,
             method=fp_data["method"],
             path=fp_data["path"],
