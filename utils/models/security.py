@@ -40,13 +40,9 @@ class IPAddress(models.Model):
 
 
 class Fingerprint(models.Model):
-    hash_with_ip = models.CharField(
-        max_length=64,
-        db_index=True,
-        help_text="SHA256 fingerprint including IP address",
-    )
     hash_without_ip = models.CharField(
         max_length=64,
+        unique=True,
         db_index=True,
         help_text="SHA256 fingerprint excluding IP (for cross-IP tracking)",
     )
@@ -54,30 +50,17 @@ class Fingerprint(models.Model):
     # Metadata for analytics
     first_seen = models.DateTimeField(auto_now_add=True, db_index=True)
     last_seen = models.DateTimeField(auto_now=True)
-    request_count = models.PositiveIntegerField(
-        default=0,
-        help_text="Cached count of requests with this fingerprint",
-    )
 
     class Meta:
         ordering = ["-last_seen"]
         verbose_name = "Fingerprint"
         verbose_name_plural = "Fingerprints"
         indexes = [
-            models.Index(fields=["hash_with_ip"]),
-            models.Index(fields=["hash_without_ip"]),
             models.Index(fields=["-last_seen"]),
-            models.Index(fields=["-request_count"]),
-        ]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["hash_with_ip", "hash_without_ip"],
-                name="unique_fingerprint_hashes",
-            )
         ]
 
     def __str__(self):
-        return f"{self.hash_with_ip[:16]}... (seen {self.request_count} times)"
+        return f"{self.hash_without_ip[:16]}..."
 
 
 class RequestFingerprint(models.Model):
@@ -178,24 +161,21 @@ class RequestFingerprint(models.Model):
         )
 
         # Get or create Fingerprint record (normalized storage)
-        from django.db.models import F
         from django.utils import timezone
 
         fingerprint_obj, fp_created = Fingerprint.objects.get_or_create(
-            hash_with_ip=fp_data["fingerprint"],
             hash_without_ip=fp_data["fingerprint_no_ip"],
             defaults={
                 "first_seen": timezone.now(),
                 "last_seen": timezone.now(),
-                "request_count": 0,
             },
         )
 
-        # Update last_seen and increment count if fingerprint already existed
+        # Update last_seen if fingerprint already existed
         if not fp_created:
-            fingerprint_obj.last_seen = timezone.now()
-            fingerprint_obj.request_count = F("request_count") + 1
-            fingerprint_obj.save(update_fields=["last_seen", "request_count"])
+            Fingerprint.objects.filter(pk=fingerprint_obj.pk).update(
+                last_seen=timezone.now(),
+            )
 
         return cls.objects.create(
             fingerprint_obj=fingerprint_obj,

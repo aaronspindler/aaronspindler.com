@@ -165,39 +165,41 @@ class FingerprintAdmin(admin.ModelAdmin):
 
     list_display = (
         "hash_preview",
-        "hash_no_ip_preview",
         "request_count",
         "first_seen",
         "last_seen",
         "view_requests_link",
     )
     list_filter = ("first_seen", "last_seen")
-    search_fields = ("hash_with_ip", "hash_without_ip")
+    search_fields = ("hash_without_ip",)
     readonly_fields = (
-        "hash_with_ip",
         "hash_without_ip",
         "first_seen",
         "last_seen",
-        "request_count",
         "view_requests_link",
     )
     date_hierarchy = "first_seen"
     ordering = ("-last_seen",)
 
-    @admin.display(description="Fingerprint (with IP)")
-    def hash_preview(self, obj):
-        """Display truncated fingerprint with IP."""
-        return obj.hash_with_ip[:16] + "..."
+    def get_queryset(self, request):
+        """Annotate queryset with request count for sorting."""
+        queryset = super().get_queryset(request)
+        return queryset.annotate(num_requests=Count("requests"))
 
-    @admin.display(description="Fingerprint (no IP)")
-    def hash_no_ip_preview(self, obj):
-        """Display truncated fingerprint without IP."""
+    @admin.display(description="Fingerprint")
+    def hash_preview(self, obj):
+        """Display truncated fingerprint hash."""
         return obj.hash_without_ip[:16] + "..."
+
+    @admin.display(description="Request Count", ordering="num_requests")
+    def request_count(self, obj):
+        """Count of RequestFingerprint records with this fingerprint."""
+        return obj.num_requests
 
     @admin.display(description="View Requests")
     def view_requests_link(self, obj):
         """Link to view all requests with this fingerprint."""
-        count = obj.requests.count()
+        count = obj.num_requests
         if count == 0:
             return "No requests"
         url = reverse("admin:utils_requestfingerprint_changelist") + f"?fingerprint_obj__id__exact={obj.id}"
@@ -239,7 +241,6 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         "ip_address__ip_address",
         "path",
         "user_agent",
-        "fingerprint_obj__hash_with_ip",
         "fingerprint_obj__hash_without_ip",
         "ip_address__geo_data__city",
         "ip_address__geo_data__country",
@@ -292,7 +293,7 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         """Display clickable fingerprint preview."""
         if not obj.fingerprint_obj:
             return "None"
-        hash_preview = obj.fingerprint_obj.hash_with_ip[:16] + "..."
+        hash_preview = obj.fingerprint_obj.hash_without_ip[:16] + "..."
         url = reverse("admin:utils_fingerprint_change", args=[obj.fingerprint_obj.id])
         return format_html('<a href="{}">{}</a>', url, hash_preview)
 
