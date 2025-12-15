@@ -89,24 +89,7 @@ class RequestFingerprint(models.Model):
         Fingerprint,
         on_delete=models.CASCADE,
         related_name="requests",
-        help_text="Normalized fingerprint reference (replaces fingerprint CharField fields)",
-    )
-
-    # DEPRECATED: Old fingerprint fields (will be removed after migration verification)
-    # These are kept nullable during transition for backward compatibility
-    fingerprint = models.CharField(
-        max_length=64,
-        db_index=True,
-        null=True,
-        blank=True,
-        help_text="[DEPRECATED] SHA256 fingerprint including IP - use fingerprint_obj instead",
-    )
-    fingerprint_no_ip = models.CharField(
-        max_length=64,
-        db_index=True,
-        null=True,
-        blank=True,
-        help_text="[DEPRECATED] SHA256 fingerprint excluding IP - use fingerprint_obj instead",
+        help_text="Normalized fingerprint reference",
     )
 
     # Request details - IP address as ForeignKey for normalized geo_data
@@ -147,7 +130,6 @@ class RequestFingerprint(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["-created_at", "fingerprint"]),
             models.Index(fields=["ip_address", "-created_at"]),
             models.Index(fields=["is_suspicious", "-created_at"]),
         ]

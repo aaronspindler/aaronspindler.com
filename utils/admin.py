@@ -241,16 +241,12 @@ class RequestFingerprintAdmin(admin.ModelAdmin):
         "user_agent",
         "fingerprint_obj__hash_with_ip",
         "fingerprint_obj__hash_without_ip",
-        "fingerprint",  # Deprecated field, kept for backward compatibility during transition
-        "fingerprint_no_ip",  # Deprecated field, kept for backward compatibility during transition
         "ip_address__geo_data__city",
         "ip_address__geo_data__country",
     )
     readonly_fields = (
         "created_at",
         "fingerprint_obj",
-        "fingerprint",  # Deprecated
-        "fingerprint_no_ip",  # Deprecated
         "ip_address",
         "method",
         "path",
