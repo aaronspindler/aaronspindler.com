@@ -25,7 +25,7 @@ from .notification import Email, NotificationConfig, NotificationEmail, Notifica
 from .search import SearchableContent
 
 # Import all security models
-from .security import Fingerprint, IPAddress, TrackedRequest
+from .security import Ban, Fingerprint, IPAddress, TrackedRequest
 
 __all__ = [
     # Base model mixins
@@ -41,6 +41,7 @@ __all__ = [
     "IPAddress",
     "TrackedRequest",
     "Fingerprint",
+    "Ban",
     # Lighthouse models
     "LighthouseAudit",
     # Search models

@@ -290,14 +290,15 @@ def get_request_fingerprint_data(request) -> Dict[str, Any]:
 
 def parse_user_agent(user_agent: str) -> Dict[str, Optional[str]]:
     """
-    Parse a user agent string to extract browser and OS information.
-    This is a simplified parser - for production use, consider using a library like user-agents.
+    Parse a user agent string to extract browser, OS, and device information.
+
+    Uses the user-agents library for accurate parsing.
 
     Args:
         user_agent: User agent string
 
     Returns:
-        Dictionary with browser, version, os, and device information
+        Dictionary with browser, browser_version, os, and device information
     """
     if not user_agent or user_agent == "unknown":
         return {
@@ -307,55 +308,57 @@ def parse_user_agent(user_agent: str) -> Dict[str, Optional[str]]:
             "device": None,
         }
 
-    ua_lower = user_agent.lower()
+    try:
+        from user_agents import parse
 
-    # Detect browser
-    browser = None
-    browser_version = None
+        ua = parse(user_agent)
 
-    if "edg/" in ua_lower:
-        browser = "Edge"
-    elif "chrome/" in ua_lower and "edg/" not in ua_lower:
-        browser = "Chrome"
-    elif "firefox/" in ua_lower:
-        browser = "Firefox"
-    elif "safari/" in ua_lower and "chrome/" not in ua_lower:
-        browser = "Safari"
-    elif "opera/" in ua_lower or "opr/" in ua_lower:
-        browser = "Opera"
+        # Get browser info
+        browser = ua.browser.family if ua.browser.family else None
+        browser_version = ua.browser.version_string if ua.browser.version_string else None
 
-    # Detect OS
-    os = None
-    if "windows" in ua_lower:
-        os = "Windows"
-    elif "mac os" in ua_lower or "macos" in ua_lower:
-        os = "macOS"
-    elif "linux" in ua_lower:
-        os = "Linux"
-    elif "android" in ua_lower:
-        os = "Android"
-    elif "ios" in ua_lower or "iphone" in ua_lower or "ipad" in ua_lower:
-        os = "iOS"
+        # Get OS info
+        os_name = ua.os.family if ua.os.family else None
 
-    # Detect device type
-    device = "Desktop"
-    if "mobile" in ua_lower or "android" in ua_lower or "iphone" in ua_lower:
-        device = "Mobile"
-    elif "tablet" in ua_lower or "ipad" in ua_lower:
-        device = "Tablet"
+        # Determine device type
+        if ua.is_mobile:
+            device = "Mobile"
+        elif ua.is_tablet:
+            device = "Tablet"
+        elif ua.is_pc:
+            device = "Desktop"
+        elif ua.is_bot:
+            device = "Bot"
+        else:
+            device = "Other"
 
-    return {
-        "browser": browser,
-        "browser_version": browser_version,
-        "os": os,
-        "device": device,
-        "raw": user_agent,
-    }
+        return {
+            "browser": browser,
+            "browser_version": browser_version,
+            "os": os_name,
+            "device": device,
+        }
+
+    except Exception as e:
+        logger.warning(f"Error parsing user agent: {e}")
+        return {
+            "browser": None,
+            "browser_version": None,
+            "os": None,
+            "device": None,
+        }
 
 
 def is_suspicious_request(request) -> Tuple[bool, Optional[str]]:
     """
-    Perform basic checks to identify potentially suspicious requests.
+    Perform checks to identify potentially suspicious requests.
+
+    Checks:
+    - Missing User-Agent header
+    - Suspicious user agent patterns (configurable via settings)
+    - Suspicious paths (wp-admin, .env, .git, etc.)
+    - Missing Accept header
+    - Unknown IP address
 
     Args:
         request: Django HttpRequest object
@@ -363,27 +366,45 @@ def is_suspicious_request(request) -> Tuple[bool, Optional[str]]:
     Returns:
         Tuple of (is_suspicious: bool, reason: Optional[str])
     """
+    from django.conf import settings
+
+    # Allowed search engine bots (not considered suspicious)
+    allowed_bots = ["googlebot", "bingbot", "yandexbot", "duckduckbot", "baiduspider", "slurp"]
+
     try:
         # Check for missing User-Agent (common for bots)
         user_agent = request.headers.get("user-agent", "")
         if not user_agent:
             return (True, "Missing User-Agent header")
 
-        # Check for suspicious user agents
-        suspicious_patterns = [
-            "curl",
-            "wget",
-            "python-requests",
-            "scrapy",
-            "bot",
-            "crawler",
-            "spider",
-        ]
-
         ua_lower = user_agent.lower()
-        for pattern in suspicious_patterns:
-            if pattern in ua_lower and "googlebot" not in ua_lower and "bingbot" not in ua_lower:
-                return (True, f"Suspicious User-Agent pattern: {pattern}")
+
+        # Check if it's an allowed search engine bot
+        is_allowed_bot = any(bot in ua_lower for bot in allowed_bots)
+
+        # Check for suspicious user agents (from settings or defaults)
+        suspicious_ua_patterns = getattr(
+            settings,
+            "REQUEST_TRACKING_SUSPICIOUS_USER_AGENTS",
+            ["curl", "wget", "python-requests", "scrapy", "bot", "crawler", "spider"],
+        )
+
+        if not is_allowed_bot:
+            for pattern in suspicious_ua_patterns:
+                if pattern.lower() in ua_lower:
+                    return (True, f"Suspicious User-Agent pattern: {pattern}")
+
+        # Check for suspicious paths (from settings or defaults)
+        suspicious_paths = getattr(
+            settings,
+            "REQUEST_TRACKING_SUSPICIOUS_PATHS",
+            ["/wp-admin", "/wp-login", "/.env", "/.git", "/phpMyAdmin"],
+        )
+
+        path = request.path.lower()
+        for suspicious_path in suspicious_paths:
+            if path.startswith(suspicious_path.lower()):
+                return (True, f"Suspicious path: {suspicious_path}")
 
         # Check for missing common headers
         if not request.headers.get("accept"):

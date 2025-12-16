@@ -49,6 +49,92 @@ class Fingerprint(models.Model):
         return f"{self.hash[:16]}..."
 
 
+class Ban(models.Model):
+    """
+    Ban rules that can target fingerprints, IP addresses, or user agent patterns.
+    Enables blocking bad actors even when they change IP addresses.
+    """
+
+    fingerprint = models.ForeignKey(
+        Fingerprint,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="bans",
+        help_text="Ban a specific browser fingerprint (blocks across IP changes)",
+    )
+    ip_address = models.ForeignKey(
+        IPAddress,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="bans",
+        help_text="Ban a specific IP address",
+    )
+    user_agent_pattern = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Regex pattern to match against user agent strings",
+    )
+
+    reason = models.TextField(help_text="Reason for the ban")
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="When the ban expires (null = permanent)",
+    )
+
+    created_by = models.ForeignKey(
+        "accounts.CustomUser",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_bans",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Ban"
+        verbose_name_plural = "Bans"
+        indexes = [
+            models.Index(fields=["is_active", "expires_at"]),
+        ]
+
+    def __str__(self):
+        target = []
+        if self.fingerprint:
+            target.append(f"FP:{self.fingerprint.hash[:8]}")
+        if self.ip_address:
+            target.append(f"IP:{self.ip_address.ip_address}")
+        if self.user_agent_pattern:
+            target.append(f"UA:{self.user_agent_pattern[:20]}")
+        return f"Ban ({', '.join(target) or 'empty'}) - {'Active' if self.is_active else 'Inactive'}"
+
+    def is_expired(self):
+        """Check if the ban has expired."""
+        if self.expires_at is None:
+            return False
+        from django.utils import timezone
+
+        return timezone.now() > self.expires_at
+
+    def is_effective(self):
+        """Check if the ban is currently in effect (active and not expired)."""
+        return self.is_active and not self.is_expired()
+
+    def clean(self):
+        """Ensure at least one target is specified."""
+        from django.core.exceptions import ValidationError
+
+        if not self.fingerprint and not self.ip_address and not self.user_agent_pattern:
+            raise ValidationError(
+                "At least one ban target (fingerprint, IP address, or user agent pattern) must be specified."
+            )
+
+
 class TrackedRequest(models.Model):
     """Tracks individual HTTP requests with fingerprinting and security analysis."""
 
@@ -83,6 +169,9 @@ class TrackedRequest(models.Model):
     # Headers (stored as JSON)
     headers = models.JSONField(default=dict, blank=True)
 
+    # Referrer
+    referer = models.TextField(blank=True, help_text="HTTP Referer header")
+
     # Security flags
     is_suspicious = models.BooleanField(default=False, db_index=True)
     suspicious_reason = models.TextField(blank=True)
@@ -103,6 +192,10 @@ class TrackedRequest(models.Model):
         indexes = [
             models.Index(fields=["ip_address", "-created_at"]),
             models.Index(fields=["is_suspicious", "-created_at"]),
+            models.Index(fields=["path"], name="utils_track_path_idx"),
+            models.Index(fields=["browser"], name="utils_track_browser_idx"),
+            models.Index(fields=["os"], name="utils_track_os_idx"),
+            models.Index(fields=["fingerprint_obj", "-created_at"], name="utils_track_fp_created_idx"),
         ]
 
     def __str__(self):
@@ -165,6 +258,12 @@ class TrackedRequest(models.Model):
                 last_seen=timezone.now(),
             )
 
+        # Get referer (note: header is "Referer", field is "referer")
+        referer = request.headers.get("Referer", "")
+        # Truncate if too long for the field
+        if len(referer) > 2048:
+            referer = referer[:2048]
+
         return cls.objects.create(
             fingerprint_obj=fingerprint_obj,
             ip_address=ip_address_obj,
@@ -179,6 +278,7 @@ class TrackedRequest(models.Model):
             os=ua_data["os"] or "",
             device=ua_data["device"] or "",
             headers=fp_data["headers"],
+            referer=referer,
             is_suspicious=is_susp,
             suspicious_reason=susp_reason or "",
             user=user,
