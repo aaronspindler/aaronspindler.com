@@ -360,7 +360,6 @@ class PhotoAlbum(models.Model):
 
     def get_photos_with_featured(self):
         return self.album_photos.select_related("photo").order_by(
-            "-is_featured",
             "display_order",
             "-photo__date_taken",
             "-added_at",

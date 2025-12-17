@@ -571,11 +571,21 @@ class AlbumPhotoInline(admin.TabularInline):
 
 @admin.register(AlbumPhoto)
 class AlbumPhotoAdmin(admin.ModelAdmin):
-    list_display = ("photo", "album", "is_featured", "display_order", "added_at")
+    list_display = ("photo_preview", "photo", "album", "is_featured", "display_order", "added_at")
     list_filter = ("is_featured", "album")
     list_editable = ("is_featured", "display_order")
     search_fields = ("photo__title", "photo__original_filename", "album__title")
     autocomplete_fields = ["album", "photo"]
+    readonly_fields = ("photo_preview",)
+
+    @admin.display(description="Preview")
+    def photo_preview(self, obj):
+        if obj.photo and obj.photo.image_display:
+            return format_html(
+                '<img src="{}" style="max-width: 100px; max-height: 75px;" />',
+                obj.photo.image_display.url,
+            )
+        return "No image"
 
 
 @admin.register(PhotoAlbum)

@@ -19,7 +19,6 @@ def album_detail(request, slug):
         album = get_object_or_404(PhotoAlbum, slug=slug, is_private=False)
 
     album_photos = album.album_photos.select_related("photo").order_by(
-        "-is_featured",
         "display_order",
         "-photo__date_taken",
         "-photo__created_at",
