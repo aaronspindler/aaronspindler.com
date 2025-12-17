@@ -13,12 +13,13 @@ class PhotoAdmin(admin.ModelAdmin):
         "image_preview",
         "get_display_name",
         "title",
+        "processing_status_display",
         "file_info",
         "camera_info",
         "has_duplicates",
         "created_at",
     )
-    list_filter = ("created_at", "updated_at", "camera_make", "camera_model")
+    list_filter = ("processing_status", "created_at", "updated_at", "camera_make", "camera_model")
     search_fields = (
         "title",
         "description",
@@ -31,7 +32,7 @@ class PhotoAdmin(admin.ModelAdmin):
     )
     list_editable = ("title",)
     list_display_links = ("image_preview", "get_display_name")
-    actions = ["add_to_album", "find_duplicates_action"]
+    actions = ["add_to_album", "find_duplicates_action", "retry_processing"]
     readonly_fields = (
         "image_preview",
         "all_versions_preview",
@@ -148,6 +149,18 @@ class PhotoAdmin(admin.ModelAdmin):
             return obj.original_filename
         else:
             return f"Photo {obj.pk}"
+
+    @admin.display(description="Status", ordering="processing_status")
+    def processing_status_display(self, obj):
+        """Display the processing status with colored indicators."""
+        status_map = {
+            "pending": ("🟡", "Pending", "#ffc107"),
+            "processing": ("🔵", "Processing...", "#17a2b8"),
+            "complete": ("🟢", "Complete", "#28a745"),
+            "failed": ("🔴", "Failed", "#dc3545"),
+        }
+        icon, text, color = status_map.get(obj.processing_status, ("⚪", "Unknown", "#6c757d"))
+        return format_html('<span style="color: {};">{} {}</span>', color, icon, text)
 
     @admin.action(description="Add selected photos to album")
     def add_to_album(self, request, queryset):
@@ -481,6 +494,22 @@ class PhotoAdmin(admin.ModelAdmin):
             messages.success(request, "No duplicates found among selected photos")
         else:
             messages.info(request, f"Found {duplicate_count} group(s) of duplicates")
+
+    @admin.action(description="Retry processing for selected photos")
+    def retry_processing(self, request, queryset):
+        """Retry processing for photos that failed or are pending."""
+        from photos.tasks import process_photo_async
+
+        retryable = queryset.filter(processing_status__in=["pending", "failed"])
+        count = 0
+        for photo in retryable:
+            process_photo_async.delay(photo.pk)
+            count += 1
+
+        if count > 0:
+            messages.success(request, f"Queued {count} photo(s) for reprocessing")
+        else:
+            messages.info(request, "No photos needed reprocessing")
 
     def get_urls(self):
         """Add custom URLs for bulk upload."""

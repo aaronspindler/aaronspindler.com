@@ -57,6 +57,12 @@ The photos app provides comprehensive photo management with automatic image proc
    - WebP versions created
    - Uploaded to S3
 
+3. **Bulk upload** (via `/admin/photos/photo/bulk-upload/`):
+   - Select multiple images at once
+   - Images are processed in the background via Celery
+   - Check "Status" column for processing progress
+   - Use "Retry processing" action for failed uploads
+
 ### Creating Albums
 
 1. **Create album in Django admin**:
@@ -249,7 +255,6 @@ photo.save()
 
 **Phase 3:**
 - Photo editing (crop, rotate, filters)
-- Bulk upload with progress tracking
 - RAW file support
 - Photo sharing with expiring links
 

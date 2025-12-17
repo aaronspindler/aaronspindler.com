@@ -11,10 +11,25 @@ from photos.image_utils import DuplicateDetector, ExifExtractor, ImageMetadataEx
 
 
 class Photo(models.Model):
+    PROCESSING_STATUS_CHOICES = [
+        ("pending", "Pending Processing"),
+        ("processing", "Processing"),
+        ("complete", "Complete"),
+        ("failed", "Failed"),
+    ]
+
     title = models.CharField(max_length=255, blank=True, default="")
     description = models.TextField(blank=True)
 
     image = models.ImageField(upload_to="photos/original/", verbose_name="Original Full Resolution")
+
+    processing_status = models.CharField(
+        max_length=20,
+        choices=PROCESSING_STATUS_CHOICES,
+        default="complete",
+        db_index=True,
+        help_text="Status of background image processing",
+    )
 
     image_optimized = models.ImageField(
         upload_to="photos/optimized/",
@@ -93,7 +108,13 @@ class Photo(models.Model):
         """
         Override save to automatically create optimized versions when a new image is uploaded.
         Also checks for duplicates before saving.
+
+        Kwargs:
+            skip_duplicate_check: Skip duplicate detection (already checked).
+            skip_processing: Skip image processing (will be done async).
         """
+        skip_processing = kwargs.pop("skip_processing", False)
+
         try:
             if self.pk is None or (self.pk and self._image_changed()):
                 skip_duplicate_check = kwargs.pop("skip_duplicate_check", False)
@@ -101,13 +122,50 @@ class Photo(models.Model):
                 if not skip_duplicate_check:
                     self._check_for_duplicates()
 
-                self._process_image()
+                if not skip_processing:
+                    self._process_image()
         except ValidationError:
             raise
         except Exception as e:
             print(f"Error processing image: {e}")
 
         super().save(*args, **kwargs)
+
+    def save_minimal(self, file_hash="", perceptual_hash=""):
+        """
+        Save the photo with minimal processing for async background processing.
+        Only stores the original filename and hashes, queues background processing.
+
+        Args:
+            file_hash: Pre-computed SHA-256 hash of the file.
+            perceptual_hash: Pre-computed perceptual hash.
+        """
+        if self.image:
+            self.original_filename = os.path.basename(self.image.name)
+        self.file_hash = file_hash
+        self.perceptual_hash = perceptual_hash
+        self.processing_status = "pending"
+        self.save(skip_duplicate_check=True, skip_processing=True)
+
+    def process_image_async(self):
+        """
+        Process the image (extract metadata, create optimized versions).
+        Called by the Celery background task.
+        """
+        if not self.image:
+            return
+
+        self.processing_status = "processing"
+        self.save(update_fields=["processing_status"])
+
+        try:
+            self._process_image()
+            self.processing_status = "complete"
+            self.save()
+        except Exception as e:
+            self.processing_status = "failed"
+            self.save(update_fields=["processing_status"])
+            raise e
 
     def _image_changed(self):
         """

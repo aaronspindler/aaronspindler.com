@@ -153,10 +153,20 @@
         <ul>
             <li>You can select multiple images at once using Ctrl/Cmd + Click or Shift + Click</li>
             <li>Supported formats: JPEG, PNG, GIF, WebP</li>
-            <li>Images will be automatically optimized and multiple sizes will be created</li>
-            <li>EXIF data will be extracted automatically</li>
+            <li><strong>Images are processed in the background</strong> - you can continue working while they process</li>
+            <li>Optimized versions and EXIF data will be extracted automatically</li>
+            <li>Check the "Status" column to see processing progress</li>
             <li>You can edit titles and descriptions after uploading</li>
         </ul>
+    </div>
+
+    <div class="upload-info" style="background: #fff3cd; border-color: #ffc107;">
+        <h3>⏳ Background Processing</h3>
+        <p style="margin: 0;">
+            After uploading, photos will show as <strong>"🟡 Pending"</strong> while they wait to be processed.
+            The status will update to <strong>"🟢 Complete"</strong> once processing finishes.
+            This allows you to upload many photos quickly without waiting.
+        </p>
     </div>
 
     <form method="post" enctype="multipart/form-data" class="bulk-upload-form">

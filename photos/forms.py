@@ -45,13 +45,15 @@ class PhotoBulkUploadForm(forms.Form):
 
         self.fields["album"].queryset = PhotoAlbum.objects.all()
 
-    def save(self, skip_duplicates=True):
+    def save(self, skip_duplicates=True, process_async=True):
         """
         Save all uploaded images as Photo objects.
 
         Args:
             skip_duplicates: If True, silently skip duplicate images.
                            If False, raise ValidationError on duplicates.
+            process_async: If True, queue image processing as background tasks.
+                          If False, process images synchronously.
 
         Returns:
             dict: {
@@ -60,6 +62,8 @@ class PhotoBulkUploadForm(forms.Form):
                 'errors': List of (filename, error) tuples for failed uploads
             }
         """
+        from photos.tasks import process_photo_async
+
         images = self.cleaned_data["images"]
         album = self.cleaned_data.get("album")
         result = {"created": [], "skipped": [], "errors": []}
@@ -87,14 +91,19 @@ class PhotoBulkUploadForm(forms.Form):
                     else:
                         raise ValidationError(f"{filename}: Exact duplicate of '{duplicate}'")
 
-                photo = Photo(
-                    image=image_file,
-                    # Store computed hashes to avoid recomputing
-                    file_hash=duplicates.get("file_hash", ""),
-                    perceptual_hash=duplicates.get("perceptual_hash", ""),
-                )
-                # Skip duplicate check in save since we already checked
-                photo.save(skip_duplicate_check=True)
+                photo = Photo(image=image_file)
+
+                if process_async:
+                    photo.save_minimal(
+                        file_hash=duplicates.get("file_hash", ""),
+                        perceptual_hash=duplicates.get("perceptual_hash", ""),
+                    )
+                    process_photo_async.delay(photo.pk)
+                else:
+                    photo.file_hash = duplicates.get("file_hash", "")
+                    photo.perceptual_hash = duplicates.get("perceptual_hash", "")
+                    photo.save(skip_duplicate_check=True)
+
                 result["created"].append(photo)
 
                 if album:

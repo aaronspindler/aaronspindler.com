@@ -10,6 +10,45 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=300,
+    max_retries=3,
+)
+def process_photo_async(self, photo_id: int):
+    """
+    Process a photo in the background: extract metadata, create optimized versions.
+
+    Args:
+        photo_id: The ID of the Photo to process.
+
+    Returns:
+        dict: Result containing status and photo_id.
+    """
+    from photos.models import Photo
+
+    try:
+        photo = Photo.objects.get(pk=photo_id)
+    except Photo.DoesNotExist:
+        logger.warning(f"Photo {photo_id} not found for processing")
+        return {"status": "error", "message": "Photo not found", "photo_id": photo_id}
+
+    if photo.processing_status == "complete":
+        logger.info(f"Photo {photo_id} already processed, skipping")
+        return {"status": "skipped", "message": "Already processed", "photo_id": photo_id}
+
+    try:
+        photo.process_image_async()
+        logger.info(f"Successfully processed photo {photo_id}")
+        return {"status": "success", "photo_id": photo_id}
+    except Exception as e:
+        logger.error(f"Failed to process photo {photo_id}: {e}", exc_info=True)
+        raise
+
+
 DEBOUNCE_KEY_PREFIX = "album_zip_debounce:"
 DEBOUNCE_DELAY_SECONDS = 30
 

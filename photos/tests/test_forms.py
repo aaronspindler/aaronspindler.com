@@ -140,10 +140,10 @@ class PhotoBulkUploadFormTestCase(TestCase):
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data["album"], self.album1)
 
+    @patch("photos.forms.process_photo_async")
     @patch("photos.forms.DuplicateDetector.find_duplicates")
-    def test_save_single_image_success(self, mock_find_duplicates):
-        """Test saving a single uploaded image."""
-        # Setup mock - no duplicates found
+    def test_save_single_image_async(self, mock_find_duplicates, mock_task):
+        """Test saving a single uploaded image with async processing (default)."""
         mock_find_duplicates.return_value = {
             "exact_duplicates": [],
             "similar_images": [],
@@ -167,16 +167,46 @@ class PhotoBulkUploadFormTestCase(TestCase):
         self.assertEqual(len(result["skipped"]), 0)
         self.assertEqual(len(result["errors"]), 0)
 
-        # Verify photo was created
+        # Verify photo was created with pending status
         photo = result["created"][0]
         self.assertIsInstance(photo, Photo)
         self.assertEqual(photo.file_hash, "hash123")
         self.assertEqual(photo.perceptual_hash, "phash456")
+        self.assertEqual(photo.processing_status, "pending")
+
+        # Verify async task was queued
+        mock_task.delay.assert_called_once_with(photo.pk)
 
     @patch("photos.forms.DuplicateDetector.find_duplicates")
-    def test_save_multiple_images_success(self, mock_find_duplicates):
-        """Test saving multiple uploaded images."""
-        # Setup mock - no duplicates
+    def test_save_single_image_sync(self, mock_find_duplicates):
+        """Test saving a single uploaded image with sync processing."""
+        mock_find_duplicates.return_value = {
+            "exact_duplicates": [],
+            "similar_images": [],
+            "file_hash": "hash123",
+            "perceptual_hash": "phash456",
+        }
+
+        image_file = self._create_test_image_file()
+        form = PhotoBulkUploadForm(files={"images": image_file})
+
+        self.assertTrue(form.is_valid())
+        result = form.save(process_async=False)
+
+        # One photo should be created
+        self.assertEqual(len(result["created"]), 1)
+
+        # Verify photo was created with complete status
+        photo = result["created"][0]
+        self.assertIsInstance(photo, Photo)
+        self.assertEqual(photo.file_hash, "hash123")
+        self.assertEqual(photo.perceptual_hash, "phash456")
+        self.assertEqual(photo.processing_status, "complete")
+
+    @patch("photos.forms.process_photo_async")
+    @patch("photos.forms.DuplicateDetector.find_duplicates")
+    def test_save_multiple_images_async(self, mock_find_duplicates, mock_task):
+        """Test saving multiple uploaded images with async processing."""
         mock_find_duplicates.return_value = {
             "exact_duplicates": [],
             "similar_images": [],
@@ -197,8 +227,12 @@ class PhotoBulkUploadFormTestCase(TestCase):
         self.assertEqual(len(result["skipped"]), 0)
         self.assertEqual(len(result["errors"]), 0)
 
+        # Verify async tasks were queued for each photo
+        self.assertEqual(mock_task.delay.call_count, 2)
+
+    @patch("photos.forms.process_photo_async")
     @patch("photos.forms.DuplicateDetector.find_duplicates")
-    def test_save_with_album_assignment(self, mock_find_duplicates):
+    def test_save_with_album_assignment(self, mock_find_duplicates, mock_task):
         """Test saving images with album assignment."""
         mock_find_duplicates.return_value = {
             "exact_duplicates": [],
@@ -295,7 +329,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
         form = PhotoBulkUploadForm(files={"images": image_file})
 
         self.assertTrue(form.is_valid())
-        result = form.save()
+        result = form.save(process_async=False)
 
         # Similar images should not prevent upload
         self.assertEqual(len(result["created"]), 1)
@@ -321,7 +355,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
                 "perceptual_hash": "phash",
             }
 
-            result = form.save()
+            result = form.save(process_async=False)
 
         # Should have error
         self.assertEqual(len(result["created"]), 0)
@@ -368,7 +402,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
         form = PhotoBulkUploadForm(files={"images": [image1, image2, image3]})
 
         self.assertTrue(form.is_valid())
-        result = form.save()
+        result = form.save(process_async=False)
 
         # Check mixed results
         self.assertEqual(len(result["created"]), 1)  # Only success.jpg
@@ -391,9 +425,32 @@ class PhotoBulkUploadFormTestCase(TestCase):
             "Optional: Add all uploaded photos to this album",
         )
 
+    @patch("photos.forms.process_photo_async")
     @patch("photos.forms.DuplicateDetector.find_duplicates")
-    def test_save_preserves_hashes(self, mock_find_duplicates):
-        """Test that computed hashes are preserved to avoid recomputation."""
+    def test_save_preserves_hashes_async(self, mock_find_duplicates, mock_task):
+        """Test that computed hashes are preserved when using async processing."""
+        mock_find_duplicates.return_value = {
+            "exact_duplicates": [],
+            "similar_images": [],
+            "file_hash": "computed_file_hash",
+            "perceptual_hash": "computed_perceptual_hash",
+        }
+
+        image_file = self._create_test_image_file()
+        form = PhotoBulkUploadForm(files={"images": image_file})
+
+        self.assertTrue(form.is_valid())
+        result = form.save()
+
+        # Verify hashes were set on the photo
+        photo = result["created"][0]
+        self.assertEqual(photo.file_hash, "computed_file_hash")
+        self.assertEqual(photo.perceptual_hash, "computed_perceptual_hash")
+        self.assertEqual(photo.processing_status, "pending")
+
+    @patch("photos.forms.DuplicateDetector.find_duplicates")
+    def test_save_preserves_hashes_sync(self, mock_find_duplicates):
+        """Test that computed hashes are preserved when using sync processing."""
         mock_find_duplicates.return_value = {
             "exact_duplicates": [],
             "similar_images": [],
@@ -408,7 +465,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
 
         # Mock Photo.save to verify skip_duplicate_check is True
         with patch.object(Photo, "save") as mock_save:
-            result = form.save()
+            result = form.save(process_async=False)
 
             # Verify save was called with skip_duplicate_check=True
             mock_save.assert_called_once_with(skip_duplicate_check=True)
