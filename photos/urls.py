@@ -11,4 +11,9 @@ urlpatterns = [
         views.download_photo,
         name="download_photo",
     ),
+    path(
+        "album/<slug:slug>/download/",
+        views.download_album_zip,
+        name="download_album_zip",
+    ),
 ]

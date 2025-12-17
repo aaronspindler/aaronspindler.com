@@ -265,7 +265,7 @@ class PhotoAlbum(models.Model):
     title = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True, blank=True)
     description = models.TextField(blank=True)
-    photos = models.ManyToManyField(Photo, related_name="albums")
+    photos = models.ManyToManyField(Photo, through="AlbumPhoto", related_name="albums")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -284,6 +284,41 @@ class PhotoAlbum(models.Model):
         default=0, help_text="Number of times the share link has been accessed"
     )
     share_last_accessed = models.DateTimeField(null=True, blank=True, help_text="Last time the share link was accessed")
+
+    # ZIP download fields
+    zip_file = models.FileField(
+        upload_to="albums/zips/",
+        blank=True,
+        null=True,
+        help_text="ZIP file containing optimized photos from this album",
+    )
+    zip_content_hash = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="SHA-256 hash of photo IDs + file hashes for change detection",
+    )
+    zip_generated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the ZIP file was last generated",
+    )
+    zip_generation_status = models.CharField(
+        max_length=20,
+        choices=[
+            ("none", "Not Generated"),
+            ("pending", "Generation Pending"),
+            ("generating", "Generating"),
+            ("ready", "Ready"),
+            ("failed", "Generation Failed"),
+        ],
+        default="none",
+        help_text="Current status of ZIP file generation",
+    )
+    zip_file_size = models.PositiveBigIntegerField(
+        null=True,
+        blank=True,
+        help_text="Size of ZIP file in bytes",
+    )
 
     # PostgreSQL full-text search vector
     search_vector = SearchVectorField(null=True, blank=True)
@@ -305,5 +340,62 @@ class PhotoAlbum(models.Model):
                 counter += 1
         super().save(*args, **kwargs)
 
+    def compute_zip_content_hash(self) -> str:
+        import hashlib
+
+        photos = self.photos.order_by("id").values_list("id", "file_hash")
+        if not photos:
+            return ""
+
+        content_string = "|".join(f"{pid}:{fhash}" for pid, fhash in photos)
+        return hashlib.sha256(content_string.encode()).hexdigest()
+
+    def needs_zip_regeneration(self) -> bool:
+        if not self.allow_downloads:
+            return False
+        if not self.photos.exists():
+            return False
+        current_hash = self.compute_zip_content_hash()
+        return current_hash != self.zip_content_hash
+
+    def get_photos_with_featured(self):
+        return self.album_photos.select_related("photo").order_by(
+            "display_order",
+            "-photo__date_taken",
+            "-added_at",
+        )
+
     def __str__(self):
         return self.title if self.title else f"Album {self.pk}"
+
+
+class AlbumPhoto(models.Model):
+    album = models.ForeignKey(
+        PhotoAlbum,
+        on_delete=models.CASCADE,
+        related_name="album_photos",
+    )
+    photo = models.ForeignKey(
+        Photo,
+        on_delete=models.CASCADE,
+        related_name="album_memberships",
+    )
+    is_featured = models.BooleanField(
+        default=False,
+        help_text="Display this photo at 2x2 size in the grid",
+    )
+    display_order = models.PositiveIntegerField(
+        default=0,
+        help_text="Order within the album (0 = use date_taken order)",
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [["album", "photo"]]
+        ordering = ["display_order", "-photo__date_taken", "-added_at"]
+        verbose_name = "Album Photo"
+        verbose_name_plural = "Album Photos"
+
+    def __str__(self):
+        featured = " (Featured)" if self.is_featured else ""
+        return f"{self.photo} in {self.album}{featured}"

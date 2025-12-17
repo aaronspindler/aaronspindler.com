@@ -1,39 +1,67 @@
 from django.http import Http404, HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from .models import Photo, PhotoAlbum
 
 
 def album_detail(request, slug):
-    # Check for share token in query params
     token = request.GET.get("token")
 
-    # If token provided, validate it
     if token:
         album = get_object_or_404(PhotoAlbum, slug=slug, share_token=token, is_private=True)
-        # Update analytics
         album.share_access_count += 1
         album.share_last_accessed = timezone.now()
         album.save(update_fields=["share_access_count", "share_last_accessed"])
-    # Otherwise, use existing staff/public logic
     elif request.user.is_authenticated and request.user.is_staff:
         album = get_object_or_404(PhotoAlbum, slug=slug)
     else:
         album = get_object_or_404(PhotoAlbum, slug=slug, is_private=False)
 
-    photos = album.photos.all().order_by("-date_taken", "-created_at")
+    album_photos = album.album_photos.select_related("photo").order_by(
+        "display_order",
+        "-photo__date_taken",
+        "-photo__created_at",
+    )
+
+    photos_data = [
+        {
+            "photo": ap.photo,
+            "is_featured": ap.is_featured,
+        }
+        for ap in album_photos
+    ]
 
     return render(
         request,
         "photos/album_detail.html",
         {
             "album": album,
-            "photos": photos,
+            "photos_data": photos_data,
+            "photos": [ap.photo for ap in album_photos],
             "allow_downloads": album.allow_downloads,
             "share_token": token if token else None,
         },
     )
+
+
+def download_album_zip(request, slug):
+    token = request.GET.get("token")
+
+    if token:
+        album = get_object_or_404(PhotoAlbum, slug=slug, share_token=token, is_private=True)
+    elif request.user.is_authenticated and request.user.is_staff:
+        album = get_object_or_404(PhotoAlbum, slug=slug)
+    else:
+        album = get_object_or_404(PhotoAlbum, slug=slug, is_private=False)
+
+    if not album.allow_downloads:
+        raise Http404("Downloads are not allowed for this album")
+
+    if not album.zip_file or album.zip_generation_status != "ready":
+        raise Http404("ZIP file is not available. Please try again later.")
+
+    return redirect(album.zip_file.url)
 
 
 def download_photo(request, slug, photo_id):

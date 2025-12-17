@@ -62,24 +62,68 @@
 
     .photos-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(4, 1fr);
+        grid-auto-rows: 200px;
+        grid-auto-flow: dense;
+        gap: 8px;
         margin-top: 30px;
+        align-items: stretch;
+    }
+
+    @media (max-width: 1200px) {
+        .photos-grid {
+            grid-template-columns: repeat(3, 1fr);
+            grid-auto-rows: 180px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .photos-grid {
+            grid-template-columns: repeat(2, 1fr);
+            grid-auto-rows: 150px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .photos-grid {
+            grid-template-columns: 1fr;
+            grid-auto-rows: auto;
+        }
     }
 
     .photo-item {
         position: relative;
-        aspect-ratio: 4/3;
         overflow: hidden;
-        border-radius: 8px;
+        border-radius: 4px;
         background: #f0f0f0;
         cursor: pointer;
-        border: 3px solid white;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         transition: transform 0.2s, box-shadow 0.2s;
         background-image: linear-gradient(90deg, #f0f0f0 0%, #f8f8f8 50%, #f0f0f0 100%);
         background-size: 200% 100%;
         margin-top: 0 !important;
+    }
+
+    .photo-item.featured {
+        grid-column: span 2;
+        grid-row: span 2;
+    }
+
+    @media (max-width: 480px) {
+        .photo-item.featured {
+            grid-column: span 1;
+            grid-row: span 1;
+        }
+    }
+
+    .download-all-link {
+        color: #007bff;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .download-all-link:hover {
+        text-decoration: underline;
     }
 
     .photo-item.loading {
@@ -101,6 +145,7 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
+        display: block;
         transition: transform 0.3s;
     }
 
@@ -572,19 +617,22 @@
         <div class="album-meta">
             {{ photos|length }} photo{{ photos|length|pluralize }} ·
             Created {{ album.created_at|date:"F j, Y" }}
+            {% if allow_downloads and album.zip_file and album.zip_generation_status == "ready" %}
+                · <a href="{% url 'photos:download_album_zip' album.slug %}{% if share_token %}?token={{ share_token }}{% endif %}" class="download-all-link">Download All (ZIP)</a>
+            {% endif %}
         </div>
     </div>
 
-    {% if photos %}
+    {% if photos_data %}
         <div class="photos-grid">
-            {% for photo in photos %}
-                <div class="photo-item loading" onclick="openLightbox({{ forloop.counter0 }})" data-photo-index="{{ forloop.counter0 }}">
-                    {% responsive_image photo css_class="photo-grid-image" alt_text=photo.title|default:photo.original_filename loading="lazy" %}
-                    {% if photo.title %}
-                        <div class="photo-title">{{ photo.title }}</div>
+            {% for item in photos_data %}
+                <div class="photo-item{% if item.is_featured %} featured{% endif %} loading" onclick="openLightbox({{ forloop.counter0 }})" data-photo-index="{{ forloop.counter0 }}">
+                    {% responsive_image item.photo css_class="photo-grid-image" alt_text=item.photo.title|default:item.photo.original_filename loading="lazy" %}
+                    {% if item.photo.title %}
+                        <div class="photo-title">{{ item.photo.title }}</div>
                     {% endif %}
                     {% if allow_downloads %}
-                        <button class="download-button" onclick="event.stopPropagation(); downloadPhoto({{ photo.id }})" title="Download photo">
+                        <button class="download-button" onclick="event.stopPropagation(); downloadPhoto({{ item.photo.id }})" title="Download photo">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                                 <polyline points="7 10 12 15 17 10"></polyline>
