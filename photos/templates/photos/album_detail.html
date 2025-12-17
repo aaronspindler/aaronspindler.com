@@ -15,6 +15,14 @@
         border-bottom: 1px solid #ddd;
     }
 
+    .album-header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1ch;
+        margin: 0;
+    }
+
     .album-title {
         margin: 0;
         margin-bottom: 10px;
@@ -29,6 +37,41 @@
         color: #999;
         font-size: 0.9em;
         margin-top: 10px;
+    }
+
+    .download-all-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5ch;
+        padding: calc(var(--line-height) / 2 - var(--border-thickness)) calc(1ch - var(--border-thickness));
+        border: var(--border-thickness) solid var(--text-color);
+        background: var(--background-color);
+        color: var(--text-color);
+        font: inherit;
+        font-size: 0.8rem;
+        font-weight: var(--font-weight-medium);
+        text-transform: uppercase;
+        text-decoration: none;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        margin: 0;
+        height: auto;
+        line-height: var(--line-height);
+    }
+
+    .download-all-button:hover {
+        background: var(--background-color-alt);
+    }
+
+    .download-all-button:active {
+        transform: translate(1px, 1px);
+    }
+
+    .download-all-button svg {
+        width: 1em;
+        height: 1em;
+        flex-shrink: 0;
     }
 
     .download-button {
@@ -116,15 +159,6 @@
         }
     }
 
-    .download-all-link {
-        color: #007bff;
-        text-decoration: none;
-        font-weight: 500;
-    }
-
-    .download-all-link:hover {
-        text-decoration: underline;
-    }
 
     .photo-item.loading {
         animation: shimmer 1.5s ease-in-out infinite;
@@ -610,16 +644,25 @@
     <a href="/#photos" class="back-link">← Back to homepage</a>
 
     <div class="album-header">
-        <h1 class="album-title">{{ album.title }}</h1>
+        <div class="album-header-top">
+            <h1 class="album-title">{{ album.title }}</h1>
+            {% if allow_downloads and album.zip_file and album.zip_generation_status == "ready" %}
+                <a href="{% url 'photos:download_album_zip' album.slug %}{% if share_token %}?token={{ share_token }}{% endif %}" class="download-all-button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download All
+                </a>
+            {% endif %}
+        </div>
         {% if album.description %}
             <p class="album-description">{{ album.description }}</p>
         {% endif %}
         <div class="album-meta">
             {{ photos|length }} photo{{ photos|length|pluralize }} ·
             Created {{ album.created_at|date:"F j, Y" }}
-            {% if allow_downloads and album.zip_file and album.zip_generation_status == "ready" %}
-                · <a href="{% url 'photos:download_album_zip' album.slug %}{% if share_token %}?token={{ share_token }}{% endif %}" class="download-all-link">Download All (ZIP)</a>
-            {% endif %}
         </div>
     </div>
 
