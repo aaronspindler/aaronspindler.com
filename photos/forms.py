@@ -4,7 +4,7 @@ from django.forms import ClearableFileInput
 
 from photos.image_utils import DuplicateDetector
 
-from .models import Photo, PhotoAlbum
+from .models import AlbumPhoto, Photo, PhotoAlbum
 
 
 class MultipleFileInput(ClearableFileInput):
@@ -98,7 +98,7 @@ class PhotoBulkUploadForm(forms.Form):
                 result["created"].append(photo)
 
                 if album:
-                    album.photos.add(photo)
+                    AlbumPhoto.objects.get_or_create(album=album, photo=photo)
 
             except ValidationError as e:
                 result["errors"].append((filename, str(e)))
@@ -113,9 +113,4 @@ class PhotoAlbumForm(forms.ModelForm):
 
     class Meta:
         model = PhotoAlbum
-        fields = ["title", "slug", "description", "is_private", "allow_downloads", "photos"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Explicitly mark photos as not required
-        self.fields["photos"].required = False
+        fields = ["title", "slug", "description", "is_private", "allow_downloads"]

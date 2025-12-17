@@ -95,8 +95,8 @@ def generate_album_zip(self, album_id: int, force: bool = False):
                 filename = f"{idx:03d}_{original_name}"
 
                 try:
-                    image_field.seek(0)
-                    image_data = image_field.read()
+                    with image_field.open("rb") as f:
+                        image_data = f.read()
                     zf.writestr(filename, image_data)
                 except Exception as e:
                     logger.warning(f"Failed to add photo {photo.id} to ZIP: {e}")

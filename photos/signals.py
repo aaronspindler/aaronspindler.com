@@ -1,6 +1,6 @@
 import logging
 
-from django.db.models.signals import m2m_changed, post_save
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from photos.models import AlbumPhoto, PhotoAlbum
@@ -8,22 +8,21 @@ from photos.models import AlbumPhoto, PhotoAlbum
 logger = logging.getLogger(__name__)
 
 
-@receiver(m2m_changed, sender=AlbumPhoto)
-def album_photos_changed(sender, instance, action, pk_set, **kwargs):
-    if action not in ("post_add", "post_remove", "post_clear"):
-        return
-
-    if not instance.allow_downloads:
+@receiver(post_save, sender=AlbumPhoto)
+@receiver(post_delete, sender=AlbumPhoto)
+def album_photo_changed(sender, instance, **kwargs):
+    album = instance.album
+    if not album.allow_downloads:
         return
 
     from photos.tasks import schedule_zip_generation
 
-    logger.info(f"Album {instance.id} photos changed ({action}), scheduling ZIP regeneration")
+    logger.info(f"Album {album.id} photos changed, scheduling ZIP regeneration")
 
-    instance.zip_generation_status = "pending"
-    instance.save(update_fields=["zip_generation_status"])
+    album.zip_generation_status = "pending"
+    album.save(update_fields=["zip_generation_status"])
 
-    schedule_zip_generation.delay(instance.id)
+    schedule_zip_generation.delay(album.id)
 
 
 @receiver(post_save, sender=PhotoAlbum)
