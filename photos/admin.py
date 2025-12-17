@@ -4,7 +4,7 @@ from django.urls import path, reverse
 from django.utils.html import format_html
 
 from .forms import PhotoAlbumForm, PhotoBulkUploadForm
-from .models import Photo, PhotoAlbum
+from .models import AlbumPhoto, Photo, PhotoAlbum
 
 
 @admin.register(Photo)
@@ -545,6 +545,39 @@ class PhotoAdmin(admin.ModelAdmin):
         return super().changelist_view(request, extra_context=extra_context)
 
 
+class AlbumPhotoInline(admin.TabularInline):
+    model = AlbumPhoto
+    extra = 0
+    fields = ("photo", "is_featured", "display_order", "photo_preview")
+    readonly_fields = ("photo_preview",)
+    autocomplete_fields = ["photo"]
+    ordering = ["-is_featured", "display_order", "-photo__date_taken"]
+
+    @admin.display(description="Preview")
+    def photo_preview(self, obj):
+        if obj.photo and obj.photo.image_display:
+            featured_badge = (
+                ' <span style="background: gold; padding: 2px 6px; border-radius: 4px; font-size: 10px;">FEATURED</span>'
+                if obj.is_featured
+                else ""
+            )
+            return format_html(
+                '<img src="{}" style="max-width: 100px; max-height: 75px;" />{}',
+                obj.photo.image_display.url,
+                featured_badge,
+            )
+        return "No image"
+
+
+@admin.register(AlbumPhoto)
+class AlbumPhotoAdmin(admin.ModelAdmin):
+    list_display = ("photo", "album", "is_featured", "display_order", "added_at")
+    list_filter = ("is_featured", "album")
+    list_editable = ("is_featured", "display_order")
+    search_fields = ("photo__title", "photo__original_filename", "album__title")
+    autocomplete_fields = ["album", "photo"]
+
+
 @admin.register(PhotoAlbum)
 class PhotoAlbumAdmin(admin.ModelAdmin):
     form = PhotoAlbumForm
@@ -556,15 +589,24 @@ class PhotoAlbumAdmin(admin.ModelAdmin):
         "is_private",
         "downloads_status",
         "allow_downloads",
+        "zip_status",
         "created_at",
         "updated_at",
     )
-    list_filter = ("is_private", "allow_downloads", "created_at", "updated_at")
+    list_filter = ("is_private", "allow_downloads", "zip_generation_status", "created_at", "updated_at")
     list_editable = ("is_private", "allow_downloads")
     search_fields = ("title", "description", "slug")
-    filter_horizontal = ("photos",)
-    readonly_fields = ("created_at", "updated_at", "share_url_display", "share_analytics")
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "share_url_display",
+        "share_analytics",
+        "zip_status_display",
+        "zip_download_link",
+    )
     prepopulated_fields = {"slug": ("title",)}
+    inlines = [AlbumPhotoInline]
+    actions = ["regenerate_zip"]
 
     fieldsets = (
         ("Basic Information", {"fields": ("title", "slug", "description")}),
@@ -582,7 +624,13 @@ class PhotoAlbumAdmin(admin.ModelAdmin):
                 "description": "Private albums can be shared externally using the share link below",
             },
         ),
-        ("Photos", {"fields": ("photos",)}),
+        (
+            "ZIP Download",
+            {
+                "fields": ("zip_status_display", "zip_download_link"),
+                "description": "Album ZIP file for bulk download (regenerates automatically when photos change)",
+            },
+        ),
         (
             "Metadata",
             {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
@@ -613,13 +661,62 @@ class PhotoAlbumAdmin(admin.ModelAdmin):
         else:
             return format_html('<span style="color: #6c757d;">✗ Disabled</span>')
 
+    @admin.display(description="ZIP")
+    def zip_status(self, obj):
+        status_map = {
+            "none": ("⚪", "Not generated"),
+            "pending": ("🟡", "Pending"),
+            "generating": ("🔵", "Generating..."),
+            "ready": ("🟢", "Ready"),
+            "failed": ("🔴", "Failed"),
+        }
+        icon, text = status_map.get(obj.zip_generation_status, ("⚪", "Unknown"))
+        return format_html('<span title="{}">{}</span>', text, icon)
+
+    @admin.display(description="ZIP File Status")
+    def zip_status_display(self, obj):
+        if not obj.allow_downloads:
+            return "Downloads disabled for this album"
+
+        if obj.zip_generation_status == "none":
+            return "No ZIP generated yet"
+        elif obj.zip_generation_status == "pending":
+            return format_html('<span style="color: orange;">ZIP generation pending...</span>')
+        elif obj.zip_generation_status == "generating":
+            return format_html('<span style="color: blue;">Generating ZIP...</span>')
+        elif obj.zip_generation_status == "failed":
+            return format_html('<span style="color: red;">ZIP generation failed</span>')
+        elif obj.zip_generation_status == "ready":
+            size_mb = obj.zip_file_size / (1024 * 1024) if obj.zip_file_size else 0
+            generated = obj.zip_generated_at.strftime("%Y-%m-%d %H:%M") if obj.zip_generated_at else "Unknown"
+            return format_html(
+                '<span style="color: green;">Ready</span><br><small>Size: {:.1f} MB | Generated: {}</small>',
+                size_mb,
+                generated,
+            )
+        return "Unknown status"
+
+    @admin.display(description="Download ZIP")
+    def zip_download_link(self, obj):
+        if obj.zip_file and obj.zip_generation_status == "ready":
+            return format_html('<a href="{}" class="button" download>Download ZIP</a>', obj.zip_file.url)
+        return "—"
+
+    @admin.action(description="Regenerate ZIP files for selected albums")
+    def regenerate_zip(self, request, queryset):
+        from photos.tasks import generate_album_zip
+
+        count = 0
+        for album in queryset.filter(allow_downloads=True):
+            generate_album_zip.delay(album.id, force=True)
+            count += 1
+
+        messages.success(request, f"Scheduled ZIP regeneration for {count} album(s)")
+
     @admin.display(description="Share Link")
     def share_url_display(self, obj):
         if not obj.is_private:
             return "Public albums don't need share links"
-
-        # Build the full share URL with query parameter
-        from django.urls import reverse
 
         base_url = f"https://aaronspindler.com{reverse('photos:album_detail', kwargs={'slug': obj.slug})}"
         url = f"{base_url}?token={obj.share_token}"
@@ -627,8 +724,8 @@ class PhotoAlbumAdmin(admin.ModelAdmin):
         return format_html(
             '<input type="text" value="{}" id="share-url-{}" readonly style="width: 400px; margin-right: 10px;">'
             "<button onclick=\"navigator.clipboard.writeText('{}'); "
-            "this.innerHTML='✓ Copied!'; setTimeout(() => this.innerHTML='📋 Copy', 2000)\" "
-            'style="cursor: pointer;">📋 Copy</button>',
+            "this.innerHTML='Copied!'; setTimeout(() => this.innerHTML='Copy', 2000)\" "
+            'style="cursor: pointer;">Copy</button>',
             url,
             obj.id,
             url,

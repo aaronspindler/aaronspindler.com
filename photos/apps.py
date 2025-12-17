@@ -6,4 +6,4 @@ class PhotosConfig(AppConfig):
     name = "photos"
 
     def ready(self):
-        pass
+        import photos.signals  # noqa: F401
