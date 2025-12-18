@@ -32,7 +32,7 @@ class PhotoAdmin(admin.ModelAdmin):
     )
     list_editable = ("title",)
     list_display_links = ("image_preview", "get_display_name")
-    actions = ["add_to_album", "find_duplicates_action", "retry_processing", "reprocess_images"]
+    actions = ["add_to_album", "find_duplicates_action", "reprocess_images"]
     readonly_fields = (
         "image_preview",
         "all_versions_preview",
@@ -500,25 +500,9 @@ class PhotoAdmin(admin.ModelAdmin):
         else:
             messages.info(request, f"Found {duplicate_count} group(s) of duplicates")
 
-    @admin.action(description="Retry processing for failed/pending photos")
-    def retry_processing(self, request, queryset):
-        """Retry processing for photos that failed or are pending."""
-        from photos.tasks import process_photo_async
-
-        retryable = queryset.filter(processing_status__in=["pending", "failed"])
-        count = 0
-        for photo in retryable:
-            process_photo_async.delay(photo.pk)
-            count += 1
-
-        if count > 0:
-            messages.success(request, f"Queued {count} photo(s) for reprocessing")
-        else:
-            messages.info(request, "No photos needed reprocessing")
-
-    @admin.action(description="Force reprocess selected photos (regenerate all versions)")
+    @admin.action(description="Reprocess selected photos")
     def reprocess_images(self, request, queryset):
-        """Force reprocess selected photos, regenerating all image versions and re-extracting metadata."""
+        """Reprocess selected photos, regenerating all image versions and re-extracting metadata."""
         success_count = 0
         error_count = 0
 
