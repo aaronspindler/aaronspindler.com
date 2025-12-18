@@ -50,7 +50,7 @@ class PhotoAlbumSitemap(Sitemap):
 
 
 class PhotoSitemap(Sitemap):
-    """Sitemap for individual photos (if you have individual photo pages)"""
+    """Sitemap for individual photo detail pages."""
 
     changefreq = "monthly"
     # priority is defined as a method below
@@ -58,14 +58,19 @@ class PhotoSitemap(Sitemap):
     limit = 1000  # Limit number of URLs per sitemap
 
     def items(self):
-        """Return all photos from public albums with caching"""
-        cache_key = "sitemap_photos_v1"
+        """
+        Return only photos that belong to at least one public album.
+
+        Photos that are exclusively in private albums are excluded from the sitemap
+        to prevent exposing URLs that would return 404 for anonymous users.
+        """
+        cache_key = "sitemap_photos_v2"
         photos = cache.get(cache_key)
 
         if photos is None:
-            public_albums = PhotoAlbum.objects.filter(is_private=False).values_list("id", flat=True)
+            public_album_ids = PhotoAlbum.objects.filter(is_private=False).values_list("id", flat=True)
             photos = list(
-                Photo.objects.filter(albums__in=public_albums)
+                Photo.objects.filter(albums__id__in=public_album_ids)
                 .distinct()
                 .select_related()
                 .prefetch_related("albums")
