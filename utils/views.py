@@ -126,7 +126,6 @@ def unsubscribe(request, unsubscribe_code):
 
 # Lighthouse monitoring views
 import json
-from datetime import timedelta
 
 from django.views.decorators.cache import cache_page
 
@@ -177,11 +176,10 @@ def lighthouse_badge_endpoint(request):
 def lighthouse_history_page(request):
     """
     Display Lighthouse audit history with chart visualization.
-    Shows last 30 days of audit data.
+    Shows all audit data.
     """
-    # Get audits from the last 30 days
-    thirty_days_ago = timezone.now() - timedelta(days=30)
-    audits = LighthouseAudit.objects.filter(audit_date__gte=thirty_days_ago).order_by("audit_date")
+    # Get all audits
+    audits = LighthouseAudit.objects.all().order_by("audit_date")
 
     # Prepare data for Chart.js
     chart_data = {
