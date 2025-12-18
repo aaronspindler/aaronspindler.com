@@ -140,7 +140,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data["album"], self.album1)
 
-    @patch("photos.forms.process_photo_async")
+    @patch("photos.tasks.process_photo_async")
     @patch("photos.forms.DuplicateDetector.find_duplicates")
     def test_save_single_image_async(self, mock_find_duplicates, mock_task):
         """Test saving a single uploaded image with async processing (default)."""
@@ -203,7 +203,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
         self.assertEqual(photo.perceptual_hash, "phash456")
         self.assertEqual(photo.processing_status, "complete")
 
-    @patch("photos.forms.process_photo_async")
+    @patch("photos.tasks.process_photo_async")
     @patch("photos.forms.DuplicateDetector.find_duplicates")
     def test_save_multiple_images_async(self, mock_find_duplicates, mock_task):
         """Test saving multiple uploaded images with async processing."""
@@ -230,7 +230,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
         # Verify async tasks were queued for each photo
         self.assertEqual(mock_task.delay.call_count, 2)
 
-    @patch("photos.forms.process_photo_async")
+    @patch("photos.tasks.process_photo_async")
     @patch("photos.forms.DuplicateDetector.find_duplicates")
     def test_save_with_album_assignment(self, mock_find_duplicates, mock_task):
         """Test saving images with album assignment."""
@@ -425,7 +425,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
             "Optional: Add all uploaded photos to this album",
         )
 
-    @patch("photos.forms.process_photo_async")
+    @patch("photos.tasks.process_photo_async")
     @patch("photos.forms.DuplicateDetector.find_duplicates")
     def test_save_preserves_hashes_async(self, mock_find_duplicates, mock_task):
         """Test that computed hashes are preserved when using async processing."""
