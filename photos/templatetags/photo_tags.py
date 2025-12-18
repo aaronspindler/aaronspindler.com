@@ -159,14 +159,16 @@ def picture_element(photo, css_class="", alt_text="", loading="lazy"):
 
 
 @register.filter
-def photo_url(photo, size="medium"):
+def photo_url(photo, size="gallery_cropped"):
     """
     Get the URL for a specific photo size.
 
+    Valid sizes: "preview", "gallery_cropped", "optimized", "original"
+
     Usage:
         {% load photo_tags %}
-        {{ photo|photo_url:"large" }}
-        {{ photo|photo_url:"thumbnail" }}
+        {{ photo|photo_url:"optimized" }}
+        {{ photo|photo_url:"preview" }}
     """
     if not photo:
         return ""

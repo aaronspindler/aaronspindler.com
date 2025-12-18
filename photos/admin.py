@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib import admin, messages
 from django.shortcuts import redirect, render
 from django.urls import path, reverse
@@ -5,6 +7,8 @@ from django.utils.html import format_html
 
 from .forms import PhotoAlbumForm, PhotoBulkUploadForm
 from .models import AlbumPhoto, Photo, PhotoAlbum
+
+logger = logging.getLogger(__name__)
 
 
 @admin.register(Photo)
@@ -216,6 +220,7 @@ class PhotoAdmin(admin.ModelAdmin):
         # Display each version with its info
         versions = [
             ("Gallery (Smart Cropped)", obj.image_gallery_cropped, "1200x800"),
+            ("Preview (Compressed)", obj.image_preview, "Full Size, Highly Compressed"),
             (
                 "Optimized Full Size",
                 obj.image_optimized,
@@ -229,46 +234,63 @@ class PhotoAdmin(admin.ModelAdmin):
         ]
 
         for label, image_field, dimensions in versions:
-            if image_field and image_field.name:
-                # Try to get URL first - this should work without S3 access
-                try:
-                    url = image_field.url
-                except (ValueError, AttributeError):
-                    html_parts.append(
-                        format_html(
-                            """<div style="display: inline-block; margin: 10px; text-align: center;">
-                            <strong>{}</strong><br>
-                            <small style="color: #999;">URL not available</small>
-                        </div>""",
-                            label,
-                        )
-                    )
-                    continue
+            try:
+                has_file = image_field and image_field.name
+            except Exception:
+                has_file = False
 
-                # Try to get file size - this requires S3 access and may fail
-                try:
-                    file_size = image_field.size
-                except Exception:
-                    file_size = 0
-
-                size_kb = file_size / 1024 if file_size else 0
-                size_display = f"{size_kb:.1f} KB" if file_size else "Size unknown"
-
+            if not has_file:
                 html_parts.append(
                     format_html(
-                        """
-                    <div style="display: inline-block; margin: 10px; text-align: center;">
+                        """<div style="display: inline-block; margin: 10px; text-align: center;">
                         <strong>{}</strong><br>
-                        <img src="{}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; padding: 5px;" /><br>
-                        <small>{} • {}</small>
-                    </div>
-                    """,
+                        <small style="color: #999;">Not generated</small>
+                    </div>""",
                         label,
-                        url,
-                        dimensions,
-                        size_display,
                     )
                 )
+                continue
+
+            # Try to get URL - catches all storage backend exceptions
+            try:
+                url = image_field.url
+            except Exception as e:
+                logger.warning(f"Failed to get URL for {label}: {type(e).__name__}: {e}")
+                html_parts.append(
+                    format_html(
+                        """<div style="display: inline-block; margin: 10px; text-align: center;">
+                        <strong>{}</strong><br>
+                        <small style="color: #999;">File not accessible</small>
+                    </div>""",
+                        label,
+                    )
+                )
+                continue
+
+            # Try to get file size - this requires S3 access and may fail
+            try:
+                file_size = image_field.size
+            except Exception:
+                file_size = 0
+
+            size_kb = file_size / 1024 if file_size else 0
+            size_display = f"{size_kb:.1f} KB" if file_size else "Size unknown"
+
+            html_parts.append(
+                format_html(
+                    """
+                <div style="display: inline-block; margin: 10px; text-align: center;">
+                    <strong>{}</strong><br>
+                    <img src="{}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; padding: 5px;" /><br>
+                    <small>{} • {}</small>
+                </div>
+                """,
+                    label,
+                    url,
+                    dimensions,
+                    size_display,
+                )
+            )
 
         if html_parts:
             return mark_safe(  # nosec B703 B308 - Content is safely escaped via format_html
