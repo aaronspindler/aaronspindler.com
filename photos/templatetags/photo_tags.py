@@ -32,9 +32,9 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
     # Build the srcset attribute
     srcset_parts = []
 
-    if photo.image_display and photo.image_display.name:
+    if photo.image_gallery_cropped and photo.image_gallery_cropped.name:
         try:
-            srcset_parts.append(f"{escape(photo.image_display.url)} 1200w")
+            srcset_parts.append(f"{escape(photo.image_gallery_cropped.url)} 1200w")
         except (ValueError, AttributeError):
             # S3 storage may raise errors for missing files - skip this size
             pass
@@ -59,9 +59,9 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
 
     srcset = ", ".join(srcset_parts)
 
-    # Default src (use display version as default, fallback to optimized then original)
+    # Default src (use gallery_cropped version as default, fallback to optimized then original)
     default_src = None
-    for field in [photo.image_display, photo.image_optimized, photo.image]:
+    for field in [photo.image_gallery_cropped, photo.image_optimized, photo.image]:
         if field and field.name:
             try:
                 default_src = field.url
@@ -124,19 +124,19 @@ def picture_element(photo, css_class="", alt_text="", loading="lazy"):
             # S3 storage may raise errors for missing files - skip this source
             pass
 
-    if photo.image_display and photo.image_display.name:
+    if photo.image_gallery_cropped and photo.image_gallery_cropped.name:
         try:
             picture_html += f"""
         <source media="(min-width: 768px)"
-                srcset="{escape(photo.image_display.url)}">
+                srcset="{escape(photo.image_gallery_cropped.url)}">
         """
         except (ValueError, AttributeError):
             # S3 storage may raise errors for missing files - skip this source
             pass
 
-    # Fallback img element (use display for smallest screens, fallback to optimized or original)
+    # Fallback img element (use gallery_cropped for smallest screens, fallback to optimized or original)
     fallback_src = None
-    for field in [photo.image_display, photo.image_optimized, photo.image]:
+    for field in [photo.image_gallery_cropped, photo.image_optimized, photo.image]:
         if field and field.name:
             try:
                 fallback_src = field.url
@@ -181,7 +181,7 @@ def safe_image_url(image_field):
 
     Usage:
         {% load photo_tags %}
-        {{ photo.image_display|safe_image_url }}
+        {{ photo.image_gallery_cropped|safe_image_url }}
     """
     try:
         if image_field and image_field.name:

@@ -38,11 +38,18 @@ class Photo(models.Model):
         verbose_name="Optimized Full Size",
     )
 
-    image_display = models.ImageField(
-        upload_to="photos/display/",
+    image_gallery_cropped = models.ImageField(
+        upload_to="photos/gallery_cropped/",
         blank=True,
         null=True,
-        verbose_name="Display Version (Smart Cropped)",
+        verbose_name="Gallery Version (Smart Cropped)",
+    )
+
+    image_preview = models.ImageField(
+        upload_to="photos/preview/",
+        blank=True,
+        null=True,
+        verbose_name="Preview Version (Full Size, Highly Compressed)",
     )
 
     original_filename = models.CharField(max_length=255, blank=True)
@@ -254,26 +261,30 @@ class Photo(models.Model):
         if "optimized" in variants:
             self.image_optimized.save(variants["optimized"].name, variants["optimized"], save=False)
 
-        if "display" in variants:
-            self.image_display.save(variants["display"].name, variants["display"], save=False)
+        if "gallery_cropped" in variants:
+            self.image_gallery_cropped.save(variants["gallery_cropped"].name, variants["gallery_cropped"], save=False)
 
-    def get_image_url(self, size="display"):
+        if "preview" in variants:
+            self.image_preview.save(variants["preview"].name, variants["preview"], save=False)
+
+    def get_image_url(self, size="gallery_cropped"):
         """
         Get the URL for a specific image size.
 
         Args:
-            size: One of 'display', 'optimized', or 'original'
+            size: One of 'preview', 'gallery_cropped', 'optimized', or 'original'
 
         Returns:
             str: URL of the requested image size, or None if not available
         """
         size_field_map = {
-            "display": self.image_display,
+            "preview": self.image_preview,
+            "gallery_cropped": self.image_gallery_cropped,
             "optimized": self.image_optimized,
             "original": self.image,
         }
 
-        image_field = size_field_map.get(size, self.image_display)
+        image_field = size_field_map.get(size, self.image_gallery_cropped)
 
         try:
             if image_field:

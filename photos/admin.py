@@ -32,7 +32,7 @@ class PhotoAdmin(admin.ModelAdmin):
     )
     list_editable = ("title",)
     list_display_links = ("image_preview", "get_display_name")
-    actions = ["add_to_album", "find_duplicates_action", "retry_processing"]
+    actions = ["add_to_album", "find_duplicates_action", "retry_processing", "reprocess_images"]
     readonly_fields = (
         "image_preview",
         "all_versions_preview",
@@ -181,10 +181,10 @@ class PhotoAdmin(admin.ModelAdmin):
     @admin.display(description="Preview")
     def image_preview(self, obj):
         try:
-            if obj.image_display:
+            if obj.image_gallery_cropped:
                 return format_html(
                     '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
-                    obj.image_display.url,
+                    obj.image_gallery_cropped.url,
                 )
             elif obj.image_optimized:
                 return format_html(
@@ -215,7 +215,7 @@ class PhotoAdmin(admin.ModelAdmin):
 
         # Display each version with its info
         versions = [
-            ("Display (Smart Cropped)", obj.image_display, "1200x800"),
+            ("Gallery (Smart Cropped)", obj.image_gallery_cropped, "1200x800"),
             (
                 "Optimized Full Size",
                 obj.image_optimized,
@@ -500,7 +500,7 @@ class PhotoAdmin(admin.ModelAdmin):
         else:
             messages.info(request, f"Found {duplicate_count} group(s) of duplicates")
 
-    @admin.action(description="Retry processing for selected photos")
+    @admin.action(description="Retry processing for failed/pending photos")
     def retry_processing(self, request, queryset):
         """Retry processing for photos that failed or are pending."""
         from photos.tasks import process_photo_async
@@ -515,6 +515,33 @@ class PhotoAdmin(admin.ModelAdmin):
             messages.success(request, f"Queued {count} photo(s) for reprocessing")
         else:
             messages.info(request, "No photos needed reprocessing")
+
+    @admin.action(description="Force reprocess selected photos (regenerate all versions)")
+    def reprocess_images(self, request, queryset):
+        """Force reprocess selected photos, regenerating all image versions and re-extracting metadata."""
+        success_count = 0
+        error_count = 0
+
+        for photo in queryset:
+            if not photo.image:
+                error_count += 1
+                continue
+
+            try:
+                photo._process_image()
+                photo.processing_status = "complete"
+                photo.save()
+                success_count += 1
+            except Exception as e:
+                photo.processing_status = "failed"
+                photo.save(update_fields=["processing_status"])
+                error_count += 1
+                messages.error(request, f"Failed to reprocess '{photo}': {e}")
+
+        if success_count > 0:
+            messages.success(request, f"Successfully reprocessed {success_count} photo(s)")
+        if error_count > 0:
+            messages.warning(request, f"Failed to reprocess {error_count} photo(s)")
 
     def get_urls(self):
         """Add custom URLs for bulk upload."""
@@ -589,7 +616,7 @@ class AlbumPhotoInline(admin.TabularInline):
 
     @admin.display(description="Preview")
     def photo_preview(self, obj):
-        if obj.photo and obj.photo.image_display:
+        if obj.photo and obj.photo.image_gallery_cropped:
             featured_badge = (
                 ' <span style="background: gold; padding: 2px 6px; border-radius: 4px; font-size: 10px;">FEATURED</span>'
                 if obj.is_featured
@@ -597,7 +624,7 @@ class AlbumPhotoInline(admin.TabularInline):
             )
             return format_html(
                 '<img src="{}" style="max-width: 100px; max-height: 75px;" />{}',
-                obj.photo.image_display.url,
+                obj.photo.image_gallery_cropped.url,
                 featured_badge,
             )
         return "No image"
@@ -614,10 +641,10 @@ class AlbumPhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Preview")
     def photo_preview(self, obj):
-        if obj.photo and obj.photo.image_display:
+        if obj.photo and obj.photo.image_gallery_cropped:
             return format_html(
                 '<img src="{}" style="max-width: 100px; max-height: 75px;" />',
-                obj.photo.image_display.url,
+                obj.photo.image_gallery_cropped.url,
             )
         return "No image"
 

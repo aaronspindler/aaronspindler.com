@@ -451,8 +451,8 @@ class ImageOptimizerTestCase(TestCase):
 
     @patch("photos.image_utils.SmartCrop.find_focal_point")
     @patch("photos.image_utils.SmartCrop.smart_crop")
-    def test_optimize_image_display_with_smart_crop(self, mock_smart_crop, mock_find_focal):
-        """Test display size optimization with smart cropping."""
+    def test_optimize_image_gallery_cropped_with_smart_crop(self, mock_smart_crop, mock_find_focal):
+        """Test gallery_cropped size optimization with smart cropping."""
         test_file = self._create_test_image_file(size=(2000, 1500))
 
         # Setup mocks
@@ -460,7 +460,7 @@ class ImageOptimizerTestCase(TestCase):
         mock_cropped = Image.new("RGB", (1200, 800))
         mock_smart_crop.return_value = mock_cropped
 
-        result, focal_point = ImageOptimizer.optimize_image(test_file, "display", use_smart_crop=True)
+        result, focal_point = ImageOptimizer.optimize_image(test_file, "gallery_cropped", use_smart_crop=True)
 
         # Verify smart crop was used
         mock_find_focal.assert_called_once()
@@ -515,7 +515,7 @@ class ImageOptimizerTestCase(TestCase):
             "photo_optimized.jpg",
         )
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.bmp", "display"),
+            ImageOptimizer.generate_filename("photo.bmp", "gallery_cropped"),
             "photo_display.jpg",
         )
 
@@ -525,7 +525,7 @@ class ImageOptimizerTestCase(TestCase):
             "photo_optimized.png",
         )
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.gif", "display"),
+            ImageOptimizer.generate_filename("photo.gif", "gallery_cropped"),
             "photo_display.gif",
         )
         self.assertEqual(
@@ -539,27 +539,32 @@ class ImageOptimizerTestCase(TestCase):
         test_file = self._create_test_image_file()
 
         # Setup mock returns for different sizes
-        mock_display = ContentFile(b"display_content")
-        mock_display.name = "test_display.jpg"
+        mock_preview = ContentFile(b"preview_content")
+        mock_preview.name = "test_preview.jpg"
+        mock_gallery_cropped = ContentFile(b"gallery_cropped_content")
+        mock_gallery_cropped.name = "test_gallery_cropped.jpg"
         mock_optimized = ContentFile(b"optimized_content")
         mock_optimized.name = "test_optimized.jpg"
 
         mock_optimize.side_effect = [
-            (mock_display, (0.5, 0.5)),  # display call
+            (mock_preview, (0.5, 0.5)),  # preview call
+            (mock_gallery_cropped, None),  # gallery_cropped call (uses cached focal point)
             (mock_optimized, None),  # optimized call
         ]
 
         variants, focal_point = ImageOptimizer.process_uploaded_image(test_file, "test.jpg")
 
         # Verify all variants created
-        self.assertIn("display", variants)
+        self.assertIn("preview", variants)
+        self.assertIn("gallery_cropped", variants)
         self.assertIn("optimized", variants)
-        self.assertEqual(variants["display"].name, "test_display.jpg")
+        self.assertEqual(variants["preview"].name, "test_preview.jpg")
+        self.assertEqual(variants["gallery_cropped"].name, "test_gallery_cropped.jpg")
         self.assertEqual(variants["optimized"].name, "test_optimized.jpg")
         self.assertEqual(focal_point, (0.5, 0.5))
 
         # Verify optimize was called for each size
-        self.assertEqual(mock_optimize.call_count, 2)
+        self.assertEqual(mock_optimize.call_count, 3)
 
 
 class DuplicateDetectorTestCase(TestCase):

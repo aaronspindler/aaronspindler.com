@@ -433,14 +433,16 @@ class ImageOptimizer:
 
     # Define size presets for different use cases
     SIZES = {
-        "display": (1200, 800),  # Smart-cropped display version for gallery
+        "preview": None,  # Full size, highly compressed for fast loading
+        "gallery_cropped": (1200, 800),  # Smart-cropped version for gallery
         "optimized": None,  # Full size but compressed
         # 'original' will be the untouched original
     }
 
     # Quality settings for JPEG compression
     QUALITY_SETTINGS = {
-        "display": 85,  # Good quality for display
+        "preview": 70,  # Lower quality for fast loading
+        "gallery_cropped": 85,  # Good quality for gallery display
         "optimized": 90,  # High quality but compressed
         "original": 100,  # No compression
     }
@@ -459,9 +461,9 @@ class ImageOptimizer:
 
         Args:
             image_file: Django ImageField file or file-like object
-            size_name: One of 'display', 'optimized', or 'original'
+            size_name: One of 'preview', 'gallery_cropped', 'optimized', or 'original'
             maintain_aspect_ratio: If True, maintains aspect ratio when resizing
-            use_smart_crop: If True and size_name is 'display', use smart cropping
+            use_smart_crop: If True and size_name is 'gallery_cropped', use smart cropping
             focal_point: Optional (x, y) focal point as percentages (0-1)
 
         Returns:
@@ -489,7 +491,7 @@ class ImageOptimizer:
         elif size_name in cls.SIZES and cls.SIZES[size_name]:
             target_size = cls.SIZES[size_name]
 
-            if use_smart_crop and size_name == "display":
+            if use_smart_crop and size_name == "gallery_cropped":
                 if focal_point is None:
                     computed_focal_point = SmartCrop.find_focal_point(img)
                 else:
@@ -560,7 +562,7 @@ class ImageOptimizer:
         variants = {}
         focal_point = None
 
-        for size_name in ["display", "optimized"]:
+        for size_name in ["preview", "gallery_cropped", "optimized"]:
             image_file.seek(0)
             optimized, computed_focal = cls.optimize_image(image_file, size_name, focal_point=focal_point)
 
