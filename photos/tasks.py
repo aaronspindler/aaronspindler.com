@@ -126,20 +126,28 @@ def generate_album_zip(self, album_id: int, force: bool = False):
 
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             for idx, photo in enumerate(photos, 1):
-                image_field = photo.image_optimized or photo.image
-                if not image_field:
+                if not photo.image:
                     continue
 
                 original_name = photo.original_filename or f"photo_{photo.id}.jpg"
-                filename = f"{idx:03d}_{original_name}"
+                base_filename = f"{idx:03d}_{original_name}"
 
+                # Add full resolution original
                 try:
-                    with image_field.open("rb") as f:
+                    with photo.image.open("rb") as f:
                         image_data = f.read()
-                    zf.writestr(filename, image_data)
+                    zf.writestr(f"full_resolution/{base_filename}", image_data)
                 except Exception as e:
-                    logger.warning(f"Failed to add photo {photo.id} to ZIP: {e}")
-                    continue
+                    logger.warning(f"Failed to add original photo {photo.id} to ZIP: {e}")
+
+                # Add optimized version if available
+                if photo.image_optimized:
+                    try:
+                        with photo.image_optimized.open("rb") as f:
+                            image_data = f.read()
+                        zf.writestr(f"optimized/{base_filename}", image_data)
+                    except Exception as e:
+                        logger.warning(f"Failed to add optimized photo {photo.id} to ZIP: {e}")
 
         if album.zip_file:
             try:
