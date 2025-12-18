@@ -18,12 +18,13 @@ logger = logging.getLogger(__name__)
     retry_backoff_max=300,
     max_retries=3,
 )
-def process_photo_async(self, photo_id: int):
+def process_photo_async(self, photo_id: int, force: bool = False):
     """
     Process a photo in the background: extract metadata, create optimized versions.
 
     Args:
         photo_id: The ID of the Photo to process.
+        force: If True, reprocess even if already complete.
 
     Returns:
         dict: Result containing status and photo_id.
@@ -36,7 +37,7 @@ def process_photo_async(self, photo_id: int):
         logger.warning(f"Photo {photo_id} not found for processing")
         return {"status": "error", "message": "Photo not found", "photo_id": photo_id}
 
-    if photo.processing_status == "complete":
+    if not force and photo.processing_status == "complete":
         logger.info(f"Photo {photo_id} already processed, skipping")
         return {"status": "skipped", "message": "Already processed", "photo_id": photo_id}
 

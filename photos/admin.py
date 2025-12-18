@@ -503,29 +503,25 @@ class PhotoAdmin(admin.ModelAdmin):
     @admin.action(description="Reprocess selected photos")
     def reprocess_images(self, request, queryset):
         """Reprocess selected photos, regenerating all image versions and re-extracting metadata."""
-        success_count = 0
-        error_count = 0
+        from photos.tasks import process_photo_async
+
+        count = 0
+        skipped = 0
 
         for photo in queryset:
             if not photo.image:
-                error_count += 1
+                skipped += 1
                 continue
 
-            try:
-                photo._process_image()
-                photo.processing_status = "complete"
-                photo.save()
-                success_count += 1
-            except Exception as e:
-                photo.processing_status = "failed"
-                photo.save(update_fields=["processing_status"])
-                error_count += 1
-                messages.error(request, f"Failed to reprocess '{photo}': {e}")
+            photo.processing_status = "pending"
+            photo.save(update_fields=["processing_status"])
+            process_photo_async.delay(photo.pk, force=True)
+            count += 1
 
-        if success_count > 0:
-            messages.success(request, f"Successfully reprocessed {success_count} photo(s)")
-        if error_count > 0:
-            messages.warning(request, f"Failed to reprocess {error_count} photo(s)")
+        if count > 0:
+            messages.success(request, f"Queued {count} photo(s) for reprocessing")
+        if skipped > 0:
+            messages.warning(request, f"Skipped {skipped} photo(s) with no image file")
 
     def get_urls(self):
         """Add custom URLs for bulk upload."""
