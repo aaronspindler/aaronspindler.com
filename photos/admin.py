@@ -279,16 +279,18 @@ class PhotoAdmin(admin.ModelAdmin):
             html_parts.append(
                 format_html(
                     """
-                <div style="display: inline-block; margin: 10px; text-align: center;">
+                <div style="display: inline-block; margin: 10px; text-align: center; vertical-align: top;">
                     <strong>{}</strong><br>
                     <img src="{}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; padding: 5px;" /><br>
-                    <small>{} • {}</small>
+                    <small>{} • {}</small><br>
+                    <code style="font-size: 10px; background: #f0f0f0; padding: 2px 4px; border-radius: 3px; word-break: break-all; display: inline-block; max-width: 200px;">{}</code>
                 </div>
                 """,
                     label,
                     url,
                     dimensions,
                     size_display,
+                    image_field.name,
                 )
             )
 
