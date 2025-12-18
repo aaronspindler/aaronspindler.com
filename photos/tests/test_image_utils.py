@@ -516,7 +516,7 @@ class ImageOptimizerTestCase(TestCase):
         )
         self.assertEqual(
             ImageOptimizer.generate_filename("photo.bmp", "gallery_cropped"),
-            "photo_display.jpg",
+            "photo_gallery_cropped.jpg",
         )
 
         # PNG/GIF/WebP preserved
@@ -526,7 +526,7 @@ class ImageOptimizerTestCase(TestCase):
         )
         self.assertEqual(
             ImageOptimizer.generate_filename("photo.gif", "gallery_cropped"),
-            "photo_display.gif",
+            "photo_gallery_cropped.gif",
         )
         self.assertEqual(
             ImageOptimizer.generate_filename("photo.webp", "optimized"),
