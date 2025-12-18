@@ -6,6 +6,7 @@ app_name = "photos"
 
 urlpatterns = [
     path("album/<slug:slug>/", views.album_detail, name="album_detail"),
+    path("photo/<int:pk>/", views.photo_detail, name="photo_detail"),
     path(
         "album/<slug:slug>/photo/<int:photo_id>/download/",
         views.download_photo,

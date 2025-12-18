@@ -76,12 +76,8 @@ class PhotoSitemap(Sitemap):
         return photos
 
     def location(self, obj):
-        """Get the URL for each photo"""
-        # Link to album with photo anchor (no individual photo pages yet)
-        album = obj.albums.filter(is_private=False).first()
-        if album:
-            return f"{reverse('photos:album_detail', kwargs={'slug': album.slug})}#photo-{obj.id}"
-        return None
+        """Get the URL for each photo's detail page."""
+        return reverse("photos:photo_detail", kwargs={"pk": obj.pk})
 
     def lastmod(self, obj):
         """Return the last modification date"""

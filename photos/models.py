@@ -5,6 +5,7 @@ from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.urls import reverse
 from django.utils.text import slugify
 
 from photos.image_utils import DuplicateDetector, ExifExtractor, ImageMetadataExtractor, ImageOptimizer
@@ -320,6 +321,10 @@ class Photo(models.Model):
 
         similar.sort(key=lambda x: x[1])  # Sort by distance (most similar first)
         return similar
+
+    def get_absolute_url(self):
+        """Return the canonical URL for this photo's detail page."""
+        return reverse("photos:photo_detail", kwargs={"pk": self.pk})
 
     def __str__(self):
         if self.title:
