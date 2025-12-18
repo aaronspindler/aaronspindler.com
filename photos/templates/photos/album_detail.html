@@ -4,8 +4,6 @@
 
 {% block title %}{{ album.title }} - Photo Album{% endblock title %}
 
-{% block meta_description %}{{ album.description|default:"View photos from this album" }}{% endblock %}
-
 {% block css %}
 {{ block.super }}
 <style>

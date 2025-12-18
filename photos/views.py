@@ -32,6 +32,24 @@ def album_detail(request, slug):
         for ap in album_photos
     ]
 
+    # Determine cover photo for OG image (first featured photo or first photo)
+    cover_photo = None
+    for ap in album_photos:
+        if ap.is_featured:
+            cover_photo = ap.photo
+            break
+    if not cover_photo and album_photos:
+        cover_photo = album_photos[0].photo
+
+    # Build absolute URL for OG image
+    page_og_image = None
+    if cover_photo:
+        image_url = cover_photo.get_image_url("optimized") or cover_photo.get_image_url("display")
+        if image_url:
+            page_og_image = request.build_absolute_uri(image_url)
+
+    og_description = album.description or "View photos from this album"
+
     return render(
         request,
         "photos/album_detail.html",
@@ -41,6 +59,10 @@ def album_detail(request, slug):
             "photos": [ap.photo for ap in album_photos],
             "allow_downloads": album.allow_downloads,
             "share_token": token if token else None,
+            "page_og_title": f"{album.title} - Photo Album",
+            "page_og_description": og_description,
+            "page_og_image": page_og_image,
+            "page_meta_description": og_description,
         },
     )
 

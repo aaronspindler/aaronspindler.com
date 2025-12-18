@@ -63,6 +63,12 @@ def render_blog_template(request, category, template_name):
                 status="pending",
             ).count()
 
+        # Add Open Graph meta tags for link previews
+        og_description = f"{blog_data['blog_title']} - A blog post by Aaron Spindler"
+        blog_data["page_og_title"] = blog_data["blog_title"]
+        blog_data["page_og_description"] = og_description
+        blog_data["page_meta_description"] = og_description
+
         return render(request, "_blog_base.html", blog_data)
     except (TemplateDoesNotExist, Exception):
         # Handle both template not found and other errors

@@ -229,41 +229,46 @@ class PhotoAdmin(admin.ModelAdmin):
         ]
 
         for label, image_field, dimensions in versions:
-            if image_field:
+            if image_field and image_field.name:
+                # Try to get URL first - this should work without S3 access
                 try:
                     url = image_field.url
-                    try:
-                        file_size = image_field.size
-                    except (ValueError, AttributeError, FileNotFoundError):
-                        file_size = 0
-
-                    size_kb = file_size / 1024 if file_size else 0
-
-                    html_parts.append(
-                        format_html(
-                            """
-                        <div style="display: inline-block; margin: 10px; text-align: center;">
-                            <strong>{}</strong><br>
-                            <img src="{}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; padding: 5px;" /><br>
-                            <small>{} • {:.1f} KB</small>
-                        </div>
-                        """,
-                            label,
-                            url,
-                            dimensions,
-                            size_kb,
-                        )
-                    )
-                except (ValueError, AttributeError, FileNotFoundError):
+                except (ValueError, AttributeError):
                     html_parts.append(
                         format_html(
                             """<div style="display: inline-block; margin: 10px; text-align: center;">
                             <strong>{}</strong><br>
-                            <small style="color: #999;">File not found</small>
+                            <small style="color: #999;">URL not available</small>
                         </div>""",
                             label,
                         )
                     )
+                    continue
+
+                # Try to get file size - this requires S3 access and may fail
+                try:
+                    file_size = image_field.size
+                except Exception:
+                    file_size = 0
+
+                size_kb = file_size / 1024 if file_size else 0
+                size_display = f"{size_kb:.1f} KB" if file_size else "Size unknown"
+
+                html_parts.append(
+                    format_html(
+                        """
+                    <div style="display: inline-block; margin: 10px; text-align: center;">
+                        <strong>{}</strong><br>
+                        <img src="{}" style="max-width: 200px; max-height: 200px; border: 1px solid #ddd; padding: 5px;" /><br>
+                        <small>{} • {}</small>
+                    </div>
+                    """,
+                        label,
+                        url,
+                        dimensions,
+                        size_display,
+                    )
+                )
 
         if html_parts:
             return mark_safe(  # nosec B703 B308 - Content is safely escaped via format_html

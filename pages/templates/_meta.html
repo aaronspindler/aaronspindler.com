@@ -2,23 +2,23 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="{% block meta_description %}Aaron Spindler - Software Engineer specializing in Python, Django, and full-stack development. Explore my projects, blog posts, and photography.{% endblock %}">
+<meta name="description" content="{% block meta_description %}{{ page_meta_description|default:'Aaron Spindler - Software Engineer specializing in Python, Django, and full-stack development. Explore my projects, blog posts, and photography.' }}{% endblock %}">
 <meta name="author" content="Aaron Spindler">
 <meta name="keywords" content="Aaron Spindler, Software Engineer, Python, Django, Web Development, Programming">
 
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://aaronspindler.com/">
-<meta property="og:title" content="{% block og_title %}Aaron Spindler - Software Engineer{% endblock %}">
-<meta property="og:description" content="{% block og_description %}Software Engineer specializing in Python, Django, and full-stack development{% endblock %}">
-<meta property="og:image" content="{% block og_image %}{% static 'images/spindlers/logo.png' %}{% endblock %}">
+<meta property="og:url" content="{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}">
+<meta property="og:title" content="{% block og_title %}{{ page_og_title|default:'Aaron Spindler - Software Engineer' }}{% endblock %}">
+<meta property="og:description" content="{% block og_description %}{{ page_og_description|default:'Software Engineer specializing in Python, Django, and full-stack development' }}{% endblock %}">
+<meta property="og:image" content="{% block og_image %}{% if page_og_image %}{{ page_og_image }}{% else %}{% static 'images/spindlers/logo.png' %}{% endif %}{% endblock %}">
 
 <!-- Twitter -->
 <meta property="twitter:card" content="summary_large_image">
-<meta property="twitter:url" content="https://aaronspindler.com/">
-<meta property="twitter:title" content="{% block twitter_title %}Aaron Spindler - Software Engineer{% endblock %}">
-<meta property="twitter:description" content="{% block twitter_description %}Software Engineer specializing in Python, Django, and full-stack development{% endblock %}">
-<meta property="twitter:image" content="{% block twitter_image %}{% static 'images/spindlers/logo.png' %}{% endblock %}">
+<meta property="twitter:url" content="{% block twitter_url %}{{ request.build_absolute_uri }}{% endblock %}">
+<meta property="twitter:title" content="{% block twitter_title %}{{ page_og_title|default:'Aaron Spindler - Software Engineer' }}{% endblock %}">
+<meta property="twitter:description" content="{% block twitter_description %}{{ page_og_description|default:'Software Engineer specializing in Python, Django, and full-stack development' }}{% endblock %}">
+<meta property="twitter:image" content="{% block twitter_image %}{% if page_og_image %}{{ page_og_image }}{% else %}{% static 'images/spindlers/logo.png' %}{% endif %}{% endblock %}">
 
 <!-- Theme & Icons -->
 <meta name="theme-color" content="#000000">
