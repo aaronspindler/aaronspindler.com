@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 @admin.register(Photo)
 class PhotoAdmin(admin.ModelAdmin):
     list_display = (
-        "image_preview",
+        "list_thumbnail",
         "get_display_name",
         "title",
         "processing_status_display",
@@ -35,7 +35,7 @@ class PhotoAdmin(admin.ModelAdmin):
         "perceptual_hash",
     )
     list_editable = ("title",)
-    list_display_links = ("image_preview", "get_display_name")
+    list_display_links = ("list_thumbnail", "get_display_name")
     actions = ["add_to_album", "find_duplicates_action", "reprocess_images"]
     readonly_fields = (
         "image_preview",
@@ -183,7 +183,8 @@ class PhotoAdmin(admin.ModelAdmin):
             )
 
     @admin.display(description="Preview")
-    def image_preview(self, obj):
+    def list_thumbnail(self, obj):
+        """Display thumbnail in list view."""
         try:
             if obj.image_gallery_cropped:
                 return format_html(
@@ -201,8 +202,29 @@ class PhotoAdmin(admin.ModelAdmin):
                     obj.image.url,
                 )
         except (ValueError, AttributeError):
-            # Image field exists but file is missing or URL cannot be generated
-            # This is expected when images are being processed or files are moved
+            return "No image"
+        return "No image"
+
+    @admin.display(description="Preview")
+    def image_preview(self, obj):
+        """Display preview in detail view."""
+        try:
+            if obj.image_gallery_cropped:
+                return format_html(
+                    '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
+                    obj.image_gallery_cropped.url,
+                )
+            elif obj.image_optimized:
+                return format_html(
+                    '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
+                    obj.image_optimized.url,
+                )
+            elif obj.image:
+                return format_html(
+                    '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
+                    obj.image.url,
+                )
+        except (ValueError, AttributeError):
             return "No image"
         return "No image"
 
