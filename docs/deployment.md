@@ -284,6 +284,26 @@ The GitHub Actions deployment pipeline (`pipeline.yml`) automatically deploys **
 - `celerybeat` - Task scheduler (only needs redeployment when beat schedule changes)
 - `flower` - Monitoring dashboard (rarely needs redeployment)
 
+### GitHub Deployment Tracking
+
+Production deployments (web and celery worker) are tracked using GitHub's Deployments API, providing:
+- **Deployment History**: View all deployments in the repository's deployments tab
+- **Status Tracking**: Real-time deployment status (pending, in_progress, success, failure)
+- **Direct Links**: Each deployment links to your live site for easy access
+
+**View deployments**: Navigate to your repository → **Deployments** tab, or visit:
+```
+https://github.com/{owner}/{repo}/deployments
+```
+
+**Deployment Statuses**:
+- `pending`: Deployment created, waiting to start
+- `in_progress`: Actively deploying services to CapRover
+- `success`: All services deployed successfully (includes link to production site)
+- `failure`: Deployment failed (check workflow logs for details)
+
+**Note**: Celerybeat and Flower deployments are not tracked via GitHub Deployments as they are deployed manually and infrequently.
+
 ### Manual Celery Services Deployment
 
 To deploy Celerybeat and/or Flower, use the **Deploy Celery Services** workflow:
@@ -333,6 +353,7 @@ The project uses GitHub Actions for continuous integration and deployment automa
 - **Services**: Deploys web and celery worker to CapRover (celerybeat and flower deploy separately)
 - **Images**: Uses pre-built, tested images from GHCR
 - **Zero-downtime**: Health check based routing
+- **Tracking**: Creates GitHub Deployment with real-time status updates
 
 #### Celery Services Deployment (`deploy-celery-services.yml`)
 - **Trigger**: Manual workflow dispatch
