@@ -1,7 +1,6 @@
 import logging
 
 from django.contrib import admin, messages
-from django.shortcuts import redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
 
@@ -582,8 +581,19 @@ class PhotoAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def bulk_upload_view(self, request):
-        """Redirect to the new JavaScript-based bulk upload page."""
-        return redirect("photos:bulk_upload")
+        """Render the bulk upload page within the admin interface."""
+        from django.shortcuts import render
+        from django.urls import reverse
+
+        albums = PhotoAlbum.objects.all().order_by("-created_at")
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Bulk Photo Upload",
+            "albums": albums,
+            "upload_api_url": reverse("photos:upload_photo_api"),
+            "opts": self.model._meta,
+        }
+        return render(request, "admin/photos/photo/bulk_upload.html", context)
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}

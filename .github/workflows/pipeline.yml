@@ -254,12 +254,17 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             /repos/${{ github.repository }}/deployments \
-            -f ref='${{ github.sha }}' \
-            -f environment='production' \
-            -f description='Deploy commit ${{ github.sha }}' \
-            -F auto_merge=false \
-            -F required_contexts='[]' \
-            --jq '.id')
+            --input - \
+            --jq '.id' <<EOF
+          {
+            "ref": "${{ github.sha }}",
+            "environment": "production",
+            "description": "Deploy commit ${{ github.sha }}",
+            "auto_merge": false,
+            "required_contexts": []
+          }
+          EOF
+          )
 
           echo "deployment_id=${deployment_id}" >> $GITHUB_OUTPUT
           echo "✅ Created deployment: ${deployment_id}"

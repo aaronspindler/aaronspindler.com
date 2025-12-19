@@ -16,8 +16,7 @@ urlpatterns = [
         views.download_album_zip,
         name="download_album_zip",
     ),
-    # Bulk upload
-    path("bulk-upload/", views.bulk_upload, name="bulk_upload"),
+    # Bulk upload API (UI is in admin)
     path("api/upload/", views.upload_photo_api, name="upload_photo_api"),
     path("api/photo/<int:photo_id>/status/", views.photo_status_api, name="photo_status_api"),
 ]
