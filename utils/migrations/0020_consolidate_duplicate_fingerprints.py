@@ -10,7 +10,7 @@ This prepares for adding a unique constraint on the hash field by:
 """
 
 from django.db import migrations
-from django.db.models import Count, Min, Max
+from django.db.models import Count
 
 
 def consolidate_duplicate_fingerprints(apps, schema_editor):
