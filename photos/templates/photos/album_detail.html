@@ -344,6 +344,89 @@
     .lightbox-download:hover {
         background: rgba(0, 0, 0, 0.9);
     }
+
+    /* Touch swipe support */
+    .lightbox {
+        touch-action: pan-y pinch-zoom;
+    }
+
+    .lightbox-content {
+        touch-action: pan-y pinch-zoom;
+        will-change: transform;
+    }
+
+    /* Improve touch targets on mobile */
+    @media (max-width: 768px) {
+        .lightbox-nav {
+            font-size: 24px;
+            padding: 20px 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+
+        .lightbox-prev {
+            left: 10px;
+        }
+
+        .lightbox-next {
+            right: 10px;
+        }
+
+        .lightbox-close {
+            top: 15px;
+            right: 15px;
+            font-size: 32px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .lightbox-exif {
+            bottom: 80px;
+            left: 10px;
+            right: 10px;
+            max-width: none;
+            font-size: 0.75em;
+        }
+
+        .lightbox-download {
+            bottom: 15px;
+            right: 10px;
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+    }
+
+    /* Swipe hint indicator for first-time users */
+    .swipe-hint {
+        position: absolute;
+        bottom: 50%;
+        left: 50%;
+        transform: translate(-50%, 50%);
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.8em;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    @media (pointer: coarse) {
+        .swipe-hint {
+            animation: fadeHint 3s ease-out forwards;
+            animation-delay: 1s;
+        }
+    }
+
+    @keyframes fadeHint {
+        0% { opacity: 0; }
+        20% { opacity: 1; }
+        80% { opacity: 1; }
+        100% { opacity: 0; }
+    }
 </style>
 {% endblock css %}
 
@@ -605,6 +688,135 @@
         }
     });
 
+    // Touch swipe navigation for lightbox
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+    let isSwiping = false;
+    let isMultiTouch = false;
+    const SWIPE_THRESHOLD = 50;
+    const SWIPE_VELOCITY_THRESHOLD = 0.3;
+    let touchStartTime = 0;
+
+    function initTouchHandlers() {
+        const lightbox = document.getElementById('lightbox');
+        const lightboxContent = document.querySelector('.lightbox-content');
+
+        lightbox.addEventListener('touchstart', handleTouchStart, { passive: true });
+        lightbox.addEventListener('touchmove', handleTouchMove, { passive: false });
+        lightbox.addEventListener('touchend', handleTouchEnd, { passive: true });
+        lightbox.addEventListener('touchcancel', handleTouchCancel, { passive: true });
+    }
+
+    function handleTouchStart(e) {
+        if (e.touches.length > 1) {
+            isMultiTouch = true;
+            resetSwipeState();
+            return;
+        }
+
+        isMultiTouch = false;
+        isSwiping = true;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchStartTime = Date.now();
+
+        const lightboxContent = document.querySelector('.lightbox-content');
+        if (lightboxContent) {
+            lightboxContent.style.transition = 'none';
+        }
+    }
+
+    function handleTouchMove(e) {
+        if (!isSwiping || isMultiTouch) return;
+
+        if (e.touches.length > 1) {
+            isMultiTouch = true;
+            resetSwipeState();
+            return;
+        }
+
+        touchEndX = e.touches[0].clientX;
+        touchEndY = e.touches[0].clientY;
+
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+
+        // If vertical movement dominates, allow default behavior (scrolling)
+        if (Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
+            return;
+        }
+
+        // Prevent default to stop horizontal scrolling
+        if (Math.abs(deltaX) > 10) {
+            e.preventDefault();
+        }
+
+        // Visual feedback: move the image with the swipe
+        const lightboxContent = document.querySelector('.lightbox-content');
+        if (lightboxContent && Math.abs(deltaX) > 10) {
+            const maxOffset = 100;
+            const offset = Math.max(-maxOffset, Math.min(maxOffset, deltaX * 0.5));
+            lightboxContent.style.transform = `translate(calc(-50% + ${offset}px), -50%)`;
+        }
+    }
+
+    function handleTouchEnd(e) {
+        if (!isSwiping || isMultiTouch) {
+            resetSwipeState();
+            return;
+        }
+
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+        const touchDuration = Date.now() - touchStartTime;
+        const velocity = Math.abs(deltaX) / touchDuration;
+
+        const lightboxContent = document.querySelector('.lightbox-content');
+        if (lightboxContent) {
+            lightboxContent.style.transition = 'transform 0.3s ease-out';
+            lightboxContent.style.transform = 'translate(-50%, -50%)';
+        }
+
+        // Only process horizontal swipes
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            const isQuickSwipe = velocity > SWIPE_VELOCITY_THRESHOLD;
+            const isLongSwipe = Math.abs(deltaX) > SWIPE_THRESHOLD;
+
+            if (isQuickSwipe || isLongSwipe) {
+                if (deltaX > 0) {
+                    navigatePhoto(-1);  // Swipe right → previous photo
+                } else {
+                    navigatePhoto(1);   // Swipe left → next photo
+                }
+            }
+        }
+        // Swipe down to close (optional feature)
+        else if (deltaY > SWIPE_THRESHOLD * 2 && Math.abs(deltaY) > Math.abs(deltaX) * 2) {
+            closeLightbox();
+        }
+
+        resetSwipeState();
+    }
+
+    function handleTouchCancel() {
+        const lightboxContent = document.querySelector('.lightbox-content');
+        if (lightboxContent) {
+            lightboxContent.style.transition = 'transform 0.3s ease-out';
+            lightboxContent.style.transform = 'translate(-50%, -50%)';
+        }
+        resetSwipeState();
+    }
+
+    function resetSwipeState() {
+        isSwiping = false;
+        touchStartX = 0;
+        touchStartY = 0;
+        touchEndX = 0;
+        touchEndY = 0;
+    }
+
     // Download photo function using server endpoint
     function downloadPhoto(photoId) {
         window.location.href = `/photos/album/${albumSlug}/photo/${photoId}/download/${tokenParam}`;
@@ -621,6 +833,7 @@
     // Initialize on DOM ready
     document.addEventListener('DOMContentLoaded', function() {
         initializeLazyLoading();
+        initTouchHandlers();
 
         // Preload first few images
         for (let i = 0; i < Math.min(3, photos.length); i++) {
