@@ -1,6 +1,8 @@
-from django.http import Http404, HttpResponse
+from django.contrib.admin.views.decorators import staff_member_required
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_http_methods
 
 from .models import Photo, PhotoAlbum
 
@@ -131,3 +133,114 @@ def download_photo(request, slug, photo_id):
             raise Http404("Error accessing photo file from S3") from None
 
     raise Http404("Photo has no image file")
+
+
+@staff_member_required
+def bulk_upload(request):
+    """Bulk upload page for uploading multiple photos at once."""
+    albums = PhotoAlbum.objects.all().order_by("-created_at")
+    return render(
+        request,
+        "photos/bulk_upload.html",
+        {
+            "albums": albums,
+        },
+    )
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+def upload_photo_api(request):
+    """API endpoint for uploading a single photo with async processing."""
+    try:
+        # Get the uploaded file
+        if "photo" not in request.FILES:
+            return JsonResponse({"error": "No photo file provided"}, status=400)
+
+        photo_file = request.FILES["photo"]
+        album_id = request.POST.get("album_id")
+
+        # Validate album if provided
+        album = None
+        if album_id:
+            try:
+                album = PhotoAlbum.objects.get(id=album_id)
+            except PhotoAlbum.DoesNotExist:
+                return JsonResponse({"error": f"Album with ID {album_id} not found"}, status=400)
+
+        # Create photo object
+        photo = Photo()
+        photo.image.save(photo_file.name, photo_file, save=False)
+
+        # Get skip_duplicates flag
+        skip_duplicates = request.POST.get("skip_duplicates", "false").lower() == "true"
+
+        # Check for duplicates if requested
+        if not skip_duplicates:
+            try:
+                from photos.image_utils import DuplicateDetector
+
+                hashes = DuplicateDetector.compute_and_store_hashes(photo.image)
+                photo.file_hash = hashes.get("file_hash", "")
+                photo.perceptual_hash = hashes.get("perceptual_hash", "")
+
+                # Check for existing photos with same hash
+                if photo.file_hash:
+                    existing = Photo.objects.filter(file_hash=photo.file_hash).first()
+                    if existing:
+                        return JsonResponse(
+                            {
+                                "error": "duplicate",
+                                "message": f"Duplicate of photo uploaded on {existing.created_at.strftime('%Y-%m-%d')}",
+                                "existing_photo_id": existing.id,
+                            },
+                            status=409,
+                        )
+            except Exception:
+                # If duplicate check fails, continue anyway
+                pass
+
+        # Save with minimal processing (will be done async)
+        photo.save_minimal(
+            file_hash=photo.file_hash if hasattr(photo, "file_hash") else "",
+            perceptual_hash=photo.perceptual_hash if hasattr(photo, "perceptual_hash") else "",
+        )
+
+        # Queue async processing
+        from photos.tasks import process_photo_async
+
+        process_photo_async.delay(photo.id)
+
+        # Add to album if specified
+        if album:
+            album.photos.add(photo)
+
+        return JsonResponse(
+            {
+                "success": True,
+                "photo_id": photo.id,
+                "filename": photo_file.name,
+                "status": "processing",
+            }
+        )
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@staff_member_required
+@require_http_methods(["GET"])
+def photo_status_api(request, photo_id):
+    """API endpoint to check the processing status of a photo."""
+    try:
+        photo = Photo.objects.get(id=photo_id)
+        return JsonResponse(
+            {
+                "photo_id": photo.id,
+                "status": photo.processing_status,
+                "title": photo.title,
+                "thumbnail_url": photo.get_image_url("preview") if photo.processing_status == "complete" else None,
+            }
+        )
+    except Photo.DoesNotExist:
+        return JsonResponse({"error": "Photo not found"}, status=404)

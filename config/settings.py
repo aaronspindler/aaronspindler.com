@@ -443,6 +443,12 @@ MASSIVE_API_KEY = env("MASSIVE_API_KEY", default="")
 OPENAI_KEY = env("OPENAI_KEY", default="")
 ANTHROPIC_KEY = env("ANTHROPIC_KEY", default="")
 
+# File Upload Configuration
+# Increase limits for bulk photo uploads through admin
+DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100 MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # Allow many fields for bulk uploads
+
 # Request Tracking Configuration
 REQUEST_TRACKING_EXCLUDE_PATHS = [
     "/static/",

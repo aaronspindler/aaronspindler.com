@@ -1,11 +1,11 @@
 import logging
 
 from django.contrib import admin, messages
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 from django.urls import path, reverse
 from django.utils.html import format_html
 
-from .forms import PhotoAlbumForm, PhotoBulkUploadForm
+from .forms import PhotoAlbumForm
 from .models import AlbumPhoto, Photo, PhotoAlbum
 
 logger = logging.getLogger(__name__)
@@ -582,49 +582,8 @@ class PhotoAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def bulk_upload_view(self, request):
-        """View for bulk uploading photos."""
-        if request.method == "POST":
-            form = PhotoBulkUploadForm(request.POST, request.FILES)
-            if form.is_valid():
-                result = form.save(skip_duplicates=True)
-
-                # Prepare messages
-                if result["created"]:
-                    messages.success(
-                        request,
-                        f"Successfully uploaded {len(result['created'])} photo(s).",
-                    )
-
-                if result["skipped"]:
-                    skipped_msg = "Skipped duplicates: "
-                    for filename, reason in result["skipped"][:5]:
-                        skipped_msg += f"\n• {filename}: {reason}"
-                    if len(result["skipped"]) > 5:
-                        skipped_msg += f"\n... and {len(result['skipped']) - 5} more"
-                    messages.warning(request, skipped_msg)
-
-                if result["errors"]:
-                    error_msg = "Failed uploads: "
-                    for filename, error in result["errors"][:5]:
-                        error_msg += f"\n• {filename}: {error}"
-                    if len(result["errors"]) > 5:
-                        error_msg += f"\n... and {len(result['errors']) - 5} more"
-                    messages.error(request, error_msg)
-
-                return redirect("admin:photos_photo_changelist")
-        else:
-            form = PhotoBulkUploadForm()
-
-        context = {
-            "form": form,
-            "title": "Bulk Upload Photos",
-            "site_title": self.admin_site.site_title,
-            "site_header": self.admin_site.site_header,
-            "has_permission": True,
-            "opts": self.model._meta,
-            "app_label": self.model._meta.app_label,
-        }
-        return render(request, "admin/photos/photo/bulk_upload.html", context)
+        """Redirect to the new JavaScript-based bulk upload page."""
+        return redirect("photos:bulk_upload")
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}
