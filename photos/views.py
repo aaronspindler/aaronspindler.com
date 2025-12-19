@@ -136,19 +136,6 @@ def download_photo(request, slug, photo_id):
 
 
 @staff_member_required
-def bulk_upload(request):
-    """Bulk upload page for uploading multiple photos at once."""
-    albums = PhotoAlbum.objects.all().order_by("-created_at")
-    return render(
-        request,
-        "photos/bulk_upload.html",
-        {
-            "albums": albums,
-        },
-    )
-
-
-@staff_member_required
 @require_http_methods(["POST"])
 def upload_photo_api(request):
     """API endpoint for uploading a single photo with async processing."""
