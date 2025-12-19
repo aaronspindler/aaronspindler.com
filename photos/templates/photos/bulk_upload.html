@@ -18,13 +18,19 @@
 
     .upload-header h1 {
         margin: 0 0 10px 0;
+        color: #e0e0e0;
+    }
+
+    .upload-header p {
+        color: #aaa;
     }
 
     .upload-settings {
-        background: #f8f9fa;
+        background: #1a1a1a;
         padding: 20px;
         border-radius: 8px;
         margin-bottom: 20px;
+        border: 1px solid #333;
     }
 
     .setting-group {
@@ -35,19 +41,61 @@
         display: block;
         font-weight: 600;
         margin-bottom: 5px;
+        color: #e0e0e0;
     }
 
-    .setting-group select,
-    .setting-group input[type="checkbox"] {
+    .setting-group select {
         margin-right: 10px;
+        background: #2a2a2a;
+        color: #e0e0e0;
+        border: 1px solid #444;
+        padding: 8px;
+        border-radius: 4px;
+    }
+
+    .setting-group input[type="checkbox"] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        border: 2px solid #555;
+        border-radius: 3px;
+        background: #2a2a2a;
+        cursor: pointer;
+        position: relative;
+        margin-right: 10px;
+        vertical-align: middle;
+    }
+
+    .setting-group input[type="checkbox"]:checked {
+        background: #007bff;
+        border-color: #007bff;
+    }
+
+    .setting-group input[type="checkbox"]:checked::after {
+        content: '✓';
+        position: absolute;
+        color: white;
+        font-size: 14px;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    .setting-group input[type="checkbox"]:hover {
+        border-color: #777;
+    }
+
+    .setting-group label {
+        cursor: pointer;
     }
 
     .drop-zone {
-        border: 3px dashed #ccc;
+        border: 3px dashed #444;
         border-radius: 8px;
         padding: 60px 20px;
         text-align: center;
-        background: #fafafa;
+        background: #1a1a1a;
         cursor: pointer;
         transition: all 0.3s;
         margin-bottom: 20px;
@@ -55,28 +103,29 @@
 
     .drop-zone.dragover {
         border-color: #007bff;
-        background: #e7f3ff;
+        background: #1a2a3a;
     }
 
     .drop-zone:hover {
-        border-color: #999;
+        border-color: #666;
+        background: #222;
     }
 
     .drop-zone-icon {
         font-size: 48px;
         margin-bottom: 10px;
-        color: #999;
+        color: #666;
     }
 
     .drop-zone-text {
         font-size: 18px;
-        color: #666;
+        color: #aaa;
         margin-bottom: 10px;
     }
 
     .drop-zone-subtext {
         font-size: 14px;
-        color: #999;
+        color: #777;
     }
 
     .upload-progress {
@@ -89,10 +138,11 @@
 
     .overall-progress-bar {
         height: 30px;
-        background: #e9ecef;
+        background: #2a2a2a;
         border-radius: 4px;
         overflow: hidden;
         margin-bottom: 10px;
+        border: 1px solid #444;
     }
 
     .overall-progress-fill {
@@ -110,22 +160,23 @@
         display: flex;
         justify-content: space-between;
         font-size: 14px;
-        color: #666;
+        color: #aaa;
     }
 
     .file-list {
         max-height: 500px;
         overflow-y: auto;
-        border: 1px solid #ddd;
+        border: 1px solid #444;
         border-radius: 4px;
         padding: 10px;
+        background: #1a1a1a;
     }
 
     .file-item {
         display: flex;
         align-items: center;
         padding: 10px;
-        border-bottom: 1px solid #eee;
+        border-bottom: 1px solid #333;
         gap: 10px;
     }
 
@@ -147,11 +198,12 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        color: #e0e0e0;
     }
 
     .file-size {
         font-size: 12px;
-        color: #999;
+        color: #888;
     }
 
     .file-progress {
@@ -160,10 +212,11 @@
 
     .file-progress-bar {
         height: 20px;
-        background: #e9ecef;
+        background: #2a2a2a;
         border-radius: 4px;
         overflow: hidden;
         margin-bottom: 2px;
+        border: 1px solid #444;
     }
 
     .file-progress-fill {
@@ -186,7 +239,7 @@
 
     .file-status {
         font-size: 12px;
-        color: #666;
+        color: #aaa;
     }
 
     .file-status.success {
@@ -258,7 +311,7 @@
 <div class="upload-container">
     <div class="upload-header">
         <h1>📸 Bulk Photo Upload</h1>
-        <p>Upload multiple photos at once. Files are processed individually in the background.</p>
+        <p>Upload multiple photos. Files upload one at a time and are processed in the background.</p>
     </div>
 
     <div class="upload-settings">
@@ -271,19 +324,10 @@
                 {% endfor %}
             </select>
         </div>
-
         <div class="setting-group">
-            <label>
-                <input type="checkbox" id="skip-duplicates" checked>
-                Skip duplicate detection (faster, but may create duplicates)
-            </label>
-        </div>
-
-        <div class="setting-group">
-            <label>
-                <input type="checkbox" id="concurrent-uploads" checked>
-                Upload 3 files simultaneously (faster, but uses more bandwidth)
-            </label>
+            <p style="margin: 0; color: #888; font-size: 14px;">
+                ℹ️ Duplicate photos are automatically detected and skipped
+            </p>
         </div>
     </div>
 
@@ -333,15 +377,11 @@
     const clearBtn = document.getElementById('clear-completed');
     const addMoreBtn = document.getElementById('add-more');
     const albumSelect = document.getElementById('album-select');
-    const skipDuplicates = document.getElementById('skip-duplicates');
-    const concurrentUploads = document.getElementById('concurrent-uploads');
 
     let files = [];
     let uploadQueue = [];
     let uploading = false;
     let paused = false;
-    let activeUploads = 0;
-    const maxConcurrentUploads = 3;
 
     let stats = {
         total: 0,
@@ -463,25 +503,20 @@
     function processQueue() {
         if (paused || !uploading) return;
 
-        const maxUploads = concurrentUploads.checked ? maxConcurrentUploads : 1;
-
-        while (activeUploads < maxUploads && uploadQueue.length > 0) {
+        // Upload one file at a time
+        if (uploadQueue.length > 0) {
             const fileData = uploadQueue.shift();
             uploadFile(fileData);
-        }
-
-        if (activeUploads === 0 && uploadQueue.length === 0) {
+        } else {
             finishUpload();
         }
     }
 
     async function uploadFile(fileData) {
-        activeUploads++;
         updateFileStatus(fileData.id, 'Uploading...', 0);
 
         const formData = new FormData();
         formData.append('photo', fileData.file);
-        formData.append('skip_duplicates', skipDuplicates.checked);
         if (albumSelect.value) {
             formData.append('album_id', albumSelect.value);
         }
@@ -517,7 +552,6 @@
         }
 
         stats.completed++;
-        activeUploads--;
         updateStats();
         processQueue();
     }

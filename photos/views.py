@@ -172,39 +172,21 @@ def upload_photo_api(request):
         photo = Photo()
         photo.image.save(photo_file.name, photo_file, save=False)
 
-        # Get skip_duplicates flag
-        skip_duplicates = request.POST.get("skip_duplicates", "false").lower() == "true"
-
-        # Check for duplicates if requested
-        if not skip_duplicates:
-            try:
-                from photos.image_utils import DuplicateDetector
-
-                hashes = DuplicateDetector.compute_and_store_hashes(photo.image)
-                photo.file_hash = hashes.get("file_hash", "")
-                photo.perceptual_hash = hashes.get("perceptual_hash", "")
-
-                # Check for existing photos with same hash
-                if photo.file_hash:
-                    existing = Photo.objects.filter(file_hash=photo.file_hash).first()
-                    if existing:
-                        return JsonResponse(
-                            {
-                                "error": "duplicate",
-                                "message": f"Duplicate of photo uploaded on {existing.created_at.strftime('%Y-%m-%d')}",
-                                "existing_photo_id": existing.id,
-                            },
-                            status=409,
-                        )
-            except Exception:
-                # If duplicate check fails, continue anyway
-                pass
-
-        # Save with minimal processing (will be done async)
-        photo.save_minimal(
-            file_hash=photo.file_hash if hasattr(photo, "file_hash") else "",
-            perceptual_hash=photo.perceptual_hash if hasattr(photo, "perceptual_hash") else "",
-        )
+        # Save with async processing - this will check for duplicates automatically
+        # and raise ValidationError if duplicate found
+        try:
+            photo.save(skip_processing=True)
+        except Exception as e:
+            # Check if it's a duplicate error
+            if "duplicate" in str(e).lower():
+                return JsonResponse(
+                    {
+                        "error": "duplicate",
+                        "message": str(e),
+                    },
+                    status=409,
+                )
+            raise
 
         # Queue async processing
         from photos.tasks import process_photo_async
