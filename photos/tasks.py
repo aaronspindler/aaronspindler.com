@@ -102,8 +102,13 @@ def generate_album_zip(self, album_id: int, force: bool = False):
                 if timezone.now() < scheduled_time + timedelta(seconds=DEBOUNCE_DELAY_SECONDS - 5):
                     logger.info(f"Skipping ZIP generation for album {album_id} - more changes pending")
                     return {"status": "skipped", "message": "Debounce in progress"}
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.warning(
+                    "Invalid debounce timestamp %r for album %s: %s",
+                    last_scheduled,
+                    album_id,
+                    e,
+                )
 
     if not force and not album.needs_zip_regeneration():
         logger.info(f"Album {album_id} ZIP is up-to-date, skipping")
