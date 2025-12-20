@@ -573,7 +573,7 @@ class ImageOptimizerTestCase(TestCase):
             (mock_thumbnail, None),  # thumbnail call (uses cached focal point)
         ]
 
-        variants, focal_point = ImageOptimizer.process_uploaded_image(test_file, "test.jpg")
+        variants, focal_point, saliency_map_bytes = ImageOptimizer.process_uploaded_image(test_file, "test.jpg")
 
         # Verify all variants created
         self.assertIn("preview", variants)

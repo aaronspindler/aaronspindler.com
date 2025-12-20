@@ -90,6 +90,7 @@ class PhotoModelTestCase(TestCase):
         mock_process.return_value = (
             {"thumbnail": mock_thumbnail, "preview": mock_preview},
             (0.5, 0.5),  # focal point
+            None,  # saliency_map_bytes
         )
 
         # Create photo with skip_duplicate_check to avoid duplicate check but still process image
