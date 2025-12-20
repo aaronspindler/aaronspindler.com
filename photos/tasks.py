@@ -1,11 +1,13 @@
-import io
 import logging
+import os
+import shutil
+import tempfile
 import zipfile
 from datetime import timedelta
 
 from celery import shared_task
 from django.core.cache import cache
-from django.core.files.base import ContentFile
+from django.core.files import File
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -52,6 +54,35 @@ def process_photo_async(self, photo_id: int, force: bool = False):
 
 DEBOUNCE_KEY_PREFIX = "album_zip_debounce:"
 DEBOUNCE_DELAY_SECONDS = 30
+STREAM_CHUNK_SIZE = 8 * 1024 * 1024  # 8MB chunks
+
+
+def _stream_file_to_zip(zf: zipfile.ZipFile, file_field, zip_path: str, photo_id: int) -> bool:
+    """
+    Stream a file from storage directly into a ZIP archive.
+
+    Uses a temporary file to avoid loading the entire image into memory.
+    Returns True if successful, False otherwise.
+    """
+    temp_path = None
+    try:
+        with file_field.open("rb") as src:
+            fd, temp_path = tempfile.mkstemp()
+            try:
+                with os.fdopen(fd, "wb") as dst:
+                    shutil.copyfileobj(src, dst, length=STREAM_CHUNK_SIZE)
+            except Exception:
+                os.close(fd)
+                raise
+
+        zf.write(temp_path, zip_path)
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to add photo {photo_id} to ZIP at {zip_path}: {e}")
+        return False
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.unlink(temp_path)
 
 
 @shared_task(
@@ -121,8 +152,8 @@ def generate_album_zip(self, album_id: int, force: bool = False):
     album.zip_generation_status = "generating"
     album.save(update_fields=["zip_generation_status"])
 
+    temp_zip_path = None
     try:
-        zip_buffer = io.BytesIO()
         photos = album.photos.all().order_by("date_taken", "created_at")
 
         if not photos.exists():
@@ -130,7 +161,11 @@ def generate_album_zip(self, album_id: int, force: bool = False):
             album.save(update_fields=["zip_generation_status"])
             return {"status": "skipped", "message": "No photos in album"}
 
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        fd, temp_zip_path = tempfile.mkstemp(suffix=".zip")
+        os.close(fd)
+
+        photo_count = 0
+        with zipfile.ZipFile(temp_zip_path, "w", zipfile.ZIP_STORED) as zf:
             for idx, photo in enumerate(photos, 1):
                 if not photo.image:
                     continue
@@ -138,22 +173,11 @@ def generate_album_zip(self, album_id: int, force: bool = False):
                 original_name = photo.original_filename or f"photo_{photo.id}.jpg"
                 base_filename = f"{idx:03d}_{original_name}"
 
-                # Add full resolution original
-                try:
-                    with photo.image.open("rb") as f:
-                        image_data = f.read()
-                    zf.writestr(f"full_resolution/{base_filename}", image_data)
-                except Exception as e:
-                    logger.warning(f"Failed to add original photo {photo.id} to ZIP: {e}")
+                if _stream_file_to_zip(zf, photo.image, f"full_resolution/{base_filename}", photo.id):
+                    photo_count += 1
 
-                # Add optimized version if available
                 if photo.image_optimized:
-                    try:
-                        with photo.image_optimized.open("rb") as f:
-                            image_data = f.read()
-                        zf.writestr(f"optimized/{base_filename}", image_data)
-                    except Exception as e:
-                        logger.warning(f"Failed to add optimized photo {photo.id} to ZIP: {e}")
+                    _stream_file_to_zip(zf, photo.image_optimized, f"optimized/{base_filename}", photo.id)
 
         if album.zip_file:
             try:
@@ -161,10 +185,11 @@ def generate_album_zip(self, album_id: int, force: bool = False):
             except Exception as e:
                 logger.warning(f"Failed to delete old ZIP for album {album_id}: {e}")
 
-        zip_buffer.seek(0)
-        zip_size = len(zip_buffer.getvalue())
+        zip_size = os.path.getsize(temp_zip_path)
         zip_filename = f"{album.slug}_{timezone.now().strftime('%Y%m%d')}.zip"
-        album.zip_file.save(zip_filename, ContentFile(zip_buffer.read()), save=False)
+
+        with open(temp_zip_path, "rb") as f:
+            album.zip_file.save(zip_filename, File(f), save=False)
 
         album.zip_content_hash = album.compute_zip_content_hash()
         album.zip_generated_at = timezone.now()
@@ -182,14 +207,14 @@ def generate_album_zip(self, album_id: int, force: bool = False):
 
         cache.delete(debounce_key)
 
-        logger.info(f"Generated ZIP for album {album_id}: {zip_filename} ({zip_size} bytes)")
+        logger.info(f"Generated ZIP for album {album_id}: {zip_filename} ({zip_size} bytes, {photo_count} photos)")
 
         return {
             "status": "success",
             "album_id": album_id,
             "filename": zip_filename,
             "size": zip_size,
-            "photo_count": photos.count(),
+            "photo_count": photo_count,
         }
 
     except Exception as e:
@@ -197,3 +222,6 @@ def generate_album_zip(self, album_id: int, force: bool = False):
         album.zip_generation_status = "failed"
         album.save(update_fields=["zip_generation_status"])
         raise
+    finally:
+        if temp_zip_path and os.path.exists(temp_zip_path):
+            os.unlink(temp_zip_path)
