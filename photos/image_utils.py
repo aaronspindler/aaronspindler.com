@@ -326,15 +326,26 @@ class SmartCrop:
         else:
             img_cv = img_array
 
-        # Use spectral residual saliency (fast and effective)
-        saliency = cv2.saliency.StaticSaliencySpectralResidual_create()
+        # Try fine-grained saliency first (slower but more accurate for complex images)
+        saliency = cv2.saliency.StaticSaliencyFineGrained_create()
         success, saliency_map = saliency.computeSaliency(img_cv)
 
         if not success:
-            return None
+            # Fall back to spectral residual saliency (faster, good for general cases)
+            saliency = cv2.saliency.StaticSaliencySpectralResidual_create()
+            success, saliency_map = saliency.computeSaliency(img_cv)
+
+            if not success:
+                return None
 
         # Find center of mass of saliency map
         saliency_map = (saliency_map * 255).astype(np.uint8)
+
+        # Apply threshold to focus on salient regions (top 20%)
+        # This reduces influence of low-saliency background noise
+        threshold = np.percentile(saliency_map, 80)
+        saliency_map = np.where(saliency_map >= threshold, saliency_map, 0)
+
         height, width = saliency_map.shape
 
         total_weight = np.sum(saliency_map)
