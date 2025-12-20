@@ -21,7 +21,7 @@ class PublicMediaStorage(S3Boto3Storage):
             content.content_type = content_type
 
         # Set cache control for images (1 year for optimized images)
-        if any(size in name for size in ["optimized", "gallery_cropped", "preview"]):
+        if any(size in name for size in ["optimized", "thumbnail", "preview"]):
             # Optimized versions can be cached longer
             self.object_parameters = {
                 "CacheControl": "public, max-age=31536000",  # 1 year

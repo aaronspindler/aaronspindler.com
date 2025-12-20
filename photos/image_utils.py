@@ -434,14 +434,14 @@ class ImageOptimizer:
     # Define size presets for different use cases
     SIZES = {
         "preview": None,  # Full size, highly compressed for fast loading
-        "gallery_cropped": (1200, 800),  # Smart-cropped version for gallery
+        "thumbnail": (400, 300),  # Smart-cropped version for grid display
         # 'original' will be the untouched original
     }
 
     # Quality settings for JPEG compression
     QUALITY_SETTINGS = {
         "preview": 65,  # Lower quality for fast loading
-        "gallery_cropped": 70,  # Good quality for gallery display
+        "thumbnail": 70,  # Good quality for thumbnail display
         "original": 100,  # No compression
     }
 
@@ -459,9 +459,9 @@ class ImageOptimizer:
 
         Args:
             image_file: Django ImageField file or file-like object
-            size_name: One of 'preview', 'gallery_cropped', or 'original'
+            size_name: One of 'preview', 'thumbnail', or 'original'
             maintain_aspect_ratio: If True, maintains aspect ratio when resizing
-            use_smart_crop: If True and size_name is 'gallery_cropped', use smart cropping
+            use_smart_crop: If True and size_name is 'thumbnail', use smart cropping
             focal_point: Optional (x, y) focal point as percentages (0-1)
 
         Returns:
@@ -487,7 +487,7 @@ class ImageOptimizer:
         if size_name in cls.SIZES and cls.SIZES[size_name]:
             target_size = cls.SIZES[size_name]
 
-            if use_smart_crop and size_name == "gallery_cropped":
+            if use_smart_crop and size_name == "thumbnail":
                 if focal_point is None:
                     computed_focal_point = SmartCrop.find_focal_point(img)
                 else:
@@ -558,7 +558,7 @@ class ImageOptimizer:
         variants = {}
         focal_point = None
 
-        for size_name in ["preview", "gallery_cropped"]:
+        for size_name in ["preview", "thumbnail"]:
             image_file.seek(0)
             optimized, computed_focal = cls.optimize_image(image_file, size_name, focal_point=focal_point)
 

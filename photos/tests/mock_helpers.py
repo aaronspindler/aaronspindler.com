@@ -23,9 +23,9 @@ def create_tiny_test_image(size=(10, 10), color="blue", format="JPEG"):
 def mock_image_optimizer_process():
     """Create a mock for ImageOptimizer.process_uploaded_image."""
     mock_preview = MagicMock(name="preview.jpg")
-    mock_gallery_cropped = MagicMock(name="gallery_cropped.jpg")
+    mock_thumbnail = MagicMock(name="thumbnail.jpg")
     return (
-        {"preview": mock_preview, "gallery_cropped": mock_gallery_cropped},
+        {"preview": mock_preview, "thumbnail": mock_thumbnail},
         (0.5, 0.5),  # focal point
     )
 

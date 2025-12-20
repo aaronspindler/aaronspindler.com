@@ -242,10 +242,10 @@ class PhotoAdmin(admin.ModelAdmin):
     def list_thumbnail(self, obj):
         """Display thumbnail in list view."""
         try:
-            if obj.image_gallery_cropped:
+            if obj.image_thumbnail:
                 return format_html(
                     '<img src="{}" style="max-width: 150px; max-height: 150px;" loading="lazy" />',
-                    obj.image_gallery_cropped.url,
+                    obj.image_thumbnail.url,
                 )
             elif obj.image_preview:
                 return format_html(
@@ -265,10 +265,10 @@ class PhotoAdmin(admin.ModelAdmin):
     def image_preview(self, obj):
         """Display preview in detail view."""
         try:
-            if obj.image_gallery_cropped:
+            if obj.image_thumbnail:
                 return format_html(
                     '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
-                    obj.image_gallery_cropped.url,
+                    obj.image_thumbnail.url,
                 )
             elif obj.image_preview:
                 return format_html(
@@ -297,7 +297,7 @@ class PhotoAdmin(admin.ModelAdmin):
 
         # Display each version with its info
         versions = [
-            ("Gallery (Smart Cropped)", obj.image_gallery_cropped, "1200x800"),
+            ("Thumbnail (Smart Cropped)", obj.image_thumbnail, "400x300"),
             ("Preview (Compressed)", obj.image_preview, "Full Size, Highly Compressed"),
             (
                 "Original",
@@ -663,7 +663,7 @@ class AlbumPhotoInline(admin.TabularInline):
 
     @admin.display(description="Preview")
     def photo_preview(self, obj):
-        if obj.photo and obj.photo.image_gallery_cropped:
+        if obj.photo and obj.photo.image_thumbnail:
             featured_badge = (
                 ' <span style="background: gold; padding: 2px 6px; border-radius: 4px; font-size: 10px;">FEATURED</span>'
                 if obj.is_featured
@@ -671,7 +671,7 @@ class AlbumPhotoInline(admin.TabularInline):
             )
             return format_html(
                 '<img src="{}" style="max-width: 100px; max-height: 75px;" />{}',
-                obj.photo.image_gallery_cropped.url,
+                obj.photo.image_thumbnail.url,
                 featured_badge,
             )
         return "No image"
@@ -688,10 +688,10 @@ class AlbumPhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Preview")
     def photo_preview(self, obj):
-        if obj.photo and obj.photo.image_gallery_cropped:
+        if obj.photo and obj.photo.image_thumbnail:
             return format_html(
                 '<img src="{}" style="max-width: 100px; max-height: 75px;" />',
-                obj.photo.image_gallery_cropped.url,
+                obj.photo.image_thumbnail.url,
             )
         return "No image"
 

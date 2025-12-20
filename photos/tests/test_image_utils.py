@@ -451,16 +451,16 @@ class ImageOptimizerTestCase(TestCase):
 
     @patch("photos.image_utils.SmartCrop.find_focal_point")
     @patch("photos.image_utils.SmartCrop.smart_crop")
-    def test_optimize_image_gallery_cropped_with_smart_crop(self, mock_smart_crop, mock_find_focal):
-        """Test gallery_cropped size optimization with smart cropping."""
+    def test_optimize_image_thumbnail_with_smart_crop(self, mock_smart_crop, mock_find_focal):
+        """Test thumbnail size optimization with smart cropping."""
         test_file = self._create_test_image_file(size=(2000, 1500))
 
         # Setup mocks
         mock_find_focal.return_value = (0.6, 0.4)
-        mock_cropped = Image.new("RGB", (1200, 800))
+        mock_cropped = Image.new("RGB", (400, 300))
         mock_smart_crop.return_value = mock_cropped
 
-        result, focal_point = ImageOptimizer.optimize_image(test_file, "gallery_cropped", use_smart_crop=True)
+        result, focal_point = ImageOptimizer.optimize_image(test_file, "thumbnail", use_smart_crop=True)
 
         # Verify smart crop was used
         mock_find_focal.assert_called_once()
@@ -495,14 +495,14 @@ class ImageOptimizerTestCase(TestCase):
         # Original keeps extension
         self.assertEqual(ImageOptimizer.generate_filename("photo.png", "original"), "photo.png")
 
-        # Preview/gallery_cropped convert to jpg (except PNG/GIF/WebP)
+        # Preview/thumbnail convert to jpg (except PNG/GIF/WebP)
         self.assertEqual(
             ImageOptimizer.generate_filename("photo.tiff", "preview"),
             "photo_preview.jpg",
         )
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.bmp", "gallery_cropped"),
-            "photo_gallery_cropped.jpg",
+            ImageOptimizer.generate_filename("photo.bmp", "thumbnail"),
+            "photo_thumbnail.jpg",
         )
 
         # PNG/GIF/WebP preserved
@@ -511,8 +511,8 @@ class ImageOptimizerTestCase(TestCase):
             "photo_preview.png",
         )
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.gif", "gallery_cropped"),
-            "photo_gallery_cropped.gif",
+            ImageOptimizer.generate_filename("photo.gif", "thumbnail"),
+            "photo_thumbnail.gif",
         )
         self.assertEqual(
             ImageOptimizer.generate_filename("photo.webp", "preview"),
@@ -527,21 +527,21 @@ class ImageOptimizerTestCase(TestCase):
         # Setup mock returns for different sizes
         mock_preview = ContentFile(b"preview_content")
         mock_preview.name = "test_preview.jpg"
-        mock_gallery_cropped = ContentFile(b"gallery_cropped_content")
-        mock_gallery_cropped.name = "test_gallery_cropped.jpg"
+        mock_thumbnail = ContentFile(b"thumbnail_content")
+        mock_thumbnail.name = "test_thumbnail.jpg"
 
         mock_optimize.side_effect = [
             (mock_preview, (0.5, 0.5)),  # preview call
-            (mock_gallery_cropped, None),  # gallery_cropped call (uses cached focal point)
+            (mock_thumbnail, None),  # thumbnail call (uses cached focal point)
         ]
 
         variants, focal_point = ImageOptimizer.process_uploaded_image(test_file, "test.jpg")
 
         # Verify all variants created
         self.assertIn("preview", variants)
-        self.assertIn("gallery_cropped", variants)
+        self.assertIn("thumbnail", variants)
         self.assertEqual(variants["preview"].name, "test_preview.jpg")
-        self.assertEqual(variants["gallery_cropped"].name, "test_gallery_cropped.jpg")
+        self.assertEqual(variants["thumbnail"].name, "test_thumbnail.jpg")
         self.assertEqual(focal_point, (0.5, 0.5))
 
         # Verify optimize was called for each size

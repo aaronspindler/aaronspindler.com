@@ -31,11 +31,11 @@ class Photo(models.Model):
         help_text="Status of background image processing",
     )
 
-    image_gallery_cropped = models.ImageField(
-        upload_to="photos/gallery_cropped/",
+    image_thumbnail = models.ImageField(
+        upload_to="photos/thumbnails/",
         blank=True,
         null=True,
-        verbose_name="Gallery Version (Smart Cropped)",
+        verbose_name="Thumbnail Version (Smart Cropped)",
     )
 
     image_preview = models.ImageField(
@@ -254,29 +254,29 @@ class Photo(models.Model):
             self.focal_point_x = focal_point[0]
             self.focal_point_y = focal_point[1]
 
-        if "gallery_cropped" in variants:
-            self.image_gallery_cropped.save(variants["gallery_cropped"].name, variants["gallery_cropped"], save=False)
+        if "thumbnail" in variants:
+            self.image_thumbnail.save(variants["thumbnail"].name, variants["thumbnail"], save=False)
 
         if "preview" in variants:
             self.image_preview.save(variants["preview"].name, variants["preview"], save=False)
 
-    def get_image_url(self, size="gallery_cropped"):
+    def get_image_url(self, size="thumbnail"):
         """
         Get the URL for a specific image size.
 
         Args:
-            size: One of 'preview', 'gallery_cropped', or 'original'
+            size: One of 'preview', 'thumbnail', or 'original'
 
         Returns:
             str: URL of the requested image size, or None if not available
         """
         size_field_map = {
             "preview": self.image_preview,
-            "gallery_cropped": self.image_gallery_cropped,
+            "thumbnail": self.image_thumbnail,
             "original": self.image,
         }
 
-        image_field = size_field_map.get(size, self.image_gallery_cropped)
+        image_field = size_field_map.get(size, self.image_thumbnail)
 
         try:
             if image_field:

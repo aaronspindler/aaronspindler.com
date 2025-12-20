@@ -83,13 +83,13 @@ class PhotoModelTestCase(TestCase):
             "full_exif": {"Make": "Canon", "Model": "EOS R5"},
         }
 
-        mock_gallery_cropped = Mock()
-        mock_gallery_cropped.name = "test_gallery_cropped.jpg"
+        mock_thumbnail = Mock()
+        mock_thumbnail.name = "test_thumbnail.jpg"
         mock_preview = Mock()
         mock_preview.name = "test_preview.jpg"
 
         mock_process.return_value = (
-            {"gallery_cropped": mock_gallery_cropped, "preview": mock_preview},
+            {"thumbnail": mock_thumbnail, "preview": mock_preview},
             (0.5, 0.5),  # focal point
         )
 
@@ -214,30 +214,30 @@ class PhotoModelTestCase(TestCase):
         photo = Photo()
         photo.image = Mock()
         photo.image.url = "http://example.com/original.jpg"
-        photo.image_gallery_cropped = Mock()
-        photo.image_gallery_cropped.url = "http://example.com/gallery_cropped.jpg"
+        photo.image_thumbnail = Mock()
+        photo.image_thumbnail.url = "http://example.com/thumbnail.jpg"
         photo.image_preview = Mock()
         photo.image_preview.url = "http://example.com/preview.jpg"
 
         # Test different sizes
         self.assertEqual(photo.get_image_url("preview"), "http://example.com/preview.jpg")
-        self.assertEqual(photo.get_image_url("gallery_cropped"), "http://example.com/gallery_cropped.jpg")
+        self.assertEqual(photo.get_image_url("thumbnail"), "http://example.com/thumbnail.jpg")
         self.assertEqual(photo.get_image_url("original"), "http://example.com/original.jpg")
 
         # Test fallback
-        self.assertEqual(photo.get_image_url("invalid"), "http://example.com/gallery_cropped.jpg")
+        self.assertEqual(photo.get_image_url("invalid"), "http://example.com/thumbnail.jpg")
 
     def test_get_image_url_missing_files(self):
         """Test get_image_url when files are missing."""
         photo = Photo()
 
         # No images at all
-        self.assertIsNone(photo.get_image_url("gallery_cropped"))
+        self.assertIsNone(photo.get_image_url("thumbnail"))
 
         # Only original exists
         photo.image = Mock()
         photo.image.url = "http://example.com/original.jpg"
-        self.assertEqual(photo.get_image_url("gallery_cropped"), "http://example.com/original.jpg")
+        self.assertEqual(photo.get_image_url("thumbnail"), "http://example.com/original.jpg")
 
     @patch("photos.models.ExifExtractor.extract_exif")
     def test_exif_extraction(self, mock_extract):

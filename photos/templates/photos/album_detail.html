@@ -437,8 +437,8 @@
         {% for photo in photos %}
         {
             id: {{ photo.id }},
-            url: "{{ photo.image_gallery_cropped|safe_image_url|default:photo.image.url }}",
-            thumbnailUrl: "{{ photo.image_gallery_cropped|safe_image_url|default:photo.image.url }}",
+            url: "{{ photo.image_thumbnail|safe_image_url|default:photo.image.url }}",
+            thumbnailUrl: "{{ photo.image_thumbnail|safe_image_url|default:photo.image.url }}",
             largeUrl: "{{ photo.image_preview|safe_image_url|default:photo.image.url }}",
             title: "{{ photo.title|escapejs }}",
             description: "{{ photo.description|escapejs }}",
