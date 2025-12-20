@@ -93,7 +93,7 @@ class AlbumDetailViewTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Public Album")
         self.assertEqual(response.context["album"], self.public_album)
-        self.assertEqual(len(response.context["photos"]), 2)
+        self.assertEqual(len(response.context["photos_data"]), 2)
 
     def test_public_album_authenticated_access(self):
         """Test authenticated users can access public albums."""
@@ -146,10 +146,10 @@ class AlbumDetailViewTestCase(TestCase):
 
         response = self.client.get(reverse("photos:album_detail", kwargs={"slug": "public-album"}))
 
-        photos = response.context["photos"]
+        photos_data = response.context["photos_data"]
         # Photos should be ordered newest first
-        self.assertEqual(photos[0], self.photo2)
-        self.assertEqual(photos[1], self.photo1)
+        self.assertEqual(photos_data[0]["photo"], self.photo2)
+        self.assertEqual(photos_data[1]["photo"], self.photo1)
 
     def test_download_permissions_context(self):
         """Test download permissions are passed to template."""
