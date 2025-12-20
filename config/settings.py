@@ -289,6 +289,20 @@ if not DEBUG:
     # Security Headers
     SECURE_SSL_REDIRECT = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+    # Trusted proxy IPs - only trust X-Forwarded-For/X-Real-IP from these IPs
+    # Add your reverse proxy/load balancer IPs here (private IPs are common)
+    # Default includes common private ranges that proxies typically use
+    TRUSTED_PROXY_IPS = env.list(
+        "TRUSTED_PROXY_IPS",
+        default=[
+            "127.0.0.1",
+            "::1",
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16",
+        ],
+    )
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 31536000  # 1 year
