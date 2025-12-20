@@ -10,15 +10,23 @@ register = template.Library()
 
 
 @register.simple_tag
-def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
+def responsive_image(photo, css_class="", alt_text="", loading="lazy", fetchpriority=""):
     """
     Generate a responsive image tag optimized for grid display.
 
     Uses the thumbnail (400x300) for fast loading.
 
+    Args:
+        photo: Photo model instance.
+        css_class: CSS class(es) to apply to the image.
+        alt_text: Alt text for the image.
+        loading: Loading strategy ('lazy' or 'eager').
+        fetchpriority: Fetch priority hint ('high', 'low', 'auto', or empty).
+
     Usage:
         {% load photo_tags %}
         {% responsive_image photo css_class="img-fluid" alt_text="My Photo" %}
+        {% responsive_image photo loading="eager" fetchpriority="high" %}
     """
     if not photo or not photo.image:
         return ""
@@ -44,12 +52,17 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
     if not default_src:
         return ""  # No valid image found
 
+    # Build optional attributes
+    fetchpriority_attr = f'fetchpriority="{escape(fetchpriority)}"' if fetchpriority else ""
+
     # Build a simple img tag - thumbnail is already optimized for grid display
     img_tag = f"""
     <img src="{escape(default_src)}"
          class="{css_class}"
          alt="{alt_text}"
          loading="{loading}"
+         decoding="async"
+         {fetchpriority_attr}
          width="400"
          height="300">
     """

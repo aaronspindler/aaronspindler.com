@@ -20,10 +20,26 @@ def album_detail(request, slug):
     else:
         album = get_object_or_404(PhotoAlbum, slug=slug, is_private=False)
 
-    album_photos = album.album_photos.select_related("photo").order_by(
-        "display_order",
-        "-photo__date_taken",
-        "-photo__created_at",
+    album_photos = (
+        album.album_photos.select_related("photo")
+        .only(
+            "is_featured",
+            "display_order",
+            "added_at",
+            "photo__id",
+            "photo__title",
+            "photo__image",
+            "photo__image_thumbnail",
+            "photo__image_preview",
+            "photo__original_filename",
+            "photo__date_taken",
+            "photo__created_at",
+        )
+        .order_by(
+            "display_order",
+            "-photo__date_taken",
+            "-photo__created_at",
+        )
     )
 
     photos_data = [
@@ -58,7 +74,6 @@ def album_detail(request, slug):
         {
             "album": album,
             "photos_data": photos_data,
-            "photos": [ap.photo for ap in album_photos],
             "allow_downloads": album.allow_downloads,
             "share_token": token if token else None,
             "page_og_title": f"{album.title} - Photo Album",
@@ -213,3 +228,57 @@ def photo_status_api(request, photo_id):
         )
     except Photo.DoesNotExist:
         return JsonResponse({"error": "Photo not found"}, status=404)
+
+
+@require_http_methods(["GET"])
+def photo_exif_api(request, slug, photo_id):
+    """
+    API endpoint to get EXIF data for a photo in an album.
+
+    Requires valid album access (public, staff, or share token).
+    Returns EXIF metadata for lightbox display.
+    """
+    token = request.GET.get("token")
+
+    if token:
+        album = get_object_or_404(PhotoAlbum, slug=slug, share_token=token, is_private=True)
+    elif request.user.is_authenticated and request.user.is_staff:
+        album = get_object_or_404(PhotoAlbum, slug=slug)
+    else:
+        album = get_object_or_404(PhotoAlbum, slug=slug, is_private=False)
+
+    photo = get_object_or_404(
+        Photo.objects.only(
+            "id",
+            "camera_make",
+            "camera_model",
+            "lens_model",
+            "focal_length",
+            "aperture",
+            "shutter_speed",
+            "iso",
+            "date_taken",
+        ),
+        id=photo_id,
+    )
+
+    if not album.photos.filter(id=photo_id).exists():
+        return JsonResponse({"error": "Photo not found in this album"}, status=404)
+
+    camera = f"{photo.camera_make} {photo.camera_model}".strip()
+    date_taken = photo.date_taken.strftime("%B %d, %Y") if photo.date_taken else ""
+
+    return JsonResponse(
+        {
+            "photo_id": photo.id,
+            "exif": {
+                "camera": camera,
+                "lens": photo.lens_model or "",
+                "focalLength": photo.focal_length or "",
+                "aperture": photo.aperture or "",
+                "shutterSpeed": photo.shutter_speed or "",
+                "iso": str(photo.iso) if photo.iso else "",
+                "dateTaken": date_taken,
+            },
+        }
+    )

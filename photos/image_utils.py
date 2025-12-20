@@ -441,7 +441,7 @@ class ImageOptimizer:
     # Quality settings for JPEG compression
     QUALITY_SETTINGS = {
         "preview": 65,  # Lower quality for fast loading
-        "thumbnail": 70,  # Good quality for thumbnail display
+        "thumbnail": 80,  # Good quality for thumbnail display
         "original": 100,  # No compression
     }
 

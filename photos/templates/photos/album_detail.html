@@ -4,454 +4,21 @@
 
 {% block title %}{{ album.title }} - Photo Album{% endblock title %}
 
-{% block css %}
-{{ block.super }}
-<style>
-    .album-header {
-        margin-bottom: 30px;
-        padding-bottom: 20px;
-        border-bottom: 1px solid #ddd;
-    }
-
-    .album-header-top {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 1ch;
-        margin: 0;
-    }
-
-    .album-title {
-        margin: 0;
-        margin-bottom: 10px;
-    }
-
-    .album-description {
-        color: #666;
-        margin: 0;
-    }
-
-    .album-meta {
-        color: #999;
-        font-size: 0.9em;
-        margin-top: 10px;
-    }
-
-    .download-all-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5ch;
-        padding: calc(var(--line-height) / 2 - var(--border-thickness)) calc(1ch - var(--border-thickness));
-        border: var(--border-thickness) solid var(--text-color);
-        background: var(--background-color);
-        color: var(--text-color);
-        font: inherit;
-        font-size: 0.8rem;
-        font-weight: var(--font-weight-medium);
-        text-transform: uppercase;
-        text-decoration: none;
-        cursor: pointer;
-        white-space: nowrap;
-        flex-shrink: 0;
-        margin: 0;
-        height: auto;
-        line-height: var(--line-height);
-    }
-
-    .download-all-button:hover {
-        background: var(--background-color-alt);
-    }
-
-    .download-all-button:active {
-        transform: translate(1px, 1px);
-    }
-
-    .download-all-button svg {
-        width: 1em;
-        height: 1em;
-        flex-shrink: 0;
-    }
-
-    .download-button {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        background: rgba(255, 255, 255, 0.9);
-        color: #333;
-        border: none;
-        border-radius: 20px;
-        padding: 6px 12px;
-        font-size: 0.75em;
-        cursor: pointer;
-        opacity: 0;
-        transition: opacity 0.3s, background 0.3s, transform 0.2s;
-        backdrop-filter: blur(10px);
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
-
-    .photo-item:hover .download-button {
-        opacity: 1;
-    }
-
-    .download-button:hover {
-        background: rgba(255, 255, 255, 1);
-        transform: scale(1.05);
-    }
-
-    .photos-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        grid-auto-rows: 200px;
-        grid-auto-flow: dense;
-        gap: 8px;
-        margin-top: 30px;
-        align-items: stretch;
-    }
-
-    @media (max-width: 1200px) {
-        .photos-grid {
-            grid-template-columns: repeat(3, 1fr);
-            grid-auto-rows: 180px;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .photos-grid {
-            grid-template-columns: repeat(2, 1fr);
-            grid-auto-rows: 150px;
-        }
-    }
-
-    @media (max-width: 480px) {
-        .photos-grid {
-            grid-template-columns: 1fr;
-            grid-auto-rows: auto;
-        }
-    }
-
-    .photo-item {
-        position: relative;
-        overflow: hidden;
-        border-radius: 4px;
-        background: #f0f0f0;
-        cursor: pointer;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        transition: transform 0.2s, box-shadow 0.2s;
-        background-image: linear-gradient(90deg, #f0f0f0 0%, #f8f8f8 50%, #f0f0f0 100%);
-        background-size: 200% 100%;
-        margin-top: 0 !important;
-    }
-
-    .photo-item.featured {
-        grid-column: span 2;
-        grid-row: span 2;
-    }
-
-    @media (max-width: 480px) {
-        .photo-item.featured {
-            grid-column: span 1;
-            grid-row: span 1;
-        }
-    }
-
-
-    .photo-item.loading {
-        animation: shimmer 1.5s ease-in-out infinite;
-    }
-
-    @keyframes shimmer {
-        0% { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
-    }
-
-    .photo-item:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-    }
-
-    .photo-item img,
-    .photo-grid-image {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-        transition: transform 0.3s;
-    }
-
-    .photo-item:hover img,
-    .photo-item:hover .photo-grid-image {
-        transform: scale(1.03);
-    }
-
-    .photo-title {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.4) 40%, transparent 100%);
-        color: white;
-        padding: 15px 12px 12px;
-        font-size: 0.85em;
-        opacity: 0;
-        transition: opacity 0.3s;
-        font-weight: 500;
-    }
-
-    .photo-item:hover .photo-title {
-        opacity: 1;
-    }
-
-    .back-link {
-        display: inline-block;
-        margin-bottom: 20px;
-        color: #666;
-        text-decoration: none;
-    }
-
-    .back-link:hover {
-        text-decoration: underline;
-    }
-
-    /* Lightbox styles */
-    .lightbox {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.9);
-        z-index: 1000;
-        cursor: pointer;
-    }
-
-    .lightbox-content {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        max-width: 90%;
-        max-height: 90%;
-    }
-
-    .lightbox-content img {
-        max-width: 100%;
-        max-height: 90vh;
-        display: block;
-        transition: opacity 0.3s ease;
-    }
-
-    .lightbox-caption {
-        color: white;
-        text-align: center;
-        padding: 10px;
-        font-size: 0.9em;
-    }
-
-    .lightbox-exif {
-        position: absolute;
-        bottom: 60px;
-        left: 20px;
-        color: white;
-        background: rgba(0, 0, 0, 0.7);
-        padding: 12px 16px;
-        border-radius: 8px;
-        font-size: 0.8em;
-        backdrop-filter: blur(10px);
-        max-width: 400px;
-    }
-
-    .exif-row {
-        display: flex;
-        gap: 15px;
-        margin-bottom: 4px;
-    }
-
-    .exif-row:last-child {
-        margin-bottom: 0;
-    }
-
-    .exif-item {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-
-    .exif-label {
-        opacity: 0.7;
-        font-size: 0.9em;
-    }
-
-    .exif-value {
-        font-weight: 500;
-    }
-
-    .lightbox-close {
-        position: absolute;
-        top: 20px;
-        right: 40px;
-        color: white;
-        font-size: 40px;
-        font-weight: bold;
-        cursor: pointer;
-    }
-
-    .lightbox-close:hover {
-        color: #ddd;
-    }
-
-    .lightbox-nav {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        color: white;
-        font-size: 30px;
-        font-weight: bold;
-        cursor: pointer;
-        padding: 10px;
-        user-select: none;
-    }
-
-    .lightbox-nav:hover {
-        background: rgba(255, 255, 255, 0.1);
-    }
-
-    .lightbox-prev {
-        left: 20px;
-    }
-
-    .lightbox-next {
-        right: 20px;
-    }
-
-    .lightbox-download {
-        position: absolute;
-        bottom: 20px;
-        right: 20px;
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        border: 1px solid white;
-        border-radius: 4px;
-        padding: 10px 20px;
-        cursor: pointer;
-        font-size: 14px;
-        transition: background 0.3s;
-    }
-
-    .lightbox-download:hover {
-        background: rgba(0, 0, 0, 0.9);
-    }
-
-    /* Touch swipe support */
-    .lightbox {
-        touch-action: pan-y pinch-zoom;
-    }
-
-    .lightbox-content {
-        touch-action: pan-y pinch-zoom;
-        will-change: transform;
-    }
-
-    /* Improve touch targets on mobile */
-    @media (max-width: 768px) {
-        .lightbox-nav {
-            font-size: 24px;
-            padding: 20px 15px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 4px;
-        }
-
-        .lightbox-prev {
-            left: 10px;
-        }
-
-        .lightbox-next {
-            right: 10px;
-        }
-
-        .lightbox-close {
-            top: 15px;
-            right: 15px;
-            font-size: 32px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 50%;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .lightbox-exif {
-            bottom: 80px;
-            left: 10px;
-            right: 10px;
-            max-width: none;
-            font-size: 0.75em;
-        }
-
-        .lightbox-download {
-            bottom: 15px;
-            right: 10px;
-            padding: 8px 16px;
-            font-size: 13px;
-        }
-    }
-
-    /* Swipe hint indicator for first-time users */
-    .swipe-hint {
-        position: absolute;
-        bottom: 50%;
-        left: 50%;
-        transform: translate(-50%, 50%);
-        color: rgba(255, 255, 255, 0.7);
-        font-size: 0.8em;
-        pointer-events: none;
-        opacity: 0;
-        transition: opacity 0.3s;
-    }
-
-    @media (pointer: coarse) {
-        .swipe-hint {
-            animation: fadeHint 3s ease-out forwards;
-            animation-delay: 1s;
-        }
-    }
-
-    @keyframes fadeHint {
-        0% { opacity: 0; }
-        20% { opacity: 1; }
-        80% { opacity: 1; }
-        100% { opacity: 0; }
-    }
-</style>
-{% endblock css %}
 
 {% block extra_js %}
 <script>
     let currentPhotoIndex = 0;
     const photos = [
-        {% for photo in photos %}
+        {% for item in photos_data %}
         {
-            id: {{ photo.id }},
-            url: "{{ photo.image_thumbnail|safe_image_url|default:photo.image.url }}",
-            thumbnailUrl: "{{ photo.image_thumbnail|safe_image_url|default:photo.image.url }}",
-            largeUrl: "{{ photo.image_preview|safe_image_url|default:photo.image.url }}",
-            title: "{{ photo.title|escapejs }}",
-            description: "{{ photo.description|escapejs }}",
-            originalFilename: "{{ photo.original_filename|escapejs|default:'photo.jpg' }}",
-            exif: {
-                camera: "{{ photo.camera_make|escapejs }} {{ photo.camera_model|escapejs }}".trim(),
-                lens: "{{ photo.lens_model|escapejs }}",
-                focalLength: "{{ photo.focal_length|escapejs }}",
-                aperture: "{{ photo.aperture|escapejs }}",
-                shutterSpeed: "{{ photo.shutter_speed|escapejs }}",
-                iso: "{{ photo.iso|default:'' }}",
-                dateTaken: "{{ photo.date_taken|date:'F j, Y'|default:'' }}"
-            },
+            id: {{ item.photo.id }},
+            url: "{{ item.photo.image_thumbnail|safe_image_url|default:item.photo.image.url }}",
+            thumbnailUrl: "{{ item.photo.image_thumbnail|safe_image_url|default:item.photo.image.url }}",
+            largeUrl: "{{ item.photo.image_preview|safe_image_url|default:item.photo.image.url }}",
+            title: "{{ item.photo.title|escapejs }}",
+            originalFilename: "{{ item.photo.original_filename|escapejs|default:'photo.jpg' }}",
+            exif: null,
+            exifLoaded: false,
             loaded: false,
             preloaded: false
         }{% if not forloop.last %},{% endif %}
@@ -460,6 +27,33 @@
     const albumSlug = "{{ album.slug }}";
     const shareToken = "{{ share_token|default:'' }}";
     const tokenParam = shareToken ? `?token=${shareToken}` : '';
+
+    async function fetchExifData(photoIndex) {
+        const photo = photos[photoIndex];
+        if (photo.exifLoaded) return photo.exif;
+
+        try {
+            const response = await fetch(`/photos/album/${albumSlug}/photo/${photo.id}/exif/${tokenParam}`);
+            if (response.ok) {
+                const data = await response.json();
+                photo.exif = data.exif;
+                photo.exifLoaded = true;
+                return photo.exif;
+            }
+        } catch (error) {
+            console.error('Failed to load EXIF data:', error);
+        }
+        photo.exifLoaded = true;
+        photo.exif = {};
+        return photo.exif;
+    }
+
+    function updateExifDisplay(exif) {
+        const exifContainer = document.getElementById('lightbox-exif-container');
+        if (exifContainer) {
+            exifContainer.innerHTML = formatExifData(exif || {});
+        }
+    }
 
     // Preload cache for lightbox images
     const imageCache = new Map();
@@ -592,12 +186,11 @@
         return '';
     }
 
-    function openLightbox(index) {
+    async function openLightbox(index) {
         currentPhotoIndex = index;
         const lightbox = document.getElementById('lightbox');
         const img = document.getElementById('lightbox-img');
         const caption = document.getElementById('lightbox-caption');
-        const exifContainer = document.getElementById('lightbox-exif-container');
 
         // Use cached image if available
         const photo = photos[index];
@@ -623,9 +216,13 @@
 
         caption.textContent = photo.title || '';
 
-        // Display EXIF data
-        if (exifContainer) {
-            exifContainer.innerHTML = formatExifData(photo.exif);
+        // Fetch and display EXIF data asynchronously
+        updateExifDisplay(photo.exif);
+        if (!photo.exifLoaded) {
+            const exif = await fetchExifData(index);
+            if (currentPhotoIndex === index) {
+                updateExifDisplay(exif);
+            }
         }
 
         // Preload adjacent images
@@ -652,7 +249,7 @@
         document.body.style.overflow = 'auto';
     }
 
-    function navigatePhoto(direction) {
+    async function navigatePhoto(direction) {
         currentPhotoIndex += direction;
 
         if (currentPhotoIndex < 0) {
@@ -663,14 +260,19 @@
 
         const img = document.getElementById('lightbox-img');
         const caption = document.getElementById('lightbox-caption');
-        const exifContainer = document.getElementById('lightbox-exif-container');
+        const photo = photos[currentPhotoIndex];
+        const navigatedIndex = currentPhotoIndex;
 
-        img.src = photos[currentPhotoIndex].largeUrl || photos[currentPhotoIndex].url;
-        caption.textContent = photos[currentPhotoIndex].title || '';
+        img.src = photo.largeUrl || photo.url;
+        caption.textContent = photo.title || '';
 
-        // Update EXIF data
-        if (exifContainer) {
-            exifContainer.innerHTML = formatExifData(photos[currentPhotoIndex].exif);
+        // Fetch and display EXIF data asynchronously
+        updateExifDisplay(photo.exif);
+        if (!photo.exifLoaded) {
+            const exif = await fetchExifData(navigatedIndex);
+            if (currentPhotoIndex === navigatedIndex) {
+                updateExifDisplay(exif);
+            }
         }
     }
 
@@ -872,7 +474,7 @@
             <p class="album-description">{{ album.description }}</p>
         {% endif %}
         <div class="album-meta">
-            {{ photos|length }} photo{{ photos|length|pluralize }} ·
+            {{ photos_data|length }} photo{{ photos_data|length|pluralize }} ·
             Created {{ album.created_at|date:"F j, Y" }}
         </div>
     </div>
@@ -881,19 +483,13 @@
         <div class="photos-grid">
             {% for item in photos_data %}
                 <div class="photo-item{% if item.is_featured %} featured{% endif %} loading" onclick="openLightbox({{ forloop.counter0 }})" data-photo-index="{{ forloop.counter0 }}">
-                    {% responsive_image item.photo css_class="photo-grid-image" alt_text=item.photo.title|default:item.photo.original_filename loading="lazy" %}
+                    {% if forloop.counter <= 4 %}
+                        {% responsive_image item.photo css_class="photo-grid-image" alt_text=item.photo.title|default:item.photo.original_filename loading="eager" fetchpriority="high" %}
+                    {% else %}
+                        {% responsive_image item.photo css_class="photo-grid-image" alt_text=item.photo.title|default:item.photo.original_filename loading="lazy" %}
+                    {% endif %}
                     {% if item.photo.title %}
                         <div class="photo-title">{{ item.photo.title }}</div>
-                    {% endif %}
-                    {% if allow_downloads %}
-                        <button class="download-button" onclick="event.stopPropagation(); downloadPhoto({{ item.photo.id }})" title="Download photo">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="7 10 12 15 17 10"></polyline>
-                                <line x1="12" y1="15" x2="12" y2="3"></line>
-                            </svg>
-                            <span>Download</span>
-                        </button>
                     {% endif %}
                 </div>
             {% endfor %}
