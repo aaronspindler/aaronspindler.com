@@ -731,6 +731,30 @@ class PhotoAlbumAdmin(admin.ModelAdmin):
     inlines = [AlbumPhotoInline]
     actions = ["regenerate_zip"]
 
+    def save_related(self, request, form, formsets, change):
+        """
+        Trigger ZIP regeneration when album photos are modified.
+
+        Captures content hash before and after saving inline formsets to detect
+        when photos are added, removed, or reordered.
+        """
+        album = form.instance
+
+        hash_before = album.compute_zip_content_hash() if change else ""
+
+        super().save_related(request, form, formsets, change)
+
+        album.refresh_from_db()
+        hash_after = album.compute_zip_content_hash()
+
+        if hash_before != hash_after and album.allow_downloads and album.photos.exists():
+            from photos.tasks import schedule_zip_generation
+
+            album.zip_generation_status = "pending"
+            album.save(update_fields=["zip_generation_status"])
+            schedule_zip_generation.delay(album.id)
+            messages.info(request, f"ZIP file regeneration scheduled for album '{album.title}'.")
+
     fieldsets = (
         ("Basic Information", {"fields": ("title", "slug", "description")}),
         (
