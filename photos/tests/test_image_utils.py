@@ -18,6 +18,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 from django.core.files.base import ContentFile
 from django.test import TestCase
+from django.utils import timezone
 from PIL import Image
 
 from photos.image_utils import (
@@ -192,7 +193,8 @@ class ExifExtractorTestCase(TestCase):
         """Test EXIF datetime parsing."""
         # Valid EXIF datetime
         dt = ExifExtractor._parse_datetime("2024:03:15 14:30:00")
-        self.assertEqual(dt, datetime(2024, 3, 15, 14, 30, 0))
+        expected = timezone.make_aware(datetime(2024, 3, 15, 14, 30, 0))
+        self.assertEqual(dt, expected)
 
         # Invalid format
         dt = ExifExtractor._parse_datetime("2024-03-15 14:30:00")

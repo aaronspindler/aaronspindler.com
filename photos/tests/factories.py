@@ -9,6 +9,7 @@ from datetime import datetime
 from io import BytesIO
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 from PIL import Image
 
 
@@ -57,7 +58,7 @@ class PhotoFactory:
     ):
         """Create a photo with EXIF data."""
         if date_taken is None:
-            date_taken = datetime(2024, 1, 1, 12, 0, 0)
+            date_taken = timezone.make_aware(datetime(2024, 1, 1, 12, 0, 0))
 
         return PhotoFactory.create_photo(
             camera_make=camera_make,

@@ -17,6 +17,7 @@ from unittest.mock import Mock, patch
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.utils import timezone
 from PIL import Image
 
 from photos.models import Photo, PhotoAlbum
@@ -77,7 +78,7 @@ class PhotoModelTestCase(TestCase):
             "aperture": "f/2.8",
             "shutter_speed": "1/250",
             "focal_length": "50mm",
-            "date_taken": datetime(2024, 1, 1, 12, 0, 0),
+            "date_taken": timezone.make_aware(datetime(2024, 1, 1, 12, 0, 0)),
             "full_exif": {"Make": "Canon", "Model": "EOS R5"},
         }
 
@@ -236,6 +237,7 @@ class PhotoModelTestCase(TestCase):
     @patch("photos.models.ExifExtractor.extract_exif")
     def test_exif_extraction(self, mock_extract):
         """Test EXIF data extraction and storage."""
+        expected_date = timezone.make_aware(datetime(2024, 3, 15, 14, 30, 0))
         mock_extract.return_value = {
             "camera_make": "Nikon",
             "camera_model": "D850",
@@ -244,7 +246,7 @@ class PhotoModelTestCase(TestCase):
             "aperture": "f/4.0",
             "shutter_speed": "1/500",
             "focal_length": "35mm",
-            "date_taken": datetime(2024, 3, 15, 14, 30, 0),
+            "date_taken": expected_date,
             "gps_latitude": Decimal("40.7128"),
             "gps_longitude": Decimal("-74.0060"),
             "gps_altitude": Decimal("10.5"),
@@ -262,7 +264,7 @@ class PhotoModelTestCase(TestCase):
         self.assertEqual(photo.aperture, "f/4.0")
         self.assertEqual(photo.shutter_speed, "1/500")
         self.assertEqual(photo.focal_length, "35mm")
-        self.assertEqual(photo.date_taken, datetime(2024, 3, 15, 14, 30, 0))
+        self.assertEqual(photo.date_taken, expected_date)
         self.assertEqual(photo.gps_latitude, Decimal("40.7128"))
         self.assertEqual(photo.gps_longitude, Decimal("-74.0060"))
         self.assertEqual(photo.gps_altitude, Decimal("10.5"))

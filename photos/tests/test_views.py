@@ -13,6 +13,7 @@ from unittest.mock import Mock, patch
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image
 
 from accounts.tests.factories import UserFactory
@@ -136,12 +137,12 @@ class AlbumDetailViewTestCase(TestCase):
 
     def test_photo_ordering_by_date_taken(self):
         """Test photos are ordered by date_taken and created_at."""
-        from datetime import datetime, timedelta
+        from datetime import timedelta
 
         # Update photos with different dates
-        self.photo1.date_taken = datetime.now() - timedelta(days=2)
+        self.photo1.date_taken = timezone.now() - timedelta(days=2)
         self.photo1.save()
-        self.photo2.date_taken = datetime.now() - timedelta(days=1)
+        self.photo2.date_taken = timezone.now() - timedelta(days=1)
         self.photo2.save()
 
         response = self.client.get(reverse("photos:album_detail", kwargs={"slug": "public-album"}))

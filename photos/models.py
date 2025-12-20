@@ -253,7 +253,9 @@ class Photo(models.Model):
             self.gps_altitude = exif_data.get("gps_altitude")
 
         self.image.seek(0)  # Reset file pointer before processing
-        variants, focal_point = ImageOptimizer.process_uploaded_image(self.image, self.original_filename)
+        variants, focal_point, saliency_map_bytes = ImageOptimizer.process_uploaded_image(
+            self.image, self.original_filename
+        )
 
         if focal_point:
             self.focal_point_x = focal_point[0]
@@ -265,9 +267,7 @@ class Photo(models.Model):
         if "preview" in variants:
             self.image_preview.save(variants["preview"].name, variants["preview"], save=False)
 
-        # Compute and save saliency map for debugging
-        self.image.seek(0)
-        saliency_map_bytes = ImageOptimizer.compute_saliency_map(self.image)
+        # Save saliency map for debugging (already computed during focal point calculation)
         if saliency_map_bytes:
             import logging
 
