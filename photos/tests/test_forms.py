@@ -196,12 +196,12 @@ class PhotoBulkUploadFormTestCase(TestCase):
         # One photo should be created
         self.assertEqual(len(result["created"]), 1)
 
-        # Verify photo was created with complete status
+        # Verify photo was created with pending status
         photo = result["created"][0]
         self.assertIsInstance(photo, Photo)
         self.assertEqual(photo.file_hash, "hash123")
         self.assertEqual(photo.perceptual_hash, "phash456")
-        self.assertEqual(photo.processing_status, "complete")
+        self.assertEqual(photo.processing_status, "pending")
 
     @patch("photos.tasks.process_photo_async")
     @patch("photos.forms.DuplicateDetector.find_duplicates")
