@@ -45,6 +45,14 @@ class Photo(models.Model):
         verbose_name="Preview Version (Full Size, Highly Compressed)",
     )
 
+    saliency_map = models.ImageField(
+        upload_to="photos/saliency/",
+        blank=True,
+        null=True,
+        verbose_name="Saliency Map (Debug Visualization)",
+        help_text="Visualization of saliency detection algorithm for debugging smart crop",
+    )
+
     original_filename = models.CharField(max_length=255, blank=True)
     file_size = models.PositiveIntegerField(null=True, blank=True, help_text="Original file size in bytes")
     width = models.PositiveIntegerField(null=True, blank=True, help_text="Original image width")
@@ -259,6 +267,15 @@ class Photo(models.Model):
 
         if "preview" in variants:
             self.image_preview.save(variants["preview"].name, variants["preview"], save=False)
+
+        # Compute and save saliency map for debugging
+        self.image.seek(0)
+        saliency_map_bytes = ImageOptimizer.compute_saliency_map(self.image)
+        if saliency_map_bytes:
+            from django.core.files.base import ContentFile
+
+            saliency_filename = f"{os.path.splitext(self.original_filename)[0]}_saliency.png"
+            self.saliency_map.save(saliency_filename, ContentFile(saliency_map_bytes), save=False)
 
     def get_image_url(self, size="thumbnail"):
         """

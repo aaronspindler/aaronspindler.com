@@ -96,6 +96,7 @@ class PhotoAdmin(admin.ModelAdmin):
     readonly_fields = (
         "image_preview",
         "all_versions_preview",
+        "saliency_map_preview",
         "original_filename",
         "file_size_display",
         "dimensions_display",
@@ -145,7 +146,7 @@ class PhotoAdmin(admin.ModelAdmin):
         (
             "Image Versions",
             {
-                "fields": ("all_versions_preview",),
+                "fields": ("all_versions_preview", "saliency_map_preview"),
                 "classes": ("collapse",),
             },
         ),
@@ -283,6 +284,33 @@ class PhotoAdmin(admin.ModelAdmin):
         except (ValueError, AttributeError):
             return "No image"
         return "No image"
+
+    @admin.display(description="Saliency Map (Debug)")
+    def saliency_map_preview(self, obj):
+        """Display the saliency map for debugging smart crop."""
+        if not obj.saliency_map:
+            return format_html(
+                '<div style="background: #f9f9f9; padding: 10px; border-radius: 5px; color: #666;">'
+                "Saliency map not generated. This visualization shows which parts of the image the "
+                "smart crop algorithm considers most important for focal point detection."
+                "</div>"
+            )
+
+        try:
+            return format_html(
+                '<div style="background: #f9f9f9; padding: 10px; border-radius: 5px;">'
+                "<strong>Saliency Detection Visualization</strong><br>"
+                "<small>Brighter areas indicate regions the algorithm considers more important. "
+                "The focal point is calculated as the center of mass of these bright regions.</small><br><br>"
+                '<img src="{}" style="max-width: 400px; border: 2px solid #333; padding: 5px; background: white;" /><br>'
+                '<small style="color: #666;">Focal Point: ({:.3f}, {:.3f})</small>'
+                "</div>",
+                obj.saliency_map.url,
+                obj.focal_point_x if obj.focal_point_x else 0.5,
+                obj.focal_point_y if obj.focal_point_y else 0.5,
+            )
+        except (ValueError, AttributeError):
+            return "Saliency map file not accessible"
 
     @admin.display(description="All Image Versions")
     def all_versions_preview(self, obj):

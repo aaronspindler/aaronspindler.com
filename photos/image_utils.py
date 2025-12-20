@@ -284,20 +284,30 @@ class SmartCrop:
     """
 
     @staticmethod
-    def find_focal_point(img):
+    def find_focal_point(img, return_saliency_map=False):
         """
         Find the focal point of an image using various techniques.
 
+        Args:
+            img: PIL Image object
+            return_saliency_map: If True, returns (focal_point, saliency_map_bytes)
+
         Returns:
-            tuple: (x, y) coordinates of the focal point as percentages (0-1)
+            tuple: If return_saliency_map=True: ((x, y), bytes or None)
+                   If return_saliency_map=False: (x, y)
         """
         if img.mode != "RGB":
             img = img.convert("RGB")
 
         # Try saliency detection first (most reliable for subject detection)
-        saliency_point = SmartCrop._saliency_focal_point(img)
-        if saliency_point is not None:
-            return saliency_point
+        if return_saliency_map:
+            saliency_point, saliency_map = SmartCrop._saliency_focal_point(img, return_map=True)
+            if saliency_point is not None:
+                return (saliency_point, saliency_map)
+        else:
+            saliency_point = SmartCrop._saliency_focal_point(img)
+            if saliency_point is not None:
+                return saliency_point
 
         # Fall back to entropy + edge detection if saliency fails
         edge_point = SmartCrop._edge_detection_focal_point(img)
@@ -307,17 +317,34 @@ class SmartCrop:
         x = edge_point[0] * 0.3 + entropy_point[0] * 0.7
         y = edge_point[1] * 0.3 + entropy_point[1] * 0.7
 
-        return (x, y)
+        focal_point = (x, y)
+
+        if return_saliency_map:
+            return (focal_point, None)  # No saliency map available for entropy/edge fallback
+
+        return focal_point
 
     @staticmethod
-    def _saliency_focal_point(img):
+    def _saliency_focal_point(img, return_map=False):
         """
         Find focal point using saliency detection (human attention modeling).
+
+        Args:
+            img: PIL Image object
+            return_map: If True, returns (focal_point, saliency_map_bytes), else just focal_point
+
+        Returns:
+            tuple or None: If return_map=True: ((x, y), bytes) or (None, None)
+                          If return_map=False: (x, y) or None
         """
         try:
             import cv2
         except ImportError:
-            return None
+            return (None, None) if return_map else None
+
+        # Check if saliency module is available (requires opencv-contrib-python)
+        if not hasattr(cv2, "saliency"):
+            return (None, None) if return_map else None
 
         # Convert PIL to OpenCV format
         img_array = np.array(img)
@@ -336,7 +363,7 @@ class SmartCrop:
             success, saliency_map = saliency.computeSaliency(img_cv)
 
             if not success:
-                return None
+                return (None, None) if return_map else None
 
         # Find center of mass of saliency map
         saliency_map = (saliency_map * 255).astype(np.uint8)
@@ -350,13 +377,24 @@ class SmartCrop:
 
         total_weight = np.sum(saliency_map)
         if total_weight == 0:
-            return (0.5, 0.5)
+            focal_point = (0.5, 0.5)
+            if return_map:
+                return (focal_point, None)
+            return focal_point
 
         y_coords, x_coords = np.ogrid[:height, :width]
         x_center = np.sum(x_coords * saliency_map) / total_weight
         y_center = np.sum(y_coords * saliency_map) / total_weight
 
-        return (x_center / width, y_center / height)
+        focal_point = (x_center / width, y_center / height)
+
+        if return_map:
+            # Encode saliency map as PNG for storage
+            success, buffer = cv2.imencode(".png", saliency_map)
+            saliency_map_bytes = buffer.tobytes() if success else None
+            return (focal_point, saliency_map_bytes)
+
+        return focal_point
 
     @staticmethod
     def _edge_detection_focal_point(img):
@@ -626,6 +664,30 @@ class ImageOptimizer:
             variants[size_name] = optimized
 
         return (variants, focal_point)
+
+    @classmethod
+    def compute_saliency_map(cls, image_file):
+        """
+        Compute and return the saliency map for debugging/visualization.
+
+        Args:
+            image_file: Django ImageField file or file-like object
+
+        Returns:
+            bytes or None: PNG-encoded saliency map bytes, or None if computation fails
+        """
+        try:
+            image_file.seek(0)
+            img = Image.open(image_file)
+
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+
+            _, saliency_map_bytes = SmartCrop.find_focal_point(img, return_saliency_map=True)
+            return saliency_map_bytes
+        except Exception as e:
+            print(f"Error computing saliency map: {e}")
+            return None
 
 
 class DuplicateDetector:
