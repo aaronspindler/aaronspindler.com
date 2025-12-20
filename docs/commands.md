@@ -9,6 +9,7 @@ Comprehensive reference for all Django management commands in the project.
 | `rebuild_knowledge_graph` | Blog | Rebuild knowledge graph cache |
 | `generate_knowledge_graph_screenshot` | Blog | Generate graph screenshots |
 | `create_blog_post` | Blog | Create new blog post template |
+| `reprocess_photos` | Photos | Reprocess photos locally (no Celery) |
 | `rebuild_search_index` | Search | Rebuild full-text search index |
 | `clear_cache` | Cache | Clear all Redis caches |
 | `build_css` | Static | Build and optimize CSS |
@@ -119,6 +120,61 @@ python manage.py generate_knowledge_graph_screenshot \
 # Transparent background
 python manage.py generate_knowledge_graph_screenshot --transparent
 ```
+
+---
+
+## Photos Commands
+
+### reprocess_photos
+
+Reprocess photos locally without using Celery background tasks.
+
+**Usage**:
+```bash
+python manage.py reprocess_photos
+```
+
+**Options**:
+- `--force`: Reprocess all photos, even those already marked as complete
+- `--status STATUS`: Only process photos with this status (pending/processing/complete/failed)
+- `--ids IDS`: Comma-separated list of photo IDs to process
+- `--limit N`: Maximum number of photos to process
+
+**Examples**:
+```bash
+# Reprocess all photos that are not already complete
+python manage.py reprocess_photos
+
+# Force reprocess ALL photos
+python manage.py reprocess_photos --force
+
+# Reprocess only photos with "failed" status
+python manage.py reprocess_photos --status failed
+
+# Reprocess specific photos
+python manage.py reprocess_photos --ids 1,2,3
+
+# Reprocess first 10 pending photos
+python manage.py reprocess_photos --status pending --limit 10
+```
+
+**What It Does**:
+1. Extracts EXIF metadata (camera, lens, GPS, etc.)
+2. Computes file and perceptual hashes
+3. Detects focal points using smart cropping
+4. Creates optimized versions (preview, thumbnail)
+5. Updates processing status
+
+**When to Use**:
+- After manually uploading photos
+- To regenerate thumbnails after code changes
+- To fix failed photo processing
+- Local development without Celery running
+
+**Performance**:
+- Processes synchronously (one at a time)
+- ~1-3 seconds per photo
+- Use `--limit` for large batches
 
 ---
 
