@@ -6,13 +6,6 @@ from django_celery_beat.models import CrontabSchedule, PeriodicTask
 # Define all periodic tasks here - just add to the list!
 # Format: (name, task_path, cron_schedule, description)
 PERIODIC_TASKS = [
-    # Test tasks
-    (
-        "Test Celery Beat (every minute)",
-        "utils.tasks.test_celery_beat",
-        {"minute": "*", "hour": "*"},
-        "Test task to verify Celery Beat is working - runs every minute",
-    ),
     # IP geolocation
     (
         "Geolocate missing IP addresses",

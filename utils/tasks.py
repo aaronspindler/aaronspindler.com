@@ -92,19 +92,6 @@ def send_text_message(self, text_message_pk):
     return True
 
 
-@shared_task
-def test_celery_beat():
-    """
-    Simple test task to verify Celery Beat is working.
-    Scheduled to run every minute for testing purposes.
-    """
-    logger.info("=" * 50)
-    logger.info("TEST CELERY BEAT TASK EXECUTED SUCCESSFULLY")
-    logger.info(f"Current time: {timezone.now()}")
-    logger.info("=" * 50)
-    return "Test task completed"
-
-
 @shared_task(
     bind=True,
     autoretry_for=(Exception,),
