@@ -112,6 +112,16 @@ SECURE_HSTS_SECONDS = 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_HSTS_PRELOAD = False
 
+# Trusted proxy IPs for testing
+# Include localhost and common private ranges for test environments
+TRUSTED_PROXY_IPS = [
+    "127.0.0.1",
+    "::1",
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+]
+
 # Allow all hosts for testing
 ALLOWED_HOSTS = ["*"]
 CSRF_TRUSTED_ORIGINS = [
