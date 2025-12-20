@@ -117,7 +117,7 @@ services:
       context: ..
       dockerfile: deployment/Dockerfile.multistage
       target: runtime-full
-    command: celery -A config worker -l info --concurrency=2 -Q default,notifications,heavy
+    command: celery -A config worker -l info --concurrency=2 -Q default,notifications,heavy --events
     volumes:
       - ..:/code
     environment:
@@ -172,6 +172,7 @@ services:
       celery -A config flower
       --port=5555
       --max_tasks=50000
+      --persistent
     ports:
       - "5556:5555"  # Use different port to avoid conflicts
     environment:

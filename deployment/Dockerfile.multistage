@@ -188,7 +188,8 @@ ENTRYPOINT ["/docker-entrypoint-celery.sh"]
 
 # Run Celery worker only (Beat runs in separate container)
 # Consumes all queues: default, notifications, and heavy tasks
-CMD ["celery", "--app", "config.celery", "worker", "--loglevel", "info", "--concurrency", "6", "-Q", "default,notifications,heavy"]
+# --events: Enable event monitoring for Flower (required to see pending tasks)
+CMD ["celery", "--app", "config.celery", "worker", "--loglevel", "info", "--concurrency", "6", "-Q", "default,notifications,heavy", "--events"]
 
 # =============================================================================
 # Stage 6: Celery Beat Scheduler (separate from Worker)
@@ -216,7 +217,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://127.0.0.1:80/healthcheck || exit 1
 
 # Flower monitoring dashboard (queries Redis for task data)
-CMD ["celery", "--app", "config.celery", "flower", "--port=80"]
+# --persistent: Maintain task history across restarts
+# Note: Pending tasks require workers to send events (--events flag)
+CMD ["celery", "--app", "config.celery", "flower", "--port=80", "--persistent"]
 
 # =============================================================================
 # Stage 9: Unified Celery (Worker + Beat combined) - DEPRECATED
@@ -243,7 +246,7 @@ ENTRYPOINT ["/docker-entrypoint-celery.sh"]
 # Run Celery worker with Beat scheduler included (-B flag)
 # Note: Using prefork pool (default) because -B doesn't work with gevent
 # Adjust concurrency based on your needs (default is number of CPUs)
-CMD ["celery", "--app", "config.celery", "worker", "--beat", "--loglevel", "info", "--concurrency", "4", "-Q", "default,notifications,heavy", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler"]
+CMD ["celery", "--app", "config.celery", "worker", "--beat", "--loglevel", "info", "--concurrency", "4", "-Q", "default,notifications,heavy", "--scheduler", "django_celery_beat.schedulers:DatabaseScheduler", "--events"]
 
 # =============================================================================
 # Stage 10: Test Image (skips JS build)
