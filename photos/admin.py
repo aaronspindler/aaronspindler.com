@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib import admin, messages
+from django.db.models import Count
 from django.urls import path, reverse
 from django.utils.html import format_html
 
@@ -8,6 +9,62 @@ from .forms import PhotoAlbumForm
 from .models import AlbumPhoto, Photo, PhotoAlbum
 
 logger = logging.getLogger(__name__)
+
+
+class DuplicateFilter(admin.SimpleListFilter):
+    """Filter photos by duplicate status matching the Duplicates column display."""
+
+    title = "duplicates"
+    parameter_name = "duplicates"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("exact", "⚠️ Exact duplicates"),
+            ("similar", "≈ Similar only"),
+            ("unique", "✓ Unique"),
+        )
+
+    def _get_exact_duplicate_ids(self, queryset):
+        """Get IDs of photos with exact file_hash duplicates."""
+        duplicate_hashes = (
+            Photo.objects.exclude(file_hash="")
+            .values("file_hash")
+            .annotate(count=Count("id"))
+            .filter(count__gt=1)
+            .values_list("file_hash", flat=True)
+        )
+        return set(queryset.filter(file_hash__in=list(duplicate_hashes)).values_list("id", flat=True))
+
+    def _get_similar_only_ids(self, queryset, exact_duplicate_ids):
+        """Get IDs of photos with similar images but no exact duplicates."""
+        similar_ids = set()
+        candidates = (
+            queryset.exclude(id__in=exact_duplicate_ids)
+            .exclude(perceptual_hash="")
+            .exclude(perceptual_hash__isnull=True)
+        )
+        for photo in candidates.iterator():
+            if photo.get_similar_images(threshold=5):
+                similar_ids.add(photo.id)
+        return similar_ids
+
+    def queryset(self, request, queryset):
+        if not self.value():
+            return queryset
+
+        exact_duplicate_ids = self._get_exact_duplicate_ids(queryset)
+
+        if self.value() == "exact":
+            return queryset.filter(id__in=exact_duplicate_ids)
+
+        similar_only_ids = self._get_similar_only_ids(queryset, exact_duplicate_ids)
+
+        if self.value() == "similar":
+            return queryset.filter(id__in=similar_only_ids)
+
+        elif self.value() == "unique":
+            exclude_ids = exact_duplicate_ids | similar_only_ids
+            return queryset.exclude(id__in=exclude_ids)
 
 
 @admin.register(Photo)
@@ -22,7 +79,7 @@ class PhotoAdmin(admin.ModelAdmin):
         "has_duplicates",
         "created_at",
     )
-    list_filter = ("processing_status", "created_at", "updated_at", "camera_make", "camera_model")
+    list_filter = ("processing_status", DuplicateFilter, "created_at", "updated_at", "camera_make", "camera_model")
     search_fields = (
         "title",
         "description",
@@ -187,17 +244,17 @@ class PhotoAdmin(admin.ModelAdmin):
         try:
             if obj.image_gallery_cropped:
                 return format_html(
-                    '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
+                    '<img src="{}" style="max-width: 150px; max-height: 150px;" loading="lazy" />',
                     obj.image_gallery_cropped.url,
                 )
             elif obj.image_optimized:
                 return format_html(
-                    '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
+                    '<img src="{}" style="max-width: 150px; max-height: 150px;" loading="lazy" />',
                     obj.image_optimized.url,
                 )
             elif obj.image:
                 return format_html(
-                    '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
+                    '<img src="{}" style="max-width: 150px; max-height: 150px;" loading="lazy" />',
                     obj.image.url,
                 )
         except (ValueError, AttributeError):

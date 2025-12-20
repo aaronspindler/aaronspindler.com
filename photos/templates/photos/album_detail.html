@@ -450,7 +450,7 @@
                 aperture: "{{ photo.aperture|escapejs }}",
                 shutterSpeed: "{{ photo.shutter_speed|escapejs }}",
                 iso: "{{ photo.iso|default:'' }}",
-                dateTaken: "{{ photo.date_taken|date:'F j, Y g:i A'|default:'' }}"
+                dateTaken: "{{ photo.date_taken|date:'F j, Y'|default:'' }}"
             },
             loaded: false,
             preloaded: false

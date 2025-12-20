@@ -9,7 +9,7 @@ class PublicMediaStorage(S3Boto3Storage):
     location = "public/media"
     default_acl = "public-read"
     file_overwrite = True
-    querystring_auth = False  # Don't add authentication to URLs for public media
+    querystring_auth = False
 
     def _save(self, name, content):
         """
