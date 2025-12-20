@@ -799,6 +799,7 @@ numpy==2.3.5 \
     # via
     #   -r requirements/base.in
     #   imagehash
+    #   opencv-python-headless
     #   pywavelets
     #   questdb
     #   scipy
@@ -806,6 +807,15 @@ openai==2.14.0 \
     --hash=sha256:419357bedde9402d23bf8f2ee372fca1985a73348debba94bddff06f19459952 \
     --hash=sha256:7ea40aca4ffc4c4a776e77679021b47eec1160e341f42ae086ba949c9dcc9183 \
     --hash=sha256:7ea40aca4ffc4c4a776e77679021b47eec1160e341f42ae086ba949c9dcc9183
+    # via -r requirements/base.in
+opencv-python-headless==4.10.0.84 \
+    --hash=sha256:377d08a7e48a1405b5e84afcbe4798464ce7ee17081c1c23619c8b398ff18295 \
+    --hash=sha256:46071015ff9ab40fccd8a163da0ee14ce9846349f06c6c8c0f2870856ffa45db \
+    --hash=sha256:5ae454ebac0eb0a0b932e3406370aaf4212e6a3fdb5038cc86c7aea15a6851da \
+    --hash=sha256:9092404b65458ed87ce932f613ffbb1106ed2c843577501e5768912360fc50ec \
+    --hash=sha256:a4f4bcb07d8f8a7704d9c8564c224c8b064c63f430e95b61ac0bffaa374d330e \
+    --hash=sha256:afcf28bd1209dd58810d33defb622b325d3cbe49dcd7a43a902982c33e5fad05 \
+    --hash=sha256:f2017c6101d7c2ef8d7bc3b414c37ff7f54d64413a1847d89970b6b7069b4e1a
     # via -r requirements/base.in
 packaging==25.0 \
     --hash=sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484 \

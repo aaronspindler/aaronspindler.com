@@ -294,6 +294,12 @@ class SmartCrop:
         if img.mode != "RGB":
             img = img.convert("RGB")
 
+        # Try saliency detection first (most reliable for subject detection)
+        saliency_point = SmartCrop._saliency_focal_point(img)
+        if saliency_point is not None:
+            return saliency_point
+
+        # Fall back to entropy + edge detection if saliency fails
         edge_point = SmartCrop._edge_detection_focal_point(img)
         entropy_point = SmartCrop._entropy_focal_point(img)
 
@@ -302,6 +308,44 @@ class SmartCrop:
         y = edge_point[1] * 0.3 + entropy_point[1] * 0.7
 
         return (x, y)
+
+    @staticmethod
+    def _saliency_focal_point(img):
+        """
+        Find focal point using saliency detection (human attention modeling).
+        """
+        try:
+            import cv2
+        except ImportError:
+            return None
+
+        # Convert PIL to OpenCV format
+        img_array = np.array(img)
+        if len(img_array.shape) == 3:
+            img_cv = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        else:
+            img_cv = img_array
+
+        # Use spectral residual saliency (fast and effective)
+        saliency = cv2.saliency.StaticSaliencySpectralResidual_create()
+        success, saliency_map = saliency.computeSaliency(img_cv)
+
+        if not success:
+            return None
+
+        # Find center of mass of saliency map
+        saliency_map = (saliency_map * 255).astype(np.uint8)
+        height, width = saliency_map.shape
+
+        total_weight = np.sum(saliency_map)
+        if total_weight == 0:
+            return (0.5, 0.5)
+
+        y_coords, x_coords = np.ogrid[:height, :width]
+        x_center = np.sum(x_coords * saliency_map) / total_weight
+        y_center = np.sum(y_coords * saliency_map) / total_weight
+
+        return (x_center / width, y_center / height)
 
     @staticmethod
     def _edge_detection_focal_point(img):

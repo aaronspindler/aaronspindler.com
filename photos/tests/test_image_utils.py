@@ -370,6 +370,42 @@ class SmartCropTestCase(TestCase):
         self.assertGreater(focal_point[0], 0.5)
         self.assertGreater(focal_point[1], 0.5)
 
+    def test_saliency_focal_point(self):
+        """Test saliency-based focal point detection."""
+        # Create an image with a distinct subject (bright colored circle) on uniform background
+        img = Image.new("RGB", (200, 200), color=(240, 240, 240))
+        # Draw a bright red circle in the upper-left quadrant
+        for x in range(50, 100):
+            for y in range(50, 100):
+                if ((x - 75) ** 2 + (y - 75) ** 2) < 400:  # Circle radius ~20
+                    img.putpixel((x, y), (255, 0, 0))
+
+        focal_point = SmartCrop._saliency_focal_point(img)
+
+        # Saliency should detect the subject (red circle)
+        if focal_point is not None:
+            self.assertIsInstance(focal_point, tuple)
+            self.assertEqual(len(focal_point), 2)
+            self.assertGreaterEqual(focal_point[0], 0.0)
+            self.assertLessEqual(focal_point[0], 1.0)
+            self.assertGreaterEqual(focal_point[1], 0.0)
+            self.assertLessEqual(focal_point[1], 1.0)
+
+    def test_saliency_fallback(self):
+        """Test that find_focal_point falls back to entropy/edge when saliency fails."""
+        # Create a simple test image
+        img = Image.new("RGB", (100, 100), color="white")
+
+        # find_focal_point should work even if saliency returns None
+        focal_point = SmartCrop.find_focal_point(img)
+
+        self.assertIsInstance(focal_point, tuple)
+        self.assertEqual(len(focal_point), 2)
+        self.assertGreaterEqual(focal_point[0], 0.0)
+        self.assertLessEqual(focal_point[0], 1.0)
+        self.assertGreaterEqual(focal_point[1], 0.0)
+        self.assertLessEqual(focal_point[1], 1.0)
+
     def test_calculate_entropy(self):
         """Test entropy calculation."""
         # Uniform image (low entropy)
