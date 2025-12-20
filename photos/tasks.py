@@ -173,11 +173,8 @@ def generate_album_zip(self, album_id: int, force: bool = False):
                 original_name = photo.original_filename or f"photo_{photo.id}.jpg"
                 base_filename = f"{idx:03d}_{original_name}"
 
-                if _stream_file_to_zip(zf, photo.image, f"full_resolution/{base_filename}", photo.id):
+                if _stream_file_to_zip(zf, photo.image, base_filename, photo.id):
                     photo_count += 1
-
-                if photo.image_optimized:
-                    _stream_file_to_zip(zf, photo.image_optimized, f"optimized/{base_filename}", photo.id)
 
         if album.zip_file:
             try:

@@ -39,17 +39,6 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
             # S3 storage may raise errors for missing files - skip this size
             pass
 
-    if photo.image_optimized and photo.image_optimized.name:
-        try:
-            srcset_parts.append(
-                f"{escape(photo.image_optimized.url)} {photo.width}w"
-                if photo.width
-                else escape(photo.image_optimized.url)
-            )
-        except (ValueError, AttributeError):
-            # S3 storage may raise errors for missing files - skip this size
-            pass
-
     if photo.image and photo.image.name:
         try:
             srcset_parts.append(f"{escape(photo.image.url)} {photo.width}w" if photo.width else escape(photo.image.url))
@@ -59,9 +48,9 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
 
     srcset = ", ".join(srcset_parts)
 
-    # Default src (use gallery_cropped version as default, fallback to optimized then original)
+    # Default src (use gallery_cropped version as default, fallback to preview)
     default_src = None
-    for field in [photo.image_gallery_cropped, photo.image_optimized, photo.image]:
+    for field in [photo.image_gallery_cropped, photo.image_preview]:
         if field and field.name:
             try:
                 default_src = field.url
@@ -113,17 +102,7 @@ def picture_element(photo, css_class="", alt_text="", loading="lazy"):
     # Build the picture element with source elements for different sizes
     picture_html = "<picture>"
 
-    # Add source elements for different viewport widths
-    if photo.image_optimized and photo.image_optimized.name:
-        try:
-            picture_html += f"""
-        <source media="(min-width: 1200px)"
-                srcset="{escape(photo.image_optimized.url)}">
-        """
-        except (ValueError, AttributeError):
-            # S3 storage may raise errors for missing files - skip this source
-            pass
-
+    # Add source element for gallery_cropped on larger viewports
     if photo.image_gallery_cropped and photo.image_gallery_cropped.name:
         try:
             picture_html += f"""
@@ -134,9 +113,9 @@ def picture_element(photo, css_class="", alt_text="", loading="lazy"):
             # S3 storage may raise errors for missing files - skip this source
             pass
 
-    # Fallback img element (use gallery_cropped for smallest screens, fallback to optimized or original)
+    # Fallback img element (use gallery_cropped, fallback to preview)
     fallback_src = None
-    for field in [photo.image_gallery_cropped, photo.image_optimized, photo.image]:
+    for field in [photo.image_gallery_cropped, photo.image_preview]:
         if field and field.name:
             try:
                 fallback_src = field.url
@@ -163,11 +142,11 @@ def photo_url(photo, size="gallery_cropped"):
     """
     Get the URL for a specific photo size.
 
-    Valid sizes: "preview", "gallery_cropped", "optimized", "original"
+    Valid sizes: "preview", "gallery_cropped", "original"
 
     Usage:
         {% load photo_tags %}
-        {{ photo|photo_url:"optimized" }}
+        {{ photo|photo_url:"gallery_cropped" }}
         {{ photo|photo_url:"preview" }}
     """
     if not photo:

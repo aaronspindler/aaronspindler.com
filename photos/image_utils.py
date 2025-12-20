@@ -435,15 +435,13 @@ class ImageOptimizer:
     SIZES = {
         "preview": None,  # Full size, highly compressed for fast loading
         "gallery_cropped": (1200, 800),  # Smart-cropped version for gallery
-        "optimized": None,  # Full size but compressed
         # 'original' will be the untouched original
     }
 
     # Quality settings for JPEG compression
     QUALITY_SETTINGS = {
-        "preview": 70,  # Lower quality for fast loading
-        "gallery_cropped": 85,  # Good quality for gallery display
-        "optimized": 90,  # High quality but compressed
+        "preview": 65,  # Lower quality for fast loading
+        "gallery_cropped": 70,  # Good quality for gallery display
         "original": 100,  # No compression
     }
 
@@ -461,7 +459,7 @@ class ImageOptimizer:
 
         Args:
             image_file: Django ImageField file or file-like object
-            size_name: One of 'preview', 'gallery_cropped', 'optimized', or 'original'
+            size_name: One of 'preview', 'gallery_cropped', or 'original'
             maintain_aspect_ratio: If True, maintains aspect ratio when resizing
             use_smart_crop: If True and size_name is 'gallery_cropped', use smart cropping
             focal_point: Optional (x, y) focal point as percentages (0-1)
@@ -486,9 +484,7 @@ class ImageOptimizer:
 
         original_format = img.format or "JPEG"
 
-        if size_name == "optimized":
-            pass  # Just compress without resizing
-        elif size_name in cls.SIZES and cls.SIZES[size_name]:
+        if size_name in cls.SIZES and cls.SIZES[size_name]:
             target_size = cls.SIZES[size_name]
 
             if use_smart_crop and size_name == "gallery_cropped":
@@ -562,7 +558,7 @@ class ImageOptimizer:
         variants = {}
         focal_point = None
 
-        for size_name in ["preview", "gallery_cropped", "optimized"]:
+        for size_name in ["preview", "gallery_cropped"]:
             image_file.seek(0)
             optimized, computed_focal = cls.optimize_image(image_file, size_name, focal_point=focal_point)
 

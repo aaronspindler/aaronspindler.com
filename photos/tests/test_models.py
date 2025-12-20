@@ -83,13 +83,13 @@ class PhotoModelTestCase(TestCase):
             "full_exif": {"Make": "Canon", "Model": "EOS R5"},
         }
 
-        mock_optimized = Mock()
-        mock_optimized.name = "test_optimized.jpg"
         mock_gallery_cropped = Mock()
         mock_gallery_cropped.name = "test_gallery_cropped.jpg"
+        mock_preview = Mock()
+        mock_preview.name = "test_preview.jpg"
 
         mock_process.return_value = (
-            {"optimized": mock_optimized, "gallery_cropped": mock_gallery_cropped},
+            {"gallery_cropped": mock_gallery_cropped, "preview": mock_preview},
             (0.5, 0.5),  # focal point
         )
 
@@ -214,8 +214,6 @@ class PhotoModelTestCase(TestCase):
         photo = Photo()
         photo.image = Mock()
         photo.image.url = "http://example.com/original.jpg"
-        photo.image_optimized = Mock()
-        photo.image_optimized.url = "http://example.com/optimized.jpg"
         photo.image_gallery_cropped = Mock()
         photo.image_gallery_cropped.url = "http://example.com/gallery_cropped.jpg"
         photo.image_preview = Mock()
@@ -224,7 +222,6 @@ class PhotoModelTestCase(TestCase):
         # Test different sizes
         self.assertEqual(photo.get_image_url("preview"), "http://example.com/preview.jpg")
         self.assertEqual(photo.get_image_url("gallery_cropped"), "http://example.com/gallery_cropped.jpg")
-        self.assertEqual(photo.get_image_url("optimized"), "http://example.com/optimized.jpg")
         self.assertEqual(photo.get_image_url("original"), "http://example.com/original.jpg")
 
         # Test fallback

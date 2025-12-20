@@ -439,7 +439,7 @@
             id: {{ photo.id }},
             url: "{{ photo.image_gallery_cropped|safe_image_url|default:photo.image.url }}",
             thumbnailUrl: "{{ photo.image_gallery_cropped|safe_image_url|default:photo.image.url }}",
-            largeUrl: "{{ photo.image_optimized|safe_image_url|default:photo.image.url }}",
+            largeUrl: "{{ photo.image_preview|safe_image_url|default:photo.image.url }}",
             title: "{{ photo.title|escapejs }}",
             description: "{{ photo.description|escapejs }}",
             originalFilename: "{{ photo.original_filename|escapejs|default:'photo.jpg' }}",

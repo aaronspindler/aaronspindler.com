@@ -31,13 +31,6 @@ class Photo(models.Model):
         help_text="Status of background image processing",
     )
 
-    image_optimized = models.ImageField(
-        upload_to="photos/optimized/",
-        blank=True,
-        null=True,
-        verbose_name="Optimized Full Size",
-    )
-
     image_gallery_cropped = models.ImageField(
         upload_to="photos/gallery_cropped/",
         blank=True,
@@ -260,8 +253,6 @@ class Photo(models.Model):
         if focal_point:
             self.focal_point_x = focal_point[0]
             self.focal_point_y = focal_point[1]
-        if "optimized" in variants:
-            self.image_optimized.save(variants["optimized"].name, variants["optimized"], save=False)
 
         if "gallery_cropped" in variants:
             self.image_gallery_cropped.save(variants["gallery_cropped"].name, variants["gallery_cropped"], save=False)
@@ -274,7 +265,7 @@ class Photo(models.Model):
         Get the URL for a specific image size.
 
         Args:
-            size: One of 'preview', 'gallery_cropped', 'optimized', or 'original'
+            size: One of 'preview', 'gallery_cropped', or 'original'
 
         Returns:
             str: URL of the requested image size, or None if not available
@@ -282,7 +273,6 @@ class Photo(models.Model):
         size_field_map = {
             "preview": self.image_preview,
             "gallery_cropped": self.image_gallery_cropped,
-            "optimized": self.image_optimized,
             "original": self.image,
         }
 
@@ -361,7 +351,7 @@ class PhotoAlbum(models.Model):
         upload_to="albums/zips/",
         blank=True,
         null=True,
-        help_text="ZIP file containing optimized photos from this album",
+        help_text="ZIP file containing original photos from this album",
     )
     zip_content_hash = models.CharField(
         max_length=64,

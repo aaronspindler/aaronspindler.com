@@ -467,25 +467,11 @@ class ImageOptimizerTestCase(TestCase):
         mock_smart_crop.assert_called_once()
         self.assertEqual(focal_point, (0.6, 0.4))
 
-    def test_optimize_image_optimized(self):
-        """Test optimized size (compression without resize)."""
-        test_file = self._create_test_image_file(size=(1000, 1000))
-
-        result, focal_point = ImageOptimizer.optimize_image(test_file, "optimized")
-
-        # Should return compressed version
-        self.assertIsNotNone(result)
-        self.assertIsNone(focal_point)
-
-        # Verify it's a JPEG with optimization
-        img = Image.open(result)
-        self.assertEqual(img.format, "JPEG")
-
     def test_optimize_image_png_preservation(self):
         """Test that PNG format is preserved."""
         test_file = self._create_test_image_file(format="PNG")
 
-        result, _ = ImageOptimizer.optimize_image(test_file, "optimized")
+        result, _ = ImageOptimizer.optimize_image(test_file, "preview")
 
         img = Image.open(result)
         self.assertEqual(img.format, "PNG")
@@ -498,7 +484,7 @@ class ImageOptimizerTestCase(TestCase):
         img.save(img_io, format="PNG")
         img_io.seek(0)
 
-        result, _ = ImageOptimizer.optimize_image(img_io, "optimized")
+        result, _ = ImageOptimizer.optimize_image(img_io, "preview")
 
         # Should be converted to RGB JPEG
         img_result = Image.open(result)
@@ -509,10 +495,10 @@ class ImageOptimizerTestCase(TestCase):
         # Original keeps extension
         self.assertEqual(ImageOptimizer.generate_filename("photo.png", "original"), "photo.png")
 
-        # Optimized/display convert to jpg (except PNG/GIF/WebP)
+        # Preview/gallery_cropped convert to jpg (except PNG/GIF/WebP)
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.tiff", "optimized"),
-            "photo_optimized.jpg",
+            ImageOptimizer.generate_filename("photo.tiff", "preview"),
+            "photo_preview.jpg",
         )
         self.assertEqual(
             ImageOptimizer.generate_filename("photo.bmp", "gallery_cropped"),
@@ -521,16 +507,16 @@ class ImageOptimizerTestCase(TestCase):
 
         # PNG/GIF/WebP preserved
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.png", "optimized"),
-            "photo_optimized.png",
+            ImageOptimizer.generate_filename("photo.png", "preview"),
+            "photo_preview.png",
         )
         self.assertEqual(
             ImageOptimizer.generate_filename("photo.gif", "gallery_cropped"),
             "photo_gallery_cropped.gif",
         )
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.webp", "optimized"),
-            "photo_optimized.webp",
+            ImageOptimizer.generate_filename("photo.webp", "preview"),
+            "photo_preview.webp",
         )
 
     @patch("photos.image_utils.ImageOptimizer.optimize_image")
@@ -543,13 +529,10 @@ class ImageOptimizerTestCase(TestCase):
         mock_preview.name = "test_preview.jpg"
         mock_gallery_cropped = ContentFile(b"gallery_cropped_content")
         mock_gallery_cropped.name = "test_gallery_cropped.jpg"
-        mock_optimized = ContentFile(b"optimized_content")
-        mock_optimized.name = "test_optimized.jpg"
 
         mock_optimize.side_effect = [
             (mock_preview, (0.5, 0.5)),  # preview call
             (mock_gallery_cropped, None),  # gallery_cropped call (uses cached focal point)
-            (mock_optimized, None),  # optimized call
         ]
 
         variants, focal_point = ImageOptimizer.process_uploaded_image(test_file, "test.jpg")
@@ -557,14 +540,12 @@ class ImageOptimizerTestCase(TestCase):
         # Verify all variants created
         self.assertIn("preview", variants)
         self.assertIn("gallery_cropped", variants)
-        self.assertIn("optimized", variants)
         self.assertEqual(variants["preview"].name, "test_preview.jpg")
         self.assertEqual(variants["gallery_cropped"].name, "test_gallery_cropped.jpg")
-        self.assertEqual(variants["optimized"].name, "test_optimized.jpg")
         self.assertEqual(focal_point, (0.5, 0.5))
 
         # Verify optimize was called for each size
-        self.assertEqual(mock_optimize.call_count, 3)
+        self.assertEqual(mock_optimize.call_count, 2)
 
 
 class DuplicateDetectorTestCase(TestCase):

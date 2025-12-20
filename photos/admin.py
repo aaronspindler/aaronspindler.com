@@ -247,10 +247,10 @@ class PhotoAdmin(admin.ModelAdmin):
                     '<img src="{}" style="max-width: 150px; max-height: 150px;" loading="lazy" />',
                     obj.image_gallery_cropped.url,
                 )
-            elif obj.image_optimized:
+            elif obj.image_preview:
                 return format_html(
                     '<img src="{}" style="max-width: 150px; max-height: 150px;" loading="lazy" />',
-                    obj.image_optimized.url,
+                    obj.image_preview.url,
                 )
             elif obj.image:
                 return format_html(
@@ -270,10 +270,10 @@ class PhotoAdmin(admin.ModelAdmin):
                     '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
                     obj.image_gallery_cropped.url,
                 )
-            elif obj.image_optimized:
+            elif obj.image_preview:
                 return format_html(
                     '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
-                    obj.image_optimized.url,
+                    obj.image_preview.url,
                 )
             elif obj.image:
                 return format_html(
@@ -299,11 +299,6 @@ class PhotoAdmin(admin.ModelAdmin):
         versions = [
             ("Gallery (Smart Cropped)", obj.image_gallery_cropped, "1200x800"),
             ("Preview (Compressed)", obj.image_preview, "Full Size, Highly Compressed"),
-            (
-                "Optimized Full Size",
-                obj.image_optimized,
-                f"{obj.width}x{obj.height}" if obj.width else "Full Size",
-            ),
             (
                 "Original",
                 obj.image,

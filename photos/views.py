@@ -46,7 +46,7 @@ def album_detail(request, slug):
     # Build absolute URL for OG image
     page_og_image = None
     if cover_photo:
-        image_url = cover_photo.get_image_url("optimized") or cover_photo.get_image_url("gallery_cropped")
+        image_url = cover_photo.get_image_url("gallery_cropped") or cover_photo.get_image_url("preview")
         if image_url:
             page_og_image = request.build_absolute_uri(image_url)
 
