@@ -26,7 +26,7 @@ class Photo(models.Model):
     processing_status = models.CharField(
         max_length=20,
         choices=PROCESSING_STATUS_CHOICES,
-        default="complete",
+        default="pending",
         db_index=True,
         help_text="Status of background image processing",
     )
@@ -129,7 +129,9 @@ class Photo(models.Model):
                 if not skip_duplicate_check:
                     self._check_for_duplicates()
 
-                if not skip_processing:
+                if skip_processing:
+                    self.processing_status = "pending"
+                else:
                     self._process_image()
         except ValidationError:
             raise
