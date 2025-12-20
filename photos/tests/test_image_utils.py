@@ -732,8 +732,8 @@ class DuplicateDetectorTestCase(TestCase):
         from photos.models import Photo
 
         # Create existing photos
-        existing1 = Photo.objects.create(title="Photo 1", file_hash="hash123", perceptual_hash="phash1")
-        Photo.objects.create(title="Photo 2", file_hash="hash456", perceptual_hash="phash2")
+        existing1 = Photo.objects.create(file_hash="hash123", perceptual_hash="phash1")
+        Photo.objects.create(file_hash="hash456", perceptual_hash="phash2")
 
         # Setup mocks
         mock_file_hash.return_value = "hash123"  # Matches existing1
@@ -755,8 +755,8 @@ class DuplicateDetectorTestCase(TestCase):
         from photos.models import Photo
 
         # Create existing photos
-        existing1 = Photo.objects.create(title="Photo 1", file_hash="hash1", perceptual_hash="phash1")
-        Photo.objects.create(title="Photo 2", file_hash="hash2", perceptual_hash="phash2")
+        existing1 = Photo.objects.create(file_hash="hash1", perceptual_hash="phash1")
+        Photo.objects.create(file_hash="hash2", perceptual_hash="phash2")
 
         # Setup mocks
         mock_file_hash.return_value = "hash_new"  # No exact match
@@ -788,7 +788,7 @@ class DuplicateDetectorTestCase(TestCase):
         """Test finding duplicates with exact_match_only flag."""
         from photos.models import Photo
 
-        Photo.objects.create(title="Photo", file_hash="hash123", perceptual_hash="phash")
+        Photo.objects.create(file_hash="hash123", perceptual_hash="phash")
 
         mock_file_hash.return_value = "hash456"  # No match
 

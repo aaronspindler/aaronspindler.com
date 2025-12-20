@@ -47,10 +47,8 @@ class PhotoModelTestCase(TestCase):
 
     def test_photo_creation_basic(self):
         """Test basic photo creation."""
-        photo = Photo.objects.create(title="Test Photo", description="Test Description", image=self.test_image)
+        photo = Photo.objects.create(image=self.test_image)
 
-        self.assertEqual(photo.title, "Test Photo")
-        self.assertEqual(photo.description, "Test Description")
         self.assertIsNotNone(photo.image)
         self.assertIsNotNone(photo.pk)
 
@@ -94,7 +92,7 @@ class PhotoModelTestCase(TestCase):
         )
 
         # Create photo with skip_duplicate_check to avoid duplicate check but still process image
-        photo = Photo(title="Test", image=self.test_image)
+        photo = Photo(image=self.test_image)
         photo.save(skip_duplicate_check=True)
 
         # Verify processing was called (hashes are computed in _process_image regardless of skip_duplicate_check)
@@ -118,7 +116,7 @@ class PhotoModelTestCase(TestCase):
     def test_photo_duplicate_detection_raises_error(self, mock_find_duplicates):
         """Test that duplicate detection raises ValidationError for exact duplicates."""
         # Create existing photo with skip_duplicate_check to avoid issues
-        existing_photo = Photo(title="Existing Photo", image=self.test_image, file_hash="existinghash")
+        existing_photo = Photo(image=self.test_image, file_hash="existinghash")
         existing_photo.save(skip_duplicate_check=True)
 
         # Setup mock to return exact duplicate
@@ -131,7 +129,7 @@ class PhotoModelTestCase(TestCase):
 
         # Try to save duplicate - should raise ValidationError
         with self.assertRaises(ValidationError) as context:
-            photo = Photo(title="Duplicate", image=self.test_image_2)
+            photo = Photo(image=self.test_image_2)
             photo.save()
 
         self.assertIn("exact duplicate", str(context.exception).lower())
@@ -140,7 +138,7 @@ class PhotoModelTestCase(TestCase):
     def test_photo_skip_duplicate_check(self, mock_find_duplicates):
         """Test that duplicate check can be skipped."""
         # Setup mock to return exact duplicate
-        existing_photo = Photo(title="Existing Photo", image=self.test_image, file_hash="existinghash")
+        existing_photo = Photo(image=self.test_image, file_hash="existinghash")
         existing_photo.save(skip_duplicate_check=True)
 
         mock_find_duplicates.return_value = {
@@ -151,7 +149,7 @@ class PhotoModelTestCase(TestCase):
         }
 
         # Save with skip_duplicate_check=True should not raise error
-        photo = Photo(title="Duplicate", image=self.test_image_2)
+        photo = Photo(image=self.test_image_2)
         photo.save(skip_duplicate_check=True)
 
         # Verify duplicate check was not called
@@ -160,25 +158,21 @@ class PhotoModelTestCase(TestCase):
 
     def test_photo_str_representation(self):
         """Test string representation of Photo."""
-        # With title
-        photo1 = Photo(title="My Photo", pk=1)
-        self.assertEqual(str(photo1), "My Photo")
+        # With filename
+        photo1 = Photo(original_filename="DSC_001.jpg", pk=1)
+        self.assertEqual(str(photo1), "DSC_001.jpg")
 
-        # Without title but with filename
-        photo2 = Photo(original_filename="DSC_001.jpg", pk=2)
-        self.assertEqual(str(photo2), "DSC_001.jpg")
-
-        # Without title or filename
-        photo3 = Photo(pk=3)
-        self.assertEqual(str(photo3), "Photo 3")
+        # Without filename
+        photo2 = Photo(pk=2)
+        self.assertEqual(str(photo2), "Photo 2")
 
     @patch("photos.models.Photo.objects")
     def test_get_similar_images(self, mock_objects):
         """Test finding similar images."""
         # Create test photos
-        photo1 = Photo(pk=1, title="Photo 1", perceptual_hash="hash1")
-        photo2 = Photo(pk=2, title="Photo 2", perceptual_hash="hash2")
-        photo3 = Photo(pk=3, title="Photo 3", perceptual_hash="hash3")
+        photo1 = Photo(pk=1, perceptual_hash="hash1")
+        photo2 = Photo(pk=2, perceptual_hash="hash2")
+        photo3 = Photo(pk=3, perceptual_hash="hash3")
 
         # Mock the queryset to return only our test photos
         mock_qs = Mock()
@@ -345,12 +339,12 @@ class PhotoAlbumModelTestCase(TestCase):
         """Test many-to-many relationship with photos."""
         # Create album and photos
         album = PhotoAlbum.objects.create(title="Test Album")
-        photo1 = Photo(title="Photo 1", image=self.test_image)
+        photo1 = Photo(image=self.test_image)
         photo1.save(skip_duplicate_check=True)
 
         # Use different image for photo2 to avoid duplicate detection
         test_image_2 = self._create_test_image(color=(0, 255, 0))
-        photo2 = Photo(title="Photo 2", image=test_image_2)
+        photo2 = Photo(image=test_image_2)
         photo2.save(skip_duplicate_check=True)
 
         # Add photos to album

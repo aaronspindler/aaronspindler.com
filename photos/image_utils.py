@@ -389,8 +389,23 @@ class SmartCrop:
         focal_point = (x_center / width, y_center / height)
 
         if return_map:
+            # Draw a red dot at the focal point for visualization
+            focal_x_px = int(x_center)
+            focal_y_px = int(y_center)
+
+            # Convert grayscale to BGR for colored marker
+            saliency_map_color = cv2.cvtColor(saliency_map, cv2.COLOR_GRAY2BGR)
+
+            # Draw red circle at focal point (outer ring) - larger and thicker
+            cv2.circle(saliency_map_color, (focal_x_px, focal_y_px), 25, (0, 0, 255), 3)
+            # Draw red filled circle at center - larger
+            cv2.circle(saliency_map_color, (focal_x_px, focal_y_px), 10, (0, 0, 255), -1)
+            # Add white outline for better visibility - larger
+            cv2.circle(saliency_map_color, (focal_x_px, focal_y_px), 26, (255, 255, 255), 2)
+            cv2.circle(saliency_map_color, (focal_x_px, focal_y_px), 11, (255, 255, 255), 2)
+
             # Encode saliency map as PNG for storage
-            success, buffer = cv2.imencode(".png", saliency_map)
+            success, buffer = cv2.imencode(".png", saliency_map_color)
             saliency_map_bytes = buffer.tobytes() if success else None
             return (focal_point, saliency_map_bytes)
 
@@ -676,6 +691,10 @@ class ImageOptimizer:
         Returns:
             bytes or None: PNG-encoded saliency map bytes, or None if computation fails
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         try:
             image_file.seek(0)
             img = Image.open(image_file)
@@ -684,9 +703,17 @@ class ImageOptimizer:
                 img = img.convert("RGB")
 
             _, saliency_map_bytes = SmartCrop.find_focal_point(img, return_saliency_map=True)
+
+            if saliency_map_bytes is None:
+                logger.warning(
+                    "Saliency map computation returned None - OpenCV may not be available or saliency detection failed"
+                )
+                return None
+
+            logger.debug(f"Successfully computed saliency map ({len(saliency_map_bytes)} bytes)")
             return saliency_map_bytes
         except Exception as e:
-            print(f"Error computing saliency map: {e}")
+            logger.error(f"Error computing saliency map: {e}", exc_info=True)
             return None
 
 

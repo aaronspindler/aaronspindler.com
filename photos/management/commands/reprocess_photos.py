@@ -3,7 +3,6 @@ Management command to reprocess photos locally without Celery.
 
 Usage:
     python manage.py reprocess_photos
-    python manage.py reprocess_photos --force
     python manage.py reprocess_photos --status pending
     python manage.py reprocess_photos --ids 1,2,3
     python manage.py reprocess_photos --limit 10
@@ -23,11 +22,6 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--force",
-            action="store_true",
-            help="Reprocess all photos, even those already marked as complete",
-        )
-        parser.add_argument(
             "--status",
             type=str,
             choices=["pending", "processing", "complete", "failed"],
@@ -45,7 +39,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        force = options["force"]
         status = options["status"]
         ids_str = options["ids"]
         limit = options["limit"]
@@ -59,9 +52,6 @@ class Command(BaseCommand):
         elif status:
             photos = photos.filter(processing_status=status)
             self.stdout.write(f"Filtering to photos with status: {status}")
-        elif not force:
-            photos = photos.exclude(processing_status="complete")
-            self.stdout.write("Processing photos that are not already complete")
 
         if limit:
             photos = photos[:limit]
@@ -87,13 +77,6 @@ class Command(BaseCommand):
                 if not photo.image:
                     self.stdout.write(
                         self.style.WARNING(f"[{idx}/{total}] Skipping {photo_name} (ID: {photo_id}) - No image file")
-                    )
-                    skipped_count += 1
-                    continue
-
-                if not force and photo.processing_status == "complete":
-                    self.stdout.write(
-                        self.style.WARNING(f"[{idx}/{total}] Skipping {photo_name} (ID: {photo_id}) - Already complete")
                     )
                     skipped_count += 1
                     continue

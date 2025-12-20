@@ -6,32 +6,36 @@ The photo management system provides comprehensive photo organization, automatic
 
 ## Features
 
-- **Multi-Resolution Images**: Automatic generation of 5 optimized sizes (thumbnail, small, medium, large, original)
+- **Multi-Resolution Images**: Automatic generation of thumbnail and preview versions
+- **Smart Cropping**: AI-powered saliency detection for intelligent thumbnail cropping
 - **EXIF Metadata Extraction**: Camera, lens, GPS, exposure settings, and more
-- **WebP Support**: Modern image format with better compression
 - **Album Management**: Organize photos into public or private albums
 - **Downloadable Albums**: Generate zip files for bulk downloads
-- **Duplicate Detection**: Perceptual hashing to identify similar photos
-- **Full-Text Search**: Search photos and albums by title, description, location
+- **Duplicate Detection**: File hash and perceptual hashing to identify exact and similar photos
+- **Full-Text Search**: Search photos and albums by filename, camera, and location metadata
 - **S3 Storage**: Cloud storage support for scalability
-- **Lazy Loading**: Responsive image loading with srcset
+- **Async Processing**: Background image processing with Celery
 
 ## Photo Model
 
 ### Fields
 
-**Core Fields**:
-- `title`: Photo title (max 200 characters)
-- `description`: Detailed description (optional)
-- `taken_at`: Date/time photo was taken
-- `uploaded_at`: Upload timestamp (auto)
-
 **Image Files**:
-- `original_image`: Original uploaded image
-- `large_image`: 1200px width
-- `medium_image`: 800px width
-- `small_image`: 400px width
-- `thumbnail_image`: 150x150px (square crop)
+- `image`: Original uploaded image
+- `image_preview`: Full-size highly compressed version
+- `image_thumbnail`: 400x300px smart-cropped thumbnail
+- `saliency_map`: Debug visualization of saliency detection
+
+**Processing**:
+- `processing_status`: Status of async processing (pending, processing, complete, failed)
+- `focal_point_x`, `focal_point_y`: Detected focal point coordinates (0-1)
+- `original_filename`: Original filename from upload
+- `file_size`: Original file size in bytes
+- `width`, `height`: Original image dimensions
+
+**Duplicate Detection**:
+- `file_hash`: SHA-256 hash for exact duplicate detection
+- `perceptual_hash`: Perceptual hash for similar image detection
 
 **EXIF Metadata**:
 - `camera_make`: Camera manufacturer
@@ -46,22 +50,26 @@ The photo management system provides comprehensive photo organization, automatic
 - `gps_longitude`: GPS longitude
 - `gps_altitude`: GPS altitude in meters
 
-**Additional Fields**:
-- `location`: Human-readable location name
-- `view_count`: Number of views
-- `phash`: Perceptual hash for duplicate detection
+**Search**:
 - `search_vector`: PostgreSQL full-text search vector
+
+**Timestamps**:
+- `created_at`: Upload timestamp (auto)
+- `updated_at`: Last modified timestamp (auto)
 
 ### Auto-Processing
 
 When a photo is uploaded:
 
-1. **Image Generation**: Creates 4 additional sizes automatically
-2. **EXIF Extraction**: Parses metadata from original image
-3. **WebP Conversion**: Generates WebP versions for modern browsers
-4. **Perceptual Hash**: Calculates phash for duplicate detection
-5. **Search Index**: Updates full-text search vector
-6. **Storage**: Uploads all versions to S3 (if configured)
+1. **Duplicate Check**: Computes file hash and checks for exact duplicates
+2. **Image Generation**: Creates thumbnail (400x300) and preview versions
+3. **Smart Cropping**: Uses saliency detection to determine focal point
+4. **EXIF Extraction**: Parses metadata from original image
+5. **Perceptual Hash**: Calculates hash for similar image detection
+6. **Search Index**: Updates full-text search vector
+7. **Storage**: Uploads all versions to S3 (if configured)
+
+Processing can be done synchronously or asynchronously via Celery.
 
 ## PhotoAlbum Model
 
@@ -96,13 +104,9 @@ When a photo is uploaded:
 
 1. Navigate to Django admin: `/admin/photos/photo/`
 2. Click "Add Photo"
-3. Fill in fields:
-   - Upload original image (required)
-   - Title (required)
-   - Description (optional)
-   - Location (optional)
+3. Upload image (required)
 4. Save photo
-5. System automatically processes image
+5. System automatically processes image and extracts metadata
 
 ### Via Python API
 
@@ -113,16 +117,14 @@ from django.core.files import File
 # Create photo with automatic processing
 with open('path/to/photo.jpg', 'rb') as f:
     photo = Photo.objects.create(
-        title='Sunset at the Beach',
-        description='Beautiful sunset captured in California',
-        location='Santa Monica, CA',
-        original_image=File(f, name='sunset.jpg')
+        image=File(f, name='sunset.jpg')
     )
 
 # EXIF metadata is automatically extracted
 print(f"Camera: {photo.camera_make} {photo.camera_model}")
-print(f"Settings: f/{photo.aperture}, {photo.shutter_speed}s, ISO {photo.iso}")
+print(f"Settings: f/{photo.aperture}, {photo.shutter_speed}, ISO {photo.iso}")
 print(f"Location: {photo.gps_latitude}, {photo.gps_longitude}")
+print(f"Filename: {photo.original_filename}")
 ```
 
 ## Creating Albums
@@ -279,19 +281,12 @@ from PIL import Image
 photo = Photo.objects.get(id=1)
 photo_phash = imagehash.hex_to_hash(photo.phash)
 
-# Find similar photos (Hamming distance < 10)
-similar_photos = []
-for other in Photo.objects.exclude(id=photo.id):
-    if other.phash:
-        other_phash = imagehash.hex_to_hash(other.phash)
-        distance = photo_phash - other_phash
-        if distance < 10:  # Threshold for similarity
-            similar_photos.append((other, distance))
+# Use the built-in method to find similar images
+similar_photos = photo.get_similar_images(threshold=5)
 
-# Sort by similarity
-similar_photos.sort(key=lambda x: x[1])
+# Results are sorted by similarity
 for similar_photo, distance in similar_photos[:5]:
-    print(f"{similar_photo.title} - Distance: {distance}")
+    print(f"{similar_photo.original_filename} - Distance: {distance}")
 ```
 
 ## Search Integration
@@ -301,11 +296,10 @@ Photos and albums are indexed for full-text search.
 ### Indexed Fields
 
 **Photo**:
-- Title (weight: A)
-- Description (weight: B)
-- Location (weight: B)
-- Camera make/model (weight: C)
-- Lens make/model (weight: C)
+- Original filename
+- Camera make/model
+- Lens model
+- GPS location data (when available)
 
 **PhotoAlbum**:
 - Title (weight: A)
@@ -317,14 +311,14 @@ Photos and albums are indexed for full-text search.
 from django.contrib.postgres.search import SearchQuery, SearchRank
 from photos.models import Photo, PhotoAlbum
 
-# Search photos by keyword
+# Search photos by filename
 query = SearchQuery('sunset')
 photos = Photo.objects.annotate(
     rank=SearchRank('search_vector', query)
 ).filter(rank__gte=0.01).order_by('-rank')
 
-# Search by location
-query = SearchQuery('California')
+# Search by camera
+query = SearchQuery('Canon')
 photos = Photo.objects.annotate(
     rank=SearchRank('search_vector', query)
 ).filter(rank__gte=0.01).order_by('-rank')
@@ -353,25 +347,17 @@ python manage.py rebuild_search_index
 
 ### Size Specifications
 
-**Thumbnail**: 150x150px (square crop)
-- Use case: Album covers, small previews
-- Format: JPEG and WebP
-- Quality: 85
-
-**Small**: 400px width (aspect ratio preserved)
-- Use case: Mobile devices, thumbnails
-- Format: JPEG and WebP
-- Quality: 85
-
-**Medium**: 800px width (aspect ratio preserved)
-- Use case: Tablets, small desktop displays
-- Format: JPEG and WebP
+**Thumbnail**: 400x300px (smart-cropped)
+- Use case: Album covers, grid displays
+- Format: JPEG
 - Quality: 90
+- Features: AI-powered saliency detection for intelligent cropping
 
-**Large**: 1200px width (aspect ratio preserved)
-- Use case: Desktop displays
-- Format: JPEG and WebP
-- Quality: 90
+**Preview**: Full-size (highly compressed)
+- Use case: Web display, lightbox
+- Format: JPEG
+- Quality: 75
+- Maintains aspect ratio
 
 **Original**: Preserved as uploaded
 - Use case: High-resolution display, downloads
@@ -380,18 +366,20 @@ python manage.py rebuild_search_index
 
 ### Responsive Images
 
-Use srcset for automatic size selection:
+Use preview and thumbnail images:
 
 ```html
+<!-- Thumbnail in grid -->
 <img
-    src="{{ photo.medium_image.url }}"
-    srcset="
-        {{ photo.small_image.url }} 400w,
-        {{ photo.medium_image.url }} 800w,
-        {{ photo.large_image.url }} 1200w
-    "
-    sizes="(max-width: 600px) 400px, (max-width: 1200px) 800px, 1200px"
-    alt="{{ photo.title }}"
+    src="{{ photo.image_thumbnail.url }}"
+    alt="{{ photo.original_filename }}"
+    loading="lazy"
+>
+
+<!-- Preview in lightbox -->
+<img
+    src="{{ photo.image_preview.url }}"
+    alt="{{ photo.original_filename }}"
     loading="lazy"
 >
 ```
@@ -449,23 +437,19 @@ AWS_STORAGE_BUCKET_NAME=your-bucket
 AWS_S3_REGION_NAME=us-east-1
 
 # Image optimization
-PHOTO_THUMBNAIL_SIZE=150
-PHOTO_SMALL_SIZE=400
-PHOTO_MEDIUM_SIZE=800
-PHOTO_LARGE_SIZE=1200
-PHOTO_QUALITY=90
+PHOTO_THUMBNAIL_WIDTH=400
+PHOTO_THUMBNAIL_HEIGHT=300
+PHOTO_PREVIEW_QUALITY=75
+PHOTO_THUMBNAIL_QUALITY=90
 ```
 
 ### Django Settings
 
 ```python
 # Image size configuration
-PHOTO_SIZES = {
-    'thumbnail': (150, 150),  # Square crop
-    'small': (400, None),     # Width only
-    'medium': (800, None),
-    'large': (1200, None),
-}
+PHOTO_THUMBNAIL_SIZE = (400, 300)  # Width x Height
+PHOTO_PREVIEW_QUALITY = 75  # Compression quality for preview
+PHOTO_THUMBNAIL_QUALITY = 90  # Compression quality for thumbnail
 
 # EXIF fields to extract
 EXIF_FIELDS = [

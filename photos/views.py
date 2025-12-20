@@ -27,7 +27,6 @@ def album_detail(request, slug):
             "display_order",
             "added_at",
             "photo__id",
-            "photo__title",
             "photo__image",
             "photo__image_thumbnail",
             "photo__image_preview",
@@ -222,7 +221,6 @@ def photo_status_api(request, photo_id):
             {
                 "photo_id": photo.id,
                 "status": photo.processing_status,
-                "title": photo.title,
                 "thumbnail_url": photo.get_image_url("preview") if photo.processing_status == "complete" else None,
             }
         )

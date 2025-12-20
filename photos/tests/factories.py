@@ -26,8 +26,6 @@ class PhotoFactory:
 
     @staticmethod
     def create_photo(
-        title="Test Photo",
-        description="Test Description",
         image=None,
         original_filename=None,
         **kwargs,
@@ -39,8 +37,6 @@ class PhotoFactory:
             image = PhotoFactory.create_test_image()
 
         photo = Photo(
-            title=title,
-            description=description,
             image=image,
             original_filename=original_filename,
             **kwargs,

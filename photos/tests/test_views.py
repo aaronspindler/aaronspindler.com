@@ -49,20 +49,20 @@ class AlbumDetailViewTestCase(TestCase):
         )
 
         # Create test photos
-        self.photo1 = self._create_test_photo("Photo 1")
-        self.photo2 = self._create_test_photo("Photo 2")
+        self.photo1 = self._create_test_photo("photo_1.jpg")
+        self.photo2 = self._create_test_photo("photo_2.jpg")
 
         # Add photos to albums
         self.public_album.photos.add(self.photo1, self.photo2)
         self.private_album.photos.add(self.photo1)
 
-    def _create_test_photo(self, title):
+    def _create_test_photo(self, filename):
         """Helper to create a test photo with unique image."""
         # Create unique image to avoid duplicate detection
         img = Image.new(
             "RGB",
             (10, 10),
-            color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256),
+            color=(hash(filename) % 256, (hash(filename) * 2) % 256, (hash(filename) * 3) % 256),
         )
         img_io = BytesIO()
         img.save(img_io, format="JPEG", quality=50)
@@ -71,12 +71,12 @@ class AlbumDetailViewTestCase(TestCase):
         from django.core.files.uploadedfile import SimpleUploadedFile
 
         test_image = SimpleUploadedFile(
-            name=f"{title.lower().replace(' ', '_')}.jpg",
+            name=filename,
             content=img_io.getvalue(),
             content_type="image/jpeg",
         )
 
-        photo = Photo(title=title, image=test_image)
+        photo = Photo(image=test_image)
         photo.save(skip_duplicate_check=True)
         return photo
 
@@ -187,12 +187,12 @@ class DownloadPhotoViewTestCase(TestCase):
             allow_downloads=True,
         )
 
-        self.photo = self._create_test_photo("Test Photo")
+        self.photo = self._create_test_photo("test_photo.jpg")
         self.album.photos.add(self.photo)
 
-    def _create_test_photo(self, title):
+    def _create_test_photo(self, filename):
         """Helper to create a test photo."""
-        return PhotoFactory.create_photo(title=title, original_filename=f"{title}.jpg")
+        return PhotoFactory.create_photo(original_filename=filename)
 
     @patch("requests.get")
     def test_download_photo_success(self, mock_get):

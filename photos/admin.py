@@ -72,7 +72,6 @@ class PhotoAdmin(admin.ModelAdmin):
     list_display = (
         "list_thumbnail",
         "get_display_name",
-        "title",
         "processing_status_display",
         "file_info",
         "camera_info",
@@ -81,8 +80,6 @@ class PhotoAdmin(admin.ModelAdmin):
     )
     list_filter = ("processing_status", DuplicateFilter, "created_at", "updated_at", "camera_make", "camera_model")
     search_fields = (
-        "title",
-        "description",
         "original_filename",
         "camera_make",
         "camera_model",
@@ -90,7 +87,6 @@ class PhotoAdmin(admin.ModelAdmin):
         "file_hash",
         "perceptual_hash",
     )
-    list_editable = ("title",)
     list_display_links = ("list_thumbnail", "get_display_name")
     actions = ["add_to_album", "find_duplicates_action", "reprocess_images"]
     readonly_fields = (
@@ -122,12 +118,10 @@ class PhotoAdmin(admin.ModelAdmin):
     )
 
     fieldsets = (
-        ("Basic Information", {"fields": ("title", "description")}),
         (
-            "Image Upload",
+            "Image Versions",
             {
-                "fields": ("image",),
-                "description": "Upload a new image. Optimized versions will be created automatically. Duplicate detection will prevent identical images from being uploaded.",
+                "fields": ("all_versions_preview", "saliency_map_preview"),
             },
         ),
         (
@@ -141,13 +135,6 @@ class PhotoAdmin(admin.ModelAdmin):
                 ),
                 "classes": ("collapse",),
                 "description": "Information about duplicate and similar images",
-            },
-        ),
-        (
-            "Image Versions",
-            {
-                "fields": ("all_versions_preview", "saliency_map_preview"),
-                "classes": ("collapse",),
             },
         ),
         (
@@ -204,9 +191,7 @@ class PhotoAdmin(admin.ModelAdmin):
     @admin.display(description="Name")
     def get_display_name(self, obj):
         """Get display name for the photo."""
-        if obj.title:
-            return obj.title
-        elif obj.original_filename:
+        if obj.original_filename:
             return obj.original_filename
         else:
             return f"Photo {obj.pk}"
@@ -297,20 +282,37 @@ class PhotoAdmin(admin.ModelAdmin):
             )
 
         try:
+            url = obj.saliency_map.url
+            focal_x = obj.focal_point_x if obj.focal_point_x else 0.5
+            focal_y = obj.focal_point_y if obj.focal_point_y else 0.5
+
+            # Format floats before passing to format_html to avoid SafeString formatting issues
+            focal_x_str = f"{focal_x:.3f}"
+            focal_y_str = f"{focal_y:.3f}"
+
             return format_html(
                 '<div style="background: #f9f9f9; padding: 10px; border-radius: 5px;">'
                 "<strong>Saliency Detection Visualization</strong><br>"
                 "<small>Brighter areas indicate regions the algorithm considers more important. "
                 "The focal point is calculated as the center of mass of these bright regions.</small><br><br>"
                 '<img src="{}" style="max-width: 400px; border: 2px solid #333; padding: 5px; background: white;" /><br>'
-                '<small style="color: #666;">Focal Point: ({:.3f}, {:.3f})</small>'
+                '<small style="color: #666;">Focal Point: ({}, {})</small>'
                 "</div>",
-                obj.saliency_map.url,
-                obj.focal_point_x if obj.focal_point_x else 0.5,
-                obj.focal_point_y if obj.focal_point_y else 0.5,
+                url,
+                focal_x_str,
+                focal_y_str,
             )
-        except (ValueError, AttributeError):
-            return "Saliency map file not accessible"
+        except Exception as e:
+            logger.error(f"Error displaying saliency map for photo {obj.pk}: {type(e).__name__}: {e}")
+            return format_html(
+                '<div style="background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffc107;">'
+                "<strong>⚠️ Error accessing saliency map</strong><br>"
+                "<small>File: {}<br>Error: {}: {}</small>"
+                "</div>",
+                obj.saliency_map.name if obj.saliency_map else "None",
+                type(e).__name__,
+                str(e),
+            )
 
     @admin.display(description="All Image Versions")
     def all_versions_preview(self, obj):
@@ -710,7 +712,7 @@ class AlbumPhotoAdmin(admin.ModelAdmin):
     list_display = ("photo_preview", "photo", "album", "is_featured", "display_order", "added_at")
     list_filter = ("is_featured", "album")
     list_editable = ("is_featured", "display_order")
-    search_fields = ("photo__title", "photo__original_filename", "album__title")
+    search_fields = ("photo__original_filename", "album__title")
     autocomplete_fields = ["album", "photo"]
     readonly_fields = ("photo_preview",)
 

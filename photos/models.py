@@ -18,9 +18,6 @@ class Photo(models.Model):
         ("failed", "Failed"),
     ]
 
-    title = models.CharField(max_length=255, blank=True, default="")
-    description = models.TextField(blank=True)
-
     image = models.ImageField(upload_to="photos/original/", verbose_name="Original Full Resolution")
 
     processing_status = models.CharField(
@@ -272,10 +269,19 @@ class Photo(models.Model):
         self.image.seek(0)
         saliency_map_bytes = ImageOptimizer.compute_saliency_map(self.image)
         if saliency_map_bytes:
+            import logging
+
             from django.core.files.base import ContentFile
 
+            logger = logging.getLogger(__name__)
             saliency_filename = f"{os.path.splitext(self.original_filename)[0]}_saliency.png"
             self.saliency_map.save(saliency_filename, ContentFile(saliency_map_bytes), save=False)
+            logger.info(f"Saved saliency map for photo {self.pk}: {saliency_filename}")
+        else:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"No saliency map generated for photo {self.pk} - computation returned None")
 
     def get_image_url(self, size="thumbnail"):
         """
@@ -331,9 +337,7 @@ class Photo(models.Model):
         return similar
 
     def __str__(self):
-        if self.title:
-            return self.title
-        elif self.original_filename:
+        if self.original_filename:
             return self.original_filename
         else:
             return f"Photo {self.pk}"

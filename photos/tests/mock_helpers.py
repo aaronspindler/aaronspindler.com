@@ -67,7 +67,7 @@ class PhotoTestMixin:
     """Mixin to provide common photo test utilities."""
 
     @staticmethod
-    def create_mock_photo_with_minimal_processing(title="Test Photo"):
+    def create_mock_photo_with_minimal_processing(filename="test_photo.jpg"):
         """
         Create a photo with all heavy operations mocked.
 
@@ -83,7 +83,7 @@ class PhotoTestMixin:
         # Create tiny test image
         img_io = create_tiny_test_image()
         test_image = SimpleUploadedFile(
-            name=f"{title.lower().replace(' ', '_')}.jpg",
+            name=filename,
             content=img_io.getvalue(),
             content_type="image/jpeg",
         )
@@ -96,10 +96,10 @@ class PhotoTestMixin:
             patch("photos.models.ImageMetadataExtractor.extract_basic_metadata") as mock_metadata,
         ):
             mock_process.return_value = mock_image_optimizer_process()
-            mock_hashes.return_value = mock_duplicate_detector_hashes(title)
+            mock_hashes.return_value = mock_duplicate_detector_hashes(filename)
             mock_exif.return_value = mock_exif_extractor_data()
             mock_metadata.return_value = mock_image_metadata()
 
-            photo = Photo(title=title, image=test_image)
+            photo = Photo(image=test_image)
             photo.save(skip_duplicate_check=True)
             return photo
