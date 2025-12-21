@@ -1,7 +1,6 @@
 import hashlib
 import json
 import logging
-import os
 from contextlib import contextmanager
 from datetime import datetime
 from decimal import Decimal
@@ -854,42 +853,40 @@ class ImageOptimizer:
         return (ContentFile(output.read()), computed_focal_point)
 
     @classmethod
-    def generate_filename(cls, original_filename, size_name):
+    def generate_filename(cls, photo_uuid, size_name, original_ext=".jpg"):
         """
-        Generate a filename for the optimized version.
+        Generate a filename for the optimized version using UUID.
 
         Args:
-            original_filename: Original filename
-            size_name: Size variant name
+            photo_uuid: UUID of the photo (string)
+            size_name: Size variant name ('thumbnail', 'preview', etc.)
+            original_ext: Original file extension
 
         Returns:
-            str: New filename with size suffix
+            str: New filename with UUID and size suffix
         """
-        name, ext = os.path.splitext(original_filename)
-
-        if size_name != "original" and ext.lower() not in [".png", ".gif", ".webp"]:
+        ext = original_ext.lower()
+        if size_name != "original" and ext not in [".png", ".gif", ".webp"]:
             ext = ".jpg"  # Convert to .jpg when optimizing (except PNG/GIF/WebP)
 
         if size_name == "original":
-            return f"{name}{ext}"
+            return f"{photo_uuid}{ext}"
 
-        return f"{name}_{size_name}{ext}"
+        return f"{photo_uuid}_{size_name}{ext}"
 
     @classmethod
-    def process_uploaded_image(cls, image_file, filename=None):
+    def process_uploaded_image(cls, image_file, photo_uuid, original_ext=".jpg"):
         """
         Process an uploaded image and create all size variants.
 
         Args:
             image_file: Uploaded image file
-            filename: Optional custom filename
+            photo_uuid: UUID of the photo for naming (string)
+            original_ext: Original file extension
 
         Returns:
             tuple: (variants dict, focal_point tuple or None, saliency_map_bytes or None)
         """
-        if not filename:
-            filename = image_file.name
-
         variants = {}
         focal_point = None
         saliency_map_bytes = None
@@ -906,7 +903,7 @@ class ImageOptimizer:
             image_file.seek(0)
             optimized, _ = cls.optimize_image(image_file, size_name, focal_point=focal_point)
 
-            variant_filename = cls.generate_filename(filename, size_name)
+            variant_filename = cls.generate_filename(photo_uuid, size_name, original_ext)
             optimized.name = variant_filename
             variants[size_name] = optimized
 

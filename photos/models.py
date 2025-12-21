@@ -10,6 +10,29 @@ from django.utils.text import slugify
 from photos.image_utils import DuplicateDetector, ExifExtractor, ImageMetadataExtractor, ImageOptimizer
 
 
+def photo_upload_to(instance, filename):
+    """Generate upload path for original photos using UUID."""
+    ext = os.path.splitext(filename)[1].lower() or ".jpg"
+    return f"photos/original/{instance.uuid}{ext}"
+
+
+def thumbnail_upload_to(instance, filename):
+    """Generate upload path for thumbnails using UUID."""
+    ext = os.path.splitext(filename)[1].lower() or ".jpg"
+    return f"photos/thumbnails/{instance.uuid}_thumbnail{ext}"
+
+
+def preview_upload_to(instance, filename):
+    """Generate upload path for previews using UUID."""
+    ext = os.path.splitext(filename)[1].lower() or ".jpg"
+    return f"photos/preview/{instance.uuid}_preview{ext}"
+
+
+def saliency_upload_to(instance, _filename):
+    """Generate upload path for saliency maps using UUID."""
+    return f"photos/saliency/{instance.uuid}_saliency.png"
+
+
 class Photo(models.Model):
     PROCESSING_STATUS_CHOICES = [
         ("pending", "Pending Processing"),
@@ -18,7 +41,14 @@ class Photo(models.Model):
         ("failed", "Failed"),
     ]
 
-    image = models.ImageField(upload_to="photos/original/", verbose_name="Original Full Resolution")
+    uuid = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        db_index=True,
+    )
+
+    image = models.ImageField(upload_to=photo_upload_to, verbose_name="Original Full Resolution")
 
     processing_status = models.CharField(
         max_length=20,
@@ -29,21 +59,21 @@ class Photo(models.Model):
     )
 
     image_thumbnail = models.ImageField(
-        upload_to="photos/thumbnails/",
+        upload_to=thumbnail_upload_to,
         blank=True,
         null=True,
         verbose_name="Thumbnail Version (Smart Cropped)",
     )
 
     image_preview = models.ImageField(
-        upload_to="photos/preview/",
+        upload_to=preview_upload_to,
         blank=True,
         null=True,
         verbose_name="Preview Version (Full Size, Highly Compressed)",
     )
 
     saliency_map = models.ImageField(
-        upload_to="photos/saliency/",
+        upload_to=saliency_upload_to,
         blank=True,
         null=True,
         verbose_name="Saliency Map (Debug Visualization)",
@@ -253,8 +283,9 @@ class Photo(models.Model):
             self.gps_altitude = exif_data.get("gps_altitude")
 
         self.image.seek(0)  # Reset file pointer before processing
+        original_ext = os.path.splitext(self.original_filename)[1] or ".jpg"
         variants, focal_point, saliency_map_bytes = ImageOptimizer.process_uploaded_image(
-            self.image, self.original_filename
+            self.image, str(self.uuid), original_ext
         )
 
         if focal_point:
@@ -274,7 +305,7 @@ class Photo(models.Model):
             from django.core.files.base import ContentFile
 
             logger = logging.getLogger(__name__)
-            saliency_filename = f"{os.path.splitext(self.original_filename)[0]}_saliency.png"
+            saliency_filename = f"{self.uuid}_saliency.png"
             self.saliency_map.save(saliency_filename, ContentFile(saliency_map_bytes), save=False)
             logger.info(f"Saved saliency map for photo {self.pk}: {saliency_filename}")
         else:
