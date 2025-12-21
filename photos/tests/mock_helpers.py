@@ -28,7 +28,6 @@ def mock_image_optimizer_process():
         {"preview": mock_preview, "thumbnail": mock_thumbnail},
         (0.5, 0.5),  # focal point
         None,  # saliency_map_bytes
-        "unknown",  # image_type
     )
 
 

@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.text import slugify
 
-from photos.image_utils import DuplicateDetector, ExifExtractor, ImageMetadataExtractor, ImageOptimizer, ImageType
+from photos.image_utils import DuplicateDetector, ExifExtractor, ImageMetadataExtractor, ImageOptimizer
 
 
 def photo_upload_to(instance, filename):
@@ -100,14 +100,6 @@ class Photo(models.Model):
 
     focal_point_x = models.FloatField(null=True, blank=True, help_text="X coordinate of focal point (0-1)")
     focal_point_y = models.FloatField(null=True, blank=True, help_text="Y coordinate of focal point (0-1)")
-
-    image_type = models.CharField(
-        max_length=20,
-        choices=ImageType.CHOICES,
-        default=ImageType.UNKNOWN,
-        db_index=True,
-        help_text="Automatically detected image type for optimized cropping",
-    )
 
     exif_data = models.JSONField(null=True, blank=True, help_text="Full EXIF data as JSON")
     camera_make = models.CharField(max_length=100, blank=True, help_text="Camera manufacturer")
@@ -292,16 +284,13 @@ class Photo(models.Model):
 
         self.image.seek(0)  # Reset file pointer before processing
         original_ext = os.path.splitext(self.original_filename)[1] or ".jpg"
-        variants, focal_point, saliency_map_bytes, image_type = ImageOptimizer.process_uploaded_image(
+        variants, focal_point, saliency_map_bytes = ImageOptimizer.process_uploaded_image(
             self.image, str(self.uuid), original_ext
         )
 
         if focal_point:
             self.focal_point_x = focal_point[0]
             self.focal_point_y = focal_point[1]
-
-        if image_type:
-            self.image_type = image_type
 
         if "thumbnail" in variants:
             self.image_thumbnail.save(variants["thumbnail"].name, variants["thumbnail"], save=False)

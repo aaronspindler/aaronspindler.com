@@ -1224,30 +1224,30 @@ class ImageOptimizer:
         """
         Process an uploaded image and create all size variants.
 
+        The image type is automatically detected and used internally to optimize
+        the smart crop focal point calculation.
+
         Args:
             image_file: Uploaded image file
             photo_uuid: UUID of the photo for naming (string)
             original_ext: Original file extension
 
         Returns:
-            tuple: (variants dict, focal_point tuple or None, saliency_map_bytes or None, image_type str)
+            tuple: (variants dict, focal_point tuple or None, saliency_map_bytes or None)
         """
         variants = {}
         focal_point = None
         saliency_map_bytes = None
-        image_type = ImageType.UNKNOWN
 
-        # Compute focal point, saliency map, and image type once before processing variants
-        # This avoids recomputing saliency detection multiple times
+        # Compute focal point and saliency map once before processing variants
+        # Image type is detected internally by find_focal_point to optimize cropping
         image_file.seek(0)
         img = Image.open(image_file)
         if img.mode != "RGB":
             img = img.convert("RGB")
-        focal_point, saliency_map_bytes, image_type = SmartCrop.find_focal_point(
-            img, return_saliency_map=True, return_image_type=True
-        )
+        focal_point, saliency_map_bytes = SmartCrop.find_focal_point(img, return_saliency_map=True)
 
-        logger.info(f"Processing image {photo_uuid}: type={image_type}, focal_point={focal_point}")
+        logger.info(f"Processing image {photo_uuid}: focal_point={focal_point}")
 
         for size_name in ["preview", "thumbnail"]:
             image_file.seek(0)
@@ -1257,7 +1257,7 @@ class ImageOptimizer:
             optimized.name = variant_filename
             variants[size_name] = optimized
 
-        return (variants, focal_point, saliency_map_bytes, image_type)
+        return (variants, focal_point, saliency_map_bytes)
 
     @classmethod
     def compute_saliency_map(cls, image_file):

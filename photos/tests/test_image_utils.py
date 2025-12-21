@@ -574,9 +574,7 @@ class ImageOptimizerTestCase(TestCase):
             (mock_thumbnail, None),  # thumbnail call (uses cached focal point)
         ]
 
-        variants, focal_point, saliency_map_bytes, image_type = ImageOptimizer.process_uploaded_image(
-            test_file, test_uuid
-        )
+        variants, focal_point, saliency_map_bytes = ImageOptimizer.process_uploaded_image(test_file, test_uuid)
 
         # Verify all variants created
         self.assertIn("preview", variants)
@@ -584,7 +582,6 @@ class ImageOptimizerTestCase(TestCase):
         self.assertEqual(variants["preview"].name, f"{test_uuid}_preview.jpg")
         self.assertEqual(variants["thumbnail"].name, f"{test_uuid}_thumbnail.jpg")
         self.assertIsNotNone(focal_point)
-        self.assertIsNotNone(image_type)
 
         # Verify optimize was called for each size
         self.assertEqual(mock_optimize.call_count, 2)
