@@ -531,55 +531,56 @@ class ImageOptimizerTestCase(TestCase):
     def test_generate_filename(self):
         """Test filename generation for different sizes."""
         # Original keeps extension
-        self.assertEqual(ImageOptimizer.generate_filename("photo.png", "original"), "photo.png")
+        self.assertEqual(ImageOptimizer.generate_filename("test-uuid", "original", ".png"), "test-uuid.png")
 
         # Preview/thumbnail convert to jpg (except PNG/GIF/WebP)
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.tiff", "preview"),
-            "photo_preview.jpg",
+            ImageOptimizer.generate_filename("test-uuid", "preview", ".tiff"),
+            "test-uuid_preview.jpg",
         )
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.bmp", "thumbnail"),
-            "photo_thumbnail.jpg",
+            ImageOptimizer.generate_filename("test-uuid", "thumbnail", ".bmp"),
+            "test-uuid_thumbnail.jpg",
         )
 
         # PNG/GIF/WebP preserved
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.png", "preview"),
-            "photo_preview.png",
+            ImageOptimizer.generate_filename("test-uuid", "preview", ".png"),
+            "test-uuid_preview.png",
         )
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.gif", "thumbnail"),
-            "photo_thumbnail.gif",
+            ImageOptimizer.generate_filename("test-uuid", "thumbnail", ".gif"),
+            "test-uuid_thumbnail.gif",
         )
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.webp", "preview"),
-            "photo_preview.webp",
+            ImageOptimizer.generate_filename("test-uuid", "preview", ".webp"),
+            "test-uuid_preview.webp",
         )
 
     @patch("photos.image_utils.ImageOptimizer.optimize_image")
     def test_process_uploaded_image(self, mock_optimize):
         """Test processing uploaded image to create all variants."""
         test_file = self._create_test_image_file()
+        test_uuid = "test-uuid-123"
 
         # Setup mock returns for different sizes
         mock_preview = ContentFile(b"preview_content")
-        mock_preview.name = "test_preview.jpg"
+        mock_preview.name = f"{test_uuid}_preview.jpg"
         mock_thumbnail = ContentFile(b"thumbnail_content")
-        mock_thumbnail.name = "test_thumbnail.jpg"
+        mock_thumbnail.name = f"{test_uuid}_thumbnail.jpg"
 
         mock_optimize.side_effect = [
             (mock_preview, (0.5, 0.5)),  # preview call
             (mock_thumbnail, None),  # thumbnail call (uses cached focal point)
         ]
 
-        variants, focal_point, saliency_map_bytes = ImageOptimizer.process_uploaded_image(test_file, "test.jpg")
+        variants, focal_point, saliency_map_bytes = ImageOptimizer.process_uploaded_image(test_file, test_uuid)
 
         # Verify all variants created
         self.assertIn("preview", variants)
         self.assertIn("thumbnail", variants)
-        self.assertEqual(variants["preview"].name, "test_preview.jpg")
-        self.assertEqual(variants["thumbnail"].name, "test_thumbnail.jpg")
+        self.assertEqual(variants["preview"].name, f"{test_uuid}_preview.jpg")
+        self.assertEqual(variants["thumbnail"].name, f"{test_uuid}_thumbnail.jpg")
         self.assertEqual(focal_point, (0.5, 0.5))
 
         # Verify optimize was called for each size
