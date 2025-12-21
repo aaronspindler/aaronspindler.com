@@ -16,6 +16,326 @@ from PIL.ExifTags import GPSTAGS, TAGS
 logger = logging.getLogger(__name__)
 
 
+class ImageType:
+    PORTRAIT = "portrait"
+    GROUP = "group"
+    LANDSCAPE = "landscape"
+    ARCHITECTURE = "architecture"
+    MACRO = "macro"
+    FOOD = "food"
+    DOCUMENT = "document"
+    UNKNOWN = "unknown"
+
+    CHOICES = [
+        (PORTRAIT, "Portrait"),
+        (GROUP, "Group Photo"),
+        (LANDSCAPE, "Landscape/Nature"),
+        (ARCHITECTURE, "Architecture"),
+        (MACRO, "Macro/Close-up"),
+        (FOOD, "Food"),
+        (DOCUMENT, "Document/Text"),
+        (UNKNOWN, "Unknown"),
+    ]
+
+
+class ImageTypeClassifier:
+    """
+    Classifies images into categories to optimize smart cropping strategy.
+    Uses heuristics based on faces, colors, edges, and content analysis.
+    """
+
+    # Color ranges for detection (HSV format)
+    SKY_BLUE_RANGE = ((90, 50, 100), (130, 255, 255))
+    GREEN_RANGE = ((35, 40, 40), (85, 255, 255))
+    WARM_FOOD_RANGE = ((0, 50, 50), (30, 255, 255))
+
+    # Thresholds for classification
+    PORTRAIT_FACE_RATIO = 0.03  # Single face must be at least 3% of image
+    GROUP_MIN_FACES = 2
+    LANDSCAPE_SKY_RATIO = 0.15  # 15% sky in upper portion
+    LANDSCAPE_GREEN_RATIO = 0.20  # 20% green vegetation
+    ARCHITECTURE_LINE_THRESHOLD = 50  # Number of strong lines
+    FOOD_WARM_RATIO = 0.25  # 25% warm colors
+    DOCUMENT_CONTRAST_THRESHOLD = 0.7  # High contrast ratio
+    MACRO_BLUR_RATIO = 0.4  # 40% of edges in center
+
+    @classmethod
+    def classify(cls, img, faces=None):
+        """
+        Classify an image into a category.
+
+        Args:
+            img: PIL Image object (RGB mode)
+            faces: Optional pre-detected faces list [(x, y, w, h), ...]
+
+        Returns:
+            str: Image type constant from ImageType class
+        """
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+
+        width, height = img.size
+        img_area = width * height
+
+        # Get faces if not provided
+        if faces is None:
+            from photos.image_utils import SmartCrop
+            faces = SmartCrop.detect_faces(img)
+
+        # Check for portrait/group based on faces
+        if faces:
+            total_face_area = sum(w * h for x, y, w, h in faces)
+            face_ratio = total_face_area / img_area
+
+            if len(faces) >= cls.GROUP_MIN_FACES:
+                return ImageType.GROUP
+
+            if len(faces) == 1 and face_ratio >= cls.PORTRAIT_FACE_RATIO:
+                largest_face = max(faces, key=lambda f: f[2] * f[3])
+                face_center_y = (largest_face[1] + largest_face[3] / 2) / height
+                # Portrait if face is in upper 2/3 and reasonably sized
+                if face_center_y < 0.7:
+                    return ImageType.PORTRAIT
+
+        # Try OpenCV-based analysis
+        try:
+            import cv2
+            img_array = np.array(img)
+            img_cv = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+            hsv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2HSV)
+
+            # Check for document (high contrast, mostly white/black)
+            if cls._is_document(img, img_array):
+                return ImageType.DOCUMENT
+
+            # Check for architecture (strong lines)
+            if cls._is_architecture(img_cv):
+                return ImageType.ARCHITECTURE
+
+            # Check for landscape (sky + vegetation)
+            if cls._is_landscape(hsv, height):
+                return ImageType.LANDSCAPE
+
+            # Check for food (warm colors, centered subject)
+            if cls._is_food(hsv, img_area):
+                return ImageType.FOOD
+
+            # Check for macro (sharp center, blurred edges)
+            if cls._is_macro(img_array):
+                return ImageType.MACRO
+
+        except ImportError:
+            pass
+
+        return ImageType.UNKNOWN
+
+    @classmethod
+    def _is_document(cls, img, img_array):
+        """Check if image is a document/text."""
+        gray = img.convert("L")
+        histogram = gray.histogram()
+        total_pixels = sum(histogram)
+
+        # Check bimodal distribution (peaks at dark and light)
+        dark_pixels = sum(histogram[:64]) / total_pixels
+        light_pixels = sum(histogram[192:]) / total_pixels
+
+        # Documents typically have very high contrast
+        if dark_pixels + light_pixels > cls.DOCUMENT_CONTRAST_THRESHOLD:
+            return True
+
+        return False
+
+    @classmethod
+    def _is_architecture(cls, img_cv):
+        """Check if image contains architecture (strong lines)."""
+        import cv2
+
+        gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+
+        # Detect lines using Hough transform
+        lines = cv2.HoughLinesP(
+            edges, 1, np.pi / 180, threshold=100,
+            minLineLength=min(img_cv.shape[:2]) // 10,
+            maxLineGap=10
+        )
+
+        if lines is None:
+            return False
+
+        # Count vertical and horizontal lines
+        vertical_count = 0
+        horizontal_count = 0
+
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            angle = abs(np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi)
+
+            if angle < 15 or angle > 165:  # Horizontal
+                horizontal_count += 1
+            elif 75 < angle < 105:  # Vertical
+                vertical_count += 1
+
+        # Architecture typically has many vertical and horizontal lines
+        total_strong_lines = vertical_count + horizontal_count
+        return total_strong_lines >= cls.ARCHITECTURE_LINE_THRESHOLD
+
+    @classmethod
+    def _is_landscape(cls, hsv, height):
+        """Check if image is a landscape (sky in upper portion, vegetation)."""
+        import cv2
+
+        # Check upper 40% for sky
+        upper_portion = hsv[:int(height * 0.4), :, :]
+
+        # Create mask for sky blue colors
+        sky_mask = cv2.inRange(
+            upper_portion,
+            np.array(cls.SKY_BLUE_RANGE[0]),
+            np.array(cls.SKY_BLUE_RANGE[1])
+        )
+        sky_ratio = np.count_nonzero(sky_mask) / sky_mask.size
+
+        # Check full image for green vegetation
+        green_mask = cv2.inRange(
+            hsv,
+            np.array(cls.GREEN_RANGE[0]),
+            np.array(cls.GREEN_RANGE[1])
+        )
+        green_ratio = np.count_nonzero(green_mask) / green_mask.size
+
+        # Landscape if we have sky OR significant vegetation
+        if sky_ratio >= cls.LANDSCAPE_SKY_RATIO:
+            return True
+        if green_ratio >= cls.LANDSCAPE_GREEN_RATIO:
+            return True
+
+        return False
+
+    @classmethod
+    def _is_food(cls, hsv, img_area):
+        """Check if image is food photography (warm colors, centered)."""
+        import cv2
+
+        height, width = hsv.shape[:2]
+
+        # Check center region for warm colors
+        center_y1, center_y2 = int(height * 0.25), int(height * 0.75)
+        center_x1, center_x2 = int(width * 0.25), int(width * 0.75)
+        center_region = hsv[center_y1:center_y2, center_x1:center_x2]
+
+        warm_mask = cv2.inRange(
+            center_region,
+            np.array(cls.WARM_FOOD_RANGE[0]),
+            np.array(cls.WARM_FOOD_RANGE[1])
+        )
+        warm_ratio = np.count_nonzero(warm_mask) / warm_mask.size
+
+        # Food photos typically have warm colors in the center
+        return warm_ratio >= cls.FOOD_WARM_RATIO
+
+    @classmethod
+    def _is_macro(cls, img_array):
+        """Check if image is macro/close-up (sharp center, blurred edges)."""
+        import cv2
+
+        gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+        height, width = gray.shape
+
+        # Calculate Laplacian variance (sharpness) for center and edges
+        center_y1, center_y2 = int(height * 0.3), int(height * 0.7)
+        center_x1, center_x2 = int(width * 0.3), int(width * 0.7)
+
+        center = gray[center_y1:center_y2, center_x1:center_x2]
+        center_sharpness = cv2.Laplacian(center, cv2.CV_64F).var()
+
+        # Check edge regions
+        edge_regions = [
+            gray[:center_y1, :],  # Top
+            gray[center_y2:, :],  # Bottom
+            gray[:, :center_x1],  # Left
+            gray[:, center_x2:]   # Right
+        ]
+
+        edge_sharpness = np.mean([
+            cv2.Laplacian(region, cv2.CV_64F).var()
+            for region in edge_regions if region.size > 0
+        ])
+
+        # Macro if center is significantly sharper than edges
+        if edge_sharpness > 0:
+            sharpness_ratio = center_sharpness / edge_sharpness
+            return sharpness_ratio > 2.0
+
+        return False
+
+    @classmethod
+    def get_crop_strategy(cls, image_type):
+        """
+        Get cropping strategy parameters for an image type.
+
+        Returns:
+            dict: Strategy parameters including:
+                - face_weight: Weight for face detection (0-1)
+                - saliency_weight: Weight for saliency detection
+                - prefer_center: Whether to bias toward center
+                - aspect_preference: Preferred aspect ratio adjustment
+                - focal_y_bias: Vertical bias for focal point (0=top, 1=bottom)
+        """
+        strategies = {
+            ImageType.PORTRAIT: {
+                "face_weight": 0.9,
+                "saliency_weight": 0.1,
+                "prefer_center": False,
+                "focal_y_bias": 0.35,  # Bias toward upper portion (faces)
+            },
+            ImageType.GROUP: {
+                "face_weight": 0.8,
+                "saliency_weight": 0.2,
+                "prefer_center": True,
+                "focal_y_bias": 0.4,
+            },
+            ImageType.LANDSCAPE: {
+                "face_weight": 0.0,
+                "saliency_weight": 0.7,
+                "prefer_center": False,
+                "focal_y_bias": 0.45,  # Slightly above center (horizon)
+            },
+            ImageType.ARCHITECTURE: {
+                "face_weight": 0.0,
+                "saliency_weight": 0.5,
+                "prefer_center": True,
+                "focal_y_bias": 0.5,  # Center for symmetry
+            },
+            ImageType.MACRO: {
+                "face_weight": 0.0,
+                "saliency_weight": 0.9,
+                "prefer_center": True,
+                "focal_y_bias": 0.5,
+            },
+            ImageType.FOOD: {
+                "face_weight": 0.0,
+                "saliency_weight": 0.8,
+                "prefer_center": True,
+                "focal_y_bias": 0.5,  # Center for table-top shots
+            },
+            ImageType.DOCUMENT: {
+                "face_weight": 0.0,
+                "saliency_weight": 0.3,
+                "prefer_center": True,
+                "focal_y_bias": 0.4,  # Slightly up for headers
+            },
+            ImageType.UNKNOWN: {
+                "face_weight": 0.7,
+                "saliency_weight": 0.3,
+                "prefer_center": False,
+                "focal_y_bias": 0.5,
+            },
+        }
+        return strategies.get(image_type, strategies[ImageType.UNKNOWN])
+
+
 @contextmanager
 def reset_file_pointer(file_obj):
     """
@@ -285,9 +605,11 @@ class SmartCrop:
     """
     Smart cropping functionality to find the most interesting part of an image.
     Uses face detection, saliency detection, edge detection, and entropy analysis.
+    Automatically classifies images and applies type-specific cropping strategies.
     """
 
-    # Weight for blending face detection with saliency (0.0 = saliency only, 1.0 = face only)
+    # Default weight for blending face detection with saliency (0.0 = saliency only, 1.0 = face only)
+    # This is overridden by image type-specific strategies
     FACE_WEIGHT = 0.7
 
     @staticmethod
@@ -463,29 +785,35 @@ class SmartCrop:
         return (weighted_x / total_weight / img_width, weighted_y / total_weight / img_height)
 
     @staticmethod
-    def find_focal_point(img, return_saliency_map=False):
+    def find_focal_point(img, return_saliency_map=False, return_image_type=False):
         """
-        Find the focal point of an image using face detection blended with saliency.
+        Find the focal point of an image using image type-aware detection.
 
-        Priority:
-        1. If faces detected: blend face center with saliency (FACE_WEIGHT ratio)
-        2. If no faces: use saliency detection alone
-        3. If saliency fails: fall back to entropy + edge detection
+        Classifies the image first, then applies type-specific cropping strategies:
+        - Portrait/Group: Higher weight on face detection
+        - Landscape: Focus on horizon and interesting features
+        - Architecture: Center-biased with line detection awareness
+        - Macro/Food: Strong saliency with center bias
+        - Document: Upper-center focus for headers
 
         Args:
             img: PIL Image object
-            return_saliency_map: If True, returns (focal_point, saliency_map_bytes)
+            return_saliency_map: If True, returns saliency_map_bytes in result
+            return_image_type: If True, returns detected image_type in result
 
         Returns:
-            tuple: If return_saliency_map=True: ((x, y), bytes or None)
-                   If return_saliency_map=False: (x, y)
+            tuple: Depending on flags:
+                   - Default: (x, y)
+                   - return_saliency_map: ((x, y), bytes or None)
+                   - return_image_type: ((x, y), image_type)
+                   - Both: ((x, y), bytes or None, image_type)
         """
         if img.mode != "RGB":
             img = img.convert("RGB")
 
         width, height = img.size
 
-        # Detect faces first
+        # Detect faces first (needed for both classification and focal point)
         faces = SmartCrop.detect_faces(img)
         face_point = SmartCrop._get_face_focal_point(faces, width, height)
 
@@ -493,6 +821,11 @@ class SmartCrop:
             logger.debug(f"Face detection succeeded: {len(faces)} face(s) detected, focal point: {face_point}")
         else:
             logger.debug(f"Face detection: no faces detected (checked {len(faces)} detections)")
+
+        # Classify the image type
+        image_type = ImageTypeClassifier.classify(img, faces=faces)
+        strategy = ImageTypeClassifier.get_crop_strategy(image_type)
+        logger.info(f"Image classified as: {image_type}, using strategy: {strategy}")
 
         # Get saliency-based focal point (pass faces for visualization)
         if return_saliency_map:
@@ -506,35 +839,60 @@ class SmartCrop:
         else:
             logger.debug("Saliency detection failed or unavailable")
 
-        # Blend face detection with saliency
-        if face_point is not None and saliency_point is not None:
-            x = SmartCrop.FACE_WEIGHT * face_point[0] + (1 - SmartCrop.FACE_WEIGHT) * saliency_point[0]
-            y = SmartCrop.FACE_WEIGHT * face_point[1] + (1 - SmartCrop.FACE_WEIGHT) * saliency_point[1]
+        # Get type-specific weights
+        face_weight = strategy["face_weight"]
+        focal_y_bias = strategy["focal_y_bias"]
+        prefer_center = strategy["prefer_center"]
+
+        # Calculate focal point based on image type strategy
+        if face_point is not None and saliency_point is not None and face_weight > 0:
+            # Blend face and saliency with type-specific weights
+            x = face_weight * face_point[0] + (1 - face_weight) * saliency_point[0]
+            y = face_weight * face_point[1] + (1 - face_weight) * saliency_point[1]
             focal_point = (x, y)
             logger.info(
-                f"Focal point: blended face ({face_point}) and saliency ({saliency_point}), result: {focal_point}"
+                f"Focal point ({image_type}): blended face ({face_point}) and "
+                f"saliency ({saliency_point}) with weight {face_weight}, result: {focal_point}"
             )
-        elif face_point is not None:
+        elif face_point is not None and face_weight > 0:
             focal_point = face_point
-            logger.info(f"Focal point: face detection only, result: {focal_point}")
+            logger.info(f"Focal point ({image_type}): face detection only, result: {focal_point}")
         elif saliency_point is not None:
             focal_point = saliency_point
-            logger.info(f"Focal point: saliency detection only, result: {focal_point}")
+            # Apply center bias for certain image types
+            if prefer_center:
+                center_weight = 0.3
+                x = (1 - center_weight) * saliency_point[0] + center_weight * 0.5
+                y = (1 - center_weight) * saliency_point[1] + center_weight * focal_y_bias
+                focal_point = (x, y)
+                logger.info(
+                    f"Focal point ({image_type}): saliency with center bias, "
+                    f"original: {saliency_point}, result: {focal_point}"
+                )
+            else:
+                logger.info(f"Focal point ({image_type}): saliency detection only, result: {focal_point}")
         else:
             # Both failed, fall back to entropy + edge detection
             edge_point = SmartCrop._edge_detection_focal_point(img)
             entropy_point = SmartCrop._entropy_focal_point(img)
 
             x = edge_point[0] * 0.3 + entropy_point[0] * 0.7
+            # Apply type-specific vertical bias
             y = edge_point[1] * 0.3 + entropy_point[1] * 0.7
+            y = y * (1 - 0.2) + focal_y_bias * 0.2  # Slight bias toward type preference
             focal_point = (x, y)
             logger.info(
-                f"Focal point: fallback to entropy+edge detection, "
+                f"Focal point ({image_type}): fallback to entropy+edge detection, "
                 f"edge: {edge_point}, entropy: {entropy_point}, result: {focal_point}"
             )
 
-        if return_saliency_map:
+        # Build return value based on flags
+        if return_saliency_map and return_image_type:
+            return (focal_point, saliency_map, image_type)
+        elif return_saliency_map:
             return (focal_point, saliency_map)
+        elif return_image_type:
+            return (focal_point, image_type)
 
         return focal_point
 
@@ -885,19 +1243,24 @@ class ImageOptimizer:
             original_ext: Original file extension
 
         Returns:
-            tuple: (variants dict, focal_point tuple or None, saliency_map_bytes or None)
+            tuple: (variants dict, focal_point tuple or None, saliency_map_bytes or None, image_type str)
         """
         variants = {}
         focal_point = None
         saliency_map_bytes = None
+        image_type = ImageType.UNKNOWN
 
-        # Compute focal point and saliency map once before processing variants
+        # Compute focal point, saliency map, and image type once before processing variants
         # This avoids recomputing saliency detection multiple times
         image_file.seek(0)
         img = Image.open(image_file)
         if img.mode != "RGB":
             img = img.convert("RGB")
-        focal_point, saliency_map_bytes = SmartCrop.find_focal_point(img, return_saliency_map=True)
+        focal_point, saliency_map_bytes, image_type = SmartCrop.find_focal_point(
+            img, return_saliency_map=True, return_image_type=True
+        )
+
+        logger.info(f"Processing image {photo_uuid}: type={image_type}, focal_point={focal_point}")
 
         for size_name in ["preview", "thumbnail"]:
             image_file.seek(0)
@@ -907,7 +1270,7 @@ class ImageOptimizer:
             optimized.name = variant_filename
             variants[size_name] = optimized
 
-        return (variants, focal_point, saliency_map_bytes)
+        return (variants, focal_point, saliency_map_bytes, image_type)
 
     @classmethod
     def compute_saliency_map(cls, image_file):
