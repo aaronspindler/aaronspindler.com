@@ -80,6 +80,7 @@ class ImageTypeClassifier:
         # Get faces if not provided
         if faces is None:
             from photos.image_utils import SmartCrop
+
             faces = SmartCrop.detect_faces(img)
 
         # Check for portrait/group based on faces
@@ -100,6 +101,7 @@ class ImageTypeClassifier:
         # Try OpenCV-based analysis
         try:
             import cv2
+
             img_array = np.array(img)
             img_cv = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
             hsv = cv2.cvtColor(img_cv, cv2.COLOR_BGR2HSV)
@@ -156,9 +158,7 @@ class ImageTypeClassifier:
 
         # Detect lines using Hough transform
         lines = cv2.HoughLinesP(
-            edges, 1, np.pi / 180, threshold=100,
-            minLineLength=min(img_cv.shape[:2]) // 10,
-            maxLineGap=10
+            edges, 1, np.pi / 180, threshold=100, minLineLength=min(img_cv.shape[:2]) // 10, maxLineGap=10
         )
 
         if lines is None:
@@ -187,22 +187,14 @@ class ImageTypeClassifier:
         import cv2
 
         # Check upper 40% for sky
-        upper_portion = hsv[:int(height * 0.4), :, :]
+        upper_portion = hsv[: int(height * 0.4), :, :]
 
         # Create mask for sky blue colors
-        sky_mask = cv2.inRange(
-            upper_portion,
-            np.array(cls.SKY_BLUE_RANGE[0]),
-            np.array(cls.SKY_BLUE_RANGE[1])
-        )
+        sky_mask = cv2.inRange(upper_portion, np.array(cls.SKY_BLUE_RANGE[0]), np.array(cls.SKY_BLUE_RANGE[1]))
         sky_ratio = np.count_nonzero(sky_mask) / sky_mask.size
 
         # Check full image for green vegetation
-        green_mask = cv2.inRange(
-            hsv,
-            np.array(cls.GREEN_RANGE[0]),
-            np.array(cls.GREEN_RANGE[1])
-        )
+        green_mask = cv2.inRange(hsv, np.array(cls.GREEN_RANGE[0]), np.array(cls.GREEN_RANGE[1]))
         green_ratio = np.count_nonzero(green_mask) / green_mask.size
 
         # Landscape if we have sky OR significant vegetation
@@ -225,11 +217,7 @@ class ImageTypeClassifier:
         center_x1, center_x2 = int(width * 0.25), int(width * 0.75)
         center_region = hsv[center_y1:center_y2, center_x1:center_x2]
 
-        warm_mask = cv2.inRange(
-            center_region,
-            np.array(cls.WARM_FOOD_RANGE[0]),
-            np.array(cls.WARM_FOOD_RANGE[1])
-        )
+        warm_mask = cv2.inRange(center_region, np.array(cls.WARM_FOOD_RANGE[0]), np.array(cls.WARM_FOOD_RANGE[1]))
         warm_ratio = np.count_nonzero(warm_mask) / warm_mask.size
 
         # Food photos typically have warm colors in the center
@@ -255,13 +243,12 @@ class ImageTypeClassifier:
             gray[:center_y1, :],  # Top
             gray[center_y2:, :],  # Bottom
             gray[:, :center_x1],  # Left
-            gray[:, center_x2:]   # Right
+            gray[:, center_x2:],  # Right
         ]
 
-        edge_sharpness = np.mean([
-            cv2.Laplacian(region, cv2.CV_64F).var()
-            for region in edge_regions if region.size > 0
-        ])
+        edge_sharpness = np.mean(
+            [cv2.Laplacian(region, cv2.CV_64F).var() for region in edge_regions if region.size > 0]
+        )
 
         # Macro if center is significantly sharper than edges
         if edge_sharpness > 0:

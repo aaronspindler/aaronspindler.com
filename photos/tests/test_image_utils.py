@@ -26,8 +26,6 @@ from photos.image_utils import (
     ExifExtractor,
     ImageMetadataExtractor,
     ImageOptimizer,
-    ImageType,
-    ImageTypeClassifier,
     SmartCrop,
     reset_file_pointer,
 )
