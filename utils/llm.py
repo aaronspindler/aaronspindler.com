@@ -146,7 +146,7 @@ class LLMService:
             return response.choices[0].message.content
 
         except ImportError:
-            raise ImportError("openai package not installed. Run: pip install openai")
+            raise ImportError("openai package not installed. Run: pip install openai") from None
         except Exception as e:
             logger.error(f"OpenAI API call failed: {e}")
             raise
@@ -182,7 +182,7 @@ class LLMService:
             return response.content[0].text
 
         except ImportError:
-            raise ImportError("anthropic package not installed. Run: pip install anthropic")
+            raise ImportError("anthropic package not installed. Run: pip install anthropic") from None
         except Exception as e:
             logger.error(f"Anthropic API call failed: {e}")
             raise
@@ -202,4 +202,3 @@ class LLMService:
             logger.info(f"Tracked LLM usage: {provider}/{model}")
         except Exception as e:
             logger.error(f"Failed to track LLM usage: {e}")
-

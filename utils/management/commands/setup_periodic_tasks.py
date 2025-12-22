@@ -6,13 +6,6 @@ from django_celery_beat.models import CrontabSchedule, PeriodicTask
 # Define all periodic tasks here - just add to the list!
 # Format: (name, task_path, cron_schedule, description)
 PERIODIC_TASKS = [
-    # Test tasks
-    (
-        "Test Celery Beat (every minute)",
-        "utils.tasks.test_celery_beat",
-        {"minute": "*", "hour": "*"},
-        "Test task to verify Celery Beat is working - runs every minute",
-    ),
     # IP geolocation
     (
         "Geolocate missing IP addresses",
@@ -53,7 +46,12 @@ class Command(BaseCommand):
     help = "Setup periodic tasks for Celery Beat"
 
     def handle(self, *args, **options):
+        # Track configured task names
+        configured_task_names = set()
+
         for name, task_path, cron_config, description in PERIODIC_TASKS:
+            configured_task_names.add(name)
+
             # Create cron schedule with defaults for unspecified fields
             schedule, _ = CrontabSchedule.objects.get_or_create(
                 minute=cron_config.get("minute", "*"),
@@ -77,5 +75,13 @@ class Command(BaseCommand):
 
             action = "Created" if created else "Updated"
             self.stdout.write(self.style.SUCCESS(f"{action}: {task.name}"))
+
+        # Remove tasks that are no longer in the configuration
+        orphaned_tasks = PeriodicTask.objects.exclude(name__in=configured_task_names)
+        if orphaned_tasks.exists():
+            self.stdout.write(self.style.WARNING(f"\nRemoving {orphaned_tasks.count()} orphaned task(s):"))
+            for task in orphaned_tasks:
+                self.stdout.write(self.style.WARNING(f"  - {task.name}"))
+                task.delete()
 
         self.stdout.write(self.style.SUCCESS(f"\n✓ Configured {len(PERIODIC_TASKS)} periodic tasks successfully!"))

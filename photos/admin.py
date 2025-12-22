@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib import admin, messages
+from django.db.models import Count
 from django.urls import path, reverse
 from django.utils.html import format_html
 
@@ -10,22 +11,75 @@ from .models import AlbumPhoto, Photo, PhotoAlbum
 logger = logging.getLogger(__name__)
 
 
+class DuplicateFilter(admin.SimpleListFilter):
+    """Filter photos by duplicate status matching the Duplicates column display."""
+
+    title = "duplicates"
+    parameter_name = "duplicates"
+
+    def lookups(self, request, model_admin):
+        return (
+            ("exact", "⚠️ Exact duplicates"),
+            ("similar", "≈ Similar only"),
+            ("unique", "✓ Unique"),
+        )
+
+    def _get_exact_duplicate_ids(self, queryset):
+        """Get IDs of photos with exact file_hash duplicates."""
+        duplicate_hashes = (
+            Photo.objects.exclude(file_hash="")
+            .values("file_hash")
+            .annotate(count=Count("id"))
+            .filter(count__gt=1)
+            .values_list("file_hash", flat=True)
+        )
+        return set(queryset.filter(file_hash__in=list(duplicate_hashes)).values_list("id", flat=True))
+
+    def _get_similar_only_ids(self, queryset, exact_duplicate_ids):
+        """Get IDs of photos with similar images but no exact duplicates."""
+        similar_ids = set()
+        candidates = (
+            queryset.exclude(id__in=exact_duplicate_ids)
+            .exclude(perceptual_hash="")
+            .exclude(perceptual_hash__isnull=True)
+        )
+        for photo in candidates.iterator():
+            if photo.get_similar_images(threshold=5):
+                similar_ids.add(photo.id)
+        return similar_ids
+
+    def queryset(self, request, queryset):
+        if not self.value():
+            return queryset
+
+        exact_duplicate_ids = self._get_exact_duplicate_ids(queryset)
+
+        if self.value() == "exact":
+            return queryset.filter(id__in=exact_duplicate_ids)
+
+        similar_only_ids = self._get_similar_only_ids(queryset, exact_duplicate_ids)
+
+        if self.value() == "similar":
+            return queryset.filter(id__in=similar_only_ids)
+
+        elif self.value() == "unique":
+            exclude_ids = exact_duplicate_ids | similar_only_ids
+            return queryset.exclude(id__in=exclude_ids)
+
+
 @admin.register(Photo)
 class PhotoAdmin(admin.ModelAdmin):
     list_display = (
         "list_thumbnail",
         "get_display_name",
-        "title",
         "processing_status_display",
         "file_info",
         "camera_info",
         "has_duplicates",
         "created_at",
     )
-    list_filter = ("processing_status", "created_at", "updated_at", "camera_make", "camera_model")
+    list_filter = ("processing_status", DuplicateFilter, "created_at", "updated_at", "camera_make", "camera_model")
     search_fields = (
-        "title",
-        "description",
         "original_filename",
         "camera_make",
         "camera_model",
@@ -33,12 +87,12 @@ class PhotoAdmin(admin.ModelAdmin):
         "file_hash",
         "perceptual_hash",
     )
-    list_editable = ("title",)
     list_display_links = ("list_thumbnail", "get_display_name")
     actions = ["add_to_album", "find_duplicates_action", "reprocess_images"]
     readonly_fields = (
         "image_preview",
         "all_versions_preview",
+        "saliency_map_preview",
         "original_filename",
         "file_size_display",
         "dimensions_display",
@@ -64,12 +118,10 @@ class PhotoAdmin(admin.ModelAdmin):
     )
 
     fieldsets = (
-        ("Basic Information", {"fields": ("title", "description")}),
         (
-            "Image Upload",
+            "Image Versions",
             {
-                "fields": ("image",),
-                "description": "Upload a new image. Optimized versions will be created automatically. Duplicate detection will prevent identical images from being uploaded.",
+                "fields": ("all_versions_preview", "saliency_map_preview"),
             },
         ),
         (
@@ -83,13 +135,6 @@ class PhotoAdmin(admin.ModelAdmin):
                 ),
                 "classes": ("collapse",),
                 "description": "Information about duplicate and similar images",
-            },
-        ),
-        (
-            "Image Versions",
-            {
-                "fields": ("all_versions_preview",),
-                "classes": ("collapse",),
             },
         ),
         (
@@ -146,9 +191,7 @@ class PhotoAdmin(admin.ModelAdmin):
     @admin.display(description="Name")
     def get_display_name(self, obj):
         """Get display name for the photo."""
-        if obj.title:
-            return obj.title
-        elif obj.original_filename:
+        if obj.original_filename:
             return obj.original_filename
         else:
             return f"Photo {obj.pk}"
@@ -185,19 +228,19 @@ class PhotoAdmin(admin.ModelAdmin):
     def list_thumbnail(self, obj):
         """Display thumbnail in list view."""
         try:
-            if obj.image_gallery_cropped:
+            if obj.image_thumbnail:
                 return format_html(
-                    '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
-                    obj.image_gallery_cropped.url,
+                    '<img src="{}" style="max-width: 150px; max-height: 150px;" loading="lazy" />',
+                    obj.image_thumbnail.url,
                 )
-            elif obj.image_optimized:
+            elif obj.image_preview:
                 return format_html(
-                    '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
-                    obj.image_optimized.url,
+                    '<img src="{}" style="max-width: 150px; max-height: 150px;" loading="lazy" />',
+                    obj.image_preview.url,
                 )
             elif obj.image:
                 return format_html(
-                    '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
+                    '<img src="{}" style="max-width: 150px; max-height: 150px;" loading="lazy" />',
                     obj.image.url,
                 )
         except (ValueError, AttributeError):
@@ -208,15 +251,15 @@ class PhotoAdmin(admin.ModelAdmin):
     def image_preview(self, obj):
         """Display preview in detail view."""
         try:
-            if obj.image_gallery_cropped:
+            if obj.image_thumbnail:
                 return format_html(
                     '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
-                    obj.image_gallery_cropped.url,
+                    obj.image_thumbnail.url,
                 )
-            elif obj.image_optimized:
+            elif obj.image_preview:
                 return format_html(
                     '<img src="{}" style="max-width: 150px; max-height: 150px;" />',
-                    obj.image_optimized.url,
+                    obj.image_preview.url,
                 )
             elif obj.image:
                 return format_html(
@@ -226,6 +269,50 @@ class PhotoAdmin(admin.ModelAdmin):
         except (ValueError, AttributeError):
             return "No image"
         return "No image"
+
+    @admin.display(description="Saliency Map (Debug)")
+    def saliency_map_preview(self, obj):
+        """Display the saliency map for debugging smart crop."""
+        if not obj.saliency_map:
+            return format_html(
+                '<div style="background: #f9f9f9; padding: 10px; border-radius: 5px; color: #666;">'
+                "Saliency map not generated. This visualization shows which parts of the image the "
+                "smart crop algorithm considers most important for focal point detection."
+                "</div>"
+            )
+
+        try:
+            url = obj.saliency_map.url
+            focal_x = obj.focal_point_x if obj.focal_point_x else 0.5
+            focal_y = obj.focal_point_y if obj.focal_point_y else 0.5
+
+            # Format floats before passing to format_html to avoid SafeString formatting issues
+            focal_x_str = f"{focal_x:.3f}"
+            focal_y_str = f"{focal_y:.3f}"
+
+            return format_html(
+                '<div style="background: #f9f9f9; padding: 10px; border-radius: 5px;">'
+                "<strong>Saliency Detection Visualization</strong><br>"
+                "<small>Brighter areas indicate regions the algorithm considers more important. "
+                "The focal point is calculated as the center of mass of these bright regions.</small><br><br>"
+                '<img src="{}" style="max-width: 400px; border: 2px solid #333; padding: 5px; background: white;" /><br>'
+                '<small style="color: #666;">Focal Point: ({}, {})</small>'
+                "</div>",
+                url,
+                focal_x_str,
+                focal_y_str,
+            )
+        except Exception as e:
+            logger.error(f"Error displaying saliency map for photo {obj.pk}: {type(e).__name__}: {e}")
+            return format_html(
+                '<div style="background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffc107;">'
+                "<strong>⚠️ Error accessing saliency map</strong><br>"
+                "<small>File: {}<br>Error: {}: {}</small>"
+                "</div>",
+                obj.saliency_map.name if obj.saliency_map else "None",
+                type(e).__name__,
+                str(e),
+            )
 
     @admin.display(description="All Image Versions")
     def all_versions_preview(self, obj):
@@ -240,13 +327,8 @@ class PhotoAdmin(admin.ModelAdmin):
 
         # Display each version with its info
         versions = [
-            ("Gallery (Smart Cropped)", obj.image_gallery_cropped, "1200x800"),
+            ("Thumbnail (Smart Cropped)", obj.image_thumbnail, "400x300"),
             ("Preview (Compressed)", obj.image_preview, "Full Size, Highly Compressed"),
-            (
-                "Optimized Full Size",
-                obj.image_optimized,
-                f"{obj.width}x{obj.height}" if obj.width else "Full Size",
-            ),
             (
                 "Original",
                 obj.image,
@@ -611,7 +693,7 @@ class AlbumPhotoInline(admin.TabularInline):
 
     @admin.display(description="Preview")
     def photo_preview(self, obj):
-        if obj.photo and obj.photo.image_gallery_cropped:
+        if obj.photo and obj.photo.image_thumbnail:
             featured_badge = (
                 ' <span style="background: gold; padding: 2px 6px; border-radius: 4px; font-size: 10px;">FEATURED</span>'
                 if obj.is_featured
@@ -619,7 +701,7 @@ class AlbumPhotoInline(admin.TabularInline):
             )
             return format_html(
                 '<img src="{}" style="max-width: 100px; max-height: 75px;" />{}',
-                obj.photo.image_gallery_cropped.url,
+                obj.photo.image_thumbnail.url,
                 featured_badge,
             )
         return "No image"
@@ -630,16 +712,16 @@ class AlbumPhotoAdmin(admin.ModelAdmin):
     list_display = ("photo_preview", "photo", "album", "is_featured", "display_order", "added_at")
     list_filter = ("is_featured", "album")
     list_editable = ("is_featured", "display_order")
-    search_fields = ("photo__title", "photo__original_filename", "album__title")
+    search_fields = ("photo__original_filename", "album__title")
     autocomplete_fields = ["album", "photo"]
     readonly_fields = ("photo_preview",)
 
     @admin.display(description="Preview")
     def photo_preview(self, obj):
-        if obj.photo and obj.photo.image_gallery_cropped:
+        if obj.photo and obj.photo.image_thumbnail:
             return format_html(
                 '<img src="{}" style="max-width: 100px; max-height: 75px;" />',
-                obj.photo.image_gallery_cropped.url,
+                obj.photo.image_thumbnail.url,
             )
         return "No image"
 
@@ -673,6 +755,30 @@ class PhotoAlbumAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("title",)}
     inlines = [AlbumPhotoInline]
     actions = ["regenerate_zip"]
+
+    def save_related(self, request, form, formsets, change):
+        """
+        Trigger ZIP regeneration when album photos are modified.
+
+        Captures content hash before and after saving inline formsets to detect
+        when photos are added, removed, or reordered.
+        """
+        album = form.instance
+
+        hash_before = album.compute_zip_content_hash() if change else ""
+
+        super().save_related(request, form, formsets, change)
+
+        album.refresh_from_db()
+        hash_after = album.compute_zip_content_hash()
+
+        if hash_before != hash_after and album.allow_downloads and album.photos.exists():
+            from photos.tasks import schedule_zip_generation
+
+            album.zip_generation_status = "pending"
+            album.save(update_fields=["zip_generation_status"])
+            schedule_zip_generation.delay(album.id)
+            messages.info(request, f"ZIP file regeneration scheduled for album '{album.title}'.")
 
     fieldsets = (
         ("Basic Information", {"fields": ("title", "slug", "description")}),

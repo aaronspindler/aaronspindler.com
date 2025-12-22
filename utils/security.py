@@ -109,10 +109,59 @@ def is_global_ip(ip_address: str) -> bool:
         return False
 
 
+def is_trusted_proxy(ip_address: str) -> bool:
+    """
+    Check if an IP address is from a trusted proxy.
+
+    Args:
+        ip_address: IP address string
+
+    Returns:
+        True if the IP is from a trusted proxy, False otherwise
+    """
+    if not ip_address or ip_address == "unknown":
+        return False
+
+    try:
+        import ipaddress as ipaddr
+
+        from django.conf import settings
+
+        trusted_proxies = getattr(settings, "TRUSTED_PROXY_IPS", [])
+        if not trusted_proxies:
+            return False
+
+        client_ip = ipaddr.ip_address(ip_address)
+
+        for trusted in trusted_proxies:
+            try:
+                # Handle CIDR notation (e.g., "10.0.0.0/8")
+                if "/" in trusted:
+                    network = ipaddr.ip_network(trusted, strict=False)
+                    if client_ip in network:
+                        return True
+                else:
+                    # Handle single IP
+                    trusted_ip = ipaddr.ip_address(trusted)
+                    if client_ip == trusted_ip:
+                        return True
+            except (ValueError, ipaddr.AddressValueError):
+                logger.warning(f"Invalid trusted proxy IP format: {trusted}")
+                continue
+
+        return False
+    except Exception as e:
+        logger.debug(f"Error checking trusted proxy: {e}")
+        return False
+
+
 def get_client_ip(request) -> str:
     """
     Extract the client's IP address from the request.
     Handles proxy headers (X-Forwarded-For, X-Real-IP) and falls back to REMOTE_ADDR.
+
+    Security: Only trusts forwarded headers if REMOTE_ADDR is from a trusted proxy.
+    This prevents IP spoofing attacks.
 
     Args:
         request: Django HttpRequest object
@@ -121,26 +170,54 @@ def get_client_ip(request) -> str:
         Client IP address as string, or 'unknown' if extraction fails
     """
     try:
-        # Check X-Forwarded-For first (most common proxy header)
-        x_forwarded_for = request.headers.get("x-forwarded-for")
-        if x_forwarded_for:
-            # X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2, ...)
-            # The first IP is typically the original client
-            ip_address = x_forwarded_for.split(",")[0].strip()
-            if ip_address:
-                return ip_address
-
-        # Check X-Real-IP header (used by some proxies like nginx)
-        x_real_ip = request.headers.get("x-real-ip")
-        if x_real_ip:
-            ip_address = x_real_ip.strip()
-            if ip_address:
-                return ip_address
-
-        # Fall back to REMOTE_ADDR (direct connection)
+        # Get the direct connection IP (REMOTE_ADDR)
         remote_addr = request.META.get("REMOTE_ADDR", "").strip()
+        is_from_trusted_proxy = is_trusted_proxy(remote_addr) if remote_addr else False
+
+        # Only trust forwarded headers if request is from a trusted proxy
+        if is_from_trusted_proxy:
+            # Check X-Forwarded-For first (most common proxy header)
+            x_forwarded_for = request.headers.get("x-forwarded-for")
+            if x_forwarded_for:
+                # X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2, ...)
+                # The first IP is typically the original client
+                ip_address = x_forwarded_for.split(",")[0].strip()
+                if ip_address:
+                    # Validate that forwarded IP is global/public (not private)
+                    if is_global_ip(ip_address):
+                        return ip_address
+                    else:
+                        logger.debug(
+                            f"X-Forwarded-For contains non-global IP {ip_address} from trusted proxy {remote_addr}, "
+                            f"falling back to REMOTE_ADDR"
+                        )
+
+            # Check X-Real-IP header (used by some proxies like nginx)
+            x_real_ip = request.headers.get("x-real-ip")
+            if x_real_ip:
+                ip_address = x_real_ip.strip()
+                if ip_address:
+                    # Validate that forwarded IP is global/public (not private)
+                    if is_global_ip(ip_address):
+                        return ip_address
+                    else:
+                        logger.debug(
+                            f"X-Real-IP contains non-global IP {ip_address} from trusted proxy {remote_addr}, "
+                            f"falling back to REMOTE_ADDR"
+                        )
+
+        # Fall back to REMOTE_ADDR
+        # If REMOTE_ADDR is from a trusted proxy but forwarded headers are invalid/missing,
+        # or if REMOTE_ADDR is not from a trusted proxy (direct connection), use REMOTE_ADDR
         if remote_addr:
-            return remote_addr
+            # Only return REMOTE_ADDR if it's a global IP (not a private proxy IP)
+            if is_global_ip(remote_addr):
+                return remote_addr
+            else:
+                logger.debug(
+                    f"REMOTE_ADDR {remote_addr} is not a global IP. "
+                    f"Request may be from untrusted proxy or misconfigured proxy chain."
+                )
 
         return "unknown"
 

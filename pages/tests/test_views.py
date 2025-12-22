@@ -185,7 +185,7 @@ class HomeViewTest(TestCase):
     def test_home_view_with_photo_albums(self):
         """Test home view with photo albums."""
         # Create test photo and album
-        photo = PhotoFactory.create_photo(title="Test Photo")
+        photo = PhotoFactory.create_photo()
 
         album = PhotoFactory.create_photo_album(title="Test Album", slug="test-album", is_private=False)
         album.photos.add(photo)
@@ -199,7 +199,7 @@ class HomeViewTest(TestCase):
 
     def test_home_view_excludes_private_albums(self):
         """Test that home view excludes private photo albums."""
-        photo = PhotoFactory.create_photo(title="Private Photo")
+        photo = PhotoFactory.create_photo()
 
         public_album = PhotoFactory.create_photo_album(title="Public Album", slug="public", is_private=False)
 

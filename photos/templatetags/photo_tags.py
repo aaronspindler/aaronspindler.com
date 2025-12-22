@@ -10,13 +10,23 @@ register = template.Library()
 
 
 @register.simple_tag
-def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
+def responsive_image(photo, css_class="", alt_text="", loading="lazy", fetchpriority=""):
     """
-    Generate a responsive image tag with srcset for different screen sizes.
+    Generate a responsive image tag optimized for grid display.
+
+    Uses the thumbnail (400x300) for fast loading.
+
+    Args:
+        photo: Photo model instance.
+        css_class: CSS class(es) to apply to the image.
+        alt_text: Alt text for the image.
+        loading: Loading strategy ('lazy' or 'eager').
+        fetchpriority: Fetch priority hint ('high', 'low', 'auto', or empty).
 
     Usage:
         {% load photo_tags %}
         {% responsive_image photo css_class="img-fluid" alt_text="My Photo" %}
+        {% responsive_image photo loading="eager" fetchpriority="high" %}
     """
     if not photo or not photo.image:
         return ""
@@ -29,39 +39,9 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
     alt_text = escape(alt_text)
     css_class = escape(css_class)
 
-    # Build the srcset attribute
-    srcset_parts = []
-
-    if photo.image_gallery_cropped and photo.image_gallery_cropped.name:
-        try:
-            srcset_parts.append(f"{escape(photo.image_gallery_cropped.url)} 1200w")
-        except (ValueError, AttributeError):
-            # S3 storage may raise errors for missing files - skip this size
-            pass
-
-    if photo.image_optimized and photo.image_optimized.name:
-        try:
-            srcset_parts.append(
-                f"{escape(photo.image_optimized.url)} {photo.width}w"
-                if photo.width
-                else escape(photo.image_optimized.url)
-            )
-        except (ValueError, AttributeError):
-            # S3 storage may raise errors for missing files - skip this size
-            pass
-
-    if photo.image and photo.image.name:
-        try:
-            srcset_parts.append(f"{escape(photo.image.url)} {photo.width}w" if photo.width else escape(photo.image.url))
-        except (ValueError, AttributeError):
-            # S3 storage may raise errors for missing files - skip this size
-            pass
-
-    srcset = ", ".join(srcset_parts)
-
-    # Default src (use gallery_cropped version as default, fallback to optimized then original)
+    # Use thumbnail as the source (optimized 400x300 for grid display)
     default_src = None
-    for field in [photo.image_gallery_cropped, photo.image_optimized, photo.image]:
+    for field in [photo.image_thumbnail, photo.image_preview]:
         if field and field.name:
             try:
                 default_src = field.url
@@ -72,19 +52,19 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
     if not default_src:
         return ""  # No valid image found
 
-    # Build the img tag with escaped values
+    # Build optional attributes
+    fetchpriority_attr = f'fetchpriority="{escape(fetchpriority)}"' if fetchpriority else ""
+
+    # Build a simple img tag - thumbnail is already optimized for grid display
     img_tag = f"""
     <img src="{escape(default_src)}"
-         {f'srcset="{srcset}"' if srcset else ""}
-         sizes="(max-width: 400px) 400px,
-                (max-width: 800px) 800px,
-                (max-width: 1920px) 1920px,
-                100vw"
          class="{css_class}"
          alt="{alt_text}"
          loading="{loading}"
-         {f'width="{photo.width}"' if photo.width else ""}
-         {f'height="{photo.height}"' if photo.height else ""}>
+         decoding="async"
+         {fetchpriority_attr}
+         width="400"
+         height="300">
     """
 
     return mark_safe(img_tag)  # nosec B703 B308 - All user data escaped above
@@ -93,7 +73,7 @@ def responsive_image(photo, css_class="", alt_text="", loading="lazy"):
 @register.simple_tag
 def picture_element(photo, css_class="", alt_text="", loading="lazy"):
     """
-    Generate a <picture> element with WebP support and responsive sources.
+    Generate a <picture> element with responsive sources.
 
     Usage:
         {% load photo_tags %}
@@ -110,33 +90,21 @@ def picture_element(photo, css_class="", alt_text="", loading="lazy"):
     alt_text = escape(alt_text)
     css_class = escape(css_class)
 
-    # Build the picture element with source elements for different sizes
+    # Build the picture element
     picture_html = "<picture>"
 
-    # Add source elements for different viewport widths
-    if photo.image_optimized and photo.image_optimized.name:
+    # Add source element for thumbnail
+    if photo.image_thumbnail and photo.image_thumbnail.name:
         try:
             picture_html += f"""
-        <source media="(min-width: 1200px)"
-                srcset="{escape(photo.image_optimized.url)}">
+        <source srcset="{escape(photo.image_thumbnail.url)}">
         """
         except (ValueError, AttributeError):
-            # S3 storage may raise errors for missing files - skip this source
             pass
 
-    if photo.image_gallery_cropped and photo.image_gallery_cropped.name:
-        try:
-            picture_html += f"""
-        <source media="(min-width: 768px)"
-                srcset="{escape(photo.image_gallery_cropped.url)}">
-        """
-        except (ValueError, AttributeError):
-            # S3 storage may raise errors for missing files - skip this source
-            pass
-
-    # Fallback img element (use gallery_cropped for smallest screens, fallback to optimized or original)
+    # Fallback img element (use thumbnail, fallback to preview)
     fallback_src = None
-    for field in [photo.image_gallery_cropped, photo.image_optimized, photo.image]:
+    for field in [photo.image_thumbnail, photo.image_preview]:
         if field and field.name:
             try:
                 fallback_src = field.url
@@ -159,15 +127,15 @@ def picture_element(photo, css_class="", alt_text="", loading="lazy"):
 
 
 @register.filter
-def photo_url(photo, size="gallery_cropped"):
+def photo_url(photo, size="thumbnail"):
     """
     Get the URL for a specific photo size.
 
-    Valid sizes: "preview", "gallery_cropped", "optimized", "original"
+    Valid sizes: "preview", "thumbnail", "original"
 
     Usage:
         {% load photo_tags %}
-        {{ photo|photo_url:"optimized" }}
+        {{ photo|photo_url:"thumbnail" }}
         {{ photo|photo_url:"preview" }}
     """
     if not photo:
@@ -183,7 +151,7 @@ def safe_image_url(image_field):
 
     Usage:
         {% load photo_tags %}
-        {{ photo.image_gallery_cropped|safe_image_url }}
+        {{ photo.image_thumbnail|safe_image_url }}
     """
     try:
         if image_field and image_field.name:

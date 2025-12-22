@@ -297,7 +297,7 @@
 {% block content %}
 <div class="upload-container">
     <div class="upload-header">
-        <p>Upload multiple photos. Files upload one at a time and are processed in the background.</p>
+        <p>Upload multiple photos. Files upload 3 at a time and are processed in the background.</p>
     </div>
 
     <div class="upload-settings">
@@ -366,6 +366,8 @@
     let uploadQueue = [];
     let uploading = false;
     let paused = false;
+    let activeUploads = 0;
+    const MAX_CONCURRENT_UPLOADS = 3;
 
     let stats = {
         total: 0,
@@ -466,6 +468,7 @@
 
         uploading = true;
         paused = false;
+        activeUploads = 0;
         startBtn.classList.add('hidden');
         pauseBtn.classList.remove('hidden');
 
@@ -489,17 +492,19 @@
     function processQueue() {
         if (paused || !uploading) return;
 
-        // Upload one file at a time
-        if (uploadQueue.length > 0) {
+        while (activeUploads < MAX_CONCURRENT_UPLOADS && uploadQueue.length > 0) {
             const fileData = uploadQueue.shift();
+            activeUploads++;
             uploadFile(fileData);
-        } else {
+        }
+
+        if (activeUploads === 0 && uploadQueue.length === 0) {
             finishUpload();
         }
     }
 
-    async function uploadFile(fileData) {
-        updateFileStatus(fileData.id, 'Uploading...', 0);
+    function uploadFile(fileData) {
+        updateFileStatus(fileData.id, 'Uploading... 0%', 0);
 
         const formData = new FormData();
         formData.append('photo', fileData.file);
@@ -507,39 +512,61 @@
             formData.append('album_id', albumSelect.value);
         }
 
-        try {
-            const response = await fetch('{{ upload_api_url }}', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken')
-                }
-            });
+        const xhr = new XMLHttpRequest();
 
-            const data = await response.json();
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                fileData.progress = percent;
+                updateFileStatus(fileData.id, `Uploading... ${percent}%`, percent);
+            }
+        };
 
-            if (response.ok) {
+        xhr.onload = function() {
+            let data;
+            try {
+                data = JSON.parse(xhr.responseText);
+            } catch (e) {
+                data = { error: 'Invalid server response' };
+            }
+
+            if (xhr.status >= 200 && xhr.status < 300) {
                 fileData.status = 'success';
                 fileData.photoId = data.photo_id;
                 stats.success++;
                 updateFileStatus(fileData.id, '✓ Uploaded successfully', 100, 'success');
-            } else if (response.status === 409 && data.error === 'duplicate') {
+            } else if (xhr.status === 409 && data.error === 'duplicate') {
                 fileData.status = 'duplicate';
                 stats.duplicates++;
                 updateFileStatus(fileData.id, '⚠ Duplicate - skipped', 100, 'duplicate');
             } else {
-                throw new Error(data.error || 'Upload failed');
+                fileData.status = 'error';
+                fileData.error = data.error || 'Upload failed';
+                stats.errors++;
+                updateFileStatus(fileData.id, `✗ Error: ${fileData.error}`, 0, 'error');
             }
-        } catch (error) {
-            fileData.status = 'error';
-            fileData.error = error.message;
-            stats.errors++;
-            updateFileStatus(fileData.id, `✗ Error: ${error.message}`, 0, 'error');
-        }
 
-        stats.completed++;
-        updateStats();
-        processQueue();
+            stats.completed++;
+            activeUploads--;
+            updateStats();
+            processQueue();
+        };
+
+        xhr.onerror = function() {
+            fileData.status = 'error';
+            fileData.error = 'Network error';
+            stats.errors++;
+            updateFileStatus(fileData.id, '✗ Error: Network error', 0, 'error');
+
+            stats.completed++;
+            activeUploads--;
+            updateStats();
+            processQueue();
+        };
+
+        xhr.open('POST', '{{ upload_api_url }}');
+        xhr.setRequestHeader('X-CSRFToken', getCookie('csrftoken'));
+        xhr.send(formData);
     }
 
     function updateFileStatus(fileId, status, progress, className = '') {

@@ -9,7 +9,7 @@ class PublicMediaStorage(S3Boto3Storage):
     location = "public/media"
     default_acl = "public-read"
     file_overwrite = True
-    querystring_auth = False  # Don't add authentication to URLs for public media
+    querystring_auth = False
 
     def _save(self, name, content):
         """
@@ -21,7 +21,7 @@ class PublicMediaStorage(S3Boto3Storage):
             content.content_type = content_type
 
         # Set cache control for images (1 year for optimized images)
-        if any(size in name for size in ["thumbnail", "small", "medium", "large"]):
+        if any(size in name for size in ["optimized", "thumbnail", "preview"]):
             # Optimized versions can be cached longer
             self.object_parameters = {
                 "CacheControl": "public, max-age=31536000",  # 1 year
@@ -33,33 +33,6 @@ class PublicMediaStorage(S3Boto3Storage):
                 "CacheControl": "public, max-age=86400",  # 1 day
                 "ContentType": content_type or "application/octet-stream",
             }
-
-        return super()._save(name, content)
-
-
-class OptimizedImageStorage(S3Boto3Storage):
-    """
-    Specialized storage for optimized images with aggressive caching
-    and proper content types.
-    """
-
-    location = "public/media/optimized"
-    default_acl = "public-read"
-    file_overwrite = True
-    querystring_auth = False
-
-    # Set long cache times for optimized images
-    object_parameters = {
-        "CacheControl": "public, max-age=31536000, immutable",  # 1 year, immutable
-    }
-
-    def _save(self, name, content):
-        """
-        Override _save to ensure proper content type.
-        """
-        content_type, _ = mimetypes.guess_type(name)
-        if content_type:
-            self.object_parameters["ContentType"] = content_type
 
         return super()._save(name, content)
 

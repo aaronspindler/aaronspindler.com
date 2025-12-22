@@ -13,6 +13,7 @@ from unittest.mock import Mock, patch
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image
 
 from accounts.tests.factories import UserFactory
@@ -49,20 +50,20 @@ class AlbumDetailViewTestCase(TestCase):
         )
 
         # Create test photos
-        self.photo1 = self._create_test_photo("Photo 1")
-        self.photo2 = self._create_test_photo("Photo 2")
+        self.photo1 = self._create_test_photo("photo_1.jpg")
+        self.photo2 = self._create_test_photo("photo_2.jpg")
 
         # Add photos to albums
         self.public_album.photos.add(self.photo1, self.photo2)
         self.private_album.photos.add(self.photo1)
 
-    def _create_test_photo(self, title):
+    def _create_test_photo(self, filename):
         """Helper to create a test photo with unique image."""
         # Create unique image to avoid duplicate detection
         img = Image.new(
             "RGB",
             (10, 10),
-            color=(hash(title) % 256, (hash(title) * 2) % 256, (hash(title) * 3) % 256),
+            color=(hash(filename) % 256, (hash(filename) * 2) % 256, (hash(filename) * 3) % 256),
         )
         img_io = BytesIO()
         img.save(img_io, format="JPEG", quality=50)
@@ -71,12 +72,12 @@ class AlbumDetailViewTestCase(TestCase):
         from django.core.files.uploadedfile import SimpleUploadedFile
 
         test_image = SimpleUploadedFile(
-            name=f"{title.lower().replace(' ', '_')}.jpg",
+            name=filename,
             content=img_io.getvalue(),
             content_type="image/jpeg",
         )
 
-        photo = Photo(title=title, image=test_image)
+        photo = Photo(image=test_image)
         photo.save(skip_duplicate_check=True)
         return photo
 
@@ -93,7 +94,7 @@ class AlbumDetailViewTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Public Album")
         self.assertEqual(response.context["album"], self.public_album)
-        self.assertEqual(len(response.context["photos"]), 2)
+        self.assertEqual(len(response.context["photos_data"]), 2)
 
     def test_public_album_authenticated_access(self):
         """Test authenticated users can access public albums."""
@@ -136,20 +137,20 @@ class AlbumDetailViewTestCase(TestCase):
 
     def test_photo_ordering_by_date_taken(self):
         """Test photos are ordered by date_taken and created_at."""
-        from datetime import datetime, timedelta
+        from datetime import timedelta
 
         # Update photos with different dates
-        self.photo1.date_taken = datetime.now() - timedelta(days=2)
+        self.photo1.date_taken = timezone.now() - timedelta(days=2)
         self.photo1.save()
-        self.photo2.date_taken = datetime.now() - timedelta(days=1)
+        self.photo2.date_taken = timezone.now() - timedelta(days=1)
         self.photo2.save()
 
         response = self.client.get(reverse("photos:album_detail", kwargs={"slug": "public-album"}))
 
-        photos = response.context["photos"]
+        photos_data = response.context["photos_data"]
         # Photos should be ordered newest first
-        self.assertEqual(photos[0], self.photo2)
-        self.assertEqual(photos[1], self.photo1)
+        self.assertEqual(photos_data[0]["photo"], self.photo2)
+        self.assertEqual(photos_data[1]["photo"], self.photo1)
 
     def test_download_permissions_context(self):
         """Test download permissions are passed to template."""
@@ -187,12 +188,12 @@ class DownloadPhotoViewTestCase(TestCase):
             allow_downloads=True,
         )
 
-        self.photo = self._create_test_photo("Test Photo")
+        self.photo = self._create_test_photo("test_photo.jpg")
         self.album.photos.add(self.photo)
 
-    def _create_test_photo(self, title):
+    def _create_test_photo(self, filename):
         """Helper to create a test photo."""
-        return PhotoFactory.create_photo(title=title, original_filename=f"{title}.jpg")
+        return PhotoFactory.create_photo(original_filename=filename)
 
     @patch("requests.get")
     def test_download_photo_success(self, mock_get):

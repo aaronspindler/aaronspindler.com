@@ -1,6 +1,6 @@
 import hashlib
 import json
-import os
+import logging
 from contextlib import contextmanager
 from datetime import datetime
 from decimal import Decimal
@@ -9,8 +9,11 @@ from io import BytesIO
 import imagehash
 import numpy as np
 from django.core.files.base import ContentFile
+from django.utils import timezone
 from PIL import Image, ImageFilter
 from PIL.ExifTags import GPSTAGS, TAGS
+
+logger = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -151,7 +154,8 @@ class ExifExtractor:
         if not datetime_str:
             return None
         try:
-            return datetime.strptime(datetime_str, "%Y:%m:%d %H:%M:%S")  # EXIF format: 'YYYY:MM:DD HH:MM:SS'
+            naive_dt = datetime.strptime(datetime_str, "%Y:%m:%d %H:%M:%S")  # EXIF format: 'YYYY:MM:DD HH:MM:SS'
+            return timezone.make_aware(naive_dt)
         except (ValueError, TypeError):
             return None
 
@@ -280,28 +284,358 @@ class ExifExtractor:
 class SmartCrop:
     """
     Smart cropping functionality to find the most interesting part of an image.
-    Uses edge detection, entropy analysis, and face detection (if available).
+    Uses face detection, saliency detection, edge detection, and entropy analysis.
     """
 
+    # Weight for blending face detection with saliency (0.0 = saliency only, 1.0 = face only)
+    FACE_WEIGHT = 0.7
+
     @staticmethod
-    def find_focal_point(img):
+    def _calculate_iou(box1, box2):
         """
-        Find the focal point of an image using various techniques.
+        Calculate Intersection over Union (IoU) between two bounding boxes.
+
+        Args:
+            box1: (x, y, w, h) tuple
+            box2: (x, y, w, h) tuple
 
         Returns:
-            tuple: (x, y) coordinates of the focal point as percentages (0-1)
+            float: IoU value between 0 and 1
+        """
+        x1, y1, w1, h1 = box1
+        x2, y2, w2, h2 = box2
+
+        xi1 = max(x1, x2)
+        yi1 = max(y1, y2)
+        xi2 = min(x1 + w1, x2 + w2)
+        yi2 = min(y1 + h1, y2 + h2)
+
+        inter_area = max(0, xi2 - xi1) * max(0, yi2 - yi1)
+        box1_area = w1 * h1
+        box2_area = w2 * h2
+        union_area = box1_area + box2_area - inter_area
+
+        if union_area == 0:
+            return 0.0
+
+        return inter_area / union_area
+
+    @staticmethod
+    def _apply_nms(faces, iou_threshold=0.4):
+        """
+        Apply Non-Maximum Suppression to filter overlapping face detections.
+
+        Args:
+            faces: List of (x, y, w, h) face bounding boxes
+            iou_threshold: IoU threshold above which detections are considered overlapping
+
+        Returns:
+            list: Filtered list of face bounding boxes with overlapping detections removed
+        """
+        if len(faces) <= 1:
+            return faces
+
+        faces_list = list(faces)
+        filtered = []
+
+        while faces_list:
+            current = faces_list.pop(0)
+            filtered.append(current)
+
+            remaining = []
+            for face in faces_list:
+                iou = SmartCrop._calculate_iou(current, face)
+                if iou < iou_threshold:
+                    remaining.append(face)
+
+            faces_list = remaining
+
+        return filtered
+
+    @staticmethod
+    def _filter_by_size(faces, img_width, img_height, min_relative_size=0.02):
+        """
+        Filter out faces that are too small relative to the image size.
+
+        Args:
+            faces: List of (x, y, w, h) face bounding boxes
+            img_width: Image width in pixels
+            img_height: Image height in pixels
+            min_relative_size: Minimum face area as fraction of image area (default: 2%)
+
+        Returns:
+            list: Filtered list of face bounding boxes
+        """
+        if not faces:
+            return []
+
+        min_area = img_width * img_height * min_relative_size
+        filtered = []
+
+        for x, y, w, h in faces:
+            face_area = w * h
+            if face_area >= min_area:
+                filtered.append((x, y, w, h))
+
+        return filtered
+
+    @staticmethod
+    def detect_faces(img):
+        """
+        Detect faces in an image using OpenCV Haar cascades.
+
+        Args:
+            img: PIL Image object (RGB mode)
+
+        Returns:
+            list: List of face bounding boxes as (x, y, w, h) tuples, or empty list if none found
+        """
+        try:
+            import cv2
+        except ImportError:
+            return []
+
+        img_array = np.array(img)
+        gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+
+        width, height = img.size
+
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+
+        min_size = max(30, int(min(width, height) * 0.015))
+
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=6, minSize=(min_size, min_size))
+
+        if len(faces) == 0:
+            return []
+
+        faces = [tuple(face) for face in faces]
+        initial_count = len(faces)
+
+        faces = SmartCrop._filter_by_size(faces, width, height, min_relative_size=0.01)
+        after_size_filter = len(faces)
+
+        faces = SmartCrop._apply_nms(faces, iou_threshold=0.5)
+        final_count = len(faces)
+
+        if initial_count > 0:
+            logger.debug(
+                f"Face detection: {initial_count} initial detections, "
+                f"{after_size_filter} after size filter, {final_count} after NMS"
+            )
+
+        return faces
+
+    @staticmethod
+    def _get_face_focal_point(faces, img_width, img_height):
+        """
+        Calculate the focal point from detected faces.
+
+        Uses weighted average of face centers, with larger faces weighted more heavily.
+
+        Args:
+            faces: List of (x, y, w, h) face bounding boxes
+            img_width: Image width in pixels
+            img_height: Image height in pixels
+
+        Returns:
+            tuple: (x, y) as normalized coordinates (0-1), or None if no faces
+        """
+        if not faces:
+            return None
+
+        total_weight = 0
+        weighted_x = 0
+        weighted_y = 0
+
+        for x, y, w, h in faces:
+            face_area = w * h
+            center_x = x + w / 2
+            center_y = y + h / 2
+
+            weighted_x += center_x * face_area
+            weighted_y += center_y * face_area
+            total_weight += face_area
+
+        if total_weight == 0:
+            return None
+
+        return (weighted_x / total_weight / img_width, weighted_y / total_weight / img_height)
+
+    @staticmethod
+    def find_focal_point(img, return_saliency_map=False):
+        """
+        Find the focal point of an image using face detection blended with saliency.
+
+        Priority:
+        1. If faces detected: blend face center with saliency (FACE_WEIGHT ratio)
+        2. If no faces: use saliency detection alone
+        3. If saliency fails: fall back to entropy + edge detection
+
+        Args:
+            img: PIL Image object
+            return_saliency_map: If True, returns (focal_point, saliency_map_bytes)
+
+        Returns:
+            tuple: If return_saliency_map=True: ((x, y), bytes or None)
+                   If return_saliency_map=False: (x, y)
         """
         if img.mode != "RGB":
             img = img.convert("RGB")
 
-        edge_point = SmartCrop._edge_detection_focal_point(img)
-        entropy_point = SmartCrop._entropy_focal_point(img)
+        width, height = img.size
 
-        # Weight: Entropy (0.7) is more reliable than edge detection (0.3) for general images
-        x = edge_point[0] * 0.3 + entropy_point[0] * 0.7
-        y = edge_point[1] * 0.3 + entropy_point[1] * 0.7
+        # Detect faces first
+        faces = SmartCrop.detect_faces(img)
+        face_point = SmartCrop._get_face_focal_point(faces, width, height)
 
-        return (x, y)
+        if face_point is not None:
+            logger.debug(f"Face detection succeeded: {len(faces)} face(s) detected, focal point: {face_point}")
+        else:
+            logger.debug(f"Face detection: no faces detected (checked {len(faces)} detections)")
+
+        # Get saliency-based focal point (pass faces for visualization)
+        if return_saliency_map:
+            saliency_point, saliency_map = SmartCrop._saliency_focal_point(img, return_map=True, faces=faces)
+        else:
+            saliency_point = SmartCrop._saliency_focal_point(img, faces=faces)
+            saliency_map = None
+
+        if saliency_point is not None:
+            logger.debug(f"Saliency detection succeeded, focal point: {saliency_point}")
+        else:
+            logger.debug("Saliency detection failed or unavailable")
+
+        # Blend face detection with saliency
+        if face_point is not None and saliency_point is not None:
+            x = SmartCrop.FACE_WEIGHT * face_point[0] + (1 - SmartCrop.FACE_WEIGHT) * saliency_point[0]
+            y = SmartCrop.FACE_WEIGHT * face_point[1] + (1 - SmartCrop.FACE_WEIGHT) * saliency_point[1]
+            focal_point = (x, y)
+            logger.info(
+                f"Focal point: blended face ({face_point}) and saliency ({saliency_point}), result: {focal_point}"
+            )
+        elif face_point is not None:
+            focal_point = face_point
+            logger.info(f"Focal point: face detection only, result: {focal_point}")
+        elif saliency_point is not None:
+            focal_point = saliency_point
+            logger.info(f"Focal point: saliency detection only, result: {focal_point}")
+        else:
+            # Both failed, fall back to entropy + edge detection
+            edge_point = SmartCrop._edge_detection_focal_point(img)
+            entropy_point = SmartCrop._entropy_focal_point(img)
+
+            x = edge_point[0] * 0.3 + entropy_point[0] * 0.7
+            y = edge_point[1] * 0.3 + entropy_point[1] * 0.7
+            focal_point = (x, y)
+            logger.info(
+                f"Focal point: fallback to entropy+edge detection, "
+                f"edge: {edge_point}, entropy: {entropy_point}, result: {focal_point}"
+            )
+
+        if return_saliency_map:
+            return (focal_point, saliency_map)
+
+        return focal_point
+
+    @staticmethod
+    def _saliency_focal_point(img, return_map=False, faces=None):
+        """
+        Find focal point using saliency detection (human attention modeling).
+
+        Args:
+            img: PIL Image object
+            return_map: If True, returns (focal_point, saliency_map_bytes), else just focal_point
+            faces: Optional list of detected face bounding boxes (x, y, w, h) for visualization
+
+        Returns:
+            tuple or None: If return_map=True: ((x, y), bytes) or (None, None)
+                          If return_map=False: (x, y) or None
+        """
+        try:
+            import cv2
+        except ImportError:
+            logger.debug("Saliency detection: OpenCV not available")
+            return (None, None) if return_map else None
+
+        # Check if saliency module is available (requires opencv-contrib-python)
+        if not hasattr(cv2, "saliency"):
+            logger.debug("Saliency detection: OpenCV saliency module not available (requires opencv-contrib-python)")
+            return (None, None) if return_map else None
+
+        # Convert PIL to OpenCV format
+        img_array = np.array(img)
+        if len(img_array.shape) == 3:
+            img_cv = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        else:
+            img_cv = img_array
+
+        # Try fine-grained saliency first (slower but more accurate for complex images)
+        saliency = cv2.saliency.StaticSaliencyFineGrained_create()
+        success, saliency_map = saliency.computeSaliency(img_cv)
+
+        if not success:
+            logger.debug("Saliency detection: Fine-grained method failed, trying spectral residual")
+            # Fall back to spectral residual saliency (faster, good for general cases)
+            saliency = cv2.saliency.StaticSaliencySpectralResidual_create()
+            success, saliency_map = saliency.computeSaliency(img_cv)
+
+            if not success:
+                logger.debug("Saliency detection: Both methods failed")
+                return (None, None) if return_map else None
+
+        # Find center of mass of saliency map
+        saliency_map = (saliency_map * 255).astype(np.uint8)
+
+        # Apply threshold to focus on salient regions (top 20%)
+        # This reduces influence of low-saliency background noise
+        threshold = np.percentile(saliency_map, 80)
+        saliency_map = np.where(saliency_map >= threshold, saliency_map, 0)
+
+        height, width = saliency_map.shape
+
+        total_weight = np.sum(saliency_map)
+        if total_weight == 0:
+            focal_point = (0.5, 0.5)
+            if return_map:
+                return (focal_point, None)
+            return focal_point
+
+        y_coords, x_coords = np.ogrid[:height, :width]
+        x_center = np.sum(x_coords * saliency_map) / total_weight
+        y_center = np.sum(y_coords * saliency_map) / total_weight
+
+        focal_point = (x_center / width, y_center / height)
+
+        if return_map:
+            # Draw a red dot at the focal point for visualization
+            focal_x_px = int(x_center)
+            focal_y_px = int(y_center)
+
+            # Convert grayscale to BGR for colored marker
+            saliency_map_color = cv2.cvtColor(saliency_map, cv2.COLOR_GRAY2BGR)
+
+            # Draw red circle at focal point (outer ring) - larger and thicker
+            cv2.circle(saliency_map_color, (focal_x_px, focal_y_px), 25, (0, 0, 255), 3)
+            # Draw red filled circle at center - larger
+            cv2.circle(saliency_map_color, (focal_x_px, focal_y_px), 10, (0, 0, 255), -1)
+            # Add white outline for better visibility - larger
+            cv2.circle(saliency_map_color, (focal_x_px, focal_y_px), 26, (255, 255, 255), 2)
+            cv2.circle(saliency_map_color, (focal_x_px, focal_y_px), 11, (255, 255, 255), 2)
+
+            # Draw blue rectangles around detected faces
+            if faces:
+                for x, y, w, h in faces:
+                    # Blue rectangle with white border for visibility
+                    cv2.rectangle(saliency_map_color, (x, y), (x + w, y + h), (255, 255, 255), 4)
+                    cv2.rectangle(saliency_map_color, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+            # Encode saliency map as PNG for storage
+            success, buffer = cv2.imencode(".png", saliency_map_color)
+            saliency_map_bytes = buffer.tobytes() if success else None
+            return (focal_point, saliency_map_bytes)
+
+        return focal_point
 
     @staticmethod
     def _edge_detection_focal_point(img):
@@ -434,16 +768,14 @@ class ImageOptimizer:
     # Define size presets for different use cases
     SIZES = {
         "preview": None,  # Full size, highly compressed for fast loading
-        "gallery_cropped": (1200, 800),  # Smart-cropped version for gallery
-        "optimized": None,  # Full size but compressed
+        "thumbnail": (400, 300),  # Smart-cropped version for grid display
         # 'original' will be the untouched original
     }
 
     # Quality settings for JPEG compression
     QUALITY_SETTINGS = {
-        "preview": 70,  # Lower quality for fast loading
-        "gallery_cropped": 85,  # Good quality for gallery display
-        "optimized": 90,  # High quality but compressed
+        "preview": 65,  # Lower quality for fast loading
+        "thumbnail": 80,  # Good quality for thumbnail display
         "original": 100,  # No compression
     }
 
@@ -461,9 +793,9 @@ class ImageOptimizer:
 
         Args:
             image_file: Django ImageField file or file-like object
-            size_name: One of 'preview', 'gallery_cropped', 'optimized', or 'original'
+            size_name: One of 'preview', 'thumbnail', or 'original'
             maintain_aspect_ratio: If True, maintains aspect ratio when resizing
-            use_smart_crop: If True and size_name is 'gallery_cropped', use smart cropping
+            use_smart_crop: If True and size_name is 'thumbnail', use smart cropping
             focal_point: Optional (x, y) focal point as percentages (0-1)
 
         Returns:
@@ -486,12 +818,10 @@ class ImageOptimizer:
 
         original_format = img.format or "JPEG"
 
-        if size_name == "optimized":
-            pass  # Just compress without resizing
-        elif size_name in cls.SIZES and cls.SIZES[size_name]:
+        if size_name in cls.SIZES and cls.SIZES[size_name]:
             target_size = cls.SIZES[size_name]
 
-            if use_smart_crop and size_name == "gallery_cropped":
+            if use_smart_crop and size_name == "thumbnail":
                 if focal_point is None:
                     computed_focal_point = SmartCrop.find_focal_point(img)
                 else:
@@ -523,58 +853,97 @@ class ImageOptimizer:
         return (ContentFile(output.read()), computed_focal_point)
 
     @classmethod
-    def generate_filename(cls, original_filename, size_name):
+    def generate_filename(cls, photo_uuid, size_name, original_ext=".jpg"):
         """
-        Generate a filename for the optimized version.
+        Generate a filename for the optimized version using UUID.
 
         Args:
-            original_filename: Original filename
-            size_name: Size variant name
+            photo_uuid: UUID of the photo (string)
+            size_name: Size variant name ('thumbnail', 'preview', etc.)
+            original_ext: Original file extension
 
         Returns:
-            str: New filename with size suffix
+            str: New filename with UUID and size suffix
         """
-        name, ext = os.path.splitext(original_filename)
-
-        if size_name != "original" and ext.lower() not in [".png", ".gif", ".webp"]:
+        ext = original_ext.lower()
+        if size_name != "original" and ext not in [".png", ".gif", ".webp"]:
             ext = ".jpg"  # Convert to .jpg when optimizing (except PNG/GIF/WebP)
 
         if size_name == "original":
-            return f"{name}{ext}"
+            return f"{photo_uuid}{ext}"
 
-        return f"{name}_{size_name}{ext}"
+        return f"{photo_uuid}_{size_name}{ext}"
 
     @classmethod
-    def process_uploaded_image(cls, image_file, filename=None):
+    def process_uploaded_image(cls, image_file, photo_uuid, original_ext=".jpg"):
         """
         Process an uploaded image and create all size variants.
 
         Args:
             image_file: Uploaded image file
-            filename: Optional custom filename
+            photo_uuid: UUID of the photo for naming (string)
+            original_ext: Original file extension
 
         Returns:
-            tuple: (variants dict, focal_point tuple or None)
+            tuple: (variants dict, focal_point tuple or None, saliency_map_bytes or None)
         """
-        if not filename:
-            filename = image_file.name
-
         variants = {}
         focal_point = None
+        saliency_map_bytes = None
 
-        for size_name in ["preview", "gallery_cropped", "optimized"]:
+        # Compute focal point and saliency map once before processing variants
+        # This avoids recomputing saliency detection multiple times
+        image_file.seek(0)
+        img = Image.open(image_file)
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        focal_point, saliency_map_bytes = SmartCrop.find_focal_point(img, return_saliency_map=True)
+
+        for size_name in ["preview", "thumbnail"]:
             image_file.seek(0)
-            optimized, computed_focal = cls.optimize_image(image_file, size_name, focal_point=focal_point)
+            optimized, _ = cls.optimize_image(image_file, size_name, focal_point=focal_point)
 
-            # Store focal point from first computation (display version)
-            if computed_focal and not focal_point:
-                focal_point = computed_focal
-
-            variant_filename = cls.generate_filename(filename, size_name)
+            variant_filename = cls.generate_filename(photo_uuid, size_name, original_ext)
             optimized.name = variant_filename
             variants[size_name] = optimized
 
-        return (variants, focal_point)
+        return (variants, focal_point, saliency_map_bytes)
+
+    @classmethod
+    def compute_saliency_map(cls, image_file):
+        """
+        Compute and return the saliency map for debugging/visualization.
+
+        Args:
+            image_file: Django ImageField file or file-like object
+
+        Returns:
+            bytes or None: PNG-encoded saliency map bytes, or None if computation fails
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        try:
+            image_file.seek(0)
+            img = Image.open(image_file)
+
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+
+            _, saliency_map_bytes = SmartCrop.find_focal_point(img, return_saliency_map=True)
+
+            if saliency_map_bytes is None:
+                logger.warning(
+                    "Saliency map computation returned None - OpenCV may not be available or saliency detection failed"
+                )
+                return None
+
+            logger.debug(f"Successfully computed saliency map ({len(saliency_map_bytes)} bytes)")
+            return saliency_map_bytes
+        except Exception as e:
+            logger.error(f"Error computing saliency map: {e}", exc_info=True)
+            return None
 
 
 class DuplicateDetector:

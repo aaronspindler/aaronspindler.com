@@ -86,6 +86,7 @@ class Command(BaseCommand):
             "books.css",
             "knowledge_graph.css",
             "photos.css",
+            "album-detail.css",
             "blog.css",
             "autocomplete.css",
             "fast-font.css",

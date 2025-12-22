@@ -10,6 +10,29 @@ from django.utils.text import slugify
 from photos.image_utils import DuplicateDetector, ExifExtractor, ImageMetadataExtractor, ImageOptimizer
 
 
+def photo_upload_to(instance, filename):
+    """Generate upload path for original photos using UUID."""
+    ext = os.path.splitext(filename)[1].lower() or ".jpg"
+    return f"photos/original/{instance.uuid}{ext}"
+
+
+def thumbnail_upload_to(instance, filename):
+    """Generate upload path for thumbnails using UUID."""
+    ext = os.path.splitext(filename)[1].lower() or ".jpg"
+    return f"photos/thumbnails/{instance.uuid}_thumbnail{ext}"
+
+
+def preview_upload_to(instance, filename):
+    """Generate upload path for previews using UUID."""
+    ext = os.path.splitext(filename)[1].lower() or ".jpg"
+    return f"photos/preview/{instance.uuid}_preview{ext}"
+
+
+def saliency_upload_to(instance, _filename):
+    """Generate upload path for saliency maps using UUID."""
+    return f"photos/saliency/{instance.uuid}_saliency.png"
+
+
 class Photo(models.Model):
     PROCESSING_STATUS_CHOICES = [
         ("pending", "Pending Processing"),
@@ -18,38 +41,43 @@ class Photo(models.Model):
         ("failed", "Failed"),
     ]
 
-    title = models.CharField(max_length=255, blank=True, default="")
-    description = models.TextField(blank=True)
+    uuid = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        db_index=True,
+    )
 
-    image = models.ImageField(upload_to="photos/original/", verbose_name="Original Full Resolution")
+    image = models.ImageField(upload_to=photo_upload_to, verbose_name="Original Full Resolution")
 
     processing_status = models.CharField(
         max_length=20,
         choices=PROCESSING_STATUS_CHOICES,
-        default="complete",
+        default="pending",
         db_index=True,
         help_text="Status of background image processing",
     )
 
-    image_optimized = models.ImageField(
-        upload_to="photos/optimized/",
+    image_thumbnail = models.ImageField(
+        upload_to=thumbnail_upload_to,
         blank=True,
         null=True,
-        verbose_name="Optimized Full Size",
-    )
-
-    image_gallery_cropped = models.ImageField(
-        upload_to="photos/gallery_cropped/",
-        blank=True,
-        null=True,
-        verbose_name="Gallery Version (Smart Cropped)",
+        verbose_name="Thumbnail Version (Smart Cropped)",
     )
 
     image_preview = models.ImageField(
-        upload_to="photos/preview/",
+        upload_to=preview_upload_to,
         blank=True,
         null=True,
         verbose_name="Preview Version (Full Size, Highly Compressed)",
+    )
+
+    saliency_map = models.ImageField(
+        upload_to=saliency_upload_to,
+        blank=True,
+        null=True,
+        verbose_name="Saliency Map (Debug Visualization)",
+        help_text="Visualization of saliency detection algorithm for debugging smart crop",
     )
 
     original_filename = models.CharField(max_length=255, blank=True)
@@ -129,7 +157,9 @@ class Photo(models.Model):
                 if not skip_duplicate_check:
                     self._check_for_duplicates()
 
-                if not skip_processing:
+                if skip_processing:
+                    self.processing_status = "pending"
+                else:
                     self._process_image()
         except ValidationError:
             raise
@@ -253,38 +283,54 @@ class Photo(models.Model):
             self.gps_altitude = exif_data.get("gps_altitude")
 
         self.image.seek(0)  # Reset file pointer before processing
-        variants, focal_point = ImageOptimizer.process_uploaded_image(self.image, self.original_filename)
+        original_ext = os.path.splitext(self.original_filename)[1] or ".jpg"
+        variants, focal_point, saliency_map_bytes = ImageOptimizer.process_uploaded_image(
+            self.image, str(self.uuid), original_ext
+        )
 
         if focal_point:
             self.focal_point_x = focal_point[0]
             self.focal_point_y = focal_point[1]
-        if "optimized" in variants:
-            self.image_optimized.save(variants["optimized"].name, variants["optimized"], save=False)
 
-        if "gallery_cropped" in variants:
-            self.image_gallery_cropped.save(variants["gallery_cropped"].name, variants["gallery_cropped"], save=False)
+        if "thumbnail" in variants:
+            self.image_thumbnail.save(variants["thumbnail"].name, variants["thumbnail"], save=False)
 
         if "preview" in variants:
             self.image_preview.save(variants["preview"].name, variants["preview"], save=False)
 
-    def get_image_url(self, size="gallery_cropped"):
+        # Save saliency map for debugging (already computed during focal point calculation)
+        if saliency_map_bytes:
+            import logging
+
+            from django.core.files.base import ContentFile
+
+            logger = logging.getLogger(__name__)
+            saliency_filename = f"{self.uuid}_saliency.png"
+            self.saliency_map.save(saliency_filename, ContentFile(saliency_map_bytes), save=False)
+            logger.info(f"Saved saliency map for photo {self.pk}: {saliency_filename}")
+        else:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"No saliency map generated for photo {self.pk} - computation returned None")
+
+    def get_image_url(self, size="thumbnail"):
         """
         Get the URL for a specific image size.
 
         Args:
-            size: One of 'preview', 'gallery_cropped', 'optimized', or 'original'
+            size: One of 'preview', 'thumbnail', or 'original'
 
         Returns:
             str: URL of the requested image size, or None if not available
         """
         size_field_map = {
             "preview": self.image_preview,
-            "gallery_cropped": self.image_gallery_cropped,
-            "optimized": self.image_optimized,
+            "thumbnail": self.image_thumbnail,
             "original": self.image,
         }
 
-        image_field = size_field_map.get(size, self.image_gallery_cropped)
+        image_field = size_field_map.get(size, self.image_thumbnail)
 
         try:
             if image_field:
@@ -322,9 +368,7 @@ class Photo(models.Model):
         return similar
 
     def __str__(self):
-        if self.title:
-            return self.title
-        elif self.original_filename:
+        if self.original_filename:
             return self.original_filename
         else:
             return f"Photo {self.pk}"
@@ -359,7 +403,7 @@ class PhotoAlbum(models.Model):
         upload_to="albums/zips/",
         blank=True,
         null=True,
-        help_text="ZIP file containing optimized photos from this album",
+        help_text="ZIP file containing original photos from this album",
     )
     zip_content_hash = models.CharField(
         max_length=64,

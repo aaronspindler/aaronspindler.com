@@ -17,6 +17,7 @@ from unittest.mock import Mock, patch
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.utils import timezone
 from PIL import Image
 
 from photos.models import Photo, PhotoAlbum
@@ -47,10 +48,8 @@ class PhotoModelTestCase(TestCase):
 
     def test_photo_creation_basic(self):
         """Test basic photo creation."""
-        photo = Photo.objects.create(title="Test Photo", description="Test Description", image=self.test_image)
+        photo = Photo.objects.create(image=self.test_image)
 
-        self.assertEqual(photo.title, "Test Photo")
-        self.assertEqual(photo.description, "Test Description")
         self.assertIsNotNone(photo.image)
         self.assertIsNotNone(photo.pk)
 
@@ -79,22 +78,23 @@ class PhotoModelTestCase(TestCase):
             "aperture": "f/2.8",
             "shutter_speed": "1/250",
             "focal_length": "50mm",
-            "date_taken": datetime(2024, 1, 1, 12, 0, 0),
+            "date_taken": timezone.make_aware(datetime(2024, 1, 1, 12, 0, 0)),
             "full_exif": {"Make": "Canon", "Model": "EOS R5"},
         }
 
-        mock_optimized = Mock()
-        mock_optimized.name = "test_optimized.jpg"
-        mock_gallery_cropped = Mock()
-        mock_gallery_cropped.name = "test_gallery_cropped.jpg"
+        mock_thumbnail = Mock()
+        mock_thumbnail.name = "test_thumbnail.jpg"
+        mock_preview = Mock()
+        mock_preview.name = "test_preview.jpg"
 
         mock_process.return_value = (
-            {"optimized": mock_optimized, "gallery_cropped": mock_gallery_cropped},
+            {"thumbnail": mock_thumbnail, "preview": mock_preview},
             (0.5, 0.5),  # focal point
+            None,  # saliency_map_bytes
         )
 
         # Create photo with skip_duplicate_check to avoid duplicate check but still process image
-        photo = Photo(title="Test", image=self.test_image)
+        photo = Photo(image=self.test_image)
         photo.save(skip_duplicate_check=True)
 
         # Verify processing was called (hashes are computed in _process_image regardless of skip_duplicate_check)
@@ -118,7 +118,7 @@ class PhotoModelTestCase(TestCase):
     def test_photo_duplicate_detection_raises_error(self, mock_find_duplicates):
         """Test that duplicate detection raises ValidationError for exact duplicates."""
         # Create existing photo with skip_duplicate_check to avoid issues
-        existing_photo = Photo(title="Existing Photo", image=self.test_image, file_hash="existinghash")
+        existing_photo = Photo(image=self.test_image, file_hash="existinghash")
         existing_photo.save(skip_duplicate_check=True)
 
         # Setup mock to return exact duplicate
@@ -131,7 +131,7 @@ class PhotoModelTestCase(TestCase):
 
         # Try to save duplicate - should raise ValidationError
         with self.assertRaises(ValidationError) as context:
-            photo = Photo(title="Duplicate", image=self.test_image_2)
+            photo = Photo(image=self.test_image_2)
             photo.save()
 
         self.assertIn("exact duplicate", str(context.exception).lower())
@@ -140,7 +140,7 @@ class PhotoModelTestCase(TestCase):
     def test_photo_skip_duplicate_check(self, mock_find_duplicates):
         """Test that duplicate check can be skipped."""
         # Setup mock to return exact duplicate
-        existing_photo = Photo(title="Existing Photo", image=self.test_image, file_hash="existinghash")
+        existing_photo = Photo(image=self.test_image, file_hash="existinghash")
         existing_photo.save(skip_duplicate_check=True)
 
         mock_find_duplicates.return_value = {
@@ -151,7 +151,7 @@ class PhotoModelTestCase(TestCase):
         }
 
         # Save with skip_duplicate_check=True should not raise error
-        photo = Photo(title="Duplicate", image=self.test_image_2)
+        photo = Photo(image=self.test_image_2)
         photo.save(skip_duplicate_check=True)
 
         # Verify duplicate check was not called
@@ -160,25 +160,21 @@ class PhotoModelTestCase(TestCase):
 
     def test_photo_str_representation(self):
         """Test string representation of Photo."""
-        # With title
-        photo1 = Photo(title="My Photo", pk=1)
-        self.assertEqual(str(photo1), "My Photo")
+        # With filename
+        photo1 = Photo(original_filename="DSC_001.jpg", pk=1)
+        self.assertEqual(str(photo1), "DSC_001.jpg")
 
-        # Without title but with filename
-        photo2 = Photo(original_filename="DSC_001.jpg", pk=2)
-        self.assertEqual(str(photo2), "DSC_001.jpg")
-
-        # Without title or filename
-        photo3 = Photo(pk=3)
-        self.assertEqual(str(photo3), "Photo 3")
+        # Without filename
+        photo2 = Photo(pk=2)
+        self.assertEqual(str(photo2), "Photo 2")
 
     @patch("photos.models.Photo.objects")
     def test_get_similar_images(self, mock_objects):
         """Test finding similar images."""
         # Create test photos
-        photo1 = Photo(pk=1, title="Photo 1", perceptual_hash="hash1")
-        photo2 = Photo(pk=2, title="Photo 2", perceptual_hash="hash2")
-        photo3 = Photo(pk=3, title="Photo 3", perceptual_hash="hash3")
+        photo1 = Photo(pk=1, perceptual_hash="hash1")
+        photo2 = Photo(pk=2, perceptual_hash="hash2")
+        photo3 = Photo(pk=3, perceptual_hash="hash3")
 
         # Mock the queryset to return only our test photos
         mock_qs = Mock()
@@ -214,37 +210,35 @@ class PhotoModelTestCase(TestCase):
         photo = Photo()
         photo.image = Mock()
         photo.image.url = "http://example.com/original.jpg"
-        photo.image_optimized = Mock()
-        photo.image_optimized.url = "http://example.com/optimized.jpg"
-        photo.image_gallery_cropped = Mock()
-        photo.image_gallery_cropped.url = "http://example.com/gallery_cropped.jpg"
+        photo.image_thumbnail = Mock()
+        photo.image_thumbnail.url = "http://example.com/thumbnail.jpg"
         photo.image_preview = Mock()
         photo.image_preview.url = "http://example.com/preview.jpg"
 
         # Test different sizes
         self.assertEqual(photo.get_image_url("preview"), "http://example.com/preview.jpg")
-        self.assertEqual(photo.get_image_url("gallery_cropped"), "http://example.com/gallery_cropped.jpg")
-        self.assertEqual(photo.get_image_url("optimized"), "http://example.com/optimized.jpg")
+        self.assertEqual(photo.get_image_url("thumbnail"), "http://example.com/thumbnail.jpg")
         self.assertEqual(photo.get_image_url("original"), "http://example.com/original.jpg")
 
         # Test fallback
-        self.assertEqual(photo.get_image_url("invalid"), "http://example.com/gallery_cropped.jpg")
+        self.assertEqual(photo.get_image_url("invalid"), "http://example.com/thumbnail.jpg")
 
     def test_get_image_url_missing_files(self):
         """Test get_image_url when files are missing."""
         photo = Photo()
 
         # No images at all
-        self.assertIsNone(photo.get_image_url("gallery_cropped"))
+        self.assertIsNone(photo.get_image_url("thumbnail"))
 
         # Only original exists
         photo.image = Mock()
         photo.image.url = "http://example.com/original.jpg"
-        self.assertEqual(photo.get_image_url("gallery_cropped"), "http://example.com/original.jpg")
+        self.assertEqual(photo.get_image_url("thumbnail"), "http://example.com/original.jpg")
 
     @patch("photos.models.ExifExtractor.extract_exif")
     def test_exif_extraction(self, mock_extract):
         """Test EXIF data extraction and storage."""
+        expected_date = timezone.make_aware(datetime(2024, 3, 15, 14, 30, 0))
         mock_extract.return_value = {
             "camera_make": "Nikon",
             "camera_model": "D850",
@@ -253,7 +247,7 @@ class PhotoModelTestCase(TestCase):
             "aperture": "f/4.0",
             "shutter_speed": "1/500",
             "focal_length": "35mm",
-            "date_taken": datetime(2024, 3, 15, 14, 30, 0),
+            "date_taken": expected_date,
             "gps_latitude": Decimal("40.7128"),
             "gps_longitude": Decimal("-74.0060"),
             "gps_altitude": Decimal("10.5"),
@@ -271,7 +265,7 @@ class PhotoModelTestCase(TestCase):
         self.assertEqual(photo.aperture, "f/4.0")
         self.assertEqual(photo.shutter_speed, "1/500")
         self.assertEqual(photo.focal_length, "35mm")
-        self.assertEqual(photo.date_taken, datetime(2024, 3, 15, 14, 30, 0))
+        self.assertEqual(photo.date_taken, expected_date)
         self.assertEqual(photo.gps_latitude, Decimal("40.7128"))
         self.assertEqual(photo.gps_longitude, Decimal("-74.0060"))
         self.assertEqual(photo.gps_altitude, Decimal("10.5"))
@@ -348,12 +342,12 @@ class PhotoAlbumModelTestCase(TestCase):
         """Test many-to-many relationship with photos."""
         # Create album and photos
         album = PhotoAlbum.objects.create(title="Test Album")
-        photo1 = Photo(title="Photo 1", image=self.test_image)
+        photo1 = Photo(image=self.test_image)
         photo1.save(skip_duplicate_check=True)
 
         # Use different image for photo2 to avoid duplicate detection
         test_image_2 = self._create_test_image(color=(0, 255, 0))
-        photo2 = Photo(title="Photo 2", image=test_image_2)
+        photo2 = Photo(image=test_image_2)
         photo2.save(skip_duplicate_check=True)
 
         # Add photos to album

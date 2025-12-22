@@ -196,12 +196,12 @@ class PhotoBulkUploadFormTestCase(TestCase):
         # One photo should be created
         self.assertEqual(len(result["created"]), 1)
 
-        # Verify photo was created with complete status
+        # Verify photo was created with pending status
         photo = result["created"][0]
         self.assertIsInstance(photo, Photo)
         self.assertEqual(photo.file_hash, "hash123")
         self.assertEqual(photo.perceptual_hash, "phash456")
-        self.assertEqual(photo.processing_status, "complete")
+        self.assertEqual(photo.processing_status, "pending")
 
     @patch("photos.tasks.process_photo_async")
     @patch("photos.forms.DuplicateDetector.find_duplicates")
@@ -256,7 +256,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
     def test_save_skip_exact_duplicate(self, mock_find_duplicates):
         """Test that exact duplicates are skipped by default."""
         # Create existing photo
-        existing_photo = PhotoFactory.create_photo(title="Existing Photo", file_hash="existing_hash")
+        existing_photo = PhotoFactory.create_photo(file_hash="existing_hash")
 
         # Setup mock - exact duplicate found
         mock_find_duplicates.return_value = {
@@ -286,7 +286,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
     @patch("photos.forms.DuplicateDetector.find_duplicates")
     def test_save_raise_on_duplicate(self, mock_find_duplicates):
         """Test that duplicates raise error when skip_duplicates=False."""
-        existing_photo = PhotoFactory.create_photo(title="Existing Photo", file_hash="existing_hash")
+        existing_photo = PhotoFactory.create_photo(file_hash="existing_hash")
 
         mock_find_duplicates.return_value = {
             "exact_duplicates": [existing_photo],
@@ -315,7 +315,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
     def test_save_with_similar_images(self, mock_find_duplicates):
         """Test saving when similar images are detected."""
         # Create existing similar photo
-        similar_photo = PhotoFactory.create_photo(title="Similar Photo", perceptual_hash="similar_hash")
+        similar_photo = PhotoFactory.create_photo(perceptual_hash="similar_hash")
 
         # Setup mock - similar image found but not exact
         mock_find_duplicates.return_value = {
@@ -369,7 +369,7 @@ class PhotoBulkUploadFormTestCase(TestCase):
     def test_save_mixed_results(self, mock_find_duplicates):
         """Test saving multiple images with mixed results."""
         # Create existing photo for duplicate
-        existing = PhotoFactory.create_photo(title="Existing", file_hash="existing_hash")
+        existing = PhotoFactory.create_photo(file_hash="existing_hash")
 
         # Setup mock to return different results for each call
         def find_duplicates_side_effect(image_file, existing_photos, **kwargs):

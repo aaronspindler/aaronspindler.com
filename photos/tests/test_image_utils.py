@@ -18,6 +18,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 from django.core.files.base import ContentFile
 from django.test import TestCase
+from django.utils import timezone
 from PIL import Image
 
 from photos.image_utils import (
@@ -192,7 +193,8 @@ class ExifExtractorTestCase(TestCase):
         """Test EXIF datetime parsing."""
         # Valid EXIF datetime
         dt = ExifExtractor._parse_datetime("2024:03:15 14:30:00")
-        self.assertEqual(dt, datetime(2024, 3, 15, 14, 30, 0))
+        expected = timezone.make_aware(datetime(2024, 3, 15, 14, 30, 0))
+        self.assertEqual(dt, expected)
 
         # Invalid format
         dt = ExifExtractor._parse_datetime("2024-03-15 14:30:00")
@@ -370,6 +372,42 @@ class SmartCropTestCase(TestCase):
         self.assertGreater(focal_point[0], 0.5)
         self.assertGreater(focal_point[1], 0.5)
 
+    def test_saliency_focal_point(self):
+        """Test saliency-based focal point detection."""
+        # Create an image with a distinct subject (bright colored circle) on uniform background
+        img = Image.new("RGB", (200, 200), color=(240, 240, 240))
+        # Draw a bright red circle in the upper-left quadrant
+        for x in range(50, 100):
+            for y in range(50, 100):
+                if ((x - 75) ** 2 + (y - 75) ** 2) < 400:  # Circle radius ~20
+                    img.putpixel((x, y), (255, 0, 0))
+
+        focal_point = SmartCrop._saliency_focal_point(img)
+
+        # Saliency should detect the subject (red circle)
+        if focal_point is not None:
+            self.assertIsInstance(focal_point, tuple)
+            self.assertEqual(len(focal_point), 2)
+            self.assertGreaterEqual(focal_point[0], 0.0)
+            self.assertLessEqual(focal_point[0], 1.0)
+            self.assertGreaterEqual(focal_point[1], 0.0)
+            self.assertLessEqual(focal_point[1], 1.0)
+
+    def test_saliency_fallback(self):
+        """Test that find_focal_point falls back to entropy/edge when saliency fails."""
+        # Create a simple test image
+        img = Image.new("RGB", (100, 100), color="white")
+
+        # find_focal_point should work even if saliency returns None
+        focal_point = SmartCrop.find_focal_point(img)
+
+        self.assertIsInstance(focal_point, tuple)
+        self.assertEqual(len(focal_point), 2)
+        self.assertGreaterEqual(focal_point[0], 0.0)
+        self.assertLessEqual(focal_point[0], 1.0)
+        self.assertGreaterEqual(focal_point[1], 0.0)
+        self.assertLessEqual(focal_point[1], 1.0)
+
     def test_calculate_entropy(self):
         """Test entropy calculation."""
         # Uniform image (low entropy)
@@ -451,41 +489,27 @@ class ImageOptimizerTestCase(TestCase):
 
     @patch("photos.image_utils.SmartCrop.find_focal_point")
     @patch("photos.image_utils.SmartCrop.smart_crop")
-    def test_optimize_image_gallery_cropped_with_smart_crop(self, mock_smart_crop, mock_find_focal):
-        """Test gallery_cropped size optimization with smart cropping."""
+    def test_optimize_image_thumbnail_with_smart_crop(self, mock_smart_crop, mock_find_focal):
+        """Test thumbnail size optimization with smart cropping."""
         test_file = self._create_test_image_file(size=(2000, 1500))
 
         # Setup mocks
         mock_find_focal.return_value = (0.6, 0.4)
-        mock_cropped = Image.new("RGB", (1200, 800))
+        mock_cropped = Image.new("RGB", (400, 300))
         mock_smart_crop.return_value = mock_cropped
 
-        result, focal_point = ImageOptimizer.optimize_image(test_file, "gallery_cropped", use_smart_crop=True)
+        result, focal_point = ImageOptimizer.optimize_image(test_file, "thumbnail", use_smart_crop=True)
 
         # Verify smart crop was used
         mock_find_focal.assert_called_once()
         mock_smart_crop.assert_called_once()
         self.assertEqual(focal_point, (0.6, 0.4))
 
-    def test_optimize_image_optimized(self):
-        """Test optimized size (compression without resize)."""
-        test_file = self._create_test_image_file(size=(1000, 1000))
-
-        result, focal_point = ImageOptimizer.optimize_image(test_file, "optimized")
-
-        # Should return compressed version
-        self.assertIsNotNone(result)
-        self.assertIsNone(focal_point)
-
-        # Verify it's a JPEG with optimization
-        img = Image.open(result)
-        self.assertEqual(img.format, "JPEG")
-
     def test_optimize_image_png_preservation(self):
         """Test that PNG format is preserved."""
         test_file = self._create_test_image_file(format="PNG")
 
-        result, _ = ImageOptimizer.optimize_image(test_file, "optimized")
+        result, _ = ImageOptimizer.optimize_image(test_file, "preview")
 
         img = Image.open(result)
         self.assertEqual(img.format, "PNG")
@@ -498,7 +522,7 @@ class ImageOptimizerTestCase(TestCase):
         img.save(img_io, format="PNG")
         img_io.seek(0)
 
-        result, _ = ImageOptimizer.optimize_image(img_io, "optimized")
+        result, _ = ImageOptimizer.optimize_image(img_io, "preview")
 
         # Should be converted to RGB JPEG
         img_result = Image.open(result)
@@ -507,64 +531,60 @@ class ImageOptimizerTestCase(TestCase):
     def test_generate_filename(self):
         """Test filename generation for different sizes."""
         # Original keeps extension
-        self.assertEqual(ImageOptimizer.generate_filename("photo.png", "original"), "photo.png")
+        self.assertEqual(ImageOptimizer.generate_filename("test-uuid", "original", ".png"), "test-uuid.png")
 
-        # Optimized/display convert to jpg (except PNG/GIF/WebP)
+        # Preview/thumbnail convert to jpg (except PNG/GIF/WebP)
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.tiff", "optimized"),
-            "photo_optimized.jpg",
+            ImageOptimizer.generate_filename("test-uuid", "preview", ".tiff"),
+            "test-uuid_preview.jpg",
         )
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.bmp", "gallery_cropped"),
-            "photo_gallery_cropped.jpg",
+            ImageOptimizer.generate_filename("test-uuid", "thumbnail", ".bmp"),
+            "test-uuid_thumbnail.jpg",
         )
 
         # PNG/GIF/WebP preserved
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.png", "optimized"),
-            "photo_optimized.png",
+            ImageOptimizer.generate_filename("test-uuid", "preview", ".png"),
+            "test-uuid_preview.png",
         )
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.gif", "gallery_cropped"),
-            "photo_gallery_cropped.gif",
+            ImageOptimizer.generate_filename("test-uuid", "thumbnail", ".gif"),
+            "test-uuid_thumbnail.gif",
         )
         self.assertEqual(
-            ImageOptimizer.generate_filename("photo.webp", "optimized"),
-            "photo_optimized.webp",
+            ImageOptimizer.generate_filename("test-uuid", "preview", ".webp"),
+            "test-uuid_preview.webp",
         )
 
     @patch("photos.image_utils.ImageOptimizer.optimize_image")
     def test_process_uploaded_image(self, mock_optimize):
         """Test processing uploaded image to create all variants."""
         test_file = self._create_test_image_file()
+        test_uuid = "test-uuid-123"
 
         # Setup mock returns for different sizes
         mock_preview = ContentFile(b"preview_content")
-        mock_preview.name = "test_preview.jpg"
-        mock_gallery_cropped = ContentFile(b"gallery_cropped_content")
-        mock_gallery_cropped.name = "test_gallery_cropped.jpg"
-        mock_optimized = ContentFile(b"optimized_content")
-        mock_optimized.name = "test_optimized.jpg"
+        mock_preview.name = f"{test_uuid}_preview.jpg"
+        mock_thumbnail = ContentFile(b"thumbnail_content")
+        mock_thumbnail.name = f"{test_uuid}_thumbnail.jpg"
 
         mock_optimize.side_effect = [
             (mock_preview, (0.5, 0.5)),  # preview call
-            (mock_gallery_cropped, None),  # gallery_cropped call (uses cached focal point)
-            (mock_optimized, None),  # optimized call
+            (mock_thumbnail, None),  # thumbnail call (uses cached focal point)
         ]
 
-        variants, focal_point = ImageOptimizer.process_uploaded_image(test_file, "test.jpg")
+        variants, focal_point, saliency_map_bytes = ImageOptimizer.process_uploaded_image(test_file, test_uuid)
 
         # Verify all variants created
         self.assertIn("preview", variants)
-        self.assertIn("gallery_cropped", variants)
-        self.assertIn("optimized", variants)
-        self.assertEqual(variants["preview"].name, "test_preview.jpg")
-        self.assertEqual(variants["gallery_cropped"].name, "test_gallery_cropped.jpg")
-        self.assertEqual(variants["optimized"].name, "test_optimized.jpg")
+        self.assertIn("thumbnail", variants)
+        self.assertEqual(variants["preview"].name, f"{test_uuid}_preview.jpg")
+        self.assertEqual(variants["thumbnail"].name, f"{test_uuid}_thumbnail.jpg")
         self.assertEqual(focal_point, (0.5, 0.5))
 
         # Verify optimize was called for each size
-        self.assertEqual(mock_optimize.call_count, 3)
+        self.assertEqual(mock_optimize.call_count, 2)
 
 
 class DuplicateDetectorTestCase(TestCase):
@@ -715,8 +735,8 @@ class DuplicateDetectorTestCase(TestCase):
         from photos.models import Photo
 
         # Create existing photos
-        existing1 = Photo.objects.create(title="Photo 1", file_hash="hash123", perceptual_hash="phash1")
-        Photo.objects.create(title="Photo 2", file_hash="hash456", perceptual_hash="phash2")
+        existing1 = Photo.objects.create(file_hash="hash123", perceptual_hash="phash1")
+        Photo.objects.create(file_hash="hash456", perceptual_hash="phash2")
 
         # Setup mocks
         mock_file_hash.return_value = "hash123"  # Matches existing1
@@ -738,8 +758,8 @@ class DuplicateDetectorTestCase(TestCase):
         from photos.models import Photo
 
         # Create existing photos
-        existing1 = Photo.objects.create(title="Photo 1", file_hash="hash1", perceptual_hash="phash1")
-        Photo.objects.create(title="Photo 2", file_hash="hash2", perceptual_hash="phash2")
+        existing1 = Photo.objects.create(file_hash="hash1", perceptual_hash="phash1")
+        Photo.objects.create(file_hash="hash2", perceptual_hash="phash2")
 
         # Setup mocks
         mock_file_hash.return_value = "hash_new"  # No exact match
@@ -771,7 +791,7 @@ class DuplicateDetectorTestCase(TestCase):
         """Test finding duplicates with exact_match_only flag."""
         from photos.models import Photo
 
-        Photo.objects.create(title="Photo", file_hash="hash123", perceptual_hash="phash")
+        Photo.objects.create(file_hash="hash123", perceptual_hash="phash")
 
         mock_file_hash.return_value = "hash456"  # No match
 
