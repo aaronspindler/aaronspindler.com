@@ -21,16 +21,6 @@ logger = logging.getLogger(__name__)
     max_retries=3,
 )
 def process_photo_async(self, photo_id: int, force: bool = False):
-    """
-    Process a photo in the background: extract metadata, create optimized versions.
-
-    Args:
-        photo_id: The ID of the Photo to process.
-        force: If True, reprocess even if already complete.
-
-    Returns:
-        dict: Result containing status and photo_id.
-    """
     from photos.models import Photo
 
     try:
@@ -58,12 +48,6 @@ STREAM_CHUNK_SIZE = 8 * 1024 * 1024  # 8MB chunks
 
 
 def _stream_file_to_zip(zf: zipfile.ZipFile, file_field, zip_path: str, photo_id: int) -> bool:
-    """
-    Stream a file from storage directly into a ZIP archive.
-
-    Uses a temporary file to avoid loading the entire image into memory.
-    Returns True if successful, False otherwise.
-    """
     temp_path = None
     try:
         with file_field.open("rb") as src:

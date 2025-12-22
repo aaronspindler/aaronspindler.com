@@ -1,10 +1,3 @@
-"""
-Django management command to collect static files and optimize images.
-
-This command runs collectstatic and then optimizes all image files in STATIC_ROOT
-by compressing them based on their format.
-"""
-
 import json
 import os
 
@@ -31,7 +24,6 @@ class Command(BaseCommand):
             self.stderr.write(self.style.ERROR(f"Failed to collect static files: {str(e)}"))
             raise
 
-        # Verify manifest was created
         static_root = settings.STATIC_ROOT
         manifest_path = os.path.join(static_root, "staticfiles.json")
 
@@ -40,7 +32,6 @@ class Command(BaseCommand):
             self.stderr.write(self.style.ERROR(error_msg))
             raise FileNotFoundError(error_msg)
 
-        # Verify manifest is valid JSON
         try:
             with open(manifest_path, "r", encoding="utf-8") as f:
                 manifest = json.load(f)
@@ -81,13 +72,6 @@ class Command(BaseCommand):
             )
 
     def optimize_image(self, file_path, verbosity=1):
-        """
-        Optimize a single image file by applying format-specific compression.
-
-        Args:
-            file_path: Path to the image file to optimize
-            verbosity: Verbosity level for output
-        """
         with Image.open(file_path) as img:
             original_size = os.path.getsize(file_path)
 

@@ -7,9 +7,6 @@ from .models import BlogComment
 
 
 class CommentForm(forms.ModelForm):
-    """Form for submitting blog comments with honeypot spam protection."""
-
-    # Honeypot field - hidden from real users, catches bots
     website = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={"style": "display:none;", "tabindex": "-1", "autocomplete": "off"}),
@@ -46,7 +43,6 @@ class CommentForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.user = user
 
-        # Hide author fields for authenticated users
         if user and user.is_authenticated:
             self.fields["author_name"].required = False
             self.fields["author_name"].widget = forms.HiddenInput()
@@ -57,14 +53,12 @@ class CommentForm(forms.ModelForm):
             self.fields["author_email"].required = False
 
     def clean_website(self):
-        """Honeypot field validation - bots will fill this hidden field."""
         website = self.cleaned_data.get("website")
         if website:
             raise ValidationError("Bot detection triggered")
         return website
 
     def clean_content(self):
-        """Validate comment content for spam patterns and basic requirements."""
         content = self.cleaned_data.get("content")
 
         if not content:
@@ -74,20 +68,17 @@ class CommentForm(forms.ModelForm):
         if not content:
             raise ValidationError("Comment cannot be just whitespace")
 
-        # Check for excessive URLs (potential spam)
         url_pattern = re.compile(r"https?://[^\s]+")
         urls = url_pattern.findall(content)
         if len(urls) > 3:
             raise ValidationError("Too many URLs in comment. Maximum 3 URLs allowed.")
 
-        # Check for repeated characters (spam pattern like "aaaaaaaa...")
         if re.search(r"(.)\1{10,}", content):
             raise ValidationError("Comment appears to be spam")
 
         return content
 
     def clean_author_email(self):
-        """Normalize email address to lowercase for consistency."""
         email = self.cleaned_data.get("author_email")
         if email:
             email = email.strip().lower()
@@ -102,16 +93,6 @@ class CommentForm(forms.ModelForm):
         ip_address=None,
         user_agent=None,
     ):
-        """
-        Save the comment with additional metadata and automatic status determination.
-
-        Args:
-            blog_template_name: The template name of the blog post
-            blog_category: Optional category of the blog post
-            parent: Parent comment for replies
-            ip_address: Client IP for spam tracking
-            user_agent: Browser user agent for spam tracking
-        """
         comment = super().save(commit=False)
 
         if blog_template_name:
@@ -128,18 +109,15 @@ class CommentForm(forms.ModelForm):
         if parent:
             comment.parent = parent
 
-        # Store metadata for spam detection
         if ip_address:
             comment.ip_address = ip_address
         if user_agent:
             comment.user_agent = user_agent
 
-        # Auto-approve comments from staff, require moderation for others
         if self.user and self.user.is_authenticated:
             if self.user.is_staff or self.user.is_superuser:
                 comment.status = "approved"
             else:
-                # Future: Could check user reputation/history here
                 comment.status = "pending"
         else:
             comment.status = "pending"
@@ -151,8 +129,6 @@ class CommentForm(forms.ModelForm):
 
 
 class ReplyForm(CommentForm):
-    """Specialized form for replying to comments with smaller input fields."""
-
     class Meta(CommentForm.Meta):
         widgets = {
             "content": forms.Textarea(
@@ -174,8 +150,6 @@ class ReplyForm(CommentForm):
 
 
 class CommentModerationForm(forms.ModelForm):
-    """Form for staff to moderate comments with status changes and notes."""
-
     class Meta:
         model = BlogComment
         fields = ["status", "moderation_note"]

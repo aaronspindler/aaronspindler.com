@@ -5,7 +5,4 @@ from django.dispatch import receiver
 
 @receiver(user_logged_out)
 def on_user_logged_out(sender, request, **kwargs):
-    """
-    Add a success message when a user logs out.
-    """
     messages.success(request, "You have been successfully logged out.")

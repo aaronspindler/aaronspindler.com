@@ -13,6 +13,7 @@ from django.urls import reverse
 from utils.common_list_choices import INTERVAL_CHOICES
 from utils.models import Notification
 
+
 class Action(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -31,7 +32,6 @@ class Action(models.Model):
     interval = models.CharField(max_length=10, choices=INTERVAL_CHOICES, default='5M')        
     
     def send_notification(self, current_status):
-        # this is called when the last status is different from the previous status
         notification_context = {
             "created_at": current_status.created_at.strftime("%B %d, %Y, %I:%M %p"),
             "action_branch": self.branch,

@@ -1,7 +1,3 @@
-"""
-Sitemaps for the photos app with caching support.
-"""
-
 from django.contrib.sitemaps import Sitemap
 from django.core.cache import cache
 from django.urls import reverse
@@ -10,14 +6,10 @@ from photos.models import Photo, PhotoAlbum
 
 
 class PhotoAlbumSitemap(Sitemap):
-    """Sitemap for photo albums"""
-
     changefreq = "weekly"
-    # priority is defined as a method below
     protocol = "https"
 
     def items(self):
-        """Return all public photo albums with caching"""
         cache_key = "sitemap_photo_albums_v1"
         albums = cache.get(cache_key)
 
@@ -28,16 +20,12 @@ class PhotoAlbumSitemap(Sitemap):
         return albums
 
     def location(self, obj):
-        """Get the URL for each album"""
         return reverse("photos:album_detail", kwargs={"slug": obj.slug})
 
     def lastmod(self, obj):
-        """Return the last modification date"""
         return obj.updated_at
 
     def priority(self, obj):
-        """Adjust priority based on photo count and recency"""
-        # Albums with more photos get slightly higher priority
         photo_count = obj.photos.count()
         if photo_count >= 20:
             return 0.8
@@ -50,15 +38,11 @@ class PhotoAlbumSitemap(Sitemap):
 
 
 class PhotoSitemap(Sitemap):
-    """Sitemap for individual photos (if you have individual photo pages)"""
-
     changefreq = "monthly"
-    # priority is defined as a method below
     protocol = "https"
     limit = 1000  # Limit number of URLs per sitemap
 
     def items(self):
-        """Return all photos from public albums with caching"""
         cache_key = "sitemap_photos_v1"
         photos = cache.get(cache_key)
 
@@ -76,20 +60,15 @@ class PhotoSitemap(Sitemap):
         return photos
 
     def location(self, obj):
-        """Get the URL for each photo"""
-        # Link to album with photo anchor (no individual photo pages yet)
         album = obj.albums.filter(is_private=False).first()
         if album:
             return f"{reverse('photos:album_detail', kwargs={'slug': album.slug})}#photo-{obj.id}"
         return None
 
     def lastmod(self, obj):
-        """Return the last modification date"""
         return obj.updated_at
 
     def priority(self, obj):
-        """Set priority for photos"""
-        # You can adjust this based on photo properties
         if obj.title:
             return 0.6
         return 0.4

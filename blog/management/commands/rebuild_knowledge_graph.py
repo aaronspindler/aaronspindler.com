@@ -34,7 +34,6 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"Error rebuilding knowledge graph: {e}"))
 
     def _clear_caches(self):
-        """Clear all knowledge graph related caches."""
         cache.delete("blog:graph:complete")
 
         graph_builder = GraphBuilder()
@@ -48,11 +47,9 @@ class Command(BaseCommand):
                 cache.delete(f"blog:graph:post:{template_name}:depth:{depth}")
 
     def _rebuild_graph(self):
-        """Rebuild the knowledge graph."""
         return build_knowledge_graph(force_refresh=True)
 
     def _display_results(self, graph_data):
-        """Display rebuild results."""
         metrics = graph_data.get("metrics", {})
 
         self.stdout.write(
@@ -72,7 +69,6 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"{len(orphan_posts)} orphaned posts found"))
 
     def _test_api_endpoint(self):
-        """Test the knowledge graph API endpoint."""
         try:
             from django.test import Client
 

@@ -4,6 +4,7 @@ from utils.models import LambdaRegion
 
 from .models import Endpoint, EndpointStatus, EndpointStatusCheckRequest
 
+
 @admin.register(Endpoint)
 class EndpointAdmin(admin.ModelAdmin):
     list_display = ('url', 'owner', 'interval', 'http_method')
@@ -16,6 +17,7 @@ class EndpointAdmin(admin.ModelAdmin):
         if db_field.name == "enabled_regions":
             kwargs["queryset"] = LambdaRegion.objects.filter(active=True)
         return super().formfield_for_manytomany(db_field, request, **kwargs)
+
 
 @admin.register(EndpointStatus)
 class EndpointStatusAdmin(admin.ModelAdmin):

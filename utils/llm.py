@@ -1,27 +1,3 @@
-"""
-LLM service wrapper for OpenAI and Anthropic with automatic usage tracking.
-
-Usage:
-    from utils.services import LLMService, LLMProvider
-
-    # OpenAI
-    response = LLMService.chat(
-        prompt="What is the capital of France?",
-        provider=LLMProvider.OPENAI,
-        model="gpt-4o"
-    )
-
-    # Anthropic
-    response = LLMService.chat(
-        prompt="What is the capital of France?",
-        provider=LLMProvider.ANTHROPIC,
-        model="claude-3-5-sonnet-20241022"
-    )
-
-    # Default provider (OpenAI with gpt-4o-mini)
-    response = LLMService.chat("What is the capital of France?")
-"""
-
 import logging
 from enum import Enum
 from typing import Optional
@@ -32,19 +8,11 @@ logger = logging.getLogger(__name__)
 
 
 class LLMProvider(str, Enum):
-    """Supported LLM providers."""
-
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
 
 
 class LLMService:
-    """
-    Abstract service for calling LLM APIs with automatic usage tracking.
-
-    All calls are tracked in the LLMUsage model.
-    """
-
     DEFAULT_PROVIDER = LLMProvider.OPENAI
     DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
     DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
@@ -59,29 +27,9 @@ class LLMService:
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
     ) -> str:
-        """
-        Send a chat completion request to an LLM provider.
-
-        Args:
-            prompt: The user message to send
-            provider: LLM provider to use (OpenAI or Anthropic)
-            model: Model name (uses defaults if not specified)
-            system_prompt: System message to set context
-            temperature: Sampling temperature (0.0 to 2.0)
-            max_tokens: Maximum tokens in response
-
-        Returns:
-            The LLM's response text
-
-        Raises:
-            ValueError: If API key is not configured or provider is invalid
-            Exception: If the API call fails
-        """
-        # Set default model based on provider
         if model is None:
             model = cls.DEFAULT_OPENAI_MODEL if provider == LLMProvider.OPENAI else cls.DEFAULT_ANTHROPIC_MODEL
 
-        # Route to appropriate provider
         if provider == LLMProvider.OPENAI:
             response = cls._call_openai(
                 prompt=prompt,
@@ -101,7 +49,6 @@ class LLMService:
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 
-        # Track usage
         cls._track_usage(
             provider=provider.value,
             model=model,
@@ -120,7 +67,6 @@ class LLMService:
         temperature: float,
         max_tokens: Optional[int],
     ) -> str:
-        """Call OpenAI API."""
         if not settings.OPENAI_KEY:
             raise ValueError("OPENAI_KEY is not configured in settings")
 
@@ -160,7 +106,6 @@ class LLMService:
         temperature: float,
         max_tokens: Optional[int],
     ) -> str:
-        """Call Anthropic API."""
         if not settings.ANTHROPIC_KEY:
             raise ValueError("ANTHROPIC_KEY is not configured in settings")
 
@@ -189,7 +134,6 @@ class LLMService:
 
     @classmethod
     def _track_usage(cls, provider: str, model: str, prompt: str, response: str) -> None:
-        """Track LLM usage in database."""
         try:
             from utils.models import LLMUsage
 

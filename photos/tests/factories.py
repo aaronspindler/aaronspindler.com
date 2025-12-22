@@ -1,10 +1,3 @@
-"""
-Test data factories for creating consistent fake photo data across all tests.
-
-This module provides factory functions to create test photo instances with
-consistent, realistic fake data that can be reused across all test files.
-"""
-
 from datetime import datetime
 from io import BytesIO
 
@@ -14,11 +7,8 @@ from PIL import Image
 
 
 class PhotoFactory:
-    """Factory for creating test photos."""
-
     @staticmethod
     def create_test_image(size=(100, 100), color=(255, 0, 0), format="JPEG"):
-        """Create a test image file."""
         img = Image.new("RGB", size, color)
         img_io = BytesIO()
         img.save(img_io, format=format)
@@ -31,7 +21,6 @@ class PhotoFactory:
         original_filename=None,
         **kwargs,
     ):
-        """Create a photo with default test data."""
         from photos.models import Photo
 
         if image is None:
@@ -56,7 +45,6 @@ class PhotoFactory:
         date_taken=None,
         **kwargs,
     ):
-        """Create a photo with EXIF data."""
         if date_taken is None:
             date_taken = timezone.make_aware(datetime(2024, 1, 1, 12, 0, 0))
 
@@ -80,7 +68,6 @@ class PhotoFactory:
         slug=None,
         **kwargs,
     ):
-        """Create a photo album with default test data."""
         from photos.models import PhotoAlbum
 
         return PhotoAlbum.objects.create(

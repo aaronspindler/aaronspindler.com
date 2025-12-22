@@ -1,12 +1,3 @@
-"""
-Django management command to clear all cache keys.
-
-Usage:
-    python manage.py clear_cache
-    python manage.py clear_cache --pattern="blog*"
-    python manage.py clear_cache --yes
-"""
-
 import logging
 
 from django.core.cache import cache

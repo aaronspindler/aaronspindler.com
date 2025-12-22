@@ -1,14 +1,3 @@
-"""
-Tests for image utility classes.
-
-Tests cover:
-- ImageMetadataExtractor.extract_basic_metadata()
-- ExifExtractor methods (extract_exif, GPS extraction, datetime parsing)
-- SmartCrop (focal point detection, smart cropping)
-- ImageOptimizer (optimize_image for different sizes, process_uploaded_image)
-- DuplicateDetector (hash computation, duplicate finding, hash comparison)
-"""
-
 import gc
 from datetime import datetime
 from decimal import Decimal
@@ -31,37 +20,26 @@ from photos.image_utils import (
 
 
 class TestUtilityFunctions(TestCase):
-    """Test utility functions."""
-
     def test_reset_file_pointer_context_manager(self):
-        """Test the reset_file_pointer context manager."""
-        # Create a BytesIO object with some content
         content = b"Test content for file pointer"
         file_obj = BytesIO(content)
 
-        # Move pointer to position 5
         file_obj.seek(5)
         initial_pos = file_obj.tell()
         self.assertEqual(initial_pos, 5)
 
-        # Use context manager and move pointer
         with reset_file_pointer(file_obj) as f:
             f.seek(10)
             self.assertEqual(f.tell(), 10)
 
-        # Verify pointer was reset
         self.assertEqual(file_obj.tell(), 5)
 
 
 class ImageMetadataExtractorTestCase(TestCase):
-    """Test cases for ImageMetadataExtractor."""
-
     def tearDown(self):
-        """Clean up resources after each test."""
         gc.collect()
 
     def _create_test_image(self, size=(10, 10), format="JPEG", mode="RGB"):
-        """Helper to create a test image."""
         img = Image.new(mode, size, color="blue")
         img_io = BytesIO()
         img.save(img_io, format=format, quality=50)
@@ -69,7 +47,6 @@ class ImageMetadataExtractorTestCase(TestCase):
         return img_io
 
     def test_extract_basic_metadata(self):
-        """Test extraction of basic image metadata."""
         test_image = self._create_test_image(size=(20, 10))
         test_image.size = 1024  # Set file size attribute
 
@@ -82,7 +59,6 @@ class ImageMetadataExtractorTestCase(TestCase):
         self.assertEqual(metadata["mode"], "RGB")
 
     def test_extract_metadata_png(self):
-        """Test metadata extraction for PNG images."""
         test_image = self._create_test_image(size=(15, 10), format="PNG")
         test_image.size = 512
 
@@ -93,9 +69,7 @@ class ImageMetadataExtractorTestCase(TestCase):
         self.assertEqual(metadata["format"], "PNG")
 
     def test_extract_metadata_no_file_size(self):
-        """Test metadata extraction when file size is not available."""
         test_image = self._create_test_image()
-        # Don't set size attribute
 
         metadata = ImageMetadataExtractor.extract_basic_metadata(test_image)
 
@@ -105,14 +79,10 @@ class ImageMetadataExtractorTestCase(TestCase):
 
 
 class ExifExtractorTestCase(TestCase):
-    """Test cases for ExifExtractor."""
-
     def tearDown(self):
-        """Clean up resources after each test."""
         gc.collect()
 
     def test_make_exif_serializable(self):
-        """Test converting EXIF data to JSON-serializable format."""
         exif_data = {
             "Make": "Canon",
             "Model": "EOS R5",
@@ -125,7 +95,6 @@ class ExifExtractorTestCase(TestCase):
 
         serializable = ExifExtractor.make_exif_serializable(exif_data)
 
-        # Check that all values are serializable
         import json
 
         json.dumps(serializable)  # Should not raise error
@@ -139,8 +108,6 @@ class ExifExtractorTestCase(TestCase):
 
     @patch("PIL.Image.open")
     def test_extract_exif_full_data(self, mock_open):
-        """Test full EXIF extraction with all fields."""
-        # Create mock image with EXIF data
         mock_img = Mock()
         mock_exif_data = {
             271: "Canon",  # Make
@@ -155,7 +122,6 @@ class ExifExtractorTestCase(TestCase):
             36867: "2024:01:15 14:30:00",  # DateTimeOriginal
             36868: "2024:01:15 14:30:00",  # DateTimeDigitized
             306: "2024:01:15 14:30:00",  # DateTime
-            # GPS Info
             34853: {
                 1: "N",  # GPSLatitudeRef
                 2: ((40, 1), (42, 1), (46, 1)),  # GPSLatitude
@@ -168,14 +134,11 @@ class ExifExtractorTestCase(TestCase):
         mock_img._getexif.return_value = mock_exif_data
         mock_open.return_value = mock_img
 
-        # Create a mock file object
         mock_file = Mock()
         mock_file.seek = Mock()
 
-        # Extract EXIF
         result = ExifExtractor.extract_exif(mock_file)
 
-        # Verify extraction
         self.assertEqual(result["camera_make"], "Canon")
         self.assertEqual(result["camera_model"], "EOS R5")
         self.assertEqual(result["lens_model"], "RF 24-70mm F2.8L IS USM")
@@ -189,8 +152,6 @@ class ExifExtractorTestCase(TestCase):
         self.assertIsNotNone(result["gps_altitude"])
 
     def test_parse_datetime(self):
-        """Test EXIF datetime parsing."""
-        # Valid EXIF datetime
         dt = ExifExtractor._parse_datetime("2024:03:15 14:30:00")
         expected = timezone.make_aware(datetime(2024, 3, 15, 14, 30, 0))
         self.assertEqual(dt, expected)
@@ -199,16 +160,13 @@ class ExifExtractorTestCase(TestCase):
         dt = ExifExtractor._parse_datetime("2024-03-15 14:30:00")
         self.assertIsNone(dt)
 
-        # None input
         dt = ExifExtractor._parse_datetime(None)
         self.assertIsNone(dt)
 
-        # Empty string
         dt = ExifExtractor._parse_datetime("")
         self.assertIsNone(dt)
 
     def test_format_focal_length(self):
-        """Test focal length formatting."""
         # Tuple format (common in EXIF)
         self.assertEqual(ExifExtractor._format_focal_length((50, 1)), "50mm")
         self.assertEqual(ExifExtractor._format_focal_length((85, 1)), "85mm")
@@ -218,11 +176,9 @@ class ExifExtractorTestCase(TestCase):
         self.assertEqual(ExifExtractor._format_focal_length(50.0), "50mm")
         self.assertEqual(ExifExtractor._format_focal_length(24.5), "24.5mm")
 
-        # Division by zero
         self.assertEqual(ExifExtractor._format_focal_length((50, 0)), "(50, 0)")
 
     def test_format_aperture(self):
-        """Test aperture formatting."""
         # Tuple format
         self.assertEqual(ExifExtractor._format_aperture((28, 10)), "f/2.8")
         self.assertEqual(ExifExtractor._format_aperture((40, 10)), "f/4.0")
@@ -232,17 +188,13 @@ class ExifExtractorTestCase(TestCase):
         self.assertEqual(ExifExtractor._format_aperture(2.8), "f/2.8")
         self.assertEqual(ExifExtractor._format_aperture(1.4), "f/1.4")
 
-        # Division by zero
         self.assertEqual(ExifExtractor._format_aperture((28, 0)), "(28, 0)")
 
     def test_format_shutter_speed(self):
-        """Test shutter speed formatting."""
-        # Fast shutter speeds (fractions)
         self.assertEqual(ExifExtractor._format_shutter_speed((1, 250)), "1/250")
         self.assertEqual(ExifExtractor._format_shutter_speed((1, 1000)), "1/1000")
         self.assertEqual(ExifExtractor._format_shutter_speed((1, 60)), "1/60")
 
-        # Slow shutter speeds
         self.assertEqual(ExifExtractor._format_shutter_speed((2, 1)), "2s")
         self.assertEqual(ExifExtractor._format_shutter_speed((5, 2)), "2.5s")
 
@@ -250,28 +202,22 @@ class ExifExtractorTestCase(TestCase):
         self.assertEqual(ExifExtractor._format_shutter_speed(0.004), "1/250")
         self.assertEqual(ExifExtractor._format_shutter_speed(2.0), "2.0s")
 
-        # Division by zero
         self.assertEqual(ExifExtractor._format_shutter_speed((1, 0)), "(1, 0)")
 
     def test_convert_to_degrees(self):
-        """Test GPS coordinate conversion to decimal degrees."""
-        # New York coordinates (40°42'46"N, 74°0'23"W)
         gps_data = ((40, 1), (42, 1), (46, 1))
         degrees = ExifExtractor._convert_to_degrees(gps_data)
         self.assertAlmostEqual(degrees, 40.712778, places=5)
 
-        # Simple coordinates
         gps_data = ((45, 1), (30, 1), (0, 1))
         degrees = ExifExtractor._convert_to_degrees(gps_data)
         self.assertAlmostEqual(degrees, 45.5, places=5)
 
-        # With divisors
         gps_data = ((90, 2), (60, 2), (3600, 100))
         degrees = ExifExtractor._convert_to_degrees(gps_data)
         self.assertAlmostEqual(degrees, 45.51, places=2)
 
     def test_extract_gps(self):
-        """Test GPS data extraction."""
         gps_info = {
             1: "N",  # GPSLatitudeRef
             2: ((40, 1), (42, 1), (46, 1)),  # GPSLatitude
@@ -283,17 +229,13 @@ class ExifExtractorTestCase(TestCase):
 
         gps_data = ExifExtractor._extract_gps(gps_info)
 
-        # Check latitude (North is positive)
         self.assertAlmostEqual(float(gps_data["gps_latitude"]), 40.712778, places=5)
 
-        # Check longitude (West is negative)
         self.assertAlmostEqual(float(gps_data["gps_longitude"]), -74.006389, places=5)
 
-        # Check altitude
         self.assertEqual(gps_data["gps_altitude"], Decimal("100"))
 
     def test_extract_gps_south_east(self):
-        """Test GPS extraction for Southern and Eastern hemispheres."""
         gps_info = {
             1: "S",  # GPSLatitudeRef
             2: ((33, 1), (51, 1), (0, 1)),  # GPSLatitude (Sydney)
@@ -305,27 +247,18 @@ class ExifExtractorTestCase(TestCase):
 
         gps_data = ExifExtractor._extract_gps(gps_info)
 
-        # South latitude should be negative
         self.assertLess(float(gps_data["gps_latitude"]), 0)
 
-        # East longitude should be positive
         self.assertGreater(float(gps_data["gps_longitude"]), 0)
 
-        # Below sea level altitude should be negative
         self.assertEqual(gps_data["gps_altitude"], Decimal("-50"))
 
 
 class SmartCropTestCase(TestCase):
-    """Test cases for SmartCrop functionality."""
-
     def _create_test_image_with_pattern(self):
-        """Create a test image with a specific pattern for testing focal point detection."""
-        # Create an image with more detail in one corner
         img = Image.new("RGB", (200, 200), color="white")
-        # Add a complex pattern in the bottom-right corner
         for x in range(100, 200):
             for y in range(100, 200):
-                # Create a checkerboard pattern for high entropy
                 if (x + y) % 10 < 5:
                     img.putpixel((x, y), (0, 0, 0))
                 else:
@@ -333,12 +266,10 @@ class SmartCropTestCase(TestCase):
         return img
 
     def test_find_focal_point(self):
-        """Test focal point detection using saliency."""
         img = self._create_test_image_with_pattern()
 
         focal_point = SmartCrop.find_focal_point(img)
 
-        # Should return a valid focal point (either from saliency or fallback to center)
         self.assertIsInstance(focal_point, tuple)
         self.assertEqual(len(focal_point), 2)
         self.assertGreaterEqual(focal_point[0], 0.0)
@@ -347,10 +278,7 @@ class SmartCropTestCase(TestCase):
         self.assertLessEqual(focal_point[1], 1.0)
 
     def test_saliency_focal_point(self):
-        """Test saliency-based focal point detection."""
-        # Create an image with a distinct subject (bright colored circle) on uniform background
         img = Image.new("RGB", (200, 200), color=(240, 240, 240))
-        # Draw a bright red circle in the upper-left quadrant
         for x in range(50, 100):
             for y in range(50, 100):
                 if ((x - 75) ** 2 + (y - 75) ** 2) < 400:  # Circle radius ~20
@@ -358,7 +286,6 @@ class SmartCropTestCase(TestCase):
 
         focal_point = SmartCrop._saliency_focal_point(img)
 
-        # Saliency should detect the subject (red circle)
         if focal_point is not None:
             self.assertIsInstance(focal_point, tuple)
             self.assertEqual(len(focal_point), 2)
@@ -368,39 +295,29 @@ class SmartCropTestCase(TestCase):
             self.assertLessEqual(focal_point[1], 1.0)
 
     def test_smart_crop_landscape(self):
-        """Test smart cropping for landscape orientation."""
-        # Create a 300x200 image (landscape)
         img = Image.new("RGB", (300, 200), color="blue")
 
-        # Crop to square
         cropped = SmartCrop.smart_crop(img, 100, 100, focal_point=(0.7, 0.3))
 
         self.assertEqual(cropped.size, (100, 100))
 
     def test_smart_crop_portrait(self):
-        """Test smart cropping for portrait orientation."""
-        # Create a 200x300 image (portrait)
         img = Image.new("RGB", (200, 300), color="green")
 
-        # Crop to landscape
         cropped = SmartCrop.smart_crop(img, 200, 100, focal_point=(0.5, 0.8))
 
         self.assertEqual(cropped.size, (200, 100))
 
     def test_smart_crop_auto_focal_point(self):
-        """Test smart cropping with automatic focal point detection."""
         img = self._create_test_image_with_pattern()
 
-        # Let it auto-detect focal point
         cropped = SmartCrop.smart_crop(img, 50, 50)
 
         self.assertEqual(cropped.size, (50, 50))
 
     def test_smart_crop_edge_cases(self):
-        """Test smart crop edge cases."""
         img = Image.new("RGB", (200, 200), color="red")
 
-        # Focal point at edges
         cropped1 = SmartCrop.smart_crop(img, 100, 100, focal_point=(0, 0))
         cropped2 = SmartCrop.smart_crop(img, 100, 100, focal_point=(1, 1))
 
@@ -409,10 +326,7 @@ class SmartCropTestCase(TestCase):
 
 
 class ImageOptimizerTestCase(TestCase):
-    """Test cases for ImageOptimizer."""
-
     def _create_test_image_file(self, size=(200, 200), format="JPEG"):
-        """Create a test image file."""
         img = Image.new("RGB", size, color="yellow")
         img_io = BytesIO()
         img.save(img_io, format=format)
@@ -420,7 +334,6 @@ class ImageOptimizerTestCase(TestCase):
         return img_io
 
     def test_optimize_image_original(self):
-        """Test that original size returns unchanged image."""
         test_file = self._create_test_image_file()
         original_content = test_file.read()
         test_file.seek(0)
@@ -433,23 +346,19 @@ class ImageOptimizerTestCase(TestCase):
     @patch("photos.image_utils.SmartCrop.find_focal_point")
     @patch("photos.image_utils.SmartCrop.smart_crop")
     def test_optimize_image_thumbnail_with_smart_crop(self, mock_smart_crop, mock_find_focal):
-        """Test thumbnail size optimization with smart cropping."""
         test_file = self._create_test_image_file(size=(2000, 1500))
 
-        # Setup mocks
         mock_find_focal.return_value = (0.6, 0.4)
         mock_cropped = Image.new("RGB", (400, 300))
         mock_smart_crop.return_value = mock_cropped
 
         result, focal_point = ImageOptimizer.optimize_image(test_file, "thumbnail", use_smart_crop=True)
 
-        # Verify smart crop was used
         mock_find_focal.assert_called_once()
         mock_smart_crop.assert_called_once()
         self.assertEqual(focal_point, (0.6, 0.4))
 
     def test_optimize_image_png_preservation(self):
-        """Test that PNG format is preserved."""
         test_file = self._create_test_image_file(format="PNG")
 
         result, _ = ImageOptimizer.optimize_image(test_file, "preview")
@@ -458,8 +367,6 @@ class ImageOptimizerTestCase(TestCase):
         self.assertEqual(img.format, "PNG")
 
     def test_optimize_image_rgba_conversion(self):
-        """Test RGBA image conversion to RGB."""
-        # Create RGBA image
         img = Image.new("RGBA", (100, 100), color=(255, 0, 0, 128))
         img_io = BytesIO()
         img.save(img_io, format="PNG")
@@ -472,8 +379,6 @@ class ImageOptimizerTestCase(TestCase):
         self.assertEqual(img_result.mode, "RGB")
 
     def test_generate_filename(self):
-        """Test filename generation for different sizes."""
-        # Original keeps extension
         self.assertEqual(ImageOptimizer.generate_filename("test-uuid", "original", ".png"), "test-uuid.png")
 
         # Preview/thumbnail convert to jpg (except PNG/GIF/WebP)
@@ -486,7 +391,6 @@ class ImageOptimizerTestCase(TestCase):
             "test-uuid_thumbnail.jpg",
         )
 
-        # PNG/GIF/WebP preserved
         self.assertEqual(
             ImageOptimizer.generate_filename("test-uuid", "preview", ".png"),
             "test-uuid_preview.png",
@@ -502,11 +406,9 @@ class ImageOptimizerTestCase(TestCase):
 
     @patch("photos.image_utils.ImageOptimizer.optimize_image")
     def test_process_uploaded_image(self, mock_optimize):
-        """Test processing uploaded image to create all variants."""
         test_file = self._create_test_image_file()
         test_uuid = "test-uuid-123"
 
-        # Setup mock returns for different sizes
         mock_preview = ContentFile(b"preview_content")
         mock_preview.name = f"{test_uuid}_preview.jpg"
         mock_thumbnail = ContentFile(b"thumbnail_content")
@@ -519,37 +421,29 @@ class ImageOptimizerTestCase(TestCase):
 
         variants, focal_point, saliency_map_bytes = ImageOptimizer.process_uploaded_image(test_file, test_uuid)
 
-        # Verify all variants created
         self.assertIn("preview", variants)
         self.assertIn("thumbnail", variants)
         self.assertEqual(variants["preview"].name, f"{test_uuid}_preview.jpg")
         self.assertEqual(variants["thumbnail"].name, f"{test_uuid}_thumbnail.jpg")
         self.assertEqual(focal_point, (0.5, 0.5))
 
-        # Verify optimize was called for each size
         self.assertEqual(mock_optimize.call_count, 2)
 
 
 class DuplicateDetectorTestCase(TestCase):
-    """Test cases for DuplicateDetector."""
-
     def _create_test_image_file(self, content=b"test_content"):
-        """Create a test file with specific content."""
         file_obj = BytesIO(content)
         return file_obj
 
     def test_compute_file_hash_sha256(self):
-        """Test SHA-256 file hash computation."""
         test_file = self._create_test_image_file(b"Hello World!")
 
         hash_value = DuplicateDetector.compute_file_hash(test_file)
 
-        # Known SHA-256 hash for "Hello World!"
         expected_hash = "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"
         self.assertEqual(hash_value, expected_hash)
 
     def test_compute_file_hash_md5(self):
-        """Test MD5 file hash computation."""
         test_file = self._create_test_image_file(b"Test content")
 
         hash_value = DuplicateDetector.compute_file_hash(test_file, algorithm="md5")
@@ -558,8 +452,6 @@ class DuplicateDetectorTestCase(TestCase):
         self.assertEqual(len(hash_value), 32)  # MD5 hash is 32 hex chars
 
     def test_compute_file_hash_large_file(self):
-        """Test hash computation for large files (chunked reading)."""
-        # Create a large content (10KB)
         large_content = b"X" * 10240
         test_file = self._create_test_image_file(large_content)
 
@@ -568,19 +460,15 @@ class DuplicateDetectorTestCase(TestCase):
         self.assertIsNotNone(hash_value)
         self.assertEqual(len(hash_value), 64)  # SHA-256 hash is 64 hex chars
 
-        # Verify file pointer was reset
         self.assertEqual(test_file.tell(), 0)
 
     @patch("PIL.Image.open")
     def test_compute_perceptual_hash(self, mock_open):
-        """Test perceptual hash computation."""
-        # Create mock image
         mock_img = Mock(spec=Image.Image)
         mock_img.mode = "RGB"
         mock_img.size = (100, 100)
         mock_open.return_value = mock_img
 
-        # Mock imagehash
         with patch("imagehash.average_hash") as mock_hash:
             mock_hash_obj = Mock()
             mock_hash_obj.__str__ = Mock(return_value="abcdef1234567890")
@@ -594,15 +482,12 @@ class DuplicateDetectorTestCase(TestCase):
 
     @patch("PIL.Image.open")
     def test_compute_perceptual_hash_rgba_conversion(self, mock_open):
-        """Test perceptual hash with RGBA to RGB conversion."""
-        # Create mock RGBA image
         mock_img = Mock(spec=Image.Image)
         mock_img.mode = "RGBA"
         mock_img.size = (100, 100)
         mock_img.split.return_value = [Mock(), Mock(), Mock(), Mock()]  # RGBA channels
         mock_open.return_value = mock_img
 
-        # Mock the paste operation for background
         with patch("PIL.Image.new") as mock_new:
             mock_background = Mock(spec=Image.Image)
             mock_background.paste = Mock()
@@ -620,7 +505,6 @@ class DuplicateDetectorTestCase(TestCase):
 
     @patch("PIL.Image.open")
     def test_compute_multiple_hashes(self, mock_open):
-        """Test computing multiple hash types."""
         mock_img = Mock(spec=Image.Image)
         mock_img.mode = "RGB"
         mock_open.return_value = mock_img
@@ -629,7 +513,6 @@ class DuplicateDetectorTestCase(TestCase):
             with patch("imagehash.phash") as mock_phash:
                 with patch("imagehash.dhash") as mock_dhash:
                     with patch("imagehash.whash") as mock_whash:
-                        # Setup mock returns
                         mock_avg.return_value = Mock(__str__=Mock(return_value="avg123"))
                         mock_phash.return_value = Mock(__str__=Mock(return_value="phash456"))
                         mock_dhash.return_value = Mock(__str__=Mock(return_value="dhash789"))
@@ -644,10 +527,7 @@ class DuplicateDetectorTestCase(TestCase):
                         self.assertEqual(hashes["wavelet"], "whash000")
 
     def test_compare_hashes(self):
-        """Test hash comparison."""
-        # Create mock hashes with known Hamming distance
         with patch("imagehash.hex_to_hash") as mock_hex:
-            # Setup mock hash objects
             hash1_obj = Mock()
             hash2_obj = Mock()
             hash1_obj.__sub__ = Mock(return_value=3)  # Distance of 3
@@ -659,7 +539,6 @@ class DuplicateDetectorTestCase(TestCase):
             self.assertEqual(distance, 3)
 
     def test_compare_hashes_not_similar(self):
-        """Test hash comparison when not similar."""
         with patch("imagehash.hex_to_hash") as mock_hex:
             hash1_obj = Mock()
             hash2_obj = Mock()
@@ -674,21 +553,17 @@ class DuplicateDetectorTestCase(TestCase):
     @patch("photos.image_utils.DuplicateDetector.compute_perceptual_hash")
     @patch("photos.image_utils.DuplicateDetector.compute_file_hash")
     def test_find_duplicates_exact_match(self, mock_file_hash, mock_perceptual_hash):
-        """Test finding exact duplicate images."""
         from photos.models import Photo
 
-        # Create existing photos
         existing1 = Photo.objects.create(file_hash="hash123", perceptual_hash="phash1")
         Photo.objects.create(file_hash="hash456", perceptual_hash="phash2")
 
-        # Setup mocks
         mock_file_hash.return_value = "hash123"  # Matches existing1
         mock_perceptual_hash.return_value = "phash_new"
 
         test_file = BytesIO(b"test_image")
         result = DuplicateDetector.find_duplicates(test_file, Photo.objects.all(), exact_match_only=False)
 
-        # Verify exact duplicate found
         self.assertEqual(len(result["exact_duplicates"]), 1)
         self.assertEqual(result["exact_duplicates"][0], existing1)
         self.assertEqual(result["file_hash"], "hash123")
@@ -697,18 +572,14 @@ class DuplicateDetectorTestCase(TestCase):
     @patch("photos.image_utils.DuplicateDetector.compute_perceptual_hash")
     @patch("photos.image_utils.DuplicateDetector.compute_file_hash")
     def test_find_duplicates_similar_images(self, mock_file_hash, mock_perceptual_hash, mock_compare):
-        """Test finding similar (but not exact) images."""
         from photos.models import Photo
 
-        # Create existing photos
         existing1 = Photo.objects.create(file_hash="hash1", perceptual_hash="phash1")
         Photo.objects.create(file_hash="hash2", perceptual_hash="phash2")
 
-        # Setup mocks
         mock_file_hash.return_value = "hash_new"  # No exact match
         mock_perceptual_hash.return_value = "phash_new"
 
-        # Mock comparison results
         def compare_side_effect(hash1, hash2, threshold):
             if hash2 == "phash1":
                 return True, 3  # Similar to existing1
@@ -721,17 +592,14 @@ class DuplicateDetectorTestCase(TestCase):
         test_file = BytesIO(b"test_image")
         result = DuplicateDetector.find_duplicates(test_file, Photo.objects.all(), exact_match_only=False)
 
-        # No exact duplicates
         self.assertEqual(len(result["exact_duplicates"]), 0)
 
-        # One similar image
         self.assertEqual(len(result["similar_images"]), 1)
         self.assertEqual(result["similar_images"][0][0], existing1)
         self.assertEqual(result["similar_images"][0][1], 3)  # Distance
 
     @patch("photos.image_utils.DuplicateDetector.compute_file_hash")
     def test_find_duplicates_exact_only(self, mock_file_hash):
-        """Test finding duplicates with exact_match_only flag."""
         from photos.models import Photo
 
         Photo.objects.create(file_hash="hash123", perceptual_hash="phash")
@@ -749,7 +617,6 @@ class DuplicateDetectorTestCase(TestCase):
     @patch("photos.image_utils.DuplicateDetector.compute_perceptual_hash")
     @patch("photos.image_utils.DuplicateDetector.compute_file_hash")
     def test_compute_and_store_hashes(self, mock_file_hash, mock_perceptual_hash):
-        """Test combined hash computation."""
         mock_file_hash.return_value = "file_hash_123"
         mock_perceptual_hash.return_value = "perceptual_hash_456"
 

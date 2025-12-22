@@ -1,15 +1,9 @@
-"""
-Progress reporter for rich terminal output during sequential ingestion.
-Provides real-time statistics, progress bars, and formatted output.
-"""
-
 import os
 import sys
 import time
 from datetime import datetime
 from typing import Dict, Optional
 
-# Try to import psutil but make it optional
 try:
     import psutil
 
@@ -19,10 +13,7 @@ except ImportError:
 
 
 class ProgressReporter:
-    """Rich terminal output with real-time ingestion statistics."""
-
     def __init__(self, tier: str = "ALL", total_files: int = 0):
-        """Initialize progress reporter."""
         self.tier = tier
         self.total_files = total_files
         self.completed_files = 0
@@ -39,18 +30,15 @@ class ProgressReporter:
         self.records_per_second = []
         self.current_speed = 0
 
-        # Memory tracking (optional)
         self.process = psutil.Process() if PSUTIL_AVAILABLE else None
 
     def _get_terminal_width(self) -> int:
-        """Get terminal width for proper formatting."""
         try:
             return os.get_terminal_size().columns
         except (AttributeError, OSError):
             return 80  # Default width
 
     def _format_size(self, bytes_size: int) -> str:
-        """Format bytes as human-readable size."""
         for unit in ["B", "KB", "MB", "GB"]:
             if bytes_size < 1024.0:
                 return f"{bytes_size:.1f} {unit}"
@@ -58,7 +46,6 @@ class ProgressReporter:
         return f"{bytes_size:.1f} TB"
 
     def _format_time(self, seconds: float) -> str:
-        """Format seconds as human-readable time."""
         if seconds < 60:
             return f"{int(seconds)}s"
         elif seconds < 3600:
@@ -71,7 +58,6 @@ class ProgressReporter:
             return f"{hours}h {minutes}m"
 
     def _calculate_eta(self) -> str:
-        """Calculate estimated time to completion."""
         if self.completed_files == 0 or not self.records_per_second:
             return "calculating..."
 
@@ -79,7 +65,6 @@ class ProgressReporter:
         if remaining_files <= 0:
             return "0s"
 
-        # Average time per file
         elapsed = time.time() - self.start_time
         avg_time_per_file = elapsed / self.completed_files
         eta_seconds = remaining_files * avg_time_per_file
@@ -87,12 +72,10 @@ class ProgressReporter:
         return self._format_time(eta_seconds)
 
     def _clear_line(self):
-        """Clear current terminal line."""
         sys.stdout.write("\r" + " " * self.terminal_width + "\r")
         sys.stdout.flush()
 
     def display_header(self):
-        """Display ingestion header information."""
         print("\n📊 Sequential OHLCVT Ingestor")
         print("─" * min(self.terminal_width, 60))
         print(f"Tier: {self.tier}")
@@ -102,12 +85,10 @@ class ProgressReporter:
         print()
 
     def start_file(self, filepath: str, file_size: int):
-        """Mark the start of processing a new file."""
         self.current_file = os.path.basename(filepath)
         self.file_start_time = time.time()
         self.current_records = 0
 
-        # Progress indicator
         file_num = self.completed_files + 1
         progress_pct = (self.completed_files / self.total_files * 100) if self.total_files > 0 else 0
 
@@ -118,10 +99,8 @@ class ProgressReporter:
         sys.stdout.flush()
 
     def update_records(self, records_processed: int, total_in_file: Optional[int] = None):
-        """Update record processing progress."""
         current_time = time.time()
 
-        # Only update display if enough time has passed
         if current_time - self.last_update_time < self.update_interval:
             return
 
@@ -134,7 +113,6 @@ class ProgressReporter:
                 self.current_speed = records_processed / elapsed
                 self.records_per_second.append(self.current_speed)
 
-        # Build progress bar
         if total_in_file and total_in_file > 0:
             progress = records_processed / total_in_file
             bar_width = 20
@@ -146,14 +124,12 @@ class ProgressReporter:
         else:
             status = f"{records_processed:,} records | {self.current_speed:,.0f} rec/s"
 
-        # Update in place
         self._clear_line()
         sys.stdout.write(f"  └─ Processing: {status}")
         sys.stdout.flush()
         self.last_update_time = current_time
 
     def complete_file(self, success: bool = True, error_msg: Optional[str] = None):
-        """Mark file processing as complete."""
         if success:
             self.completed_files += 1
             self.total_records += self.current_records
@@ -172,7 +148,6 @@ class ProgressReporter:
         sys.stdout.flush()
 
     def display_summary(self):
-        """Display final summary statistics."""
         elapsed = time.time() - self.start_time
         avg_speed = self.total_records / elapsed if elapsed > 0 else 0
 
@@ -184,13 +159,11 @@ class ProgressReporter:
         print(f"Total time: {self._format_time(elapsed)}")
         print(f"Average speed: {avg_speed:,.0f} records/second")
 
-        # Memory usage (if psutil available)
         if self.process:
             mem_info = self.process.memory_info()
             print(f"Peak memory: {self._format_size(mem_info.rss)}")
 
     def display_error(self, filepath: str, error: Exception, traceback_str: str):
-        """Display error information."""
         print("\n" + "─" * min(self.terminal_width, 60))
         print("❌ ERROR OCCURRED")
         print("─" * min(self.terminal_width, 60))
@@ -201,7 +174,6 @@ class ProgressReporter:
         print("─" * min(self.terminal_width, 60))
 
     def display_resume_info(self, resume_info: Dict):
-        """Display resume information from previous run."""
         if not resume_info["can_resume"]:
             return
 
@@ -223,18 +195,14 @@ class ProgressReporter:
         print()
 
     def show_live_stats(self):
-        """Display live statistics during processing."""
-        # This could be called periodically to show overall progress
         eta = self._calculate_eta()
 
-        # Build status line parts
         status_parts = [
             f"Files: {self.completed_files}/{self.total_files}",
             f"Records: {self.total_records:,}",
             f"Speed: {self.current_speed:,.0f} rec/s",
         ]
 
-        # Add memory usage if available
         if self.process:
             mem_info = self.process.memory_info()
             mem_usage = self._format_size(mem_info.rss)
@@ -244,7 +212,6 @@ class ProgressReporter:
 
         status_line = " | ".join(status_parts)
 
-        # Display at bottom
         self._clear_line()
         sys.stdout.write(status_line)
         sys.stdout.flush()

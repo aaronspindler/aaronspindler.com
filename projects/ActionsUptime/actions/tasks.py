@@ -3,6 +3,7 @@ from celery import shared_task
 from actions.action_checker import ActionChecker
 from .models import Action, ActionStatus
 
+
 @shared_task
 def check_action_status_badge(action_id):
     action = Action.objects.get(id=action_id)
@@ -30,6 +31,7 @@ def check_action_status_badge(action_id):
         if current_workflow_status != previous_status.status:
             action.send_notification(new_status)
             
+
 @shared_task
 def check_action_status_api(action_id):
     action = Action.objects.get(id=action_id)
@@ -50,6 +52,7 @@ def check_action_status_api(action_id):
         previous_status=previous_status,
         error=error
     )
+
 
 @shared_task
 def check_all_actions_status_interval(interval):

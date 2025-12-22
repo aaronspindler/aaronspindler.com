@@ -50,11 +50,6 @@ class Fingerprint(models.Model):
 
 
 class Ban(models.Model):
-    """
-    Ban rules that can target fingerprints, IP addresses, or user agent patterns.
-    Enables blocking bad actors even when they change IP addresses.
-    """
-
     fingerprint = models.ForeignKey(
         Fingerprint,
         on_delete=models.CASCADE,
@@ -114,7 +109,6 @@ class Ban(models.Model):
         return f"Ban ({', '.join(target) or 'empty'}) - {'Active' if self.is_active else 'Inactive'}"
 
     def is_expired(self):
-        """Check if the ban has expired."""
         if self.expires_at is None:
             return False
         from django.utils import timezone
@@ -122,11 +116,9 @@ class Ban(models.Model):
         return timezone.now() > self.expires_at
 
     def is_effective(self):
-        """Check if the ban is currently in effect (active and not expired)."""
         return self.is_active and not self.is_expired()
 
     def clean(self):
-        """Ensure at least one target is specified."""
         from django.core.exceptions import ValidationError
 
         if not self.fingerprint and not self.ip_address and not self.user_agent_pattern:
@@ -136,8 +128,6 @@ class Ban(models.Model):
 
 
 class TrackedRequest(models.Model):
-    """Tracks individual HTTP requests with fingerprinting and security analysis."""
-
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     fingerprint_obj = models.ForeignKey(
@@ -166,17 +156,13 @@ class TrackedRequest(models.Model):
     os = models.CharField(max_length=100, blank=True)
     device = models.CharField(max_length=100, blank=True)
 
-    # Headers (stored as JSON)
     headers = models.JSONField(default=dict, blank=True)
 
-    # Referrer
     referer = models.TextField(blank=True, help_text="HTTP Referer header")
 
-    # Security flags
     is_suspicious = models.BooleanField(default=False, db_index=True)
     suspicious_reason = models.TextField(blank=True)
 
-    # Optional user association
     user = models.ForeignKey(
         "accounts.CustomUser",
         on_delete=models.SET_NULL,
@@ -203,45 +189,26 @@ class TrackedRequest(models.Model):
 
     @property
     def geo_data(self):
-        """Access geo_data from related IPAddress for backward compatibility."""
         return self.ip_address.geo_data if self.ip_address else None
 
     @classmethod
     def create_from_request(cls, request):
-        """
-        Create a TrackedRequest instance from a Django request object.
-
-        Args:
-            request: Django HttpRequest object
-
-        Returns:
-            TrackedRequest instance
-
-        Note:
-            Geolocation data is stored in the IPAddress model (one per IP).
-            Only global/routable IPs are stored (middleware filters non-global IPs).
-        """
         from utils.security import get_request_fingerprint_data, is_suspicious_request, parse_user_agent
 
-        # Get fingerprint data
         fp_data = get_request_fingerprint_data(request)
 
         # Parse user agent
         ua_data = parse_user_agent(fp_data["user_agent"])
 
-        # Check if suspicious
         is_susp, susp_reason = is_suspicious_request(request)
 
-        # Get user if authenticated
         user = request.user if request.user.is_authenticated else None
 
-        # Get or create IPAddress record (normalized storage for geo_data)
         ip_address_obj, created = IPAddress.objects.get_or_create(
             ip_address=fp_data["ip_address"],
             defaults={"geo_data": None},  # geo_data populated later via management command
         )
 
-        # Get or create Fingerprint record (normalized storage)
         from django.utils import timezone
 
         fingerprint_obj, fp_created = Fingerprint.objects.get_or_create(
@@ -252,15 +219,12 @@ class TrackedRequest(models.Model):
             },
         )
 
-        # Update last_seen if fingerprint already existed
         if not fp_created:
             Fingerprint.objects.filter(pk=fingerprint_obj.pk).update(
                 last_seen=timezone.now(),
             )
 
-        # Get referer (note: header is "Referer", field is "referer")
         referer = request.headers.get("Referer", "")
-        # Truncate if too long for the field
         if len(referer) > 2048:
             referer = referer[:2048]
 

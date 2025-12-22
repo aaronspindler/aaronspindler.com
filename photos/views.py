@@ -49,7 +49,6 @@ def album_detail(request, slug):
         for ap in album_photos
     ]
 
-    # Determine cover photo for OG image (first featured photo or first photo)
     cover_photo = None
     for ap in album_photos:
         if ap.is_featured:
@@ -58,7 +57,6 @@ def album_detail(request, slug):
     if not cover_photo and album_photos:
         cover_photo = album_photos[0].photo
 
-    # Build absolute URL for OG image
     page_og_image = None
     if cover_photo:
         image_url = cover_photo.get_image_url("thumbnail") or cover_photo.get_image_url("preview")
@@ -103,11 +101,8 @@ def download_album_zip(request, slug):
 
 
 def download_photo(request, slug, photo_id):
-    """Download a single photo from an album."""
-    # Check for share token in query params
     token = request.GET.get("token")
 
-    # If token provided, validate it
     if token:
         album = get_object_or_404(PhotoAlbum, slug=slug, share_token=token, is_private=True)
     # Otherwise, use existing staff/public logic
@@ -152,16 +147,13 @@ def download_photo(request, slug, photo_id):
 @staff_member_required
 @require_http_methods(["POST"])
 def upload_photo_api(request):
-    """API endpoint for uploading a single photo with async processing."""
     try:
-        # Get the uploaded file
         if "photo" not in request.FILES:
             return JsonResponse({"error": "No photo file provided"}, status=400)
 
         photo_file = request.FILES["photo"]
         album_id = request.POST.get("album_id")
 
-        # Validate album if provided
         album = None
         if album_id:
             try:
@@ -169,11 +161,9 @@ def upload_photo_api(request):
             except PhotoAlbum.DoesNotExist:
                 return JsonResponse({"error": f"Album with ID {album_id} not found"}, status=400)
 
-        # Create photo object
         photo = Photo()
         photo.image.save(photo_file.name, photo_file, save=False)
 
-        # Save with async processing - this will check for duplicates automatically
         # and raise ValidationError if duplicate found
         try:
             photo.save(skip_processing=True)
@@ -189,12 +179,10 @@ def upload_photo_api(request):
                 )
             raise
 
-        # Queue async processing
         from photos.tasks import process_photo_async
 
         process_photo_async.delay(photo.id)
 
-        # Add to album if specified
         if album:
             album.photos.add(photo)
 
@@ -214,7 +202,6 @@ def upload_photo_api(request):
 @staff_member_required
 @require_http_methods(["GET"])
 def photo_status_api(request, photo_id):
-    """API endpoint to check the processing status of a photo."""
     try:
         photo = Photo.objects.get(id=photo_id)
         return JsonResponse(
@@ -230,12 +217,6 @@ def photo_status_api(request, photo_id):
 
 @require_http_methods(["GET"])
 def photo_exif_api(request, slug, photo_id):
-    """
-    API endpoint to get EXIF data for a photo in an album.
-
-    Requires valid album access (public, staff, or share token).
-    Returns EXIF metadata for lightbox display.
-    """
     token = request.GET.get("token")
 
     if token:

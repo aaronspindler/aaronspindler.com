@@ -69,7 +69,6 @@ class AssetPrice(models.Model):
 
     @property
     def asset(self):
-        """Lazy load asset from PostgreSQL (default database)."""
         if not hasattr(self, "_asset"):
             from .asset import Asset
 

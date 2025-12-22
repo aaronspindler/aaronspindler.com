@@ -1,7 +1,3 @@
-"""
-Request fingerprinting and ban enforcement middleware for security and analytics.
-"""
-
 import logging
 import re
 
@@ -15,19 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class RequestFingerprintMiddleware(MiddlewareMixin):
-    """
-    Middleware to track request fingerprints, enforce bans, and detect suspicious activity.
-
-    Features:
-    - Path exclusions (skip static files, media, admin assets, etc.)
-    - Local/reserved IP filtering (skip tracking for non-global IPs)
-    - Ban enforcement (block by fingerprint, IP, or user agent pattern)
-    - Request tracking (create TrackedRequest records)
-    - Suspicious request detection
-    """
-
     def __init__(self, get_response):
-        """Initialize middleware with error handling."""
         super().__init__(get_response)
         try:
             logger.debug("RequestFingerprintMiddleware initialized")
@@ -36,7 +20,6 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
             raise MiddlewareNotUsed(f"RequestFingerprintMiddleware disabled: {e}") from e
 
     def _should_skip_path(self, path):
-        """Check if this path should be excluded from tracking."""
         exclude_paths = getattr(settings, "REQUEST_TRACKING_EXCLUDE_PATHS", [])
         for excluded in exclude_paths:
             if path.startswith(excluded):
@@ -44,12 +27,6 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
         return False
 
     def _check_ip_ban(self, ip_address):
-        """
-        Check if the IP address is banned.
-
-        Returns:
-            Ban object if banned, None otherwise
-        """
         from django.db import models
 
         from utils.models import Ban, IPAddress
@@ -75,12 +52,6 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
             return None
 
     def _check_fingerprint_ban(self, fingerprint_hash):
-        """
-        Check if the fingerprint is banned.
-
-        Returns:
-            Ban object if banned, None otherwise
-        """
         from django.db import models
 
         from utils.models import Ban, Fingerprint
@@ -106,12 +77,6 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
             return None
 
     def _check_user_agent_ban(self, user_agent):
-        """
-        Check if the user agent matches any ban pattern.
-
-        Returns:
-            Ban object if banned, None otherwise
-        """
         from django.db import models
 
         from utils.models import Ban
@@ -143,40 +108,24 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
             return None
 
     def process_request(self, request):
-        """
-        Process request: check bans, then track if allowed.
-
-        Flow:
-        1. Skip excluded paths (static, media, etc.)
-        2. Skip local/reserved IPs
-        3. Check IP ban -> block if banned
-        4. Generate fingerprint -> check fingerprint ban -> block if banned
-        5. Check user agent ban -> block if banned
-        6. Track the request
-        """
         from utils.security import generate_fingerprint, get_client_ip, is_global_ip
 
         path = request.path
 
-        # 1. Skip excluded paths
         if self._should_skip_path(path):
             return None
 
-        # 2. Get IP and skip local/reserved IPs
         ip_address = get_client_ip(request)
         if not is_global_ip(ip_address):
             return None
 
-        # Get user agent for ban checking
         user_agent = request.headers.get("user-agent", "")
 
-        # 3. Check IP ban
         ip_ban = self._check_ip_ban(ip_address)
         if ip_ban:
             logger.warning(f"Blocked banned IP: {ip_address} (Ban ID: {ip_ban.id}, Reason: {ip_ban.reason})")
             return HttpResponseForbidden("Access denied.")
 
-        # 4. Generate fingerprint and check fingerprint ban
         fingerprint_hash = generate_fingerprint(request, include_ip=False)
         fp_ban = self._check_fingerprint_ban(fingerprint_hash)
         if fp_ban:
@@ -186,7 +135,6 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
             )
             return HttpResponseForbidden("Access denied.")
 
-        # 5. Check user agent ban
         ua_ban = self._check_user_agent_ban(user_agent)
         if ua_ban:
             logger.warning(
@@ -195,7 +143,6 @@ class RequestFingerprintMiddleware(MiddlewareMixin):
             )
             return HttpResponseForbidden("Access denied.")
 
-        # 6. Track the request
         try:
             from utils.models import TrackedRequest
 

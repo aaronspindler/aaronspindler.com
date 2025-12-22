@@ -34,7 +34,6 @@ class CustomUser(AbstractUser):
     
     def get_subscription_metadata(self, force_refresh=False):
         def _get_parsed_metadata():
-            # Default values
             action_types = ['public']
             num_monitors = 3
             monitor_interval = '5M'
@@ -44,7 +43,6 @@ class CustomUser(AbstractUser):
             endpoint_regions = []
             product = self.get_subscription_product()
             if product:
-                # If there is a product, use the metadata from the product
                 metadata = product.metadata
                 action_types = metadata.get('action_types', '').split(',') if metadata.get('action_types') else ['public']
                 num_monitors = metadata.get('num_monitors', 3)
@@ -81,16 +79,13 @@ class CustomUser(AbstractUser):
                 return True
         return False
 
-
     def __str__(self):
         return self.email
     
     @receiver(user_signed_up)
     def allauth_user_signed_up(sender, request, user, **kwargs):
-        # Create a NotificationEmail object for the user
         NotificationEmail.objects.create(user=user, email=user.email, verified=True)
         
-        # Check if the user has a subscription that is not linked to their account
         customer = Customer.objects.filter(email=user.email, deleted=False).first()
         if customer:
             customer.subscriber = user

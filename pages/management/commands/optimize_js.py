@@ -1,10 +1,3 @@
-"""
-Django management command to optimize JavaScript files.
-
-This command minifies JavaScript files and creates compressed versions
-(gzip and brotli) for efficient serving.
-"""
-
 import os
 import subprocess
 
@@ -34,7 +27,6 @@ class Command(BaseCommand):
         if not options["skip_minify"]:
             self.stdout.write("Minifying JavaScript files...")
             try:
-                # Run npm minification
                 result = subprocess.run(
                     ["npm", "run", "minify:js"],
                     check=False,
@@ -53,7 +45,6 @@ class Command(BaseCommand):
         if not options["skip_compress"]:
             self.stdout.write("Compressing JavaScript files...")
             try:
-                # Run compression
                 result = subprocess.run(
                     ["npm", "run", "compress:js"],
                     check=False,
@@ -69,7 +60,6 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR(f"Error during compression: {str(e)}"))
                 return
 
-        # Report final sizes
         self.stdout.write("\nOptimized JavaScript file sizes:")
         js_files = [
             "base-optimized.min.js",

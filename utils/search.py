@@ -1,8 +1,3 @@
-"""
-Search utilities for blog posts, projects, photos, and other content.
-Uses PostgreSQL full-text search with trigram similarity for typo tolerance.
-"""
-
 from django.contrib.postgres.search import SearchQuery, SearchRank, TrigramWordSimilarity
 from django.db.models import F, Q, Value
 from django.db.models.functions import Greatest
@@ -12,24 +7,11 @@ from utils.models import SearchableContent
 
 
 def search_blog_posts(query=None, category=None):
-    """
-    Search blog posts using PostgreSQL full-text search with trigram similarity.
-
-    Args:
-        query: Search query string (searches titles and content)
-        category: Blog category to filter by
-
-    Returns:
-        List of blog post dicts with metadata and relevance scores
-    """
-    # Start with all blog posts
     queryset = SearchableContent.objects.filter(content_type="blog_post")
 
-    # Filter by category if provided
     if category:
         queryset = queryset.filter(category=category)
 
-    # If no query, return all results sorted by date
     if not query:
         return [
             {
@@ -41,7 +23,6 @@ def search_blog_posts(query=None, category=None):
             for obj in queryset.order_by("-created_at")
         ]
 
-    # Use PostgreSQL full-text search with trigram similarity
     search_query = SearchQuery(query, config="english")
 
     # Calculate search rank (FTS score)
@@ -55,7 +36,6 @@ def search_blog_posts(query=None, category=None):
         description_similarity=TrigramWordSimilarity(query, "description"),
     )
 
-    # Combine scores: rank (70%) + best trigram similarity (30%)
     queryset = queryset.annotate(
         similarity=Greatest("title_similarity", "description_similarity"),
         combined_score=F("rank") * Value(0.7) + F("similarity") * Value(0.3),
@@ -84,19 +64,8 @@ def search_blog_posts(query=None, category=None):
 
 
 def search_projects(query=None):
-    """
-    Search projects using PostgreSQL full-text search with trigram similarity.
-
-    Args:
-        query: Search query string (searches name and description)
-
-    Returns:
-        List of project dicts with metadata
-    """
-    # Start with all projects
     queryset = SearchableContent.objects.filter(content_type="project")
 
-    # If no query, return all results
     if not query:
         return [
             {
@@ -107,7 +76,6 @@ def search_projects(query=None):
             for obj in queryset.order_by("title")
         ]
 
-    # Use PostgreSQL full-text search with trigram similarity
     search_query = SearchQuery(query, config="english")
 
     # Calculate search rank
@@ -121,7 +89,6 @@ def search_projects(query=None):
         description_similarity=TrigramWordSimilarity(query, "description"),
     )
 
-    # Combine scores
     queryset = queryset.annotate(
         similarity=Greatest("title_similarity", "description_similarity"),
         combined_score=F("rank") * Value(0.7) + F("similarity") * Value(0.3),
@@ -145,19 +112,8 @@ def search_projects(query=None):
 
 
 def search_books(query=None):
-    """
-    Search books using PostgreSQL full-text search with trigram similarity.
-
-    Args:
-        query: Search query string (searches name, author, and quote)
-
-    Returns:
-        List of book dicts
-    """
-    # Start with all books
     queryset = SearchableContent.objects.filter(content_type="book")
 
-    # If no query, return all results
     if not query:
         return [
             {
@@ -168,7 +124,6 @@ def search_books(query=None):
             for obj in queryset.order_by("title")
         ]
 
-    # Use PostgreSQL full-text search with trigram similarity
     search_query = SearchQuery(query, config="english")
 
     # Calculate search rank
@@ -183,7 +138,6 @@ def search_books(query=None):
         content_similarity=TrigramWordSimilarity(query, "content"),
     )
 
-    # Combine scores
     queryset = queryset.annotate(
         similarity=Greatest("title_similarity", "description_similarity", "content_similarity"),
         combined_score=F("rank") * Value(0.7) + F("similarity") * Value(0.3),
@@ -207,21 +161,11 @@ def search_books(query=None):
 
 
 def search_photos(query=None):
-    """
-    Search photos using PostgreSQL full-text search with trigram similarity.
-
-    Args:
-        query: Search query string (searches title and description)
-
-    Returns:
-        QuerySet of Photo objects ordered by relevance
-    """
     queryset = Photo.objects.all()
 
     if not query:
         return queryset.order_by("-created_at")
 
-    # Use PostgreSQL full-text search
     search_query = SearchQuery(query, config="english")
 
     # Calculate search rank
@@ -235,7 +179,6 @@ def search_photos(query=None):
         description_similarity=TrigramWordSimilarity(query, "description"),
     )
 
-    # Combine scores
     queryset = queryset.annotate(
         similarity=Greatest("title_similarity", "description_similarity"),
         combined_score=F("rank") * Value(0.7) + F("similarity") * Value(0.3),
@@ -246,21 +189,11 @@ def search_photos(query=None):
 
 
 def search_photo_albums(query=None):
-    """
-    Search photo albums using PostgreSQL full-text search with trigram similarity.
-
-    Args:
-        query: Search query string (searches title and description)
-
-    Returns:
-        QuerySet of PhotoAlbum objects ordered by relevance
-    """
     queryset = PhotoAlbum.objects.all()
 
     if not query:
         return queryset.order_by("-created_at")
 
-    # Use PostgreSQL full-text search
     search_query = SearchQuery(query, config="english")
 
     # Calculate search rank
@@ -274,7 +207,6 @@ def search_photo_albums(query=None):
         description_similarity=TrigramWordSimilarity(query, "description"),
     )
 
-    # Combine scores
     queryset = queryset.annotate(
         similarity=Greatest("title_similarity", "description_similarity"),
         combined_score=F("rank") * Value(0.7) + F("similarity") * Value(0.3),

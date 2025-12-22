@@ -12,8 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 class DuplicateFilter(admin.SimpleListFilter):
-    """Filter photos by duplicate status matching the Duplicates column display."""
-
     title = "duplicates"
     parameter_name = "duplicates"
 
@@ -25,7 +23,6 @@ class DuplicateFilter(admin.SimpleListFilter):
         )
 
     def _get_exact_duplicate_ids(self, queryset):
-        """Get IDs of photos with exact file_hash duplicates."""
         duplicate_hashes = (
             Photo.objects.exclude(file_hash="")
             .values("file_hash")
@@ -36,7 +33,6 @@ class DuplicateFilter(admin.SimpleListFilter):
         return set(queryset.filter(file_hash__in=list(duplicate_hashes)).values_list("id", flat=True))
 
     def _get_similar_only_ids(self, queryset, exact_duplicate_ids):
-        """Get IDs of photos with similar images but no exact duplicates."""
         similar_ids = set()
         candidates = (
             queryset.exclude(id__in=exact_duplicate_ids)
@@ -97,12 +93,10 @@ class PhotoAdmin(admin.ModelAdmin):
         "original_filename",
         "file_size_display",
         "dimensions_display",
-        # Duplicate detection fields
         "file_hash_display",
         "perceptual_hash_display",
         "duplicate_info",
         "similar_images_display",
-        # EXIF readonly fields
         "camera_make",
         "camera_model",
         "lens_model",
@@ -196,7 +190,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Name")
     def get_display_name(self, obj):
-        """Get display name for the photo."""
         if obj.original_filename:
             return obj.original_filename
         else:
@@ -204,7 +197,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Status", ordering="processing_status")
     def processing_status_display(self, obj):
-        """Display the processing status with colored indicators."""
         status_map = {
             "pending": ("🟡", "Pending", "#ffc107"),
             "processing": ("🔵", "Processing...", "#17a2b8"),
@@ -216,8 +208,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.action(description="Add selected photos to album")
     def add_to_album(self, request, queryset):
-        """Batch action to add selected photos to an album."""
-
         albums = PhotoAlbum.objects.all()
         if not albums:
             messages.warning(request, "No albums exist. Please create an album first.")
@@ -232,7 +222,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Preview")
     def list_thumbnail(self, obj):
-        """Display thumbnail in list view."""
         try:
             if obj.image_thumbnail:
                 return format_html(
@@ -255,7 +244,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Preview")
     def image_preview(self, obj):
-        """Display preview in detail view."""
         try:
             if obj.image_thumbnail:
                 return format_html(
@@ -278,7 +266,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Saliency Map (Debug)")
     def saliency_map_preview(self, obj):
-        """Display the saliency map for debugging smart crop."""
         if not obj.saliency_map:
             return format_html(
                 '<div style="background: #f9f9f9; padding: 10px; border-radius: 5px; color: #666;">'
@@ -322,7 +309,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Focal Point Editor")
     def focal_point_editor(self, obj):
-        """Interactive editor for setting focal point by clicking on the image."""
         if not obj.image_preview:
             return format_html(
                 '<div style="background: #f9f9f9; padding: 10px; border-radius: 5px; color: #666;">'
@@ -339,7 +325,6 @@ class PhotoAdmin(admin.ModelAdmin):
             focal_x_str = f"{focal_x:.3f}"
             focal_y_str = f"{focal_y:.3f}"
 
-            # Generate HTML for the interactive editor
             return format_html(
                 '<div class="focal-point-editor-container" style="background: #f9f9f9; padding: 15px; border-radius: 5px;">'
                 "<strong>Click on the image to set focal point</strong><br>"
@@ -388,7 +373,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="All Image Versions")
     def all_versions_preview(self, obj):
-        """Display all available image versions with their sizes."""
         if not obj.image:
             return "No images available"
 
@@ -397,7 +381,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
         html_parts = []
 
-        # Display each version with its info
         versions = [
             ("Thumbnail (Smart Cropped)", obj.image_thumbnail, "400x300"),
             ("Preview (Compressed)", obj.image_preview, "Full Size, Highly Compressed"),
@@ -442,7 +425,6 @@ class PhotoAdmin(admin.ModelAdmin):
                 )
                 continue
 
-            # Try to get file size - this requires S3 access and may fail
             try:
                 file_size = image_field.size
             except Exception:
@@ -478,7 +460,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="File Info")
     def file_info(self, obj):
-        """Display file size and dimensions in list view."""
         try:
             if obj.file_size:
                 # Convert to plain float to avoid SafeString/format_html issues
@@ -499,7 +480,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Original File Size")
     def file_size_display(self, obj):
-        """Display formatted file size."""
         if obj.file_size:
             if obj.file_size < 1024:
                 return f"{obj.file_size} bytes"
@@ -511,14 +491,12 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Original Dimensions")
     def dimensions_display(self, obj):
-        """Display image dimensions."""
         if obj.width and obj.height:
             return f"{obj.width} × {obj.height} pixels"
         return "Unknown"
 
     @admin.display(description="Camera")
     def camera_info(self, obj):
-        """Display camera information in list view."""
         if obj.camera_make and obj.camera_model:
             info_parts = [f"{obj.camera_make} {obj.camera_model}"]
             if obj.focal_length:
@@ -530,7 +508,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="GPS Coordinates")
     def gps_coordinates_display(self, obj):
-        """Display GPS coordinates in a readable format."""
         if obj.gps_latitude and obj.gps_longitude:
             lat_dir = "N" if obj.gps_latitude >= 0 else "S"
             lon_dir = "E" if obj.gps_longitude >= 0 else "W"
@@ -548,7 +525,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Full EXIF Data")
     def exif_summary(self, obj):
-        """Display full EXIF data in a formatted way."""
         if obj.exif_data:
             import json
 
@@ -566,7 +542,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Duplicates")
     def has_duplicates(self, obj):
-        """Check if this photo has duplicates."""
         if obj.file_hash:
             duplicate_count = Photo.objects.filter(file_hash=obj.file_hash).exclude(pk=obj.pk).count()
 
@@ -576,7 +551,6 @@ class PhotoAdmin(admin.ModelAdmin):
                     duplicate_count,
                 )
 
-        # Check for similar images
         if obj.perceptual_hash:
             similar = obj.get_similar_images(threshold=5)
             if similar:
@@ -586,7 +560,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="File Hash (SHA-256)")
     def file_hash_display(self, obj):
-        """Display file hash with truncation."""
         if obj.file_hash:
             return format_html(
                 '<code style="font-family: monospace; background: #f5f5f5; padding: 2px 5px; border-radius: 3px;">{}</code>',
@@ -596,7 +569,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Perceptual Hash")
     def perceptual_hash_display(self, obj):
-        """Display perceptual hash."""
         if obj.perceptual_hash:
             return format_html(
                 '<code style="font-family: monospace; background: #f5f5f5; padding: 2px 5px; border-radius: 3px;">{}</code>',
@@ -606,7 +578,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Exact Duplicates")
     def duplicate_info(self, obj):
-        """Display information about exact duplicates."""
         if not obj.file_hash:
             return "Hash not computed"
 
@@ -639,7 +610,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.display(description="Similar Images")
     def similar_images_display(self, obj):
-        """Display information about similar images."""
         if not obj.perceptual_hash:
             return "Perceptual hash not computed"
 
@@ -674,16 +644,13 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.action(description="Find duplicates among selected photos")
     def find_duplicates_action(self, request, queryset):
-        """Action to find duplicates among selected photos."""
         from collections import defaultdict
 
-        # Group by file hash
         hash_groups = defaultdict(list)
         for photo in queryset:
             if photo.file_hash:
                 hash_groups[photo.file_hash].append(photo)
 
-        # Report duplicates
         duplicate_count = 0
         for _file_hash, photos in hash_groups.items():
             if len(photos) > 1:
@@ -701,7 +668,6 @@ class PhotoAdmin(admin.ModelAdmin):
 
     @admin.action(description="Reprocess selected photos")
     def reprocess_images(self, request, queryset):
-        """Reprocess selected photos, regenerating all image versions and re-extracting metadata."""
         from photos.tasks import process_photo_async
 
         count = 0
@@ -723,7 +689,6 @@ class PhotoAdmin(admin.ModelAdmin):
             messages.warning(request, f"Skipped {skipped} photo(s) with no image file")
 
     def get_urls(self):
-        """Add custom URLs for bulk upload and focal point editing."""
         urls = super().get_urls()
         custom_urls = [
             path(
@@ -740,7 +705,6 @@ class PhotoAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def bulk_upload_view(self, request):
-        """Render the bulk upload page within the admin interface."""
         from django.shortcuts import render
         from django.urls import reverse
 
@@ -755,7 +719,6 @@ class PhotoAdmin(admin.ModelAdmin):
         return render(request, "admin/photos/photo/bulk_upload.html", context)
 
     def update_focal_point_view(self, request, photo_id):
-        """AJAX endpoint to update focal point coordinates and enable override."""
         import json
 
         from django.http import JsonResponse
@@ -773,13 +736,11 @@ class PhotoAdmin(admin.ModelAdmin):
             focal_x = float(data.get("focal_x"))
             focal_y = float(data.get("focal_y"))
 
-            # Validate coordinates are in 0-1 range
             if not (0 <= focal_x <= 1 and 0 <= focal_y <= 1):
                 return JsonResponse(
                     {"success": False, "error": "Focal point coordinates must be between 0 and 1"}, status=400
                 )
 
-            # Update focal point and enable override
             photo.focal_point_x = focal_x
             photo.focal_point_y = focal_y
             photo.focal_point_override = True
@@ -880,12 +841,6 @@ class PhotoAlbumAdmin(admin.ModelAdmin):
     actions = ["regenerate_zip"]
 
     def save_related(self, request, form, formsets, change):
-        """
-        Trigger ZIP regeneration when album photos are modified.
-
-        Captures content hash before and after saving inline formsets to detect
-        when photos are added, removed, or reordered.
-        """
         album = form.instance
 
         hash_before = album.compute_zip_content_hash() if change else ""

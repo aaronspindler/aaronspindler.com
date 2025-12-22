@@ -1,26 +1,3 @@
-"""
-Backfill historical asset price data from external sources.
-
-Example usage:
-    # Backfill last 30 days for AAPL from massive.com
-    python manage.py backfill_prices --ticker AAPL --source massive --days 30
-
-    # Backfill specific date range
-    python manage.py backfill_prices --ticker AAPL --source finnhub --start 2024-01-01 --end 2024-12-31
-
-    # Backfill all active assets
-    python manage.py backfill_prices --source massive --days 365 --all
-
-    # Backfill only stocks
-    python manage.py backfill_prices --source massive --days 365 --all --category STOCK
-
-    # Backfill all assets using grouped endpoint (MUCH faster, fewer API calls!)
-    python manage.py backfill_prices --source massive --days 365 --all --grouped
-
-    # Backfill only crypto using grouped endpoint
-    python manage.py backfill_prices --source massive --days 365 --all --grouped --category CRYPTO
-"""
-
 import time
 from datetime import date, datetime, timedelta
 
@@ -215,7 +192,6 @@ class Command(BaseCommand):
         return None
 
     def _handle_grouped(self, options):
-        """Handle backfill using grouped daily endpoint."""
         dry_run = options["dry_run"]
         category = options.get("category")
 
@@ -325,7 +301,6 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def _save_grouped_prices(self, prices_by_ticker: dict, ticker_to_asset: dict, dry_run=False):
-        """Save grouped price data to database."""
         created_count = 0
         updated_count = 0
 
@@ -359,7 +334,6 @@ class Command(BaseCommand):
         return created_count, updated_count
 
     def _fetch_price_data(self, ticker, source, start_date, end_date):
-        """Fetch price data from the specified data source."""
         if source == "massive":
             data_source = MassiveDataSource()
         elif source == "finnhub":
@@ -371,7 +345,6 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def _save_prices(self, asset, price_data, source, dry_run=False):
-        """Save price data to database."""
         created_count = 0
         updated_count = 0
 

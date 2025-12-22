@@ -15,6 +15,7 @@ import stripe
 
 from web.models import Endpoint
 
+
 @login_required
 def billing_portal(request):
     if request.method == 'POST':
@@ -31,29 +32,23 @@ def billing_portal(request):
 
 def subscription_confirmation(request):
     stripe.api_key = APIKey.objects.get(livemode=True).secret
-    # get the session id from the URL and retrieve the session object from Stripe
     session_id = request.GET.get("session_id")
     session = stripe.checkout.Session.retrieve(session_id)
 
-    # get the subscribing user from the client_reference_id we passed in above
     client_reference_id = session.client_reference_id
     if not client_reference_id:
         
-        # If no client_reference_id, try to find the user by email
         email = session.customer_details.email
         if email:
             user = CustomUser.objects.get(email=email)
             if not user:
                 return render(request, "pages/subscription_confirmation.html", {"valid_user": False})
             
-            # Check if the user has a subscription that is not linked to their account
             customer = Customer.objects.filter(email=user.email, deleted=False).first()
             if customer:
                 customer.subscriber = user
                 customer.save()
 
-
-    # show a message to the user and redirect
     messages.success(request, f"You've successfully subscribed. Thanks for the support!")
     
     return render(request, "pages/subscription_confirmation.html", {"valid_user": True})
@@ -71,10 +66,10 @@ def home(request):
             data['actions'] = Action.objects.filter(pk__in=[10]).values_list('private_id', flat=True)
             data['endpoints'] = Endpoint.objects.filter(pk__in=[6, 2]).values_list('private_id', flat=True)
         except Action.DoesNotExist:
-            # These will not exist in tests
             pass
         
     return render(request, "pages/home.html", data)
+
 
 @login_required
 def notifications(request):
@@ -88,14 +83,18 @@ def notifications(request):
     }
     return render(request, "pages/notifications.html", data)
 
+
 def roadmap(request):
     return render(request, "pages/roadmap.html")
+
 
 def support(request):
     return render(request, "pages/support.html")
 
+
 def privacy_policy(request):
     return render(request, "pages/privacy_policy.html")
+
 
 def terms_of_service(request):
     return render(request, "pages/terms_of_service.html")

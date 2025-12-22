@@ -1,19 +1,10 @@
-"""
-Test-specific settings for running tests in Docker.
-
-This settings file extends the base settings and overrides configurations
-for testing. Uses FileSystemStorage by default for speed (no S3 mocking needed).
-"""
-
 import os
 
 from .settings import *  # noqa: F403, F401
 
-# Override debug setting for tests
 DEBUG = True
 TESTING = True
 
-# Test database configuration
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -28,9 +19,6 @@ DATABASES = {
     }
 }
 
-# QuestDB configuration for tests
-# Use real QuestDB instance for testing when available (for integration tests)
-# Falls back to PostgreSQL for unit tests that don't require QuestDB features
 if os.environ.get("QUESTDB_URL"):
     # Parse QuestDB connection URL using urllib.parse
     from urllib.parse import urlparse
@@ -52,15 +40,11 @@ if os.environ.get("QUESTDB_URL"):
         },
     }
 else:
-    # Fallback to PostgreSQL if QuestDB is not configured
-    # This allows basic unit tests to run without QuestDB
     DATABASES["questdb"] = DATABASES["default"].copy()
     DATABASES["questdb"]["NAME"] = "test_questdb"  # Use separate database to isolate data
 
-# Redis configuration for testing
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 
-# Cache configuration for testing
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
@@ -74,20 +58,15 @@ CACHES = {
     }
 }
 
-# Use database-backed sessions for tests (more reliable than cache-backed)
-# Cache-backed sessions can fail if Redis isn't ready during parallel test runs
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_AGE = 86400  # 24 hours
 
-# Celery configuration for testing
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/1")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://redis:6379/2")
 CELERY_TASK_ALWAYS_EAGER = False  # Set to False to test actual async behavior
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
-# Storage configuration for tests
-# Use FileSystemStorage (fast, no external services needed)
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -101,10 +80,8 @@ MEDIA_URL = "/media/"
 STATIC_ROOT = os.path.join(BASE_DIR, "test_static")  # noqa: F405
 STATIC_URL = "/static/"
 
-# Email backend for testing
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
-# Disable security features for testing
 SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
@@ -112,8 +89,6 @@ SECURE_HSTS_SECONDS = 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_HSTS_PRELOAD = False
 
-# Trusted proxy IPs for testing
-# Include localhost and common private ranges for test environments
 TRUSTED_PROXY_IPS = [
     "127.0.0.1",
     "::1",
@@ -122,7 +97,6 @@ TRUSTED_PROXY_IPS = [
     "192.168.0.0/16",
 ]
 
-# Allow all hosts for testing
 ALLOWED_HOSTS = ["*"]
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8001",
@@ -130,7 +104,6 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8001",
 ]
 
-# Logging configuration for tests
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -183,25 +156,17 @@ LOGGING = {
     },
 }
 
-# Test-specific password hashers (faster for tests)
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",  # Fast hasher for tests
 ]
 
-
-# File upload settings for tests
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5 MB
 
-# Site framework
 SITE_ID = 1
 
-# Disable rate limiting for tests
 USE_RATE_LIMITING = False
 
-# Test runner configuration
-# Use XMLTestRunner if TEST_OUTPUT_DIR is set in environment (for CI)
-# Otherwise use standard DiscoverRunner
 if os.environ.get("TEST_OUTPUT_DIR"):
     TEST_RUNNER = "xmlrunner.extra.djangotestrunner.XMLTestRunner"
     TEST_OUTPUT_DIR = os.environ.get("TEST_OUTPUT_DIR")

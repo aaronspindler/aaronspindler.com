@@ -1,10 +1,3 @@
-"""
-Celery tasks for FeeFiFoFunds data ingestion and maintenance.
-
-These tasks are designed to run on a schedule via Celery Beat to keep
-Kraken OHLCV data up-to-date automatically.
-"""
-
 import logging
 from datetime import datetime, timedelta
 from typing import List
@@ -23,36 +16,6 @@ def backfill_gaps_incremental(
     lookback_days: int = 7,
     max_gaps_per_asset: int = 10,
 ):
-    """
-    Incrementally backfill gaps from the last saved data point to now.
-
-    This task is designed to run on a schedule (e.g., daily) to keep data current.
-    It finds the last data point for each asset/interval, checks if there's a gap
-    to today, and backfills via Kraken API if within the 720-candle limit.
-
-    Args:
-        tier: Asset tier to process (TIER1, TIER2, TIER3, TIER4, or ALL)
-        intervals: List of interval minutes to process (default: [60, 1440])
-        lookback_days: How many days back to check for gaps (default: 7)
-        max_gaps_per_asset: Maximum gaps to fill per asset (default: 10)
-
-    Returns:
-        dict: Summary of backfill operation
-
-    Example:
-        # Run via Celery Beat (scheduled)
-        CELERY_BEAT_SCHEDULE = {
-            'backfill-kraken-gaps-daily': {
-                'task': 'feefifofunds.backfill_gaps_incremental',
-                'schedule': crontab(hour=2, minute=0),  # 2 AM daily
-                'kwargs': {'tier': 'TIER1', 'intervals': [60, 1440]}
-            }
-        }
-
-        # Or trigger manually
-        from feefifofunds.tasks import backfill_gaps_incremental
-        result = backfill_gaps_incremental.delay(tier='TIER1')
-    """
     from feefifofunds.models import Asset, GapRecord
     from feefifofunds.services.data_sources.kraken import KrakenDataSource
     from feefifofunds.services.questdb_client import QuestDBClient
@@ -62,7 +25,6 @@ def backfill_gaps_incremental(
     if intervals is None:
         intervals = [60, 1440]  # Default: hourly and daily
 
-    # Get assets for tier
     if tier == "ALL":
         assets = Asset.objects.filter(category=Asset.Category.CRYPTO, active=True)
     else:
@@ -70,11 +32,9 @@ def backfill_gaps_incremental(
 
     logger.info(f"Processing {assets.count()} assets for tier {tier}")
 
-    # Initialize Kraken data source and QuestDB client
     kraken = KrakenDataSource()  # Fixed: KrakenDataSource doesn't accept 'database' parameter
     questdb = QuestDBClient(database="questdb")
 
-    # Summary statistics
     summary = {
         "task_id": self.request.id,
         "tier": tier,
@@ -100,7 +60,6 @@ def backfill_gaps_incremental(
 
         for interval_minutes in intervals:
             try:
-                # Find last data point for this asset/interval
                 last_timestamp = questdb.get_last_timestamp(asset.id, interval_minutes)
 
                 if not last_timestamp:
@@ -109,7 +68,6 @@ def backfill_gaps_incremental(
                     )
                     continue
 
-                # Only process if last data point is recent (within lookback window)
                 if last_timestamp < cutoff_date:
                     logger.debug(
                         f"Last data point for {asset.ticker} {interval_minutes}min "
@@ -122,7 +80,6 @@ def backfill_gaps_incremental(
                 gap_start = last_timestamp + timedelta(minutes=interval_minutes)  # Next expected candle
                 gap_end = now
 
-                # Check if there's actually a gap (at least 1 candle missing)
                 gap_minutes = (gap_end - gap_start).total_seconds() / 60
                 if gap_minutes < interval_minutes:
                     logger.debug(f"No gap for {asset.ticker} {interval_minutes}min - data is current")
@@ -130,7 +87,6 @@ def backfill_gaps_incremental(
 
                 missing_candles = int(gap_minutes / interval_minutes)
 
-                # Check API fillability (720-candle limit)
                 is_api_fillable, overflow_candles, candles_from_today = GapRecord.calculate_api_fillability(
                     interval_minutes=interval_minutes, gap_start=gap_start, now=now
                 )
@@ -141,7 +97,6 @@ def backfill_gaps_incremental(
                         f"(beyond 720-candle limit by {overflow_candles} candles)"
                     )
 
-                    # Create GapRecord for tracking
                     with transaction.atomic():
                         GapRecord.objects.create(  # Fixed: Removed unused variable assignment
                             asset=asset,
@@ -160,13 +115,11 @@ def backfill_gaps_incremental(
                     asset_summary["gaps_found"] += 1
                     continue
 
-                # Gap is fillable - backfill via API
                 logger.info(
                     f"Backfilling gap for {asset.ticker} {interval_minutes}min: "
                     f"{gap_start} to {gap_end} ({missing_candles} candles)"
                 )
 
-                # Create GapRecord before backfilling
                 with transaction.atomic():
                     gap_record = GapRecord.objects.create(
                         asset=asset,
@@ -181,10 +134,8 @@ def backfill_gaps_incremental(
                     )
 
                 try:
-                    # Mark as backfilling
                     gap_record.mark_backfilling()
 
-                    # Fetch and save data via Kraken API
                     candles_filled = kraken.fetch_and_save_historical_prices(
                         asset=asset,
                         interval_minutes=interval_minutes,
@@ -192,7 +143,6 @@ def backfill_gaps_incremental(
                         end_date=gap_end,
                     )
 
-                    # Mark as filled
                     gap_record.mark_filled()
 
                     logger.info(f"✓ Filled gap for {asset.ticker} {interval_minutes}min: {candles_filled} candles")
@@ -205,7 +155,6 @@ def backfill_gaps_incremental(
                     error_msg = f"Failed to backfill {asset.ticker} {interval_minutes}min: {str(e)}"
                     logger.error(error_msg, exc_info=True)
 
-                    # Mark gap as failed
                     gap_record.mark_failed(str(e))
 
                     summary["gaps_failed"] += 1
@@ -215,12 +164,10 @@ def backfill_gaps_incremental(
                 asset_summary["gaps_found"] += 1
                 asset_summary["intervals_processed"] += 1
 
-                # Respect rate limits
                 import time
 
                 time.sleep(1)  # 1 second between API calls
 
-                # Check if we've hit the max gaps per asset
                 if asset_summary["gaps_filled"] >= max_gaps_per_asset:
                     logger.info(
                         f"Reached max gaps per asset ({max_gaps_per_asset}) "
@@ -254,26 +201,12 @@ def backfill_gaps_incremental(
 
 @shared_task(name="feefifofunds.cleanup_old_gap_records")
 def cleanup_old_gap_records(days: int = 90):
-    """
-    Clean up old GapRecord entries that have been resolved.
-
-    Keeps unfillable gaps indefinitely as they serve as documentation
-    of what CSV files are needed.
-
-    Args:
-        days: Delete filled/failed gaps older than this many days (default: 90)
-
-    Returns:
-        dict: Count of deleted records by status
-    """
     from feefifofunds.models import GapRecord
 
     cutoff_date = datetime.now() - timedelta(days=days)
 
-    # Delete old filled gaps
     filled_deleted = GapRecord.objects.filter(status=GapRecord.Status.FILLED, filled_at__lt=cutoff_date).delete()[0]
 
-    # Delete old failed gaps (give them a chance to be retried)
     failed_deleted = GapRecord.objects.filter(status=GapRecord.Status.FAILED, detected_at__lt=cutoff_date).delete()[0]
 
     logger.info(f"Cleaned up {filled_deleted} filled and {failed_deleted} failed gap records older than {days} days")
@@ -283,19 +216,6 @@ def cleanup_old_gap_records(days: int = 90):
 
 @shared_task(name="feefifofunds.report_data_completeness")
 def report_data_completeness(tier: str = "TIER1", intervals: List[int] | None = None):
-    """
-    Generate and log data completeness report for a tier.
-
-    This task can be run on a schedule to monitor data quality and
-    identify assets that need attention.
-
-    Args:
-        tier: Asset tier to report on (TIER1, TIER2, TIER3, TIER4)
-        intervals: List of interval minutes to report on (default: [60, 1440])
-
-    Returns:
-        dict: Completeness metrics
-    """
     from feefifofunds.models import Asset, GapRecord
 
     if intervals is None:
@@ -306,7 +226,6 @@ def report_data_completeness(tier: str = "TIER1", intervals: List[int] | None = 
     report = {"tier": tier, "intervals": {}, "total_assets": assets.count(), "assets_with_gaps": 0}
 
     for interval_minutes in intervals:
-        # Count gaps per status
         gaps = GapRecord.objects.filter(
             asset__tier=tier, asset__category=Asset.Category.CRYPTO, interval_minutes=interval_minutes
         )
@@ -323,7 +242,6 @@ def report_data_completeness(tier: str = "TIER1", intervals: List[int] | None = 
             "total_gaps": fillable_gaps + unfillable_gaps,
         }
 
-    # Count assets with any gaps
     assets_with_gaps = (
         GapRecord.objects.filter(asset__tier=tier, asset__category=Asset.Category.CRYPTO)
         .values("asset")
@@ -351,25 +269,12 @@ def report_data_completeness(tier: str = "TIER1", intervals: List[int] | None = 
 
 @shared_task(name="feefifofunds.validate_recent_data")
 def validate_recent_data(hours: int = 24):
-    """
-    Validate that recent data exists for all active TIER1/TIER2 assets.
-
-    This task can be used as a monitoring/alerting mechanism to detect
-    data ingestion issues early.
-
-    Args:
-        hours: Check if data exists within last N hours (default: 24)
-
-    Returns:
-        dict: Validation results with list of assets missing recent data
-    """
     from feefifofunds.models import Asset
     from feefifofunds.services.questdb_client import QuestDBClient
 
     questdb = QuestDBClient(database="questdb")
     cutoff_time = datetime.now() - timedelta(hours=hours)
 
-    # Check TIER1 and TIER2 assets (most critical)
     assets = Asset.objects.filter(category=Asset.Category.CRYPTO, tier__in=["TIER1", "TIER2"], active=True)
 
     results = {"assets_checked": assets.count(), "assets_missing_data": [], "interval_minutes": 1440}

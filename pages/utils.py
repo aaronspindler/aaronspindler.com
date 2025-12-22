@@ -122,12 +122,6 @@ def get_books():
 
 
 def get_projects():
-    """
-    Get list of projects to display on the home page and in search results.
-
-    Returns:
-        List of dicts with project metadata (name, description, link, tech stack)
-    """
     projects = []
 
     projects.append(

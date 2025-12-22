@@ -18,13 +18,6 @@ logger = logging.getLogger(__name__)
 
 @contextmanager
 def reset_file_pointer(file_obj):
-    """
-    Context manager to automatically reset file pointer.
-
-    Usage:
-        with reset_file_pointer(image_file) as f:
-            img = Image.open(f)
-    """
     initial_position = file_obj.tell() if hasattr(file_obj, "tell") else 0
     try:
         yield file_obj
@@ -34,21 +27,8 @@ def reset_file_pointer(file_obj):
 
 
 class ImageMetadataExtractor:
-    """
-    Extracts basic metadata from images without EXIF processing.
-    """
-
     @staticmethod
     def extract_basic_metadata(image_file):
-        """
-        Extract basic metadata like dimensions and file size.
-
-        Args:
-            image_file: Django ImageField file or file-like object
-
-        Returns:
-            dict: Dictionary containing width, height, file_size, and format
-        """
         with reset_file_pointer(image_file):
             img = Image.open(image_file)
             metadata = {
@@ -62,24 +42,10 @@ class ImageMetadataExtractor:
 
 
 class ExifExtractor:
-    """
-    Extracts and processes EXIF data from images.
-    """
-
     @staticmethod
     def make_exif_serializable(exif_data):
-        """
-        Convert EXIF data to JSON-serializable format.
-
-        Args:
-            exif_data: Dictionary containing EXIF data with potentially non-serializable values
-
-        Returns:
-            dict: JSON-serializable version of the EXIF data
-        """
         serializable = {}
         for key, value in exif_data.items():
-            # Check for specific non-serializable types
             if isinstance(value, (tuple, bytes, bytearray)):
                 serializable[key] = str(value)
             else:
@@ -92,15 +58,6 @@ class ExifExtractor:
 
     @staticmethod
     def extract_exif(image_file):
-        """
-        Extract EXIF data from an image file.
-
-        Args:
-            image_file: Django ImageField file or file-like object
-
-        Returns:
-            dict: Dictionary containing extracted EXIF data
-        """
         try:
             image_file.seek(0)
             img = Image.open(image_file)
@@ -150,7 +107,6 @@ class ExifExtractor:
 
     @staticmethod
     def _parse_datetime(datetime_str):
-        """Parse EXIF datetime string to Python datetime object."""
         if not datetime_str:
             return None
         try:
@@ -161,7 +117,6 @@ class ExifExtractor:
 
     @staticmethod
     def _format_focal_length(focal_length):
-        """Format focal length value."""
         try:
             if isinstance(focal_length, tuple):
                 if focal_length[1] == 0:
@@ -179,7 +134,6 @@ class ExifExtractor:
 
     @staticmethod
     def _format_aperture(aperture):
-        """Format aperture value."""
         try:
             if isinstance(aperture, tuple):
                 if aperture[1] == 0:
@@ -194,7 +148,6 @@ class ExifExtractor:
 
     @staticmethod
     def _format_shutter_speed(shutter_speed):
-        """Format shutter speed value."""
         try:
             if isinstance(shutter_speed, tuple):
                 numerator = shutter_speed[0]
@@ -225,7 +178,6 @@ class ExifExtractor:
 
     @staticmethod
     def _extract_gps(gps_info):
-        """Extract GPS coordinates from EXIF GPS info."""
         gps_data = {}
 
         try:
@@ -269,7 +221,6 @@ class ExifExtractor:
 
     @staticmethod
     def _convert_to_degrees(value):
-        """Convert GPS coordinates to decimal degrees."""
         try:
             # Format: ((degrees, 1), (minutes, 1), (seconds, divisor))
             d = value[0][0] / value[0][1] if value[0][1] != 0 else 0
@@ -282,28 +233,11 @@ class ExifExtractor:
 
 
 class SmartCrop:
-    """
-    Smart cropping functionality to find the most interesting part of an image.
-    Uses ML-based saliency detection for human attention modeling.
-    """
-
     @staticmethod
     def find_focal_point(img, return_saliency_map=False):
-        """
-        Find the focal point of an image using ML-based saliency detection.
-
-        Args:
-            img: PIL Image object
-            return_saliency_map: If True, returns (focal_point, saliency_map_bytes)
-
-        Returns:
-            tuple: If return_saliency_map=True: ((x, y), bytes or None)
-                   If return_saliency_map=False: (x, y)
-        """
         if img.mode != "RGB":
             img = img.convert("RGB")
 
-        # Use saliency detection for focal point
         if return_saliency_map:
             focal_point, saliency_map = SmartCrop._saliency_focal_point(img, return_map=True)
         else:
@@ -313,7 +247,6 @@ class SmartCrop:
         if focal_point is not None:
             logger.info(f"Focal point detected using saliency: {focal_point}")
         else:
-            # If saliency fails, use center as fallback
             focal_point = (0.5, 0.5)
             logger.warning("Saliency detection failed, using center (0.5, 0.5) as fallback")
 
@@ -324,24 +257,12 @@ class SmartCrop:
 
     @staticmethod
     def _saliency_focal_point(img, return_map=False):
-        """
-        Find focal point using Fine-Grained saliency detection (human attention modeling).
-
-        Args:
-            img: PIL Image object
-            return_map: If True, returns (focal_point, saliency_map_bytes), else just focal_point
-
-        Returns:
-            tuple or None: If return_map=True: ((x, y), bytes) or (None, None)
-                          If return_map=False: (x, y) or None
-        """
         try:
             import cv2
         except ImportError:
             logger.debug("Saliency detection: OpenCV not available")
             return (None, None) if return_map else None
 
-        # Check if saliency module is available (requires opencv-contrib-python)
         if not hasattr(cv2, "saliency"):
             logger.debug("Saliency detection: OpenCV saliency module not available (requires opencv-contrib-python)")
             return (None, None) if return_map else None
@@ -353,7 +274,6 @@ class SmartCrop:
         else:
             img_cv = img_array
 
-        # Use fine-grained saliency (accurate human attention modeling)
         saliency = cv2.saliency.StaticSaliencyFineGrained_create()
         success, saliency_map = saliency.computeSaliency(img_cv)
 
@@ -361,11 +281,8 @@ class SmartCrop:
             logger.error("Saliency detection: Fine-grained method failed")
             return (None, None) if return_map else None
 
-        # Find center of mass of saliency map
         saliency_map = (saliency_map * 255).astype(np.uint8)
 
-        # Apply threshold to focus on salient regions (top 20%)
-        # This reduces influence of low-saliency background noise
         threshold = np.percentile(saliency_map, 80)
         saliency_map = np.where(saliency_map >= threshold, saliency_map, 0)
 
@@ -385,22 +302,17 @@ class SmartCrop:
         focal_point = (x_center / width, y_center / height)
 
         if return_map:
-            # Draw a red dot at the focal point for visualization
             focal_x_px = int(x_center)
             focal_y_px = int(y_center)
 
             # Convert grayscale to BGR for colored marker
             saliency_map_color = cv2.cvtColor(saliency_map, cv2.COLOR_GRAY2BGR)
 
-            # Draw red circle at focal point (outer ring)
             cv2.circle(saliency_map_color, (focal_x_px, focal_y_px), 25, (0, 0, 255), 3)
-            # Draw red filled circle at center
             cv2.circle(saliency_map_color, (focal_x_px, focal_y_px), 10, (0, 0, 255), -1)
-            # Add white outline for better visibility
             cv2.circle(saliency_map_color, (focal_x_px, focal_y_px), 26, (255, 255, 255), 2)
             cv2.circle(saliency_map_color, (focal_x_px, focal_y_px), 11, (255, 255, 255), 2)
 
-            # Encode saliency map as PNG for storage
             success, buffer = cv2.imencode(".png", saliency_map_color)
             saliency_map_bytes = buffer.tobytes() if success else None
             return (focal_point, saliency_map_bytes)
@@ -409,18 +321,6 @@ class SmartCrop:
 
     @staticmethod
     def smart_crop(img, target_width, target_height, focal_point=None):
-        """
-        Crop an image smartly to target dimensions, centering on the focal point.
-
-        Args:
-            img: PIL Image object
-            target_width: Target width
-            target_height: Target height
-            focal_point: Optional (x, y) focal point as percentages (0-1)
-
-        Returns:
-            PIL Image: Cropped image
-        """
         width, height = img.size
         target_aspect = target_width / target_height
         current_aspect = width / height
@@ -433,11 +333,9 @@ class SmartCrop:
         focal_y = int(focal_point[1] * height)
 
         if current_aspect > target_aspect:
-            # Image is wider than target - crop width
             new_width = int(height * target_aspect)
             new_height = height
         else:
-            # Image is taller than target - crop height
             new_width = width
             new_height = int(width / target_aspect)
 
@@ -455,18 +353,11 @@ class SmartCrop:
 
 
 class ImageOptimizer:
-    """
-    Handles image optimization and resizing for different use cases.
-    """
-
-    # Define size presets for different use cases
     SIZES = {
         "preview": None,  # Full size, highly compressed for fast loading
         "thumbnail": (400, 300),  # Smart-cropped version for grid display
-        # 'original' will be the untouched original
     }
 
-    # Quality settings for JPEG compression
     QUALITY_SETTINGS = {
         "preview": 65,  # Lower quality for fast loading
         "thumbnail": 80,  # Good quality for thumbnail display
@@ -482,19 +373,6 @@ class ImageOptimizer:
         use_smart_crop=True,
         focal_point=None,
     ):
-        """
-        Optimize an image file for a specific size.
-
-        Args:
-            image_file: Django ImageField file or file-like object
-            size_name: One of 'preview', 'thumbnail', or 'original'
-            maintain_aspect_ratio: If True, maintains aspect ratio when resizing
-            use_smart_crop: If True and size_name is 'thumbnail', use smart cropping
-            focal_point: Optional (x, y) focal point as percentages (0-1)
-
-        Returns:
-            tuple: (ContentFile: Optimized image, focal_point: (x, y) or None)
-        """
         if size_name == "original":
             image_file.seek(0)
             return (ContentFile(image_file.read()), None)
@@ -548,17 +426,6 @@ class ImageOptimizer:
 
     @classmethod
     def generate_filename(cls, photo_uuid, size_name, original_ext=".jpg"):
-        """
-        Generate a filename for the optimized version using UUID.
-
-        Args:
-            photo_uuid: UUID of the photo (string)
-            size_name: Size variant name ('thumbnail', 'preview', etc.)
-            original_ext: Original file extension
-
-        Returns:
-            str: New filename with UUID and size suffix
-        """
         ext = original_ext.lower()
         if size_name != "original" and ext not in [".png", ".gif", ".webp"]:
             ext = ".jpg"  # Convert to .jpg when optimizing (except PNG/GIF/WebP)
@@ -570,19 +437,6 @@ class ImageOptimizer:
 
     @classmethod
     def process_uploaded_image(cls, image_file, photo_uuid, original_ext=".jpg", existing_focal_point=None):
-        """
-        Process an uploaded image and create all size variants.
-
-        Args:
-            image_file: Uploaded image file
-            photo_uuid: UUID of the photo for naming (string)
-            original_ext: Original file extension
-            existing_focal_point: Optional (x, y) tuple for existing focal point (0-1 normalized).
-                                 If provided, skips focal point detection and uses this value.
-
-        Returns:
-            tuple: (variants dict, focal_point tuple or None, saliency_map_bytes or None)
-        """
         variants = {}
         focal_point = None
         saliency_map_bytes = None
@@ -593,7 +447,6 @@ class ImageOptimizer:
             saliency_map_bytes = None  # Don't generate saliency map when using override
         else:
             # Compute focal point and saliency map once before processing variants
-            # This avoids recomputing saliency detection multiple times
             image_file.seek(0)
             img = Image.open(image_file)
             if img.mode != "RGB":
@@ -612,15 +465,6 @@ class ImageOptimizer:
 
     @classmethod
     def compute_saliency_map(cls, image_file):
-        """
-        Compute and return the saliency map for debugging/visualization.
-
-        Args:
-            image_file: Django ImageField file or file-like object
-
-        Returns:
-            bytes or None: PNG-encoded saliency map bytes, or None if computation fails
-        """
         import logging
 
         logger = logging.getLogger(__name__)
@@ -648,21 +492,8 @@ class ImageOptimizer:
 
 
 class DuplicateDetector:
-    """
-    Handles duplicate image detection using various hashing methods.
-    """
-
     @staticmethod
     def compute_and_store_hashes(image_file):
-        """
-        Compute both file and perceptual hashes in one operation.
-
-        Args:
-            image_file: Django ImageField file or file-like object
-
-        Returns:
-            dict: Dictionary containing 'file_hash' and 'perceptual_hash'
-        """
         return {
             "file_hash": DuplicateDetector.compute_file_hash(image_file),
             "perceptual_hash": DuplicateDetector.compute_perceptual_hash(image_file),
@@ -670,16 +501,6 @@ class DuplicateDetector:
 
     @staticmethod
     def compute_file_hash(image_file, algorithm="sha256"):
-        """
-        Compute cryptographic hash of image file for exact duplicate detection.
-
-        Args:
-            image_file: Django ImageField file or file-like object
-            algorithm: Hash algorithm to use ('md5', 'sha1', 'sha256')
-
-        Returns:
-            str: Hexadecimal hash string
-        """
         try:
             if algorithm == "md5":
                 hasher = hashlib.md5(usedforsecurity=False)  # File checksums, not crypto
@@ -690,7 +511,6 @@ class DuplicateDetector:
 
             image_file.seek(0)
 
-            # Read in 8KB chunks for memory efficiency with large files
             for chunk in iter(lambda: image_file.read(8192), b""):
                 hasher.update(chunk)
 
@@ -703,21 +523,6 @@ class DuplicateDetector:
 
     @staticmethod
     def compute_perceptual_hash(image_file, hash_size=16):
-        """
-        Compute perceptual hash for similar image detection.
-        This can detect images that are visually similar even if they've been:
-        - Resized
-        - Compressed differently
-        - Slightly color-adjusted
-        - Had minor edits
-
-        Args:
-            image_file: Django ImageField file or file-like object
-            hash_size: Size of the hash (higher = more precise, but less tolerant to changes)
-
-        Returns:
-            str: Hexadecimal perceptual hash string
-        """
         try:
             image_file.seek(0)
             img = Image.open(image_file)
@@ -741,15 +546,6 @@ class DuplicateDetector:
 
     @staticmethod
     def compute_multiple_hashes(image_file):
-        """
-        Compute multiple types of perceptual hashes for comprehensive comparison.
-
-        Args:
-            image_file: Django ImageField file or file-like object
-
-        Returns:
-            dict: Dictionary containing different hash types
-        """
         try:
             image_file.seek(0)
             img = Image.open(image_file)
@@ -762,7 +558,6 @@ class DuplicateDetector:
                 else:
                     img = img.convert("RGB")
 
-            # Multiple hash types for comprehensive comparison
             hashes = {
                 "average": str(imagehash.average_hash(img)),
                 "perceptual": str(imagehash.phash(img)),
@@ -779,18 +574,6 @@ class DuplicateDetector:
 
     @staticmethod
     def compare_hashes(hash1, hash2, threshold=5):
-        """
-        Compare two perceptual hashes to determine similarity.
-
-        Args:
-            hash1: First perceptual hash (string)
-            hash2: Second perceptual hash (string)
-            threshold: Maximum Hamming distance for considering images similar
-                      (lower = more strict, typical range: 0-10)
-
-        Returns:
-            tuple: (is_similar: bool, distance: int)
-        """
         try:
             h1 = imagehash.hex_to_hash(hash1)
             h2 = imagehash.hex_to_hash(hash2)
@@ -804,22 +587,6 @@ class DuplicateDetector:
 
     @staticmethod
     def find_duplicates(image_file, existing_photos_queryset, exact_match_only=False):
-        """
-        Find duplicate or similar images in the database.
-
-        Args:
-            image_file: Image file to check for duplicates
-            existing_photos_queryset: QuerySet of Photo objects to check against
-            exact_match_only: If True, only check for exact file duplicates
-
-        Returns:
-            dict: {
-                'exact_duplicates': [list of Photo objects with identical file hash],
-                'similar_images': [list of (Photo, similarity_score) tuples],
-                'file_hash': computed file hash of the input image,
-                'perceptual_hash': computed perceptual hash of the input image
-            }
-        """
         result = {
             "exact_duplicates": [],
             "similar_images": [],
@@ -852,7 +619,6 @@ class DuplicateDetector:
                     if is_similar and photo not in result["exact_duplicates"]:
                         result["similar_images"].append((photo, distance))
 
-                # Sort by similarity score (lower distance = more similar)
                 result["similar_images"].sort(key=lambda x: x[1])
 
         except Exception as e:

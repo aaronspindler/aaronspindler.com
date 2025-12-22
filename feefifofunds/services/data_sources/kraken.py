@@ -1,17 +1,3 @@
-"""
-Kraken REST API Data Source Implementation.
-
-Provides cryptocurrency market data from Kraken:
-- Rate Limit: 1 second delay (conservative, no strict public API limit)
-- Historical Data: Last 720 candles only (API limitation)
-  * Daily (1440 min): ~2 years
-  * Hourly (60 min): 30 days
-  * 5-minute: ~2.5 days
-- Real-time Data: Last candle always incomplete (in progress)
-
-API Documentation: https://docs.kraken.com/api/docs/rest-api/get-ohlc-data
-"""
-
 import time
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -24,8 +10,6 @@ RATE_LIMIT_DELAY_SECONDS = 1.0
 
 
 class KrakenDataSource(BaseDataSource):
-    """Kraken REST API data source for cryptocurrency OHLC data."""
-
     name = "kraken"
     display_name = "Kraken"
     base_url = "https://api.kraken.com/0/public"
@@ -50,7 +34,6 @@ class KrakenDataSource(BaseDataSource):
         self._last_request_time = None
 
     def _apply_rate_limit(self):
-        """Apply 1-second rate limiting between requests."""
         if self._last_request_time is not None:
             elapsed = time.time() - self._last_request_time
             if elapsed < self.rate_limit_delay:
@@ -64,27 +47,6 @@ class KrakenDataSource(BaseDataSource):
         end_date: date,
         interval_minutes: int = 1440,
     ) -> List[dict]:
-        """
-        Fetch OHLC data from Kraken.
-
-        WARNING: Kraken only returns last 720 candles regardless of date range.
-        For daily data (1440 min), this is ~2 years.
-        For hourly data (60 min), this is 30 days.
-
-        Args:
-            pair: Kraken pair format (e.g., "XBTUSD", "ETHUSD")
-            start_date: Start date (may not be honored due to 720 limit)
-            end_date: End date
-            interval_minutes: Candle interval (1, 5, 15, 30, 60, 240, 1440, 10080, 21600)
-
-        Returns:
-            List of OHLC dictionaries with keys: pair, timestamp, open, high, low, close,
-            volume, trade_count, interval_minutes
-
-        Raises:
-            DataSourceError: If API returns error or invalid interval
-            DataNotFoundError: If pair not found
-        """
         if interval_minutes not in self.INTERVAL_MAP:
             valid_intervals = ", ".join(str(i) for i in sorted(self.INTERVAL_MAP.keys()))
             raise DataSourceError(f"Invalid interval: {interval_minutes}. Valid intervals: {valid_intervals}")
@@ -124,12 +86,6 @@ class KrakenDataSource(BaseDataSource):
         return self._transform_results(pair, ohlc_data, interval_minutes)
 
     def _transform_results(self, pair: str, ohlc_data: list, interval_minutes: int) -> List[dict]:
-        """
-        Transform Kraken OHLC array to standard format.
-
-        Kraken OHLC format: [timestamp, open, high, low, close, vwap, volume, count]
-        Excludes last candle as it's incomplete (current period in progress).
-        """
         results = []
 
         for candle in ohlc_data[:-1]:

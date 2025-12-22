@@ -1,15 +1,3 @@
-"""
-Massive.com (Polygon.io) Data Source Implementation.
-
-Provides free financial market data:
-- Rate Limit: 5 API calls per minute (free tier)
-- Historical Data: 2 years (730 days) on free tier
-- Real-time Data: End-of-day only on free tier
-
-API Documentation: https://polygon.io/docs
-Client Library: https://github.com/massive-com/client-python
-"""
-
 import time
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -43,7 +31,6 @@ class MassiveDataSource:
         self._last_request_time = None
 
     def _apply_rate_limit(self):
-        """Apply rate limiting to respect 5 API calls per minute."""
         if self._last_request_time is not None:
             elapsed = time.time() - self._last_request_time
             if elapsed < RATE_LIMIT_DELAY_SECONDS:
@@ -52,17 +39,6 @@ class MassiveDataSource:
         self._last_request_time = time.time()
 
     def fetch_historical_prices(self, ticker: str, start_date: date, end_date: date) -> List[dict]:
-        """
-        Fetch historical price data from Massive.com (Polygon.io).
-
-        Args:
-            ticker: Stock ticker (e.g., AAPL, MSFT)
-            start_date: Start date
-            end_date: End date
-
-        Returns:
-            List of price dictionaries
-        """
         self._apply_rate_limit()
         try:
             aggs = self.client.get_aggs(
@@ -89,23 +65,6 @@ class MassiveDataSource:
             raise DataSourceError(f"Failed to fetch data from Massive.com: {str(e)}") from e
 
     def fetch_grouped_daily(self, date: date) -> dict:
-        """
-        Fetch all ticker prices for a specific date using grouped daily endpoint.
-
-        This is much more efficient than fetching individual tickers when you need
-        data for multiple assets. Makes 1 API call instead of N calls.
-
-        Args:
-            date: Date to fetch data for
-
-        Returns:
-            Dictionary mapping ticker -> price data dict
-
-        Example:
-            source = MassiveDataSource()
-            prices = source.fetch_grouped_daily(date(2024, 1, 1))
-            aapl_price = prices.get('AAPL')
-        """
         self._apply_rate_limit()
         try:
             aggs = self.client.get_grouped_daily_aggs(
@@ -129,7 +88,6 @@ class MassiveDataSource:
             raise DataSourceError(f"Failed to fetch grouped daily data: {str(e)}") from e
 
     def _transform_result(self, ticker: str, agg) -> dict:
-        """Transform Polygon.io Agg object to standard format."""
         if not hasattr(agg, "timestamp"):
             raise DataSourceError("Missing timestamp in response")
 

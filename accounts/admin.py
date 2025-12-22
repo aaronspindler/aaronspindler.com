@@ -12,7 +12,6 @@ class CustomUserAdmin(UserAdmin):
     model = CustomUser
     list_display = ["email", "username"]
 
-    # Override fieldsets to exclude problematic fields
     fieldsets = (
         (None, {"fields": ("username", "password")}),
         ("Personal info", {"fields": ("first_name", "last_name", "email")}),

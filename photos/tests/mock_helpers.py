@@ -1,10 +1,3 @@
-"""
-Mock helpers for photo tests to reduce memory usage and improve test performance.
-
-This module provides common mocks for heavy image processing operations that
-aren't essential to test functionality but consume significant resources.
-"""
-
 from io import BytesIO
 from unittest.mock import MagicMock
 
@@ -12,7 +5,6 @@ from PIL import Image
 
 
 def create_tiny_test_image(size=(10, 10), color="blue", format="JPEG"):
-    """Create a tiny test image to minimize memory usage."""
     img = Image.new("RGB", size, color=color)
     img_io = BytesIO()
     img.save(img_io, format=format, quality=50)
@@ -21,7 +13,6 @@ def create_tiny_test_image(size=(10, 10), color="blue", format="JPEG"):
 
 
 def mock_image_optimizer_process():
-    """Create a mock for ImageOptimizer.process_uploaded_image."""
     mock_preview = MagicMock(name="preview.jpg")
     mock_thumbnail = MagicMock(name="thumbnail.jpg")
     return (
@@ -32,12 +23,10 @@ def mock_image_optimizer_process():
 
 
 def mock_duplicate_detector_hashes(identifier="test"):
-    """Create a mock for DuplicateDetector.compute_and_store_hashes."""
     return {"file_hash": f"hash_{identifier}", "perceptual_hash": f"phash_{identifier}"}
 
 
 def mock_exif_extractor_data(basic=True):
-    """Create mock EXIF data."""
     if basic:
         return {}
 
@@ -54,7 +43,6 @@ def mock_exif_extractor_data(basic=True):
 
 
 def mock_image_metadata(width=10, height=10, file_size=1024):
-    """Create mock image metadata."""
     return {
         "width": width,
         "height": height,
@@ -65,23 +53,14 @@ def mock_image_metadata(width=10, height=10, file_size=1024):
 
 
 class PhotoTestMixin:
-    """Mixin to provide common photo test utilities."""
-
     @staticmethod
     def create_mock_photo_with_minimal_processing(filename="test_photo.jpg"):
-        """
-        Create a photo with all heavy operations mocked.
-
-        This should be used in tests that don't need to test the actual
-        image processing functionality.
-        """
         from unittest.mock import patch
 
         from django.core.files.uploadedfile import SimpleUploadedFile
 
         from photos.models import Photo
 
-        # Create tiny test image
         img_io = create_tiny_test_image()
         test_image = SimpleUploadedFile(
             name=filename,
@@ -89,7 +68,6 @@ class PhotoTestMixin:
             content_type="image/jpeg",
         )
 
-        # Mock all heavy operations
         with (
             patch("photos.models.ImageOptimizer.process_uploaded_image") as mock_process,
             patch("photos.models.DuplicateDetector.compute_and_store_hashes") as mock_hashes,

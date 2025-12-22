@@ -6,9 +6,11 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 import boto3
 
+
 def get_notification_config():
     NotificationConfig = apps.get_model('utils', 'NotificationConfig')
     return NotificationConfig.objects.first()
+
 
 @shared_task
 def send_email(email_pk):
@@ -22,7 +24,6 @@ def send_email(email_pk):
         return False
 
     parameters = email.get_parameters()
-    # check if there is an unsubscribe code associated with this email address
     text_body = render_to_string("emails/{}.txt".format(email.template), parameters)
     html_body = render_to_string("emails/{}.html".format(email.template), parameters)
 
@@ -42,6 +43,7 @@ def send_email(email_pk):
     email.sent = timezone.now()
     email.save()
     
+
 @shared_task
 def send_text_message(text_message_pk):
     notification_config = get_notification_config()

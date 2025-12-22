@@ -1,1 +1,0 @@
-# QuestDB database backend

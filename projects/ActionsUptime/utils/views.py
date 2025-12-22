@@ -7,6 +7,7 @@ from utils.models import HTTPStatusCode, NotificationEmail, NotificationPhoneNum
 from utils.phone_numbers import clean_phone_number
 from web.models import Endpoint
 
+
 def robotstxt(request):
     lines = [
         "User-Agent: *",
@@ -16,11 +17,13 @@ def robotstxt(request):
 
     return HttpResponse("\n".join(lines), content_type="text/plain")
 
+
 def healthcheck(request):
     if HTTPStatusCode.objects.count() > 0:
         return HttpResponse("OK")
     else:
         return HttpResponse("Database is not healthy", status=500)
+
 
 @login_required
 def dev(request):
@@ -28,6 +31,7 @@ def dev(request):
         return redirect('home')
     endpoint = Endpoint.objects.first()
     return render(request, 'dev.html', {'endpoint': endpoint})
+
 
 @login_required
 def add_phone(request):
@@ -51,6 +55,7 @@ def add_phone(request):
         messages.error(request, "SMS notifications are not available on your current plan.")
         return redirect('home')
 
+
 @login_required
 def add_email(request):
     if request.method == "POST":
@@ -68,6 +73,7 @@ def add_email(request):
     else:
         return HttpResponseNotAllowed(["POST"])
 
+
 @login_required
 def delete_phone(request, phone_id):
     if request.method == "POST":
@@ -77,6 +83,7 @@ def delete_phone(request, phone_id):
         return redirect('home')
     else:
         return HttpResponseNotAllowed(["POST"])
+
 
 @login_required
 def delete_email(request, email_id):
@@ -88,9 +95,9 @@ def delete_email(request, email_id):
     else:
         return HttpResponseNotAllowed(["POST"])
 
+
 @login_required
 def verify_phone(request, phone_id):
-    # This will require the user to enter the code in the frontend
     if request.method == "POST":
         phone_number = get_object_or_404(NotificationPhoneNumber, id=phone_id)
         code = request.POST.get("code")
@@ -106,8 +113,8 @@ def verify_phone(request, phone_id):
     else:
         return HttpResponseNotAllowed(["POST"])
 
+
 def verify_email(request, email_id, code=None):
-    # This will use a magic link to verify an email address or a POST request with a code
     email = get_object_or_404(NotificationEmail, id=email_id)
     
     if request.method == "GET":
@@ -127,6 +134,7 @@ def verify_email(request, email_id, code=None):
         messages.error(request, "Invalid verification code")
     
     return redirect('home')
+
 
 def unsubscribe(request, unsubscribe_code):
     email = get_object_or_404(NotificationEmail, unsubscribe_code=unsubscribe_code)

@@ -1,10 +1,3 @@
-"""
-Coverage Tracker for maintaining DataCoverageRange records.
-
-This service updates DataCoverageRange entries after data ingestion to track
-what data exists for each asset/interval, enabling efficient gap detection.
-"""
-
 import logging
 from datetime import datetime
 
@@ -17,37 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 class CoverageTracker:
-    """
-    Tracks data coverage ranges for assets/intervals.
-
-    After data ingestion, this service queries QuestDB to find the actual
-    date ranges present and updates DataCoverageRange accordingly.
-    Overlapping ranges are automatically merged.
-    """
-
     def __init__(self, database: str = "questdb"):
-        """
-        Initialize coverage tracker.
-
-        Args:
-            database: Database alias to query (default: questdb)
-        """
         self.database = database
         self.questdb_client = QuestDBClient(database=database)
 
     def update_coverage_after_ingestion(self, job: IngestionJob) -> dict:
-        """
-        Update coverage ranges for all assets/intervals in an ingestion job.
-
-        This should be called after CSV files are ingested to update the
-        DataCoverageRange table with actual data present in QuestDB.
-
-        Args:
-            job: IngestionJob that was completed
-
-        Returns:
-            Dictionary with update statistics
-        """
         logger.info(f"Updating coverage ranges for job {job.job_id}")
 
         stats = {
@@ -57,10 +24,8 @@ class CoverageTracker:
             "assets_processed": 0,
         }
 
-        # Get all successfully ingested files
         ingested_files = FileIngestionRecord.objects.filter(job=job, status=FileIngestionRecord.Status.COMPLETED)
 
-        # Group by asset/interval
         asset_intervals = {}
         for file_record in ingested_files:
             key = (file_record.asset.id, file_record.interval_minutes)
@@ -70,12 +35,10 @@ class CoverageTracker:
 
         logger.info(f"Processing {len(asset_intervals)} asset/interval combinations")
 
-        # Update coverage for each asset/interval
         for (asset_id, interval_minutes), _file_records in asset_intervals.items():
             try:
                 asset = Asset.objects.get(id=asset_id)
 
-                # Query QuestDB for actual date range
                 date_range = self._query_date_range_from_questdb(asset, interval_minutes)
 
                 if not date_range:
@@ -87,7 +50,6 @@ class CoverageTracker:
 
                 start_date, end_date, record_count = date_range
 
-                # Create or update coverage range
                 self._create_or_update_coverage_range(
                     asset=asset,
                     interval_minutes=interval_minutes,
@@ -97,7 +59,6 @@ class CoverageTracker:
                     source=DataCoverageRange.Source.CSV,  # Assuming CSV ingestion
                 )
 
-                # Merge overlapping ranges
                 merged = DataCoverageRange.merge_overlapping_ranges(asset, interval_minutes)
                 if merged:
                     stats["ranges_merged"] += len(merged) - 1  # Number of merges performed
@@ -123,23 +84,8 @@ class CoverageTracker:
         interval_minutes: int,
         source: str = "CSV",
     ) -> DataCoverageRange | None:
-        """
-        Update coverage range for a single asset/interval.
-
-        Queries QuestDB for the actual date range and creates/updates
-        the DataCoverageRange entry.
-
-        Args:
-            asset: Asset to update
-            interval_minutes: Interval in minutes
-            source: Data source type (CSV, API, or MIXED)
-
-        Returns:
-            Updated DataCoverageRange or None if no data found
-        """
         logger.debug(f"Updating coverage for {asset.ticker} {interval_minutes}min")
 
-        # Query QuestDB for date range
         date_range = self._query_date_range_from_questdb(asset, interval_minutes)
 
         if not date_range:
@@ -148,7 +94,6 @@ class CoverageTracker:
 
         start_date, end_date, record_count = date_range
 
-        # Create or update coverage range
         coverage = self._create_or_update_coverage_range(
             asset=asset,
             interval_minutes=interval_minutes,
@@ -158,7 +103,6 @@ class CoverageTracker:
             source=source,
         )
 
-        # Merge overlapping ranges
         DataCoverageRange.merge_overlapping_ranges(asset, interval_minutes)
 
         return coverage
@@ -166,18 +110,7 @@ class CoverageTracker:
     def _query_date_range_from_questdb(
         self, asset: Asset, interval_minutes: int
     ) -> tuple[datetime, datetime, int] | None:
-        """
-        Query QuestDB to find the actual date range for an asset/interval.
-
-        Args:
-            asset: Asset to query
-            interval_minutes: Interval in minutes
-
-        Returns:
-            Tuple of (start_date, end_date, record_count) or None if no data
-        """
         try:
-            # Use safe parameterized query
             result = self.questdb_client.get_date_range_for_asset(asset_id=asset.id, interval_minutes=interval_minutes)
 
             if not result:
@@ -205,25 +138,7 @@ class CoverageTracker:
         record_count: int,
         source: str,
     ) -> DataCoverageRange:
-        """
-        Create or update a DataCoverageRange entry.
-
-        If an overlapping range exists, it will be updated. Otherwise,
-        a new range is created.
-
-        Args:
-            asset: Asset
-            interval_minutes: Interval in minutes
-            start_date: Range start
-            end_date: Range end
-            record_count: Number of records in range
-            source: Data source type
-
-        Returns:
-            DataCoverageRange instance
-        """
         with transaction.atomic():
-            # Check for existing overlapping ranges
             existing = DataCoverageRange.objects.filter(
                 asset=asset,
                 interval_minutes=interval_minutes,
@@ -232,7 +147,6 @@ class CoverageTracker:
             ).first()
 
             if existing:
-                # Update existing range
                 existing.start_date = min(existing.start_date, start_date)
                 existing.end_date = max(existing.end_date, end_date)
                 existing.record_count = record_count
@@ -246,7 +160,6 @@ class CoverageTracker:
 
                 return existing
             else:
-                # Create new range
                 coverage = DataCoverageRange.objects.create(
                     asset=asset,
                     interval_minutes=interval_minutes,
@@ -264,16 +177,6 @@ class CoverageTracker:
                 return coverage
 
     def get_coverage_summary(self, tier: str | None = None, interval_minutes: int | None = None) -> dict:
-        """
-        Get a summary of data coverage.
-
-        Args:
-            tier: Filter by asset tier (optional)
-            interval_minutes: Filter by interval (optional)
-
-        Returns:
-            Dictionary with coverage statistics
-        """
         query = DataCoverageRange.objects.all()
 
         if tier:
@@ -285,7 +188,6 @@ class CoverageTracker:
         total_ranges = query.count()
         total_records = sum(r.record_count for r in query)
 
-        # Get date range
         if total_ranges > 0:
             earliest = min(r.start_date for r in query)
             latest = max(r.end_date for r in query)
@@ -293,7 +195,6 @@ class CoverageTracker:
             earliest = None
             latest = None
 
-        # Count by source
         source_counts = {}
         for source_choice in DataCoverageRange.Source.choices:
             source_value = source_choice[0]
@@ -310,24 +211,10 @@ class CoverageTracker:
         }
 
     def verify_coverage_integrity(self, asset: Asset, interval_minutes: int) -> dict:
-        """
-        Verify that coverage ranges match actual data in QuestDB.
-
-        This is useful for debugging and validation.
-
-        Args:
-            asset: Asset to verify
-            interval_minutes: Interval to verify
-
-        Returns:
-            Dictionary with verification results
-        """
-        # Get coverage ranges from database
         db_ranges = list(
             DataCoverageRange.objects.filter(asset=asset, interval_minutes=interval_minutes).order_by("start_date")
         )
 
-        # Get actual data from QuestDB
         actual_range = self._query_date_range_from_questdb(asset, interval_minutes)
 
         results = {
@@ -351,7 +238,6 @@ class CoverageTracker:
             results["issues"].append("Data exists in QuestDB but no coverage ranges in database")
             return results
 
-        # Check if ranges cover the actual data
         db_start = min(r.start_date for r in db_ranges)
         db_end = max(r.end_date for r in db_ranges)
 
@@ -365,7 +251,6 @@ class CoverageTracker:
                 f"Coverage ends earlier than actual data: DB={db_end.date()}, QuestDB={actual_end.date()}"
             )
 
-        # Check record counts
         db_total_records = sum(r.record_count for r in db_ranges)
         if db_total_records != actual_count:
             results["issues"].append(f"Record count mismatch: DB={db_total_records:,}, QuestDB={actual_count:,}")

@@ -108,8 +108,10 @@ class EndpointTaskTests(BaseLiveTestCase):
         self.assertEqual(EndpointStatus.objects.last().status, "failure")
         self.assertEqual(EndpointStatus.objects.last().status_code, 500)
 
+
 class EndpointModelTests(BaseTestCase):
     pass
         
+
 class EndpointFormTests(BaseTestCase):
     pass

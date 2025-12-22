@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 
 URL = "https://actionsuptime.com"
 
+
 def post_to_webhook(request_key, return_data):
     print(f"Posting to webhook: {request_key}")
     max_retries = 5
@@ -27,6 +28,7 @@ def post_to_webhook(request_key, return_data):
             time.sleep(retry_count ** 3)
     if retry_count == max_retries:
         print(f"Failed to post to webhook after {max_retries} attempts")
+
 
 def check_endpoint_function(endpoint_data=None, event=None, context=None):
     start_time = None
@@ -76,7 +78,6 @@ def check_endpoint_function(endpoint_data=None, event=None, context=None):
             request_headers = dict(item.split(": ") for item in request_headers.split("\n") if item)
     
     try:
-        # Prepare request
         session = requests.Session()
         request_kwargs = dict(
             method=http_method,
@@ -96,14 +97,12 @@ def check_endpoint_function(endpoint_data=None, event=None, context=None):
         )
         session.timeout = request_timeout_seconds
         
-        # Add authentication if needed
         if auth_type == 'basic':
             session.auth = (auth_username, auth_password)
         elif auth_type == 'digest':
             from requests.auth import HTTPDigestAuth
             session.auth = HTTPDigestAuth(auth_username, auth_password)
         
-        # Prepare and send request
         prepped = session.prepare_request(request)
         start_time = datetime.now(timezone.utc)
         try:
@@ -129,7 +128,6 @@ def check_endpoint_function(endpoint_data=None, event=None, context=None):
         end_time = datetime.now(timezone.utc)
         duration_ms = round((end_time - start_time).total_seconds() * 1000, 2)
         
-        # Check status code
         status_code_valid = status_code in up_status_codes
         
         if check_ssl:
@@ -145,7 +143,6 @@ def check_endpoint_function(endpoint_data=None, event=None, context=None):
                 ssl_valid = False
                 error += "\n" + "================================================" + "\n" + str(e)
     
-        # Check domain expiration (simplified, might need additional library)
         if check_domain_expiration:
             try:
                 domain = whois.whois(urlparse(url).netloc)
@@ -159,7 +156,6 @@ def check_endpoint_function(endpoint_data=None, event=None, context=None):
     except Exception as e:
         error += "\n" + "================================================" + "\n" + str(e)
     
-    # Determine overall status
     ssl_component = ssl_valid is None or ssl_valid
     domain_component = domain_expiration is None or domain_expiration > datetime.now(timezone.utc)
     is_up = status_code_valid and ssl_component and domain_component
@@ -169,10 +165,8 @@ def check_endpoint_function(endpoint_data=None, event=None, context=None):
     print('domain_component', domain_component)
     print('is_up', is_up)
     
-    # Determine status
     status = 'success' if is_up else 'failure'
     
-    # Make a return object
     return_data = dict(
         status_code=status_code,
         status=status,

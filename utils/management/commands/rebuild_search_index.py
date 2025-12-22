@@ -1,13 +1,3 @@
-"""
-Management command to rebuild the search index for full-text search.
-
-Usage:
-    python manage.py rebuild_search_index
-    python manage.py rebuild_search_index --clear
-    python manage.py rebuild_search_index --content-type blog
-    python manage.py rebuild_search_index --content-type photos
-"""
-
 from django.contrib.postgres.search import SearchVector
 from django.core.management.base import BaseCommand
 from django.template.loader import render_to_string
@@ -46,7 +36,6 @@ class Command(BaseCommand):
             SearchableContent.objects.all().delete()
             self.stdout.write(self.style.SUCCESS("✓ Search index cleared"))
 
-        # Rebuild based on content type
         if content_type in ["blog", "all"]:
             self._rebuild_blog_posts()
 
@@ -64,7 +53,6 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS("\n✓ Search index rebuild complete!"))
 
-        # Show statistics
         total_count = SearchableContent.objects.count()
         blog_count = SearchableContent.objects.filter(content_type="blog_post").count()
         project_count = SearchableContent.objects.filter(content_type="project").count()
@@ -79,7 +67,6 @@ class Command(BaseCommand):
         )
 
     def _rebuild_blog_posts(self):
-        """Rebuild search index for blog posts stored as templates."""
         self.stdout.write("\nIndexing blog posts...")
 
         blog_posts = get_all_blog_posts()
@@ -90,14 +77,11 @@ class Command(BaseCommand):
             category = post_info["category"]
 
             try:
-                # Render the template to extract content
                 template_path = f"blog/{category}/{template_name}.html"
                 content = render_to_string(template_path)
 
-                # Extract title from template name
                 title = template_name.replace("_", " ").title()
 
-                # Create or update searchable content
                 obj, created = SearchableContent.objects.update_or_create(
                     content_type="blog_post",
                     template_name=template_name,
@@ -110,7 +94,6 @@ class Command(BaseCommand):
                     },
                 )
 
-                # Update search vector
                 SearchableContent.update_search_vector(obj.id)
                 indexed_count += 1
 
@@ -123,7 +106,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"✓ Indexed {indexed_count} blog posts"))
 
     def _rebuild_photos(self):
-        """Rebuild search vectors for Photo model."""
         self.stdout.write("\nIndexing photos...")
 
         photos = Photo.objects.all()
@@ -138,7 +120,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"✓ Indexed {count} photos"))
 
     def _rebuild_albums(self):
-        """Rebuild search vectors for PhotoAlbum model."""
         self.stdout.write("\nIndexing photo albums...")
 
         albums = PhotoAlbum.objects.all()
@@ -153,7 +134,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"✓ Indexed {count} photo albums"))
 
     def _rebuild_books(self):
-        """Rebuild search index for books."""
         self.stdout.write("\nIndexing books...")
 
         try:
@@ -192,7 +172,6 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"  ✗ Failed to index books: {str(e)}"))
 
     def _rebuild_projects(self):
-        """Rebuild search index for projects."""
         self.stdout.write("\nIndexing projects...")
 
         try:

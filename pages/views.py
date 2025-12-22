@@ -16,13 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 def health_check(request):
-    """
-    Simple health check endpoint for monitoring.
-    Returns 200 OK if the application is running and can connect to the database.
-    """
     health_status = {"status": "healthy", "checks": {}}
 
-    # Check database connectivity
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
@@ -34,7 +29,6 @@ def health_check(request):
         health_status["checks"]["database"] = "failed"
         return JsonResponse(health_status, status=503)
 
-    # Check cache connectivity (optional, non-critical)
     try:
         cache.set("health_check", "test", 1)
         cache.delete("health_check")
@@ -47,7 +41,6 @@ def health_check(request):
 
 
 def robotstxt(request):
-    """Serve robots.txt from static file."""
     robots_path = os.path.join(settings.BASE_DIR, "static", "robots.txt")
 
     with open(robots_path, "r", encoding="utf-8") as f:
@@ -56,7 +49,6 @@ def robotstxt(request):
 
 
 def resume(request):
-    """Serve resume PDF file if enabled in settings, otherwise show unavailable page."""
     if not getattr(settings, "RESUME_ENABLED", False):
         return render(request, "pages/resume_unavailable.html")
 
@@ -77,10 +69,6 @@ def resume(request):
 
 
 def home(request):
-    """
-    Display home page with blog posts, projects, books, and photo albums.
-    """
-    # Cache blog posts (1 hour TTL)
     blog_cache_key = "home_blog_posts_v2"
     cached_blog_data = cache.get(blog_cache_key)
 
@@ -100,13 +88,11 @@ def home(request):
             )
             blog_posts.append(blog_data)
 
-            # Organize by category
             category = post_info["category"] or "uncategorized"
             if category not in blog_posts_by_category:
                 blog_posts_by_category[category] = []
             blog_posts_by_category[category].append(blog_data)
 
-        # Sort posts within each category by entry number (newest first)
         for category in blog_posts_by_category:
             blog_posts_by_category[category].sort(key=lambda x: x["entry_number"], reverse=True)
 
@@ -121,7 +107,6 @@ def home(request):
             3600,
         )
 
-    # Projects (24 hour cache)
     projects_cache_key = "home_projects_v1"
     projects = cache.get(projects_cache_key)
 
@@ -133,7 +118,6 @@ def home(request):
             # Handle errors gracefully - provide empty list as fallback
             projects = []
 
-    # Books (24 hour cache)
     books_cache_key = "home_books_v1"
     books = cache.get(books_cache_key)
 
@@ -145,7 +129,6 @@ def home(request):
             # Handle errors gracefully - provide empty list as fallback
             books = []
 
-    # Photo Albums (24 hour cache)
     albums_cache_key = "home_albums_v1"
     album_data = cache.get(albums_cache_key)
 
@@ -159,7 +142,6 @@ def home(request):
 
             album_data = []
             for album in albums:
-                # Get random cover photo using database-level selection
                 cover_photo = album.photos.order_by("?").first()
                 album_data.append(
                     {

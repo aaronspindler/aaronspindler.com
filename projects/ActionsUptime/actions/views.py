@@ -8,11 +8,13 @@ from actions.models import Action
 from actions.tasks import check_action_status_badge
 from utils.models import NotificationEmail, NotificationPhoneNumber
 
+
 @login_required
 def actions_home(request):
     data = {}
     data['actions'] = Action.objects.filter(owner=request.user).values_list('private_id', flat=True)
     return render(request, "actions/actions_home.html", data)
+
 
 @login_required
 def add_action(request):
@@ -20,7 +22,6 @@ def add_action(request):
         url = request.POST.get('url')
         is_private = request.POST.get('is_private') == 'on'
         if url:
-            # Validate the URL
             validator = URLValidator()
             try:
                 validator(url)
@@ -28,7 +29,6 @@ def add_action(request):
                 messages.error(request, "Invalid URL. Please enter a valid GitHub Actions URL.")
                 return redirect('actions_home')
             
-            # Check if the URL is a GitHub Actions URL
             if 'github.com/' not in url or '/actions/workflows/' not in url or not (url.endswith('.yml') or url.endswith('.yaml')):
                 messages.error(request, "Please enter a valid GitHub Actions workflow URL.")
                 return redirect('actions_home')
@@ -46,6 +46,7 @@ def add_action(request):
                 messages.info(request, "Action already exists!")
     return redirect('actions_home')
 
+
 @login_required
 def delete_action(request, pk):
     if request.method == 'POST':
@@ -53,6 +54,7 @@ def delete_action(request, pk):
         action.delete()
         messages.success(request, "Action deleted successfully!")
     return redirect('actions_home')
+
 
 @login_required
 def action_available_notification_methods(request, pk):
@@ -78,6 +80,7 @@ def action_available_notification_methods(request, pk):
         "phone_numbers": phone_numbers,
     })
 
+
 @login_required
 def add_phone_notification(request, pk):
     if request.method == 'POST':
@@ -89,6 +92,7 @@ def add_phone_notification(request, pk):
             return JsonResponse({"success": True})
         else:
             return JsonResponse({"success": False})
+
 
 @login_required
 def remove_phone_notification(request, pk):
@@ -102,6 +106,7 @@ def remove_phone_notification(request, pk):
         else:
             return JsonResponse({"success": False})
 
+
 @login_required
 def add_email_notification(request, pk):
     if request.method == 'POST':
@@ -114,6 +119,7 @@ def add_email_notification(request, pk):
         else:
             return JsonResponse({"success": False})
 
+
 @login_required
 def remove_email_notification(request, pk):
     if request.method == 'POST':
@@ -125,6 +131,7 @@ def remove_email_notification(request, pk):
             return JsonResponse({"success": True})
         else:
             return JsonResponse({"success": False})
+
 
 @login_required
 def actions_status(request):
@@ -139,6 +146,7 @@ def actions_status(request):
     }
     return JsonResponse(data)
 
+
 def action_status(request, private_id):
     action = get_object_or_404(Action, private_id=private_id)
     action_status = action.most_recent_status()
@@ -147,6 +155,7 @@ def action_status(request, private_id):
     else:
         raise Http404('failed')
     
+
 def action_details(request, private_id):
     action = get_object_or_404(Action, private_id=private_id)
     is_owner = request.user == action.owner
@@ -166,6 +175,7 @@ def action_details(request, private_id):
         data['id'] = action.id
     return JsonResponse(data)
     
+
 def action_graph(request, private_id):
     action = get_object_or_404(Action, private_id=private_id)
     timeline_type = request.GET.get('timeline_type', 'daily')

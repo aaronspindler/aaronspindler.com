@@ -76,7 +76,6 @@ def delete_email(request, email_id):
 
 @login_required
 def verify_phone(request, phone_id):
-    # This will require the user to enter the code in the frontend
     if request.method == "POST":
         phone_number = get_object_or_404(NotificationPhoneNumber, id=phone_id)
         code = request.POST.get("code")
@@ -94,7 +93,6 @@ def verify_phone(request, phone_id):
 
 
 def verify_email(request, email_id, code=None):
-    # This will use a magic link to verify an email address or a POST request with a code
     email = get_object_or_404(NotificationEmail, id=email_id)
 
     if request.method == "GET":
@@ -124,7 +122,6 @@ def unsubscribe(request, unsubscribe_code):
     return redirect("home")
 
 
-# Lighthouse monitoring views
 import json
 
 from django.views.decorators.cache import cache_page
@@ -134,17 +131,12 @@ from utils.models import LighthouseAudit
 
 @cache_page(60 * 60)  # Cache for 1 hour
 def lighthouse_badge_endpoint(request):
-    """
-    API endpoint for shields.io badge data.
-    Returns the latest Lighthouse audit scores in shields.io endpoint format.
-    """
     try:
         latest_audit = LighthouseAudit.objects.latest("audit_date")
 
         # Format scores as "P/A/BP/SEO"
         message = f"{latest_audit.performance_score}/{latest_audit.accessibility_score}/{latest_audit.best_practices_score}/{latest_audit.seo_score}"
 
-        # Determine badge color based on average score
         avg_score = latest_audit.average_score
         if avg_score >= 90:
             color = "brightgreen"
@@ -174,14 +166,8 @@ def lighthouse_badge_endpoint(request):
 
 
 def lighthouse_history_page(request):
-    """
-    Display Lighthouse audit history with chart visualization.
-    Shows all audit data.
-    """
-    # Get all audits
     audits = LighthouseAudit.objects.all().order_by("audit_date")
 
-    # Prepare data for Chart.js
     chart_data = {
         "labels": [audit.audit_date.strftime("%Y-%m-%d") for audit in audits],
         "performance": [audit.performance_score for audit in audits],
@@ -199,31 +185,23 @@ def lighthouse_history_page(request):
     return render(request, "lighthouse_monitor/history.html", context)
 
 
-# Search views
 from utils.search import search_blog_posts, search_books, search_projects
 
 
 @require_GET
 def search_view(request):
-    """
-    Unified search view for blog posts, projects, and books.
-    Supports full-text search.
-    """
     query = request.GET.get("q", "").strip()
     category = request.GET.get("category", "").strip() or None
     content_type = request.GET.get("type", "all")  # all, blog, projects, books
 
     results = {"blog_posts": [], "projects": [], "books": []}
 
-    # Search blog posts
     if content_type in ["all", "blog"]:
         results["blog_posts"] = search_blog_posts(query=query if query else None, category=category)
 
-    # Search projects
     if content_type in ["all", "projects"]:
         results["projects"] = search_projects(query=query if query else None)
 
-    # Search books
     if content_type in ["all", "books"]:
         results["books"] = search_books(query=query if query else None)
 
@@ -240,10 +218,6 @@ def search_view(request):
 
 @require_GET
 def search_autocomplete(request):
-    """
-    API endpoint for search autocomplete suggestions.
-    Returns top results from blog posts, projects, and books.
-    """
     query = request.GET.get("q", "").strip()
 
     if not query or len(query) < 2:
@@ -251,7 +225,6 @@ def search_autocomplete(request):
 
     suggestions = []
 
-    # Get blog post suggestions (limit to 5)
     blog_posts = search_blog_posts(query=query)[:5]
     for post in blog_posts:
         suggestions.append(
@@ -263,7 +236,6 @@ def search_autocomplete(request):
             }
         )
 
-    # Get project suggestions (limit to 3)
     projects = search_projects(query=query)[:3]
     for project in projects:
         suggestions.append(
@@ -275,7 +247,6 @@ def search_autocomplete(request):
             }
         )
 
-    # Get book suggestions (limit to 2)
     books = search_books(query=query)[:2]
     for book in books:
         author_text = f" by {book['author']}" if book.get("author") else ""

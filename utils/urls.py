@@ -23,10 +23,8 @@ urlpatterns = [
     path("verify/phone/<int:phone_id>", verify_phone, name="verify_phone"),
     path("verify/email/<int:email_id>/<str:code>", verify_email, name="verify_email"),
     path("verify/email/<int:email_id>", verify_email, name="verify_email"),
-    # Lighthouse monitoring
     path("api/lighthouse/badge/", lighthouse_badge_endpoint, name="lighthouse_badge"),
     path("lighthouse/history/", lighthouse_history_page, name="lighthouse_history"),
-    # Search
     path("search/", search_view, name="search"),
     path("api/search/autocomplete/", search_autocomplete, name="search_autocomplete"),
 ]

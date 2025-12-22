@@ -6,6 +6,7 @@ INTERVAL_CHOICES = [
         ('30S', '30 Seconds'),
 ]
 
+
 def get_interval_choices(interval):
     return INTERVAL_CHOICES[:next((i for i, choice in enumerate(INTERVAL_CHOICES) if choice[0] == interval), len(INTERVAL_CHOICES)) + 1]
 

@@ -1,15 +1,10 @@
-#!/usr/bin/env python
-"""Django's command-line utility for administrative tasks."""
-
 import os
 import sys
 
 
 def main():
-    """Run administrative tasks."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
-    # SAFETY: Prevent running tests locally against production database
     if "test" in sys.argv and not os.environ.get("TESTING_IN_DOCKER"):
         print("\n" + "=" * 70)
         print("❌ ERROR: Running tests locally is NOT ALLOWED")

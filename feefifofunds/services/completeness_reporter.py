@@ -1,11 +1,3 @@
-"""
-Completeness Reporter for generating data quality reports.
-
-This service analyzes DataCoverageRange and GapRecord entries to generate
-comprehensive completeness reports for tiers, answering questions like
-"Do I have complete TIER1 data for the last 5 years?"
-"""
-
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -19,8 +11,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AssetCompleteness:
-    """Completeness metrics for a single asset/interval."""
-
     asset: Asset
     interval_minutes: int
     expected_candles: int
@@ -32,19 +22,15 @@ class AssetCompleteness:
 
     @property
     def is_complete(self) -> bool:
-        """Check if asset has 100% completeness."""
         return self.completeness_pct >= 99.9  # Allow for minor rounding
 
     @property
     def has_gaps(self) -> bool:
-        """Check if asset has any gaps."""
         return self.gaps_count > 0
 
 
 @dataclass
 class IntervalCompleteness:
-    """Completeness metrics for an interval across all assets."""
-
     interval_minutes: int
     total_assets: int
     complete_assets: int
@@ -57,7 +43,6 @@ class IntervalCompleteness:
 
     @property
     def completion_rate(self) -> float:
-        """Percentage of assets that are 100% complete."""
         if self.total_assets == 0:
             return 0.0
         return (self.complete_assets / self.total_assets) * 100
@@ -65,8 +50,6 @@ class IntervalCompleteness:
 
 @dataclass
 class CompletenessReport:
-    """Complete tier completeness report."""
-
     tier: str
     date_range_start: datetime
     date_range_end: datetime
@@ -75,42 +58,23 @@ class CompletenessReport:
 
     @property
     def overall_completeness_pct(self) -> float:
-        """Average completeness across all intervals."""
         if not self.intervals:
             return 0.0
         return sum(i.avg_completeness_pct for i in self.intervals.values()) / len(self.intervals)
 
     @property
     def total_assets(self) -> int:
-        """Total number of assets (from first interval)."""
         if not self.intervals:
             return 0
         return next(iter(self.intervals.values())).total_assets
 
     @property
     def total_gaps(self) -> int:
-        """Total gaps across all intervals."""
         return sum(i.total_gaps for i in self.intervals.values())
 
 
 class CompletenessReporter:
-    """
-    Generate comprehensive completeness reports for tiers.
-
-    This service provides visibility into data quality and completeness,
-    helping answer questions like:
-    - "Do I have complete TIER1 data?"
-    - "Which assets need attention?"
-    - "What CSV files do I need to download?"
-    """
-
     def __init__(self, database: str = "questdb"):
-        """
-        Initialize completeness reporter.
-
-        Args:
-            database: Database alias for QuestDB queries (default: questdb)
-        """
         self.database = database
         self.questdb_client = QuestDBClient(database=database)
 
@@ -121,30 +85,10 @@ class CompletenessReporter:
         start_date: datetime,
         end_date: datetime,
     ) -> CompletenessReport:
-        """
-        Generate a comprehensive completeness report for a tier.
-
-        This report includes:
-        - Overall completeness percentage
-        - Per-interval completeness
-        - Per-asset completeness
-        - Gap counts (fillable vs unfillable)
-        - Assets requiring attention
-
-        Args:
-            tier: Asset tier (TIER1, TIER2, TIER3, TIER4)
-            intervals: List of interval minutes to analyze
-            start_date: Expected data start date
-            end_date: Expected data end date
-
-        Returns:
-            CompletenessReport with detailed metrics
-        """
         logger.info(f"Generating completeness report for {tier}: {start_date.date()} to {end_date.date()}")
 
         report = CompletenessReport(tier=tier, date_range_start=start_date, date_range_end=end_date)
 
-        # Get assets for tier
         if tier == "ALL":
             assets = Asset.objects.filter(category=Asset.Category.CRYPTO, active=True)
         else:
@@ -152,7 +96,6 @@ class CompletenessReporter:
 
         logger.info(f"Analyzing {assets.count()} assets")
 
-        # Generate completeness for each interval
         for interval_minutes in intervals:
             interval_completeness = self._analyze_interval(
                 assets=list(assets),
@@ -176,18 +119,6 @@ class CompletenessReporter:
         start_date: datetime,
         end_date: datetime,
     ) -> IntervalCompleteness:
-        """
-        Analyze completeness for a specific interval across all assets.
-
-        Args:
-            assets: List of assets to analyze
-            interval_minutes: Interval in minutes
-            start_date: Expected data start date
-            end_date: Expected data end date
-
-        Returns:
-            IntervalCompleteness with metrics
-        """
         logger.debug(f"Analyzing {interval_minutes}min interval")
 
         asset_completeness_list = []
@@ -236,24 +167,11 @@ class CompletenessReporter:
         start_date: datetime,
         end_date: datetime,
     ) -> AssetCompleteness:
-        """
-        Analyze completeness for a single asset/interval.
-
-        Args:
-            asset: Asset to analyze
-            interval_minutes: Interval in minutes
-            start_date: Expected data start date
-            end_date: Expected data end date
-
-        Returns:
-            AssetCompleteness with metrics
-        """
         # Calculate expected candles
         expected_candles = self._calculate_expected_candles(
             start_date=start_date, end_date=end_date, interval_minutes=interval_minutes
         )
 
-        # Query actual candles from QuestDB
         actual_candles = self._count_actual_candles(
             asset=asset, interval_minutes=interval_minutes, start_date=start_date, end_date=end_date
         )
@@ -261,7 +179,6 @@ class CompletenessReporter:
         # Calculate completeness percentage
         completeness_pct = (actual_candles / expected_candles * 100) if expected_candles > 0 else 0.0
 
-        # Count gaps
         gaps = GapRecord.objects.filter(
             asset=asset,
             interval_minutes=interval_minutes,
@@ -285,17 +202,6 @@ class CompletenessReporter:
         )
 
     def _calculate_expected_candles(self, start_date: datetime, end_date: datetime, interval_minutes: int) -> int:
-        """
-        Calculate expected number of candles in a date range.
-
-        Args:
-            start_date: Range start
-            end_date: Range end
-            interval_minutes: Candle interval in minutes
-
-        Returns:
-            Expected candle count
-        """
         total_minutes = (end_date - start_date).total_seconds() / 60
         expected = int(total_minutes / interval_minutes)
         return expected
@@ -303,20 +209,7 @@ class CompletenessReporter:
     def _count_actual_candles(
         self, asset: Asset, interval_minutes: int, start_date: datetime, end_date: datetime
     ) -> int:
-        """
-        Count actual candles in QuestDB for an asset/interval/date range.
-
-        Args:
-            asset: Asset to count
-            interval_minutes: Interval in minutes
-            start_date: Range start
-            end_date: Range end
-
-        Returns:
-            Actual candle count
-        """
         try:
-            # Use safe parameterized query
             count = self.questdb_client.count_candles(
                 asset_id=asset.id,
                 interval_minutes=interval_minutes,
@@ -333,26 +226,18 @@ class CompletenessReporter:
             return 0
 
     def display_report(self, report: CompletenessReport):
-        """
-        Display formatted completeness report to terminal.
-
-        Args:
-            report: CompletenessReport to display
-        """
         print("\n╔══════════════════════════════════════════════════════════╗")
         print(f"║  {report.tier} Data Completeness Report                        ")
         print(f"║  Date Range: {report.date_range_start.date()} to {report.date_range_end.date()}")
         print(f"║  Intervals: {', '.join(f'{i}min' for i in report.intervals.keys())}")
         print("╚══════════════════════════════════════════════════════════╝\n")
 
-        # Overall statistics
         print("Overall Statistics:")
         print(f"• Total Assets: {report.total_assets}")
         print(f"• Overall Completeness: {report.overall_completeness_pct:.1f}%")
         print(f"• Total Gaps: {report.total_gaps}")
         print()
 
-        # Interval breakdown
         print("Interval Breakdown:\n")
         for interval_minutes, interval_comp in sorted(report.intervals.items()):
             print(
@@ -366,12 +251,10 @@ class CompletenessReporter:
             print(f"  - Require CSV: {interval_comp.unfillable_gaps}")
             print()
 
-        # Assets requiring attention
         print("Assets Requiring Attention:\n")
         attention_count = 0
 
         for interval_minutes, interval_comp in sorted(report.intervals.items()):
-            # Find assets with gaps
             assets_with_gaps = [a for a in interval_comp.assets if a.has_gaps]
 
             if assets_with_gaps:
@@ -394,7 +277,6 @@ class CompletenessReporter:
             print("✓ All assets are 100% complete!")
             print()
 
-        # Recommended actions
         total_fillable = sum(i.fillable_gaps for i in report.intervals.values())
         total_unfillable = sum(i.unfillable_gaps for i in report.intervals.values())
 
@@ -413,13 +295,6 @@ class CompletenessReporter:
                 print(f"   python manage.py ingest_kraken_unified --tier {report.tier}\n")
 
     def export_report_json(self, report: CompletenessReport, output_file: str):
-        """
-        Export report as JSON for programmatic access.
-
-        Args:
-            report: CompletenessReport to export
-            output_file: Path to output JSON file
-        """
         import json
 
         data = {
@@ -462,18 +337,6 @@ class CompletenessReporter:
         logger.info(f"Exported completeness report to {output_file}")
 
     def compare_reports(self, report1: CompletenessReport, report2: CompletenessReport) -> dict:
-        """
-        Compare two completeness reports to show improvement/degradation.
-
-        Useful for tracking progress over time.
-
-        Args:
-            report1: Earlier report
-            report2: Later report
-
-        Returns:
-            Dictionary with comparison metrics
-        """
         comparison = {
             "completeness_change": report2.overall_completeness_pct - report1.overall_completeness_pct,
             "gaps_change": report2.total_gaps - report1.total_gaps,

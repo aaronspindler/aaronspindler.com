@@ -11,6 +11,7 @@ from django.urls import reverse
 
 from utils.tasks import send_email, send_text_message
 
+
 class NotificationConfig(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -18,6 +19,7 @@ class NotificationConfig(models.Model):
     emails_enabled = models.BooleanField()
     text_messages_enabled = models.BooleanField()
     
+
 class NotificationEmail(models.Model):
     user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE)
     email = models.EmailField(unique=True)
@@ -66,6 +68,7 @@ class NotificationEmail(models.Model):
     def __str__(self):
         return self.email
 
+
 class NotificationPhoneNumber(models.Model):
     user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE)
     phone_number = models.CharField(max_length=15, unique=True)
@@ -106,6 +109,7 @@ class NotificationPhoneNumber(models.Model):
     def __str__(self):
         return self.phone_number
     
+
 class Email(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
@@ -117,7 +121,6 @@ class Email(models.Model):
 
     recipient = models.EmailField()
 
-    # These will be generated on send
     text_body = models.TextField(blank=True, null=True)
     html_body = models.TextField(blank=True, null=True)
 
@@ -130,6 +133,7 @@ class Email(models.Model):
             return json.loads(self.parameters)
         return {}
     
+
 class TextMessage(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
@@ -149,6 +153,7 @@ class TextMessage(models.Model):
             return json.loads(self.parameters)
         return {}
     
+
 class Notification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

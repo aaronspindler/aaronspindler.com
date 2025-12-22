@@ -7,7 +7,6 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 from sentry_sdk.integrations.django import DjangoIntegration
 
 env = environ.Env(
-    # set casting, default value
     DEBUG=(bool, False),
 )
 
@@ -34,7 +33,6 @@ if not DEBUG:
 
 ALLOWED_HOSTS = ["localhost", "0.0.0.0", "127.0.0.1", "actionsuptime-web.spindlers.dev", "www.actionsuptime.com", "actionsuptime.com"]
 
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -45,7 +43,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.sitemaps",
     "django.contrib.sites",
-    # Third-party
     "allauth",
     "allauth.account",
     'allauth.socialaccount',
@@ -56,7 +53,6 @@ INSTALLED_APPS = [
     "django_celery_beat",
     "django_extensions",
     "djstripe",
-    # Local
     "accounts",
     "pages",
     "actions",
@@ -100,7 +96,6 @@ else:
         }
     }
 
-# Celery
 CELERY_BROKER_URL = env("REDIS_URL")
 
 ROOT_URLCONF = "config.urls"
@@ -168,7 +163,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CRISPY_ALLOWED_TEMPLATE_PACKS = 'bootstrap5'
 CRISPY_TEMPLATE_PACK = "bootstrap5"
 
-
 BASE_URL = "https://actionsuptime.com"
 
 INTERNAL_IPS = ["127.0.0.1"]
@@ -182,7 +176,6 @@ LOGIN_REDIRECT_URL = "home"
 ACCOUNT_LOGOUT_REDIRECT_URL = "home"
 
 CSRF_TRUSTED_ORIGINS = ["https://actionsuptime.com", "https://*.spindlers.dev", "https://www.actionsuptime.com"]
-
 
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
@@ -210,7 +203,6 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
-# SES
 EMAIL_BACKEND = "django_ses.SESBackend"
 DEFAULT_FROM_EMAIL = '"ActionsUptime" <no-reply@actionsuptime.com>'
 SERVER_EMAIL = "no-reply@actionsuptime.com"
@@ -218,11 +210,9 @@ AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
 USE_SES_V2 = True
 
-# Stripe
 STRIPE_LIVE_MODE = True
 DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"
 
-# Testing
 import sys
 TESTING = len(sys.argv) > 1 and sys.argv[1] == 'test'
 

@@ -6,16 +6,11 @@ from utils.models import LighthouseAudit
 
 
 class BadgeEndpointTests(TestCase):
-    """Test cases for the badge endpoint."""
-
     def setUp(self):
-        """Ensure clean state before each test."""
         LighthouseAudit.objects.all().delete()
-        # Clear cache to prevent test pollution from @cache_page decorator
         cache.clear()
 
     def test_badge_endpoint_no_data(self):
-        """Test badge endpoint returns 404 when no audits exist."""
         response = self.client.get(reverse("lighthouse_badge"))
         self.assertEqual(response.status_code, 404)
         data = response.json()
@@ -23,7 +18,6 @@ class BadgeEndpointTests(TestCase):
         self.assertEqual(data["color"], "lightgrey")
 
     def test_badge_endpoint_with_data(self):
-        """Test badge endpoint returns correct data when audits exist."""
         LighthouseAudit.objects.create(
             url="https://example.com",
             performance_score=95,
@@ -40,7 +34,6 @@ class BadgeEndpointTests(TestCase):
         self.assertEqual(data["color"], "brightgreen")
 
     def test_badge_color_yellow_for_medium_scores(self):
-        """Test badge endpoint returns yellow color for medium scores."""
         LighthouseAudit.objects.create(
             url="https://example.com",
             performance_score=80,
@@ -53,7 +46,6 @@ class BadgeEndpointTests(TestCase):
         self.assertEqual(data["color"], "yellow")
 
     def test_badge_color_red_for_low_scores(self):
-        """Test badge endpoint returns red color for low scores."""
         LighthouseAudit.objects.create(
             url="https://example.com",
             performance_score=60,
@@ -67,15 +59,11 @@ class BadgeEndpointTests(TestCase):
 
 
 class HistoryPageTests(TestCase):
-    """Test cases for the history page."""
-
     def test_history_page_no_audits(self):
-        """Test history page displays appropriate message when no audits exist."""
         response = self.client.get(reverse("lighthouse_history"))
         self.assertContains(response, "No Lighthouse audits have been run yet")
 
     def test_history_page_with_audits(self):
-        """Test history page displays audit data correctly."""
         LighthouseAudit.objects.create(
             url="https://example.com",
             performance_score=95,

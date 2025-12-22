@@ -1,10 +1,3 @@
-"""
-Data Transfer Objects (DTOs) for asset price data.
-
-Provides standardized data structures for transferring price data between
-external APIs and the AssetPrice model.
-"""
-
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -13,12 +6,6 @@ from typing import Optional
 
 @dataclass
 class PriceDataDTO:
-    """
-    Data Transfer Object for asset OHLCV price data.
-
-    Standardizes price and volume data from various sources for the AssetPrice model.
-    """
-
     ticker: str
     timestamp: datetime
     open: Decimal
@@ -29,7 +16,6 @@ class PriceDataDTO:
     source: str = "unknown"
 
     def __post_init__(self):
-        """Validate and normalize data types."""
         if not self.ticker:
             raise ValueError("Ticker is required")
         if not self.timestamp:
@@ -38,7 +24,6 @@ class PriceDataDTO:
             raise ValueError("Close price is required")
 
         def _to_decimal(value, max_places=8):
-            """Convert to Decimal with max precision."""
             if value is None:
                 return None
             if isinstance(value, (int, float)):

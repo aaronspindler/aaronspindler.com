@@ -1,13 +1,3 @@
-"""
-Management command to reprocess photos locally without Celery.
-
-Usage:
-    python manage.py reprocess_photos
-    python manage.py reprocess_photos --status pending
-    python manage.py reprocess_photos --ids 1,2,3
-    python manage.py reprocess_photos --limit 10
-"""
-
 import logging
 
 from django.core.management.base import BaseCommand

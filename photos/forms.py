@@ -26,8 +26,6 @@ class MultipleFileField(forms.FileField):
 
 
 class PhotoBulkUploadForm(forms.Form):
-    """Form for bulk uploading photos."""
-
     images = MultipleFileField(
         label="Select images",
         help_text="You can select multiple images at once",
@@ -46,22 +44,6 @@ class PhotoBulkUploadForm(forms.Form):
         self.fields["album"].queryset = PhotoAlbum.objects.all()
 
     def save(self, skip_duplicates=True, process_async=True):
-        """
-        Save all uploaded images as Photo objects.
-
-        Args:
-            skip_duplicates: If True, silently skip duplicate images.
-                           If False, raise ValidationError on duplicates.
-            process_async: If True, queue image processing as background tasks.
-                          If False, process images synchronously.
-
-        Returns:
-            dict: {
-                'created': List of successfully created Photo objects,
-                'skipped': List of (filename, reason) tuples for skipped images,
-                'errors': List of (filename, error) tuples for failed uploads
-            }
-        """
         from photos.tasks import process_photo_async
 
         images = self.cleaned_data["images"]
@@ -118,8 +100,6 @@ class PhotoBulkUploadForm(forms.Form):
 
 
 class PhotoAlbumForm(forms.ModelForm):
-    """Form for PhotoAlbum that explicitly allows empty albums."""
-
     class Meta:
         model = PhotoAlbum
         fields = ["title", "slug", "description", "is_private", "allow_downloads"]

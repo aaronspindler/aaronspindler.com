@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import Action, ActionStatus
 
+
 @admin.register(Action)
 class ActionAdmin(admin.ModelAdmin):
     list_display = ('url', 'owner', 'interval', 'created_at', 'updated_at')

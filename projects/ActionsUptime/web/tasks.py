@@ -4,6 +4,7 @@ from web.lambda_function import check_endpoint_function
 from web.models import Endpoint, EndpointStatus, EndpointStatusCheckRequest
 from .lambda_handler import invoke_lambda
 
+
 @shared_task
 def check_endpoint_status_lambda(endpoint_id):
     endpoint = Endpoint.objects.get(id=endpoint_id)
@@ -11,12 +12,14 @@ def check_endpoint_status_lambda(endpoint_id):
         request = EndpointStatusCheckRequest.objects.create(endpoint=endpoint, region=region)
         invoke_lambda(endpoint_id, str(request.key), region.code)
 
+
 @shared_task
 def check_all_endpoints_status_interval(interval):
     endpoints = Endpoint.objects.filter(interval=interval)
     for endpoint in endpoints:
         check_endpoint_status_local.delay(endpoint.id)
         check_endpoint_status_lambda.delay(endpoint.id)
+
 
 @shared_task
 def check_endpoint_status_local(endpoint_id):

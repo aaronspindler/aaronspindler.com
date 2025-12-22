@@ -9,6 +9,7 @@ from django.urls import reverse
 from utils.common_list_choices import INTERVAL_CHOICES
 from utils.models import Notification
 
+
 class Endpoint(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -209,6 +210,7 @@ class Endpoint(models.Model):
             'request_headers': self.request_headers,
         }
     
+
 class EndpointStatusCheckRequest(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

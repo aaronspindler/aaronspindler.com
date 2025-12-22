@@ -8,12 +8,14 @@ from utils.common_list_choices import get_interval_choices, get_region_choices
 from utils.models import NotificationEmail, NotificationPhoneNumber
 from utils.phone_numbers import clean_phone_number
 
+
 class UtilUtilsTests(BaseTestCase):
     def test_phone_number_clean(self):
         self.assertEqual(clean_phone_number('123-456-7890'), '1234567890')
         self.assertEqual(clean_phone_number('1234567890'), '1234567890')
         self.assertEqual(clean_phone_number('1234567890123456'), '1234567890123456')
         self.assertEqual(clean_phone_number('12345678901234567890'), '12345678901234567890')
+
 
 class UtilsCommonListChoicesTests(BaseTestCase):
     def test_get_interval_choices(self):
@@ -226,7 +228,6 @@ class UtilsViewTests(BaseTestCase):
         self.assertContains(response, 'Invalid verification code')
         
     def test_verify_email_unauthenticated(self):
-        # This needs to pass because the email hot link could be clicked in a different browser or device
         self.client.logout()
         email = NotificationEmail.objects.create(user=self.paid_user, email='test@example.com')
         response = self.client.get(reverse('verify_email', args=[email.id, email.verification_code]), follow=True)

@@ -6,6 +6,7 @@ from actions.models import Action
 from utils.models import HTTPStatusCode
 from web.models import Endpoint
 
+
 class BaseTestCase(TestCase):
     databases = "__all__"
     
@@ -54,6 +55,7 @@ class BaseTestCase(TestCase):
             "notification_types": ["email", "sms"],
             "endpoint_regions": ["CA", "US", "EU", "AP", "AF", "SA", "ME"],
         }
+
 
 class BaseLiveTestCase(LiveServerTestCase, BaseTestCase):
     pass

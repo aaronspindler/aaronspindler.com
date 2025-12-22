@@ -13,12 +13,6 @@ logger = logging.getLogger(__name__)
     max_retries=3,
 )
 def rebuild_knowledge_graph(self, force_refresh=False):
-    """
-    Rebuild the knowledge graph cache periodically.
-
-    This task is run by Celery Beat to keep the graph data fresh.
-    Caches the result for 1 hour to improve performance.
-    """
     from blog.knowledge_graph import build_knowledge_graph
 
     try:
@@ -39,19 +33,10 @@ def rebuild_knowledge_graph(self, force_refresh=False):
     max_retries=2,
 )
 def generate_knowledge_graph_screenshot(self):
-    """
-    Generate a static screenshot of the knowledge graph for faster loading.
-
-    This task runs periodically to update the cached screenshot image,
-    avoiding the need for dynamic generation on each request.
-
-    Uses Playwright/Chromium to take high-quality screenshots of the live site.
-    """
     from django.core.management import call_command
 
     try:
         logger.info("Starting knowledge graph screenshot generation task...")
-        # Call the management command with the production URL
         call_command("generate_knowledge_graph_screenshot", "--url", "https://aaronspindler.com")
         logger.info("Knowledge graph screenshot generated successfully")
         return "screenshot_generated"

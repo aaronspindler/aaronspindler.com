@@ -7,6 +7,7 @@ from unittest import mock
 from config.testcases import BaseTestCase
 from utils.models import NotificationEmail, NotificationPhoneNumber
 
+
 class ActionTaskTests(BaseTestCase):
     def test_check_action_status_badge(self):
         check_action_status_badge(self.success_action.id)
@@ -32,6 +33,7 @@ class ActionModelTests(BaseTestCase):
         action = Action.objects.create(owner=self.paid_user, url="https://github.com/FredFlintstone/Speeder/actions/workflows/test-and-deploy.yml")
         self.assertEqual(action.repo_name, "FredFlintstone/Speeder")
         self.assertEqual(action.action_name, "test-and-deploy.yml")
+
 
 class ActionViewTests(BaseTestCase):
     def test_add_action_view_private(self):
@@ -140,11 +142,9 @@ class ActionViewTests(BaseTestCase):
     def test_action_available_notification_methods(self):
         self.client.force_login(self.paid_user)
         
-        # Create notification methods for the user
         email = NotificationEmail.objects.create(user=self.paid_user, email='test@example.com', verified=True)
         phone = NotificationPhoneNumber.objects.create(user=self.paid_user, phone_number='+1234567890', verified=True)
         
-        # Add these methods to the action
         self.success_action.notify_emails.add(email)
         self.success_action.notify_phone_numbers.add(phone)
         

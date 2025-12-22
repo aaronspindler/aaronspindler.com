@@ -3,17 +3,14 @@ import json
 from django.core.management.base import BaseCommand
 from django_celery_beat.models import CrontabSchedule, PeriodicTask
 
-# Define all periodic tasks here - just add to the list!
 # Format: (name, task_path, cron_schedule, description)
 PERIODIC_TASKS = [
-    # IP geolocation
     (
         "Geolocate missing IP addresses",
         "utils.tasks.geolocate_missing_ips",
         {"minute": "*/15", "hour": "*"},
         "Geolocates up to 200 IP addresses without geo data every 15 minutes",
     ),
-    # Daily tasks
     (
         "Run daily Lighthouse audit",
         "utils.tasks.run_lighthouse_audit",
@@ -32,7 +29,6 @@ PERIODIC_TASKS = [
         {"minute": "0", "hour": "4"},
         "Generates a fresh knowledge graph screenshot every day at 4 AM",
     ),
-    # Recurring tasks
     (
         "Rebuild knowledge graph cache",
         "blog.tasks.rebuild_knowledge_graph",
@@ -46,13 +42,11 @@ class Command(BaseCommand):
     help = "Setup periodic tasks for Celery Beat"
 
     def handle(self, *args, **options):
-        # Track configured task names
         configured_task_names = set()
 
         for name, task_path, cron_config, description in PERIODIC_TASKS:
             configured_task_names.add(name)
 
-            # Create cron schedule with defaults for unspecified fields
             schedule, _ = CrontabSchedule.objects.get_or_create(
                 minute=cron_config.get("minute", "*"),
                 hour=cron_config.get("hour", "*"),
@@ -61,7 +55,6 @@ class Command(BaseCommand):
                 month_of_year=cron_config.get("month_of_year", "*"),
             )
 
-            # Create or update the periodic task
             task, created = PeriodicTask.objects.update_or_create(
                 name=name,
                 defaults={
@@ -76,7 +69,6 @@ class Command(BaseCommand):
             action = "Created" if created else "Updated"
             self.stdout.write(self.style.SUCCESS(f"{action}: {task.name}"))
 
-        # Remove tasks that are no longer in the configuration
         orphaned_tasks = PeriodicTask.objects.exclude(name__in=configured_task_names)
         if orphaned_tasks.exists():
             self.stdout.write(self.style.WARNING(f"\nRemoving {orphaned_tasks.count()} orphaned task(s):"))

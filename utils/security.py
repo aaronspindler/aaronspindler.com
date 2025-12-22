@@ -1,7 +1,3 @@
-"""
-Request fingerprinting and IP tracking utilities for security and analytics.
-"""
-
 import hashlib
 import logging
 from typing import Any, Dict, List, Optional, Tuple
@@ -12,25 +8,13 @@ logger = logging.getLogger(__name__)
 
 
 def is_local_ip(ip_address: str) -> bool:
-    """
-    Check if an IP address is local/private.
-
-    Args:
-        ip_address: IP address string
-
-    Returns:
-        True if the IP is local/private, False otherwise
-    """
     if not ip_address or ip_address == "unknown":
         return False
 
-    # Check for localhost
     if ip_address in ["127.0.0.1", "::1", "localhost"]:
         return True
 
-    # Check for private IP ranges (RFC 1918)
     if ip_address.startswith(("10.", "192.168.", "172.")):
-        # For 172.x.x.x, need to check if it's in the 172.16.0.0 - 172.31.255.255 range
         if ip_address.startswith("172."):
             try:
                 second_octet = int(ip_address.split(".")[1])
@@ -43,23 +27,6 @@ def is_local_ip(ip_address: str) -> bool:
 
 
 def is_reserved_ip(ip_address: str) -> bool:
-    """
-    Check if an IP address is in any reserved range.
-
-    Reserved ranges include:
-    - Private networks (RFC 1918): 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-    - Loopback: 127.0.0.0/8
-    - Link-local: 169.254.0.0/16
-    - Multicast: 224.0.0.0/4 (224-239.x.x.x)
-    - Reserved for future use: 240.0.0.0/4
-    - And more...
-
-    Args:
-        ip_address: IP address string
-
-    Returns:
-        True if the IP is reserved, False otherwise
-    """
     if not ip_address or ip_address == "unknown":
         return False
 
@@ -68,7 +35,6 @@ def is_reserved_ip(ip_address: str) -> bool:
 
         ip = ipaddr.ip_address(ip_address)
 
-        # Check if IP is in any reserved range
         return (
             ip.is_private  # RFC 1918 private networks
             or ip.is_loopback  # 127.0.0.0/8
@@ -83,18 +49,6 @@ def is_reserved_ip(ip_address: str) -> bool:
 
 
 def is_global_ip(ip_address: str) -> bool:
-    """
-    Check if an IP address is a global/routable IP address.
-
-    Global IPs are public addresses that can be routed on the internet.
-    This excludes private, loopback, multicast, and other reserved ranges.
-
-    Args:
-        ip_address: IP address string
-
-    Returns:
-        True if the IP is global/routable, False otherwise
-    """
     if not ip_address or ip_address == "unknown":
         return False
 
@@ -110,15 +64,6 @@ def is_global_ip(ip_address: str) -> bool:
 
 
 def is_trusted_proxy(ip_address: str) -> bool:
-    """
-    Check if an IP address is from a trusted proxy.
-
-    Args:
-        ip_address: IP address string
-
-    Returns:
-        True if the IP is from a trusted proxy, False otherwise
-    """
     if not ip_address or ip_address == "unknown":
         return False
 
@@ -156,34 +101,15 @@ def is_trusted_proxy(ip_address: str) -> bool:
 
 
 def get_client_ip(request) -> str:
-    """
-    Extract the client's IP address from the request.
-    Handles proxy headers (X-Forwarded-For, X-Real-IP) and falls back to REMOTE_ADDR.
-
-    Security: Only trusts forwarded headers if REMOTE_ADDR is from a trusted proxy.
-    This prevents IP spoofing attacks.
-
-    Args:
-        request: Django HttpRequest object
-
-    Returns:
-        Client IP address as string, or 'unknown' if extraction fails
-    """
     try:
-        # Get the direct connection IP (REMOTE_ADDR)
         remote_addr = request.META.get("REMOTE_ADDR", "").strip()
         is_from_trusted_proxy = is_trusted_proxy(remote_addr) if remote_addr else False
 
-        # Only trust forwarded headers if request is from a trusted proxy
         if is_from_trusted_proxy:
-            # Check X-Forwarded-For first (most common proxy header)
             x_forwarded_for = request.headers.get("x-forwarded-for")
             if x_forwarded_for:
-                # X-Forwarded-For can contain multiple IPs (client, proxy1, proxy2, ...)
-                # The first IP is typically the original client
                 ip_address = x_forwarded_for.split(",")[0].strip()
                 if ip_address:
-                    # Validate that forwarded IP is global/public (not private)
                     if is_global_ip(ip_address):
                         return ip_address
                     else:
@@ -192,12 +118,10 @@ def get_client_ip(request) -> str:
                             f"falling back to REMOTE_ADDR"
                         )
 
-            # Check X-Real-IP header (used by some proxies like nginx)
             x_real_ip = request.headers.get("x-real-ip")
             if x_real_ip:
                 ip_address = x_real_ip.strip()
                 if ip_address:
-                    # Validate that forwarded IP is global/public (not private)
                     if is_global_ip(ip_address):
                         return ip_address
                     else:
@@ -206,11 +130,7 @@ def get_client_ip(request) -> str:
                             f"falling back to REMOTE_ADDR"
                         )
 
-        # Fall back to REMOTE_ADDR
-        # If REMOTE_ADDR is from a trusted proxy but forwarded headers are invalid/missing,
-        # or if REMOTE_ADDR is not from a trusted proxy (direct connection), use REMOTE_ADDR
         if remote_addr:
-            # Only return REMOTE_ADDR if it's a global IP (not a private proxy IP)
             if is_global_ip(remote_addr):
                 return remote_addr
             else:
@@ -227,18 +147,8 @@ def get_client_ip(request) -> str:
 
 
 def get_request_headers(request) -> Dict[str, str]:
-    """
-    Extract relevant HTTP headers from the request for fingerprinting.
-
-    Args:
-        request: Django HttpRequest object
-
-    Returns:
-        Dictionary of relevant headers
-    """
     headers = {}
 
-    # Headers that are useful for fingerprinting
     relevant_headers = [
         "HTTP_USER_AGENT",
         "HTTP_ACCEPT",
@@ -265,73 +175,35 @@ def get_request_headers(request) -> Dict[str, str]:
 
 
 def generate_fingerprint(request, include_ip: bool = True) -> str:
-    """
-    Generate a unique fingerprint hash for the request.
-
-    The fingerprint is based on:
-    - IP address (optional)
-    - User agent
-    - Accept headers (content types, language, encoding)
-    - Browser security headers
-
-    Args:
-        request: Django HttpRequest object
-        include_ip: Whether to include IP address in fingerprint (default: True)
-
-    Returns:
-        SHA256 hash representing the request fingerprint
-    """
     try:
         fingerprint_components = []
 
-        # Add IP address if requested
         if include_ip:
             ip_address = get_client_ip(request)
             fingerprint_components.append(f"ip:{ip_address}")
 
-        # Add headers
         headers = get_request_headers(request)
         for key in sorted(headers.keys()):  # Sort for consistency
             fingerprint_components.append(f"{key}:{headers[key]}")
 
-        # Combine all components
         fingerprint_string = "|".join(fingerprint_components)
 
-        # Generate hash
         fingerprint_hash = hashlib.sha256(fingerprint_string.encode("utf-8")).hexdigest()
 
         return fingerprint_hash
 
     except Exception as e:
         logger.error(f"Error generating request fingerprint: {e}", exc_info=True)
-        # Return a fallback fingerprint based on timestamp
         import time
 
         return hashlib.sha256(f"fallback:{time.time()}".encode("utf-8")).hexdigest()
 
 
 def get_request_fingerprint_data(request) -> Dict[str, Any]:
-    """
-    Get comprehensive fingerprint data for a request.
-
-    Args:
-        request: Django HttpRequest object
-
-    Returns:
-        Dictionary containing:
-        - ip_address: Client IP address
-        - user_agent: User agent string
-        - headers: Dictionary of relevant headers
-        - fingerprint: Unique fingerprint hash (with IP)
-        - fingerprint_no_ip: Fingerprint hash without IP (for tracking across IPs)
-        - method: HTTP method
-        - path: Request path
-    """
     try:
         ip_address = get_client_ip(request)
         headers = get_request_headers(request)
 
-        # Extract query parameters as a dictionary
         query_params = dict(request.GET.lists()) if request.GET else {}
         # Convert single-item lists to single values for cleaner storage
         query_params = {k: v[0] if len(v) == 1 else v for k, v in query_params.items()}
@@ -366,17 +238,6 @@ def get_request_fingerprint_data(request) -> Dict[str, Any]:
 
 
 def parse_user_agent(user_agent: str) -> Dict[str, Optional[str]]:
-    """
-    Parse a user agent string to extract browser, OS, and device information.
-
-    Uses the user-agents library for accurate parsing.
-
-    Args:
-        user_agent: User agent string
-
-    Returns:
-        Dictionary with browser, browser_version, os, and device information
-    """
     if not user_agent or user_agent == "unknown":
         return {
             "browser": None,
@@ -390,14 +251,11 @@ def parse_user_agent(user_agent: str) -> Dict[str, Optional[str]]:
 
         ua = parse(user_agent)
 
-        # Get browser info
         browser = ua.browser.family if ua.browser.family else None
         browser_version = ua.browser.version_string if ua.browser.version_string else None
 
-        # Get OS info
         os_name = ua.os.family if ua.os.family else None
 
-        # Determine device type
         if ua.is_mobile:
             device = "Mobile"
         elif ua.is_tablet:
@@ -427,39 +285,19 @@ def parse_user_agent(user_agent: str) -> Dict[str, Optional[str]]:
 
 
 def is_suspicious_request(request) -> Tuple[bool, Optional[str]]:
-    """
-    Perform checks to identify potentially suspicious requests.
-
-    Checks:
-    - Missing User-Agent header
-    - Suspicious user agent patterns (configurable via settings)
-    - Suspicious paths (wp-admin, .env, .git, etc.)
-    - Missing Accept header
-    - Unknown IP address
-
-    Args:
-        request: Django HttpRequest object
-
-    Returns:
-        Tuple of (is_suspicious: bool, reason: Optional[str])
-    """
     from django.conf import settings
 
-    # Allowed search engine bots (not considered suspicious)
     allowed_bots = ["googlebot", "bingbot", "yandexbot", "duckduckbot", "baiduspider", "slurp"]
 
     try:
-        # Check for missing User-Agent (common for bots)
         user_agent = request.headers.get("user-agent", "")
         if not user_agent:
             return (True, "Missing User-Agent header")
 
         ua_lower = user_agent.lower()
 
-        # Check if it's an allowed search engine bot
         is_allowed_bot = any(bot in ua_lower for bot in allowed_bots)
 
-        # Check for suspicious user agents (from settings or defaults)
         suspicious_ua_patterns = getattr(
             settings,
             "REQUEST_TRACKING_SUSPICIOUS_USER_AGENTS",
@@ -471,7 +309,6 @@ def is_suspicious_request(request) -> Tuple[bool, Optional[str]]:
                 if pattern.lower() in ua_lower:
                     return (True, f"Suspicious User-Agent pattern: {pattern}")
 
-        # Check for suspicious paths (from settings or defaults)
         suspicious_paths = getattr(
             settings,
             "REQUEST_TRACKING_SUSPICIOUS_PATHS",
@@ -483,11 +320,9 @@ def is_suspicious_request(request) -> Tuple[bool, Optional[str]]:
             if path.startswith(suspicious_path.lower()):
                 return (True, f"Suspicious path: {suspicious_path}")
 
-        # Check for missing common headers
         if not request.headers.get("accept"):
             return (True, "Missing Accept header")
 
-        # Check for IP address issues
         ip_address = get_client_ip(request)
         if ip_address == "unknown":
             return (True, "Unable to determine IP address")
@@ -500,22 +335,6 @@ def is_suspicious_request(request) -> Tuple[bool, Optional[str]]:
 
 
 def geolocate_ip(ip_address: str) -> Optional[Dict[str, Any]]:
-    """
-    Geolocate a single IP address using ip-api.com.
-
-    Args:
-        ip_address: IP address to geolocate
-
-    Returns:
-        Dictionary with geolocation data or None if failed
-        Response includes: country, countryCode, region, regionName, city,
-                          zip, lat, lon, timezone, isp, org, as, query
-
-    Note:
-        Free tier limit: 45 requests per minute
-        For batch requests, use geolocate_ips_batch()
-    """
-    # Only geolocate global/routable IPs
     if not is_global_ip(ip_address):
         logger.debug(f"Skipping geolocation for non-global IP: {ip_address}")
         return None
@@ -526,7 +345,6 @@ def geolocate_ip(ip_address: str) -> Optional[Dict[str, Any]]:
         data = response.json()
 
         if data.get("status") == "success":
-            # Remove status and query fields (query is the IP we already have)
             data.pop("status", None)
             data.pop("query", None)
             logger.debug(f"Successfully geolocated IP {ip_address}: {data.get('city')}, {data.get('country')}")
@@ -546,24 +364,8 @@ def geolocate_ip(ip_address: str) -> Optional[Dict[str, Any]]:
 def geolocate_ips_batch(
     ip_addresses: List[str], batch_size: int = 100, max_batches: Optional[int] = None
 ) -> Dict[str, Optional[Dict[str, Any]]]:
-    """
-    Geolocate multiple IP addresses in batches using ip-api.com batch endpoint.
-
-    Args:
-        ip_addresses: List of IP addresses to geolocate
-        batch_size: Number of IPs per batch (max 100 for free tier)
-        max_batches: Maximum number of batches to process (None = process all)
-
-    Returns:
-        Dictionary mapping IP addresses to their geolocation data
-
-    Note:
-        Free tier limit: 15 requests per minute for batch endpoint
-        Each batch can contain up to 100 IP addresses
-    """
     results = {}
 
-    # Filter out non-global IPs (private, loopback, multicast, reserved, etc.)
     filtered_ips = [ip for ip in ip_addresses if is_global_ip(ip)]
 
     if not filtered_ips:
@@ -578,7 +380,6 @@ def geolocate_ips_batch(
         f"(processing {batches_to_process}/{total_batches} batches)"
     )
 
-    # Process in batches
     batches_processed = 0
     for i in range(0, len(filtered_ips), batch_size):
         if max_batches and batches_processed >= max_batches:
@@ -589,7 +390,6 @@ def geolocate_ips_batch(
         batch_num = (i // batch_size) + 1
 
         try:
-            # ip-api.com batch endpoint expects JSON array of IP addresses
             response = requests.post(
                 "http://ip-api.com/batch",
                 json=batch,
@@ -599,7 +399,6 @@ def geolocate_ips_batch(
             response.raise_for_status()
             data = response.json()
 
-            # Process batch results
             for result in data:
                 if result.get("status") == "success":
                     ip = result.pop("query")

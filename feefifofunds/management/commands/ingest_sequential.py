@@ -1,9 +1,3 @@
-"""
-Optimized sequential file ingestor management command for OHLCV data.
-Fast, simple sequential processing without state tracking.
-https://support.kraken.com/sections/360009899492-csv-data
-"""
-
 import time
 import traceback
 from pathlib import Path
@@ -15,21 +9,9 @@ from feefifofunds.utils.progress_reporter import ProgressReporter
 
 
 class Command(BaseCommand):
-    """
-    Fast sequential ingestion of Kraken OHLCV files.
-
-    Features:
-    - Filter by tier: --tier (TIER1/2/3/4/ALL)
-    - Filter by intervals: --intervals (e.g., 60,1440 for 1h and 1d)
-    - Empty file deletion
-    - Progress tracking with ETA
-    - Move completed files to ingested/ folder
-    """
-
     help = "Fast sequential ingestion of Kraken OHLCV files with tier and interval filtering"
 
     def add_arguments(self, parser):
-        """Add command arguments."""
         parser.add_argument(
             "--tier",
             type=str,
@@ -66,7 +48,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        """Main command execution."""
         tier_filter = options["tier"]
         intervals_str = options.get("intervals")
         skip_confirmation = options["yes"]
@@ -84,10 +65,8 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR("Expected comma-separated integers, e.g., '60,1440'"))
                 return
 
-        # Initialize components
         ingestor = SequentialIngestor(database=database, data_dir=data_dir)
 
-        # Discover files to process
         self.stdout.write("🔍 Discovering files...")
         all_files = ingestor.discover_files(tier_filter, "ohlcv", interval_filter)
 
@@ -103,13 +82,10 @@ class Command(BaseCommand):
             tier = KrakenAssetCreator.determine_tier(ticker)
             tier_counts[tier] = tier_counts.get(tier, 0) + 1
 
-        # Initialize progress reporter
         reporter = ProgressReporter(tier=tier_filter, total_files=len(all_files))
 
-        # Display summary
         reporter.display_header()
 
-        # Show file breakdown
         self.stdout.write(f"\n📁 Files to process: {len(all_files):,}")
         self.stdout.write("   File type: OHLCV")
         self.stdout.write(f"   Tier filter: {tier_filter}")
@@ -122,7 +98,6 @@ class Command(BaseCommand):
             for tier, count in sorted(tier_counts.items()):
                 self.stdout.write(f"   {tier}: {count:,} files")
 
-        # Confirm before proceeding
         if not skip_confirmation and len(all_files) > 0:
             self.stdout.write(f"\n⚠️  This will process {len(all_files):,} files via QuestDB ILP")
             self.stdout.write("   Note: QuestDB deduplication enabled via UPSERT KEYS (migration 0004)")
@@ -135,27 +110,21 @@ class Command(BaseCommand):
         self.stdout.write("\n🔄 Loading asset cache...")
         ingestor.load_asset_cache()
 
-        # Connect to QuestDB ILP (persistent connection)
         self.stdout.write("\n⚙️  Connecting to QuestDB ILP...")
         ingestor.connect_ilp()
 
-        # Process files sequentially
         total_records = 0
         failed_files = []
 
         try:
             for filepath, file_type, _ in all_files:
-                # Get file size for display
                 file_size = filepath.stat().st_size
 
-                # Start file processing display
                 reporter.start_file(str(filepath), file_size)
 
-                # Process file with progress callback
                 def progress_callback(records, total_in_file=0):
                     reporter.update_records(records, total_in_file if total_in_file > 0 else None)
 
-                # Process the file
                 try:
                     success, records, error_msg = ingestor.process_file(filepath, file_type, progress_callback)
 
@@ -182,14 +151,11 @@ class Command(BaseCommand):
             self.stdout.write("\n\n⚠️  Interrupted by user")
 
         finally:
-            # Close ILP connection
             self.stdout.write("\n🔄 Closing ILP connection...")
             ingestor.disconnect_ilp()
 
-        # Display final summary
         reporter.display_summary()
 
-        # Show failed files if any
         if failed_files:
             self.stdout.write(f"\n❌ Failed files ({len(failed_files)}):")
             for filepath in failed_files[:10]:  # Show first 10
@@ -197,7 +163,6 @@ class Command(BaseCommand):
             if len(failed_files) > 10:
                 self.stdout.write(f"   ... and {len(failed_files) - 10} more")
 
-        # Show final statistics
         processed_count = reporter.completed_files
         self.stdout.write(f"\n✅ Total completed: {processed_count:,}/{len(all_files):,} files")
         self.stdout.write(f"   Total records: {total_records:,}")

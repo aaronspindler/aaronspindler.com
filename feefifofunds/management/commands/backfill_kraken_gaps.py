@@ -1,11 +1,3 @@
-"""
-Detects and backfills gaps in asset price data using the Kraken REST API.
-
-Identifies both missing days and missing intervals within days, classifies gaps
-based on Kraken's 720-candle API limitation, and provides options for interactive
-backfilling.
-"""
-
 import csv
 import os
 from collections import defaultdict
@@ -24,8 +16,6 @@ from feefifofunds.services.data_sources import KrakenDataSource
 
 @dataclass
 class Gap:
-    """Represents a gap in asset price data."""
-
     asset: Asset
     interval_minutes: int
     start_date: datetime
@@ -37,20 +27,10 @@ class Gap:
 
 
 class GapClassifier:
-    """Classifies gaps based on Kraken's 720-candle API limitation."""
-
     MAX_CANDLES = 720
 
     @classmethod
     def calculate_candles_from_today(cls, date_or_datetime: datetime, interval_minutes: int) -> int:
-        """
-        Calculate how many candles exist between a date and today.
-
-        Examples:
-        - interval=1440, date=30 days ago → 30 candles
-        - interval=60, date=10 days ago → 240 candles (10*24)
-        - interval=5, date=1 day ago → 288 candles (24*60/5)
-        """
         today = datetime.now(timezone.utc)
         time_diff = today - date_or_datetime
         minutes_diff = time_diff.total_seconds() / 60
@@ -59,12 +39,6 @@ class GapClassifier:
 
     @classmethod
     def classify_gap(cls, gap_end_date: datetime, interval_minutes: int) -> Tuple[bool, int, int]:
-        """
-        Check if gap is within Kraken's 720-candle API limit.
-
-        Returns:
-            (is_fillable, candles_from_today, overflow)
-        """
         candles = cls.calculate_candles_from_today(gap_end_date, interval_minutes)
         is_fillable = candles <= cls.MAX_CANDLES
         overflow = max(0, candles - cls.MAX_CANDLES)
@@ -72,20 +46,16 @@ class GapClassifier:
 
 
 class GapDetector:
-    """Detects gaps in QuestDB assetprice data."""
-
     def __init__(self, tier_filter: Optional[str] = None):
         self.tier_filter = tier_filter
 
     def get_assets_to_check(self) -> List[Asset]:
-        """Get list of assets to check based on tier filter."""
         queryset = Asset.objects.filter(active=True, category=Asset.Category.CRYPTO)
         if self.tier_filter and self.tier_filter != "ALL":
             queryset = queryset.filter(tier=self.tier_filter)
         return list(queryset)
 
     def get_asset_intervals(self, asset_id: int) -> List[int]:
-        """Get all intervals that have data for this asset."""
         query = """
         SELECT DISTINCT interval_minutes
         FROM assetprice
@@ -97,7 +67,6 @@ class GapDetector:
             return [row[0] for row in cursor.fetchall()]
 
     def get_date_range(self, asset_id: int, interval_minutes: int) -> Optional[Tuple[datetime, datetime]]:
-        """Get min and max timestamps for an asset/interval combination."""
         query = """
         SELECT MIN(time), MAX(time)
         FROM assetprice
@@ -111,7 +80,6 @@ class GapDetector:
         return None
 
     def get_existing_dates(self, asset_id: int, interval_minutes: int) -> set:
-        """Get all distinct dates that have data."""
         query = """
         SELECT DISTINCT DATE(time) as date
         FROM assetprice
@@ -123,7 +91,6 @@ class GapDetector:
             return {row[0] for row in cursor.fetchall()}
 
     def get_records_per_day(self, asset_id: int, interval_minutes: int) -> Dict[date, int]:
-        """Get record counts per day."""
         query = """
         SELECT DATE(time) as date, COUNT(*) as count
         FROM assetprice
@@ -135,16 +102,10 @@ class GapDetector:
             return {row[0]: row[1] for row in cursor.fetchall()}
 
     def calculate_expected_records_per_day(self, interval_minutes: int) -> int:
-        """Calculate expected number of records per day for an interval."""
         minutes_per_day = 24 * 60
         return minutes_per_day // interval_minutes
 
     def detect_last_to_now_gap(self, asset: Asset, interval_minutes: int) -> Optional[Gap]:
-        """
-        Detect a single gap from the last record timestamp to now.
-
-        Returns None if no data exists for this asset/interval combination.
-        """
         query = """
         SELECT MAX(time) as max_time
         FROM assetprice
@@ -183,7 +144,6 @@ class GapDetector:
         )
 
     def detect_gaps(self, asset: Asset, from_last: bool = False) -> List[Gap]:
-        """Detect all gaps for an asset."""
         gaps = []
         intervals = self.get_asset_intervals(asset.id)
 
@@ -264,8 +224,6 @@ class GapDetector:
 
 
 class GapBackfiller:
-    """Backfills gaps using Kraken API and QuestDB ILP."""
-
     KRAKEN_SUPPORTED_INTERVALS = {1, 5, 15, 30, 60, 240, 1440, 10080, 21600}
 
     def __init__(self, stdout):
@@ -275,7 +233,6 @@ class GapBackfiller:
         self.ilp_conf = f"tcp::addr={self.ilp_host}:{self.ilp_port};"
 
     def _get_ilp_connection(self) -> Tuple[str, int]:
-        """Extract ILP connection details from QUESTDB_URL environment variable."""
         questdb_url = os.environ.get("QUESTDB_URL", "")
         if questdb_url:
             parsed = urlparse(questdb_url)
@@ -284,12 +241,6 @@ class GapBackfiller:
         return "localhost", 9009
 
     def backfill_gap(self, gap: Gap) -> Tuple[bool, int, Optional[str]]:
-        """
-        Backfill a single gap using Kraken API.
-
-        Returns:
-            (success, records_inserted, error_message)
-        """
         try:
             base_ticker, quote_currency = self._get_kraken_pair_info(gap.asset.ticker)
             kraken_pair = base_ticker + quote_currency
@@ -311,7 +262,6 @@ class GapBackfiller:
             return False, 0, str(e)
 
     def _get_kraken_pair_info(self, ticker: str) -> Tuple[str, str]:
-        """Get Kraken pair information for a ticker."""
         ticker_to_kraken = {
             "BTC": "XBT",
             "DOGE": "XDG",
@@ -324,7 +274,6 @@ class GapBackfiller:
     def _write_to_questdb(
         self, asset: Asset, price_data: List[dict], quote_currency: str, interval_minutes: int
     ) -> int:
-        """Write price data to QuestDB using ILP."""
         records_inserted = 0
 
         try:
@@ -354,13 +303,6 @@ class GapBackfiller:
 
 
 class Command(BaseCommand):
-    """
-    Detect and backfill gaps in Kraken asset price data.
-
-    Identifies missing days and incomplete data intervals, classifies by API availability
-    (720-candle limit), and provides interactive backfilling.
-    """
-
     help = "Detect and backfill gaps in Kraken asset price data using REST API"
 
     def add_arguments(self, parser):
@@ -482,7 +424,6 @@ class Command(BaseCommand):
         self._backfill_gaps(supported_gaps)
 
     def _display_unsupported_intervals(self, gaps: List[Gap]):
-        """Display gaps with intervals not supported by Kraken."""
         self.stdout.write("─" * 60)
         self.stdout.write(self.style.WARNING("⚠️  UNSUPPORTED INTERVALS (Kraken doesn't support these intervals)"))
         self.stdout.write("─" * 60)
@@ -511,7 +452,6 @@ class Command(BaseCommand):
         self.stdout.write("")
 
     def _display_fillable_gaps(self, gaps: List[Gap]):
-        """Display API-fillable gaps."""
         self.stdout.write("─" * 60)
         self.stdout.write(self.style.SUCCESS("📊 API-FILLABLE GAPS (within 720-candle limit)"))
         self.stdout.write("─" * 60)
@@ -541,7 +481,6 @@ class Command(BaseCommand):
         self.stdout.write("")
 
     def _display_unfillable_gaps(self, gaps: List[Gap]):
-        """Display gaps beyond API limit."""
         self.stdout.write("─" * 60)
         self.stdout.write(self.style.ERROR("❌ UNFILLABLE GAPS (beyond 720-candle limit)"))
         self.stdout.write("─" * 60)
@@ -577,7 +516,6 @@ class Command(BaseCommand):
         self.stdout.write("")
 
     def _export_unfillable_gaps(self, gaps: List[Gap], filepath: str):
-        """Export unfillable gaps to CSV."""
         with open(filepath, "w", encoding="utf-8", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(
@@ -608,7 +546,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"Exported {len(gaps)} unfillable gaps to {filepath}"))
 
     def _backfill_gaps(self, gaps: List[Gap]):
-        """Backfill all fillable gaps."""
         self.stdout.write("═" * 60)
         self.stdout.write(self.style.SUCCESS("Backfilling Gaps"))
         self.stdout.write("═" * 60)

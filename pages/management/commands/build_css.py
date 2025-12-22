@@ -1,13 +1,3 @@
-"""
-Simplified CSS build pipeline.
-
-This command concatenates CSS files, runs PostCSS (with cssnano for minification),
-optionally runs PurgeCSS, and creates compressed output files.
-
-Versioning is handled automatically by WhiteNoise's ManifestStaticFilesStorage.
-All CSS optimization is handled by cssnano - no custom parsing needed.
-"""
-
 import gzip
 import re
 import subprocess
@@ -20,8 +10,6 @@ from django.core.management.base import BaseCommand
 
 
 def timer(func):
-    """Decorator to time function execution"""
-
     @wraps(func)
     def wrapper(*args, **kwargs):
         start = time.time()
@@ -50,13 +38,11 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.dev_mode = options.get("dev", False)
-        # PurgeCSS now works correctly - templates are available during Docker build
         self.skip_purge = options.get("no_purge", False) or self.dev_mode
 
         mode = "development" if self.dev_mode else "production"
         self.stdout.write(self.style.SUCCESS(f"🚀 Building CSS in {mode} mode\n"))
 
-        # Build pipeline
         combined_path = self._combine_css_files()
         processed_path = self._run_postcss(combined_path)
 
@@ -72,13 +58,11 @@ class Command(BaseCommand):
 
     @timer
     def _combine_css_files(self):
-        """Combine all CSS files into one"""
         self.stdout.write("🔗 Combining CSS files...")
 
         static_dir = Path(settings.BASE_DIR) / "static" / "css"
         combined_path = static_dir / "combined.css"
 
-        # CSS files in load order
         css_files = [
             "category-colors.css",
             "base.css",
@@ -97,7 +81,6 @@ class Command(BaseCommand):
                 file_path = static_dir / css_file
                 if file_path.exists():
                     content = file_path.read_text()
-                    # Normalize font URLs for WhiteNoise
                     content = self._normalize_font_urls(content)
                     combined_file.write(content)
                     combined_file.write("\n\n")
@@ -107,7 +90,6 @@ class Command(BaseCommand):
         return combined_path
 
     def _normalize_font_urls(self, content):
-        """Normalize font URLs to absolute /static/fonts/ paths"""
         content = re.sub(
             r'url\(["\']?(?:\.\.\/)*fonts/([^"\']+)["\']?\)',
             r'url("/static/fonts/\1")',
@@ -122,7 +104,6 @@ class Command(BaseCommand):
 
     @timer
     def _run_postcss(self, input_path):
-        """Run PostCSS with cssnano for minification"""
         self.stdout.write("🎨 Running PostCSS + cssnano...")
 
         output_path = input_path.parent / "combined.processed.css"
@@ -154,13 +135,10 @@ class Command(BaseCommand):
 
     @timer
     def _purge_css(self, input_path):
-        """Remove unused CSS with PurgeCSS"""
         self.stdout.write("🧹 Purging unused CSS...")
 
         output_path = input_path.parent / "combined.purged.css"
 
-        # PurgeCSS v7 has issues with config file when --css and --output are specified
-        # Pass content paths directly as a workaround
         content_paths = [
             "templates/**/*.html",
             "blog/templates/**/*.html",
@@ -175,7 +153,6 @@ class Command(BaseCommand):
             "omas/static/**/*.js",
         ]
 
-        # Build command with content arguments
         command = [
             "npx",
             "purgecss",
@@ -187,7 +164,6 @@ class Command(BaseCommand):
             str(output_path),
         ]
 
-        # Add content paths
         for path in content_paths:
             command.extend(["--content", path])
 
@@ -213,10 +189,8 @@ class Command(BaseCommand):
 
     @timer
     def _create_versioned_file(self, input_path):
-        """Create final CSS file (versioning handled by WhiteNoise)"""
         self.stdout.write("📌 Creating final file...")
 
-        # Read content
         content = input_path.read_bytes()
 
         # Create final non-versioned file (WhiteNoise will handle versioning)
@@ -231,18 +205,15 @@ class Command(BaseCommand):
 
     @timer
     def _create_compressed_versions(self, file_path):
-        """Create gzip and brotli compressed versions"""
         self.stdout.write("🗜️  Compressing...")
 
         content = file_path.read_bytes()
 
-        # Gzip
         with gzip.open(str(file_path) + ".gz", "wb", compresslevel=9) as f:
             f.write(content)
         gz_size = Path(str(file_path) + ".gz").stat().st_size / 1024
         self.stdout.write(f"  ✓ Gzip: {gz_size:.1f}KB")
 
-        # Brotli
         try:
             import brotli
 
@@ -254,7 +225,6 @@ class Command(BaseCommand):
             self.stdout.write("  ℹ️  Brotli not available")
 
     def _cleanup_temp_files(self, keep_file):
-        """Remove intermediate build files"""
         self.stdout.write("🧹 Cleaning up...")
 
         static_dir = Path(settings.BASE_DIR) / "static" / "css"
@@ -272,10 +242,8 @@ class Command(BaseCommand):
         self.stdout.write("  ✓ Cleanup complete")
 
     def _cleanup_old_versions(self):
-        """Remove manually-versioned CSS files from source directory"""
         static_dir = Path(settings.BASE_DIR) / "static" / "css"
 
-        # Find any manually-versioned files (pattern: combined.min.*.css*)
         versioned_files = list(static_dir.glob("combined.min.*.css*"))
 
         if not versioned_files:

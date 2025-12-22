@@ -1,11 +1,3 @@
-"""
-Load asset price data from external sources.
-
-Example usage:
-    python manage.py load_prices --ticker AAPL --source massive --days 7
-    python manage.py load_prices --ticker AAPL --source finnhub --days 30
-"""
-
 from datetime import date, timedelta
 
 from django.core.management.base import BaseCommand, CommandError
@@ -96,7 +88,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f"✓ Created {created_count} prices, updated {updated_count} prices"))
 
     def _fetch_price_data(self, ticker, source, start_date, end_date):
-        """Fetch price data from the specified data source."""
         if source == "massive":
             data_source = MassiveDataSource()
         elif source == "finnhub":
@@ -109,7 +100,6 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def _save_prices(self, asset, price_data, source, dry_run=False):
-        """Save price data to database."""
         created_count = 0
         updated_count = 0
 

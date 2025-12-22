@@ -11,6 +11,7 @@ from django.conf import settings
 
 from web.models import Endpoint
     
+
 def create_client(region = 'us-east-1'):
     client = boto3.client(
         'lambda',
@@ -19,6 +20,7 @@ def create_client(region = 'us-east-1'):
         region_name=region
     )
     return client
+
 
 def invoke_lambda(endpoint_id, request_key, region='us-east-1'):
     client = create_client(region)
@@ -35,7 +37,6 @@ def invoke_lambda(endpoint_id, request_key, region='us-east-1'):
 def create_or_update_lambda_function(region='us-east-1'):
     client = create_client(region)
     
-    # Prepare Lambda function code
     with open('web/lambda_function.py', 'rb') as lambda_file:
         lambda_function_content = lambda_file.read()
     
@@ -46,12 +47,10 @@ def create_or_update_lambda_function(region='us-east-1'):
     function_zip_buffer.seek(0)
     function_zip_content = function_zip_buffer.getvalue()
 
-    # Prepare Lambda layer
     with open('web/python.zip', 'rb') as layer_zip_file:
         layer_zip_content = layer_zip_file.read()
     
     try:
-        # Create or update Lambda layer
         layer_response = client.publish_layer_version(
             LayerName=LAMBDA_LAYER_NAME,
             Description='Python dependencies for ActionsUptime web endpoint checks',
@@ -63,10 +62,8 @@ def create_or_update_lambda_function(region='us-east-1'):
         layer_version_arn = layer_response['LayerVersionArn']
 
         try:
-            # Check if the Lambda function exists
             client.get_function(FunctionName=LAMBDA_FUNCTION_NAME)
             
-            # Update existing Lambda function
             update_response = client.update_function_code(
                 FunctionName=LAMBDA_FUNCTION_NAME,
                 ZipFile=function_zip_content,
@@ -74,11 +71,9 @@ def create_or_update_lambda_function(region='us-east-1'):
             )
             new_version = update_response['Version']
             
-            # Wait for the function update to complete
             waiter = client.get_waiter('function_updated')
             waiter.wait(FunctionName=LAMBDA_FUNCTION_NAME)
             
-            # Update function configuration
             client.update_function_configuration(
                 FunctionName=LAMBDA_FUNCTION_NAME,
                 Layers=[layer_version_arn],
@@ -87,7 +82,6 @@ def create_or_update_lambda_function(region='us-east-1'):
             
             print(f"Lambda function {LAMBDA_FUNCTION_NAME} updated successfully to version {new_version}.")
         except client.exceptions.ResourceNotFoundException:
-            # If function doesn't exist, create it
             create_response = client.create_function(
                 FunctionName=LAMBDA_FUNCTION_NAME,
                 Role='arn:aws:iam::702821028163:role/ActionsUptime-Lambda-Role',
@@ -100,7 +94,6 @@ def create_or_update_lambda_function(region='us-east-1'):
             )
             new_version = create_response['Version']
             
-            # Wait for the function creation to complete
             waiter = client.get_waiter('function_active')
             waiter.wait(FunctionName=LAMBDA_FUNCTION_NAME)
             
@@ -109,6 +102,7 @@ def create_or_update_lambda_function(region='us-east-1'):
         print(f"Error creating/updating Lambda function or layer: {str(e)}")
         raise  # Re-raise the exception to ensure the error is not silently ignored
     
+
 def delete_lambda_function(region = 'us-east-1'):
     client = create_client(region)
     try:

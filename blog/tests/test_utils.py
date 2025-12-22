@@ -7,12 +7,8 @@ from blog.utils import get_all_blog_posts, get_blog_from_template_name
 
 
 class BlogUtilsTest(TestCase):
-    """Test blog utility functions."""
-
     @patch("blog.utils.render_to_string")
     def test_get_blog_from_template_name_with_category(self, mock_render):
-        """Test getting blog data with category specified."""
-        # Use consistent mock blog data structure
         mock_blog_data = MockDataFactory.get_mock_blog_data()
         mock_render.return_value = mock_blog_data["blog_content"]
 
@@ -29,7 +25,6 @@ class BlogUtilsTest(TestCase):
         mock_render.assert_called_with("blog/tech/0001_test_post.html")
 
     def test_get_blog_from_template_name_without_category(self):
-        """Test that category is required."""
         with self.assertRaises(ValueError) as context:
             get_blog_from_template_name("0001_test_post")
 
@@ -37,7 +32,6 @@ class BlogUtilsTest(TestCase):
 
     @patch("blog.utils.render_to_string")
     def test_get_blog_from_template_name_no_content(self, mock_render):
-        """Test getting blog metadata without loading content."""
         result = get_blog_from_template_name("0001_test_post", load_content=False, category="tech")
 
         self.assertEqual(result["blog_content"], "")
@@ -46,8 +40,6 @@ class BlogUtilsTest(TestCase):
     @patch("blog.utils.os.walk")
     @patch("blog.utils.os.path.relpath")
     def test_get_all_blog_posts(self, mock_relpath, mock_walk):
-        """Test getting all blog posts from directory structure."""
-        # Mock os.walk to return blog structure
         mock_walk.return_value = [
             ("/path/to/templates/blog", ["tech", "personal"], ["0001_root.html"]),
             (
@@ -58,7 +50,6 @@ class BlogUtilsTest(TestCase):
             ("/path/to/templates/blog/personal", [], ["0004_personal.html"]),
         ]
 
-        # Mock os.path.relpath to return appropriate relative paths
         def mock_relpath_side_effect(path, start):
             if path == "/path/to/templates/blog":
                 return "."
@@ -72,10 +63,8 @@ class BlogUtilsTest(TestCase):
 
         result = get_all_blog_posts()
 
-        # Should only return categorized posts (root level posts are skipped)
         self.assertEqual(len(result), 3)
 
-        # Check categorized posts
         tech_posts = [p for p in result if p["category"] == "tech"]
         self.assertEqual(len(tech_posts), 2)
 
@@ -84,14 +73,12 @@ class BlogUtilsTest(TestCase):
 
     @patch("blog.utils.os.walk")
     def test_get_all_blog_posts_nested_categories(self, mock_walk):
-        """Test that nested category directories are handled correctly."""
         mock_walk.return_value = [
             ("/path/to/templates/blog", ["tech"], []),
             ("/path/to/templates/blog/tech", ["subcategory"], ["0001_tech.html"]),
             ("/path/to/templates/blog/tech/subcategory", [], ["0002_nested.html"]),
         ]
 
-        # Mock os.path.relpath to return the expected relative paths
         with patch("blog.utils.os.path.relpath") as mock_relpath:
             mock_relpath.side_effect = [
                 ".",  # Root directory
@@ -101,18 +88,15 @@ class BlogUtilsTest(TestCase):
 
             result = get_all_blog_posts()
 
-            # First-level category
             tech_post = next(p for p in result if p["template_name"] == "0001_tech")
             self.assertEqual(tech_post["category"], "tech")
 
-            # Nested category should use first-level category
             nested_post = next(p for p in result if p["template_name"] == "0002_nested")
             self.assertEqual(nested_post["category"], "tech")
 
     @patch("blog.utils.os.walk")
     @patch("blog.utils.os.path.relpath")
     def test_get_all_blog_posts_ignores_non_html(self, mock_relpath, mock_walk):
-        """Test that non-HTML files are ignored and root posts are skipped."""
         mock_walk.return_value = [
             (
                 "/path/to/templates/blog",
@@ -138,7 +122,6 @@ class BlogUtilsTest(TestCase):
 
         result = get_all_blog_posts()
 
-        # Only the tech post should be returned
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["template_name"], "0002_tech_post")
         self.assertEqual(result[0]["category"], "tech")

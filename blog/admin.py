@@ -7,8 +7,6 @@ from .models import BlogComment, KnowledgeGraphScreenshot
 
 @admin.register(BlogComment)
 class BlogCommentAdmin(admin.ModelAdmin):
-    """Admin interface for blog comments with moderation capabilities."""
-
     list_display = [
         "id",
         "get_author_display",
@@ -85,7 +83,6 @@ class BlogCommentAdmin(admin.ModelAdmin):
         ordering="author__username",
     )
     def get_author_display(self, obj):
-        """Display author with visual indicators for staff and anonymous users."""
         author = obj.get_author_display()
         if obj.author:
             if obj.author.is_staff:
@@ -98,14 +95,12 @@ class BlogCommentAdmin(admin.ModelAdmin):
         ordering="blog_template_name",
     )
     def get_blog_post(self, obj):
-        """Display blog post with clickable link to the actual post."""
         display = f"{obj.blog_category}/{obj.blog_template_name}" if obj.blog_category else obj.blog_template_name
         url = obj.get_blog_url()
         return format_html('<a href="{}" target="_blank">{}</a>', url, display)
 
     @admin.display(description="Content")
     def truncated_content(self, obj):
-        """Display first 50 characters of comment content."""
         max_length = 50
         if len(obj.content) > max_length:
             return f"{obj.content[:max_length]}..."
@@ -116,7 +111,6 @@ class BlogCommentAdmin(admin.ModelAdmin):
         ordering="status",
     )
     def status_badge(self, obj):
-        """Display comment status as a colored badge for quick visual identification."""
         colors = {
             "pending": "#FFA500",
             "approved": "#28a745",
@@ -135,12 +129,10 @@ class BlogCommentAdmin(admin.ModelAdmin):
         ordering="parent",
     )
     def is_reply(self, obj):
-        """Indicate whether this comment is a reply to another comment."""
         return "✓" if obj.parent else "✗"
 
     @admin.display(description="Replies")
     def replies_count(self, obj):
-        """Show count of approved replies to this comment."""
         count = obj.replies.filter(status="approved").count()
         if count > 0:
             return format_html("<strong>{}</strong>", count)
@@ -148,7 +140,6 @@ class BlogCommentAdmin(admin.ModelAdmin):
 
     @admin.action(description="Approve selected comments")
     def approve_comments(self, request, queryset):
-        """Bulk action to approve multiple comments at once."""
         count = 0
         for comment in queryset:
             if comment.status != "approved":
@@ -158,7 +149,6 @@ class BlogCommentAdmin(admin.ModelAdmin):
 
     @admin.action(description="Reject selected comments")
     def reject_comments(self, request, queryset):
-        """Bulk action to reject multiple comments at once."""
         count = 0
         for comment in queryset:
             if comment.status != "rejected":
@@ -168,7 +158,6 @@ class BlogCommentAdmin(admin.ModelAdmin):
 
     @admin.action(description="Mark selected as spam")
     def mark_as_spam(self, request, queryset):
-        """Bulk action to mark multiple comments as spam."""
         count = 0
         for comment in queryset:
             if comment.status != "spam":
@@ -177,27 +166,21 @@ class BlogCommentAdmin(admin.ModelAdmin):
         self.message_user(request, f"{count} comments marked as spam.")
 
     def get_queryset(self, request):
-        """Optimize queryset to reduce database queries by prefetching related data."""
         qs = super().get_queryset(request)
         return qs.select_related("author", "parent", "moderated_by").annotate(reply_count=Count("replies"))
 
     def has_change_permission(self, request, obj=None):
-        """All staff members can view and moderate comments."""
         return request.user.is_staff
 
     def has_add_permission(self, request):
-        """Prevent adding comments through admin interface - comments should come from the blog."""
         return False
 
     def has_delete_permission(self, request, obj=None):
-        """Only superusers can permanently delete comments."""
         return request.user.is_superuser
 
 
 @admin.register(KnowledgeGraphScreenshot)
 class KnowledgeGraphScreenshotAdmin(admin.ModelAdmin):
-    """Admin interface for managing knowledge graph screenshots."""
-
     list_display = [
         "id",
         "get_thumbnail",
@@ -235,7 +218,6 @@ class KnowledgeGraphScreenshotAdmin(admin.ModelAdmin):
 
     @admin.display(description="Thumbnail")
     def get_thumbnail(self, obj):
-        """Display a small thumbnail of the screenshot in the list view."""
         if obj.image:
             return format_html(
                 '<img src="{}" width="100" height="60" style="border-radius: 4px; object-fit: cover;" />',
@@ -245,7 +227,6 @@ class KnowledgeGraphScreenshotAdmin(admin.ModelAdmin):
 
     @admin.display(description="Preview")
     def get_preview(self, obj):
-        """Display a larger preview of the screenshot in the detail view."""
         if obj.image:
             return format_html(
                 '<img src="{}" style="max-width: 800px; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" />',
@@ -258,7 +239,6 @@ class KnowledgeGraphScreenshotAdmin(admin.ModelAdmin):
         ordering="graph_data_hash",
     )
     def get_hash_display(self, obj):
-        """Display the first 8 characters of the hash for easier identification."""
         if obj.graph_data_hash:
             return format_html(
                 '<code style="background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: monospace;">{}</code>',
@@ -268,7 +248,6 @@ class KnowledgeGraphScreenshotAdmin(admin.ModelAdmin):
 
     @admin.display(description="Image URL")
     def get_image_url(self, obj):
-        """Display the URL of the image for easy copying."""
         if obj.image:
             return format_html(
                 '<input type="text" value="{}" readonly style="width: 400px;" onclick="this.select();" />',
@@ -278,7 +257,6 @@ class KnowledgeGraphScreenshotAdmin(admin.ModelAdmin):
 
     @admin.display(description="File Size")
     def image_size(self, obj):
-        """Display the file size of the screenshot."""
         if obj.image:
             try:
                 size_bytes = obj.image.size
@@ -295,21 +273,17 @@ class KnowledgeGraphScreenshotAdmin(admin.ModelAdmin):
 
     @admin.action(description="Regenerate knowledge graph screenshot")
     def regenerate_screenshot(self, request, queryset):
-        """Action to trigger regeneration of the knowledge graph screenshot."""
         from django.contrib import messages
         from django.core.management import call_command
 
         try:
-            # Call the management command to regenerate
             call_command("generate_knowledge_graph_screenshot")
             messages.success(request, "Knowledge graph screenshot has been regenerated successfully.")
         except Exception as e:
             messages.error(request, f"Error regenerating screenshot: {str(e)}")
 
     def has_add_permission(self, request):
-        """Prevent manually adding screenshots - they should be generated via management command."""
         return False
 
     def has_delete_permission(self, request, obj=None):
-        """Only superusers can delete screenshots."""
         return request.user.is_superuser

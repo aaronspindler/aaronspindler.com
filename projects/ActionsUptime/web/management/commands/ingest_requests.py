@@ -2,6 +2,8 @@ import json
 from django.core.management.base import BaseCommand
 
 from web.models import EndpointStatus, EndpointStatusCheckRequest
+
+
 class Command(BaseCommand):
 
     def handle(self, *args, **options):

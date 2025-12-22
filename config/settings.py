@@ -8,8 +8,6 @@ env = environ.Env(
     DEBUG=(bool, False),
 )
 
-# Only initialize Sentry if not in test mode or CI/CD
-# Check for common CI environment variables and Django test settings
 is_testing = (
     os.environ.get("CI") == "true"  # GitHub Actions, GitLab CI, etc.
     or os.environ.get("GITHUB_ACTIONS") == "true"  # GitHub Actions specific
@@ -53,7 +51,6 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.omas.coffee",
 ]
 
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -64,12 +61,10 @@ INSTALLED_APPS = [
     "django.contrib.sites",
     "django.contrib.sitemaps",
     "django.contrib.postgres",  # PostgreSQL full-text search
-    # Third-party apps
     "allauth",
     "allauth.account",
     "storages",  # AWS S3 storage
     "django_celery_beat",  # Celery Beat scheduler
-    # Project apps
     "accounts",
     "pages",
     "blog",
@@ -96,7 +91,6 @@ MIDDLEWARE = [
 
 MESSAGE_STORAGE = "django.contrib.messages.storage.fallback.FallbackStorage"
 
-# Message tags configuration for CSS classes
 from django.contrib.messages import constants as messages
 
 MESSAGE_TAGS = {
@@ -176,7 +170,6 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -204,12 +197,9 @@ ACCOUNT_SESSION_REMEMBER = True
 ACCOUNT_LOGIN_METHODS = {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*"]
 ACCOUNT_UNIQUE_EMAIL = True
-# Disable signup/registration
 ACCOUNT_ALLOW_REGISTRATION = False
 ACCOUNT_ADAPTER = "accounts.adapters.NoSignupAccountAdapter"
 
-# AWS S3 Configuration
-# Use fake values for testing when AWS credentials are not set
 AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="fake-access-key-id")
 AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="fake-secret-access-key")
 AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME", default="test-bucket")
@@ -218,12 +208,10 @@ AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
 AWS_DEFAULT_ACL = "public-read"
 AWS_S3_VERIFY = True
 AWS_S3_FILE_OVERWRITE = True
-# Allow CORS for fonts and other assets
 AWS_S3_OBJECT_PARAMETERS = {
     "CacheControl": "max-age=86400",
     "ACL": "public-read",
 }
-# Ensure proper content types for fonts
 AWS_S3_MIME_TYPES = {
     ".woff": "font/woff",
     ".woff2": "font/woff2",
@@ -232,9 +220,6 @@ AWS_S3_MIME_TYPES = {
     ".eot": "application/vnd.ms-fontobject",
 }
 
-# Storage Configuration
-# Static files: Served by WhiteNoise from container
-# Media files: Stored in S3 (photos, user uploads)
 STORAGES = {
     "default": {
         "BACKEND": "config.storage_backends.PublicMediaStorage",
@@ -249,7 +234,6 @@ MEDIA_ROOT = ""  # Not used with S3, but Django might expect it
 
 STATIC_URL = "/static/"
 
-# WhiteNoise Configuration
 WHITENOISE_MAX_AGE = 31536000  # 1 year cache for static files with versioned names
 WHITENOISE_MANIFEST_STRICT = False  # Allow missing files in development
 WHITENOISE_KEEP_ONLY_HASHED_FILES = True  # Remove unhashed files to save space
@@ -257,7 +241,6 @@ WHITENOISE_KEEP_ONLY_HASHED_FILES = True  # Remove unhashed files to save space
 
 # Performance optimizations
 def _whitenoise_immutable_file_test(path, url):
-    """Add immutable cache headers for all static files except HTML"""
     return url.startswith("/static/") and not url.endswith((".html", ".htm"))
 
 
@@ -286,13 +269,9 @@ WHITENOISE_MIMETYPES = {
 }  # Explicitly set mimetypes for better browser caching
 
 if not DEBUG:
-    # Security Headers
     SECURE_SSL_REDIRECT = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-    # Trusted proxy IPs - only trust X-Forwarded-For/X-Real-IP from these IPs
-    # Add your reverse proxy/load balancer IPs here (private IPs are common)
-    # Default includes common private ranges that proxies typically use
     TRUSTED_PROXY_IPS = env.list(
         "TRUSTED_PROXY_IPS",
         default=[
@@ -322,7 +301,6 @@ if not DEBUG:
     CSP_FONT_SRC = ("'self'", "https://fonts.cdnfonts.com")
     CSP_IMG_SRC = ("'self'", "data:", "https:")
     CSP_CONNECT_SRC = ("'self'",)
-
 
 LOGGING = {
     "version": 1,
@@ -408,38 +386,28 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_WORKER_POOL_RESTARTS = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
-# Task result and log retention settings
 # Store extended task metadata including return values, exceptions, and tracebacks
 CELERY_RESULT_EXTENDED = True
-# Keep task results for 90 days (7776000 seconds)
 CELERY_RESULT_EXPIRES = 7776000
-# Send task events for monitoring (enables Flower to track task progress)
 CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_SEND_SENT_EVENT = True
 
-# Task reliability - acknowledge after completion, re-queue on worker death
 CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 
-# Soft time limit - allows graceful cleanup before hard kill
 CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes
 
-# Worker memory protection - restart workers periodically
 CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
 CELERY_WORKER_MAX_MEMORY_PER_CHILD = 200000  # 200MB in KB
 
-# Better for long-running tasks (Lighthouse, screenshots)
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 
-# Result compression to save Redis memory
 CELERY_RESULT_COMPRESSION = "gzip"
 
-# Visibility timeout (longer than longest task)
 CELERY_BROKER_TRANSPORT_OPTIONS = {
     "visibility_timeout": 43200,  # 12 hours
 }
 
-# Task queue routing
 CELERY_TASK_ROUTES = {
     "utils.tasks.run_lighthouse_audit": {"queue": "heavy"},
     "blog.tasks.generate_knowledge_graph_screenshot": {"queue": "heavy"},
@@ -453,17 +421,13 @@ RESUME_FILENAME = env("RESUME_FILENAME", default="Aaron_Spindler_Resume_2025.pdf
 
 MASSIVE_API_KEY = env("MASSIVE_API_KEY", default="")
 
-# LLM API Keys
 OPENAI_KEY = env("OPENAI_KEY", default="")
 ANTHROPIC_KEY = env("ANTHROPIC_KEY", default="")
 
-# File Upload Configuration
-# Increase limits for bulk photo uploads through admin
 DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600  # 100 MB
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # Allow many fields for bulk uploads
 
-# Request Tracking Configuration
 REQUEST_TRACKING_EXCLUDE_PATHS = [
     "/static/",
     "/media/",

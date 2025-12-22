@@ -11,25 +11,21 @@ from photos.image_utils import DuplicateDetector, ExifExtractor, ImageMetadataEx
 
 
 def photo_upload_to(instance, filename):
-    """Generate upload path for original photos using UUID."""
     ext = os.path.splitext(filename)[1].lower() or ".jpg"
     return f"photos/original/{instance.uuid}{ext}"
 
 
 def thumbnail_upload_to(instance, filename):
-    """Generate upload path for thumbnails using UUID."""
     ext = os.path.splitext(filename)[1].lower() or ".jpg"
     return f"photos/thumbnails/{instance.uuid}_thumbnail{ext}"
 
 
 def preview_upload_to(instance, filename):
-    """Generate upload path for previews using UUID."""
     ext = os.path.splitext(filename)[1].lower() or ".jpg"
     return f"photos/preview/{instance.uuid}_preview{ext}"
 
 
 def saliency_upload_to(instance, _filename):
-    """Generate upload path for saliency maps using UUID."""
     return f"photos/saliency/{instance.uuid}_saliency.png"
 
 
@@ -130,7 +126,6 @@ class Photo(models.Model):
         help_text="GPS altitude in meters",
     )
 
-    # PostgreSQL full-text search vector
     search_vector = SearchVectorField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -144,14 +139,6 @@ class Photo(models.Model):
         ]
 
     def save(self, *args, **kwargs):
-        """
-        Override save to automatically create optimized versions when a new image is uploaded.
-        Also checks for duplicates before saving.
-
-        Kwargs:
-            skip_duplicate_check: Skip duplicate detection (already checked).
-            skip_processing: Skip image processing (will be done async).
-        """
         skip_processing = kwargs.pop("skip_processing", False)
 
         try:
@@ -173,14 +160,6 @@ class Photo(models.Model):
         super().save(*args, **kwargs)
 
     def save_minimal(self, file_hash="", perceptual_hash=""):
-        """
-        Save the photo with minimal processing for async background processing.
-        Only stores the original filename and hashes, queues background processing.
-
-        Args:
-            file_hash: Pre-computed SHA-256 hash of the file.
-            perceptual_hash: Pre-computed perceptual hash.
-        """
         if self.image:
             self.original_filename = os.path.basename(self.image.name)
         self.file_hash = file_hash
@@ -189,10 +168,6 @@ class Photo(models.Model):
         self.save(skip_duplicate_check=True, skip_processing=True)
 
     def process_image_async(self):
-        """
-        Process the image (extract metadata, create optimized versions).
-        Called by the Celery background task.
-        """
         if not self.image:
             return
 
@@ -209,9 +184,6 @@ class Photo(models.Model):
             raise e
 
     def _image_changed(self):
-        """
-        Check if the main image has changed.
-        """
         if not self.pk:
             return True
 
@@ -222,10 +194,6 @@ class Photo(models.Model):
             return True
 
     def _check_for_duplicates(self):
-        """
-        Check if the uploaded image is a duplicate of an existing image.
-        Raises ValidationError if an exact duplicate is found.
-        """
         if not self.image:
             return
 
@@ -249,9 +217,6 @@ class Photo(models.Model):
             )
 
     def _process_image(self):
-        """
-        Process the uploaded image and create optimized versions.
-        """
         if not self.image:
             return
 
@@ -300,7 +265,6 @@ class Photo(models.Model):
             self.image, str(self.uuid), original_ext, existing_focal_point=existing_focal_point
         )
 
-        # Only update focal point if we're not preserving existing values
         if not has_existing_focal_point and focal_point:
             self.focal_point_x = focal_point[0]
             self.focal_point_y = focal_point[1]
@@ -328,15 +292,6 @@ class Photo(models.Model):
             logger.warning(f"No saliency map generated for photo {self.pk} - computation returned None")
 
     def get_image_url(self, size="thumbnail"):
-        """
-        Get the URL for a specific image size.
-
-        Args:
-            size: One of 'preview', 'thumbnail', or 'original'
-
-        Returns:
-            str: URL of the requested image size, or None if not available
-        """
         size_field_map = {
             "preview": self.image_preview,
             "thumbnail": self.image_thumbnail,
@@ -353,15 +308,6 @@ class Photo(models.Model):
             return None  # File doesn't exist or can't generate URL
 
     def get_similar_images(self, threshold=5):
-        """
-        Find images that are visually similar to this one.
-
-        Args:
-            threshold: Maximum Hamming distance for similarity (0-10, lower = more strict)
-
-        Returns:
-            list: List of (Photo, distance) tuples sorted by similarity
-        """
         if not self.perceptual_hash:
             return []
 
@@ -399,7 +345,6 @@ class PhotoAlbum(models.Model):
 
     allow_downloads = models.BooleanField(default=False)
 
-    # External sharing fields
     share_token = models.UUIDField(
         default=uuid.uuid4,
         unique=True,
@@ -411,7 +356,6 @@ class PhotoAlbum(models.Model):
     )
     share_last_accessed = models.DateTimeField(null=True, blank=True, help_text="Last time the share link was accessed")
 
-    # ZIP download fields
     zip_file = models.FileField(
         upload_to="albums/zips/",
         blank=True,
@@ -446,7 +390,6 @@ class PhotoAlbum(models.Model):
         help_text="Size of ZIP file in bytes",
     )
 
-    # PostgreSQL full-text search vector
     search_vector = SearchVectorField(null=True, blank=True)
 
     class Meta:

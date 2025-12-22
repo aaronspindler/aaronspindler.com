@@ -11,14 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    """
-    Run a Lighthouse audit and store the results in the database.
-    Uses @lhci/cli to perform the audit and extracts all 5 category scores.
-    """
-
     help = "Run a Lighthouse audit and store the results"
 
-    # Default URL for audits
     DEFAULT_URL = "https://aaronspindler.com"
 
     def add_arguments(self, parser):
@@ -33,7 +27,6 @@ class Command(BaseCommand):
         async_mode = options["async_mode"]
         url = self.DEFAULT_URL
 
-        # If async mode, queue the task to Celery
         if async_mode:
             from utils.tasks import run_lighthouse_audit as run_lighthouse_audit_task
 
@@ -48,17 +41,14 @@ class Command(BaseCommand):
             )
             return
 
-        # Otherwise, run the audit directly
         self.stdout.write(f"Running Lighthouse audit for {url}...")
 
         try:
             import shutil
             import tempfile
 
-            # Get Chrome path from environment or use default
             chrome_path = os.environ.get("CHROME_PATH", "/usr/bin/chromium")
 
-            # Check if Chrome binary exists and log version
             if os.path.exists(chrome_path):
                 try:
                     chrome_version = subprocess.run(
@@ -70,27 +60,17 @@ class Command(BaseCommand):
             else:
                 logger.warning(f"Chrome binary not found at {chrome_path}")
 
-            # Create a temporary file for the JSON output
             with tempfile.NamedTemporaryFile(encoding="utf-8", mode="w", suffix=".json", delete=False) as tmp_file:
                 output_path = tmp_file.name
 
-            # Chrome flags for containerized environments (single string)
-            # --no-sandbox: Required when running as root in Docker
-            # --disable-setuid-sandbox: Additional sandbox disabling for root execution
-            # --disable-dev-shm-usage: Prevents /dev/shm issues in containers
-            # --disable-gpu: Disables GPU hardware acceleration (not needed for headless)
-            # --headless: Run in headless mode (no GUI)
             chrome_flags = "--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu --headless"
 
-            # Set up environment for npm/npx to use writable directories
-            # This is needed because the Celery worker's home directory may not exist or be writable
             temp_dir = tempfile.gettempdir()
             npm_env = os.environ.copy()
             npm_env["HOME"] = temp_dir
             npm_env["npm_config_cache"] = os.path.join(temp_dir, ".npm")
             npm_env["npm_config_prefix"] = os.path.join(temp_dir, ".npm-global")
 
-            # Try native lighthouse first (more reliable with Chrome flags)
             self.stdout.write("Attempting to run audit with native lighthouse...")
             result = subprocess.run(
                 [
@@ -110,24 +90,17 @@ class Command(BaseCommand):
                 env=npm_env,
             )
 
-            # If native lighthouse failed, try @lhci/cli as fallback
             if result.returncode != 0:
                 logger.warning(f"Native lighthouse failed: {result.stderr}")
                 self.stdout.write("Native lighthouse failed, trying @lhci/cli as fallback...")
 
-                # Clean up the temp file and try @lhci/cli
                 os.unlink(output_path)
 
-                # @lhci/cli saves to .lighthouseci directory by default
-                # Use /tmp for containerized environments where /code may not be writable
                 output_dir = os.path.join(temp_dir, ".lighthouseci")
 
-                # Clean up any existing reports
                 if os.path.exists(output_dir):
                     shutil.rmtree(output_dir)
 
-                # Create a temporary lighthouserc.json config file
-                # This is the most reliable way to configure @lhci/cli output directory
                 with tempfile.NamedTemporaryFile(
                     mode="w", suffix=".json", delete=False, encoding="utf-8"
                 ) as config_file:
@@ -143,8 +116,6 @@ class Command(BaseCommand):
                         config_file,
                     )
 
-                # Try with @lhci/cli, running from the temp directory to avoid permission issues
-                # By setting cwd to the temp directory, @lhci/cli will create .lighthouseci there
                 result = subprocess.run(
                     [
                         "npx",
@@ -164,14 +135,12 @@ class Command(BaseCommand):
                     env=npm_env,
                 )
 
-                # Clean up the config file
                 os.unlink(config_path)
 
                 if result.returncode != 0:
                     logger.error(f"@lhci/cli also failed: {result.stderr}")
                     raise CommandError(f"Both lighthouse methods failed. Last error: {result.stderr}")
 
-                # Find the JSON report from @lhci/cli
                 import glob
 
                 json_files = glob.glob(os.path.join(output_dir, "lhr-*.json"))
@@ -179,26 +148,20 @@ class Command(BaseCommand):
                 if not json_files:
                     raise CommandError("No Lighthouse report found in output directory")
 
-                # Read the first JSON report
                 with open(json_files[0], "r", encoding="utf-8") as f:
                     report = json.load(f)
 
-                # Clean up the output directory
                 shutil.rmtree(output_dir)
 
                 self.stdout.write("Successfully ran audit using @lhci/cli fallback")
             else:
-                # Native lighthouse succeeded
                 self.stdout.write("Successfully ran audit using native lighthouse")
 
-                # Read the JSON report from native lighthouse
                 with open(output_path, "r", encoding="utf-8") as f:
                     report = json.load(f)
 
-                # Clean up the temp file
                 os.unlink(output_path)
 
-            # Extract category scores
             categories = report.get("categories", {})
 
             performance_score = int(categories.get("performance", {}).get("score", 0) * 100)
@@ -215,7 +178,6 @@ class Command(BaseCommand):
                 "lighthouse_version": report.get("lighthouseVersion"),
             }
 
-            # Store the audit result
             audit = LighthouseAudit.objects.create(
                 url=url,
                 performance_score=performance_score,

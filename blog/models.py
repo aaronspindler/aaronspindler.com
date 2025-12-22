@@ -5,8 +5,6 @@ from django.utils import timezone
 
 
 class BlogComment(models.Model):
-    """Model for blog comments with moderation support and threaded discussions."""
-
     STATUS_CHOICES = [
         ("pending", "Pending Review"),
         ("approved", "Approved"),
@@ -90,7 +88,6 @@ class BlogComment(models.Model):
         return f"Comment by {author_display} on {blog_display}"
 
     def get_author_display(self):
-        """Get the display name for the comment author (username or anonymous name)."""
         if self.author:
             return self.author.username
         elif self.author_name:
@@ -99,20 +96,17 @@ class BlogComment(models.Model):
             return "Anonymous"
 
     def get_author_email(self):
-        """Get the email address of the comment author."""
         if self.author:
             return self.author.email
         return self.author_email
 
     def approve(self, user=None):
-        """Approve the comment and record moderation metadata."""
         self.status = "approved"
         self.moderated_at = timezone.now()
         self.moderated_by = user
         self.save(update_fields=["status", "moderated_at", "moderated_by"])
 
     def reject(self, user=None, note=""):
-        """Reject the comment with optional moderation note."""
         self.status = "rejected"
         self.moderated_at = timezone.now()
         self.moderated_by = user
@@ -120,17 +114,12 @@ class BlogComment(models.Model):
         self.save(update_fields=["status", "moderated_at", "moderated_by", "moderation_note"])
 
     def mark_as_spam(self, user=None):
-        """Mark the comment as spam and record who made the decision."""
         self.status = "spam"
         self.moderated_at = timezone.now()
         self.moderated_by = user
         self.save(update_fields=["status", "moderated_at", "moderated_by"])
 
     def get_replies(self):
-        """
-        Get approved replies with optimized prefetching for nested structure.
-        Includes author data and nested replies for performance.
-        """
         return (
             self.replies.filter(status="approved")
             .select_related("author")
@@ -139,13 +128,11 @@ class BlogComment(models.Model):
         )
 
     def get_blog_url(self):
-        """Generate the URL for the blog post this comment belongs to"""
         if self.blog_category:
             return f"/b/{self.blog_category}/{self.blog_template_name}/"
         return f"/b/{self.blog_template_name}/"
 
     def get_depth(self):
-        """Calculate the depth of this comment in the thread"""
         depth = 0
         current = self
         while current.parent:
@@ -155,22 +142,8 @@ class BlogComment(models.Model):
 
     @classmethod
     def get_approved_comments(cls, template_name, category=None):
-        """
-        Get all approved comments for a blog post with optimized nested prefetching.
-
-        This method uses recursive prefetching to load nested replies efficiently,
-        avoiding N+1 query problems for threaded comment structures.
-
-        Args:
-            template_name: The blog template name
-            category: Optional blog category
-
-        Returns:
-            QuerySet of top-level approved comments with prefetched replies
-        """
         from django.db.models import Prefetch
 
-        # Build recursive prefetch for nested reply structure (2 levels deep)
         replies_prefetch = Prefetch(
             "replies",
             queryset=cls.objects.filter(status="approved")
@@ -200,14 +173,9 @@ class BlogComment(models.Model):
 
     @classmethod
     def get_pending_count(cls):
-        """Get the count of pending comments for admin notification badge."""
         return cls.objects.filter(status="pending").count()
 
     def update_vote_counts(self):
-        """
-        Recalculate and cache vote counts from the CommentVote table.
-        Called automatically when votes are added/removed/changed.
-        """
         from django.db.models import Count, Q
 
         votes = CommentVote.objects.filter(comment=self).aggregate(
@@ -221,7 +189,6 @@ class BlogComment(models.Model):
         self.save(update_fields=["upvotes", "downvotes", "score"])
 
     def get_user_vote(self, user):
-        """Check if a user has voted on this comment and return the vote type."""
         if not user or not user.is_authenticated:
             return None
 
@@ -233,11 +200,6 @@ class BlogComment(models.Model):
 
 
 class CommentVote(models.Model):
-    """
-    Track individual user votes on comments.
-    Each user can have one vote per comment (upvote or downvote).
-    """
-
     VOTE_CHOICES = [
         ("upvote", "Upvote"),
         ("downvote", "Downvote"),
@@ -249,7 +211,6 @@ class CommentVote(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Store IP for potential future anonymous voting feature
     ip_address = models.GenericIPAddressField(
         null=True, blank=True, help_text="IP address for anonymous voting tracking"
     )
@@ -267,18 +228,13 @@ class CommentVote(models.Model):
         return f"{self.user.username} {self.vote_type}d {self.comment}"
 
     def save(self, *args, **kwargs):
-        """Automatically update comment's cached vote counts after saving."""
         super().save(*args, **kwargs)
         self.comment.update_vote_counts()
 
 
 class KnowledgeGraphScreenshot(models.Model):
-    """Model for storing knowledge graph screenshots to avoid runtime generation."""
-
-    # Screenshot data
     image = models.ImageField(upload_to="knowledge_graph_screenshots/")
 
-    # Metadata
     graph_data_hash = models.CharField(
         max_length=64,
         blank=True,
@@ -300,10 +256,6 @@ class KnowledgeGraphScreenshot(models.Model):
 
     @classmethod
     def get_latest(cls, force_regenerate=False):
-        """
-        Get the latest screenshot or return None if not found or force_regenerate is True.
-        Generation should be handled by the view or management command.
-        """
         if not force_regenerate:
             try:
                 return cls.objects.latest("updated_at")

@@ -35,7 +35,6 @@ def send_email(self, email_pk):
         return False
 
     parameters = email.get_parameters()
-    # check if there is an unsubscribe code associated with this email address
     text_body = render_to_string("emails/{}.txt".format(email.template), parameters)
     html_body = render_to_string("emails/{}.html".format(email.template), parameters)
 
@@ -100,10 +99,6 @@ def send_text_message(self, text_message_pk):
     max_retries=2,
 )
 def run_lighthouse_audit(self):
-    """
-    Celery task to run a Lighthouse audit.
-    Scheduled to run daily via Celery Beat.
-    """
     url = "https://aaronspindler.com"
     try:
         logger.info(f"Starting scheduled Lighthouse audit for {url}...")
@@ -122,24 +117,18 @@ def run_lighthouse_audit(self):
     max_retries=3,
 )
 def geolocate_missing_ips(self):
-    """
-    Geolocate IP addresses without geo data.
-    Processes up to 200 global IPs in batches of 100. Skips non-globally-routable IPs.
-    """
     from django.db.models import Q
 
     from utils.models.security import IPAddress
     from utils.security import geolocate_ips_batch, is_global_ip
 
     try:
-        # Find IPs without geo data (null or empty dict)
         missing_geo_ips = IPAddress.objects.filter(Q(geo_data__isnull=True) | Q(geo_data={}))
 
         if not missing_geo_ips:
             logger.info("No IP addresses found that need geolocation")
             return "No IPs to geolocate"
 
-        # Filter to only globally-routable IPs (skip private, loopback, etc.)
         ip_addresses = [ip.ip_address for ip in missing_geo_ips if is_global_ip(ip.ip_address)]
         skipped_count = len(missing_geo_ips) - len(ip_addresses)
 
@@ -155,10 +144,8 @@ def geolocate_missing_ips(self):
         ip_count = len(ip_addresses)
         logger.info(f"Starting geolocation for {ip_count} IP addresses...")
 
-        # Geolocate in batches (100 IPs per batch, max 2 batches = 200 IPs)
         results = geolocate_ips_batch(ip_addresses, batch_size=100, max_batches=2)
 
-        # Update records with results
         success_count = 0
         for ip_str, geo_data in results.items():
             if geo_data:

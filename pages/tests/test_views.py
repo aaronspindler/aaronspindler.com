@@ -7,13 +7,10 @@ from photos.tests.factories import PhotoFactory
 
 
 class HealthCheckViewTest(TestCase):
-    """Test health check endpoint."""
-
     def setUp(self):
         self.client = Client()
 
     def test_health_check_success(self):
-        """Test successful health check."""
         response = self.client.get("/health/")
 
         self.assertEqual(response.status_code, 200)
@@ -23,7 +20,6 @@ class HealthCheckViewTest(TestCase):
 
     @patch("pages.views.connection")
     def test_health_check_database_failure(self, mock_connection):
-        """Test health check when database is down."""
         mock_connection.cursor.side_effect = Exception("Database connection failed")
 
         response = self.client.get("/health/")
@@ -35,7 +31,6 @@ class HealthCheckViewTest(TestCase):
 
     @patch("pages.views.cache")
     def test_health_check_cache_failure(self, mock_cache):
-        """Test health check when cache is unavailable."""
         mock_cache.set.side_effect = Exception("Cache unavailable")
 
         response = self.client.get("/health/")
@@ -48,8 +43,6 @@ class HealthCheckViewTest(TestCase):
 
 
 class RobotsTxtViewTest(TestCase):
-    """Test robots.txt serving."""
-
     def setUp(self):
         self.client = Client()
 
@@ -59,7 +52,6 @@ class RobotsTxtViewTest(TestCase):
         read_data="User-agent: *\nDisallow: /admin/",
     )
     def test_robots_txt_serving(self, mock_file):
-        """Test serving robots.txt file."""
         response = self.client.get("/robots.txt")
 
         self.assertEqual(response.status_code, 200)
@@ -69,14 +61,11 @@ class RobotsTxtViewTest(TestCase):
 
 
 class ResumeViewTest(TestCase):
-    """Test resume serving functionality."""
-
     def setUp(self):
         self.client = Client()
 
     @patch("pages.views.os.path.exists")
     def test_resume_disabled(self, mock_exists):
-        """Test resume view when resume is disabled."""
         with self.settings(RESUME_ENABLED=False):
             response = self.client.get("/resume/")
 
@@ -86,7 +75,6 @@ class ResumeViewTest(TestCase):
     @patch("pages.views.os.path.exists")
     @patch("builtins.open", new_callable=mock_open, read_data=b"PDF content")
     def test_resume_serving_success(self, mock_file, mock_exists):
-        """Test successful resume serving."""
         mock_exists.return_value = True
 
         with self.settings(RESUME_ENABLED=True, RESUME_FILENAME="test_resume.pdf"):
@@ -99,7 +87,6 @@ class ResumeViewTest(TestCase):
 
     @patch("pages.views.os.path.exists")
     def test_resume_file_not_found(self, mock_exists):
-        """Test resume view when file doesn't exist."""
         mock_exists.return_value = False
 
         with self.settings(RESUME_ENABLED=True):
@@ -110,7 +97,6 @@ class ResumeViewTest(TestCase):
     @patch("pages.views.os.path.exists")
     @patch("pages.views.FileResponse")
     def test_resume_serving_error(self, mock_file_response, mock_exists):
-        """Test error handling in resume serving."""
         mock_exists.return_value = True
         mock_file_response.side_effect = Exception("Error reading file")
 
@@ -121,8 +107,6 @@ class ResumeViewTest(TestCase):
 
 
 class HomeViewTest(TestCase):
-    """Test home page view."""
-
     def setUp(self):
         self.client = Client()
         cache.clear()
@@ -131,8 +115,6 @@ class HomeViewTest(TestCase):
     @patch("pages.views.get_blog_from_template_name")
     @patch("pages.views.get_books")
     def test_home_view_success(self, mock_get_books, mock_get_blog, mock_get_all_posts):
-        """Test successful home page rendering."""
-        # Mock blog posts
         mock_get_all_posts.return_value = [
             {"template_name": "post1", "category": "tech"},
             {"template_name": "post2", "category": "personal"},
@@ -153,7 +135,6 @@ class HomeViewTest(TestCase):
             },
         ]
 
-        # Mock books
         mock_get_books.return_value = [{"name": "Test Book", "author": "Test Author"}]
 
         response = self.client.get("/")
@@ -168,23 +149,18 @@ class HomeViewTest(TestCase):
     @patch("pages.views.get_all_blog_posts")
     @patch("pages.views.get_blog_from_template_name")
     def test_home_view_caching(self, mock_get_blog, mock_get_all_posts):
-        """Test that home view uses caching effectively."""
         mock_get_all_posts.return_value = []
         mock_get_blog.return_value = {}
 
-        # First request - should populate cache
         response1 = self.client.get("/")
         self.assertEqual(response1.status_code, 200)
         self.assertEqual(mock_get_all_posts.call_count, 1)
 
-        # Second request - should use cache
         response2 = self.client.get("/")
         self.assertEqual(response2.status_code, 200)
         self.assertEqual(mock_get_all_posts.call_count, 1)  # Still 1, used cache
 
     def test_home_view_with_photo_albums(self):
-        """Test home view with photo albums."""
-        # Create test photo and album
         photo = PhotoFactory.create_photo()
 
         album = PhotoFactory.create_photo_album(title="Test Album", slug="test-album", is_private=False)
@@ -198,7 +174,6 @@ class HomeViewTest(TestCase):
         self.assertEqual(response.context["album_data"][0]["album"].title, "Test Album")
 
     def test_home_view_excludes_private_albums(self):
-        """Test that home view excludes private photo albums."""
         photo = PhotoFactory.create_photo()
 
         public_album = PhotoFactory.create_photo_album(title="Public Album", slug="public", is_private=False)
@@ -217,7 +192,6 @@ class HomeViewTest(TestCase):
 
     @patch("pages.views.get_all_blog_posts")
     def test_home_view_blog_categorization(self, mock_get_all_posts):
-        """Test that blog posts are properly categorized."""
         mock_get_all_posts.return_value = [
             {"template_name": "post1", "category": "tech"},
             {"template_name": "post2", "category": "tech"},
@@ -250,12 +224,10 @@ class HomeViewTest(TestCase):
             self.assertEqual(len(categories["personal"]), 1)
             self.assertEqual(len(categories["uncategorized"]), 1)
 
-            # Check sorting within categories (newest first)
             self.assertEqual(categories["tech"][0]["entry_number"], "0004")
             self.assertEqual(categories["tech"][1]["entry_number"], "0003")
 
     def test_home_view_projects_list(self):
-        """Test that projects are included in context."""
         response = self.client.get("/")
 
         self.assertEqual(response.status_code, 200)
@@ -264,7 +236,6 @@ class HomeViewTest(TestCase):
         self.assertIsInstance(projects, list)
         self.assertGreater(len(projects), 0)
 
-        # Check project structure
         for project in projects:
             self.assertIn("name", project)
             self.assertIn("description", project)
@@ -272,10 +243,8 @@ class HomeViewTest(TestCase):
 
     @patch("pages.views.get_books")
     def test_home_view_books_error_handling(self, mock_get_books):
-        """Test home view handles errors in book fetching."""
         mock_get_books.side_effect = Exception("Book fetch error")
 
-        # Should still render page without books
         with patch("pages.views.get_all_blog_posts", return_value=[]):
             response = self.client.get("/")
 

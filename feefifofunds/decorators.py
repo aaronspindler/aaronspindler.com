@@ -1,9 +1,3 @@
-"""
-Decorators for FeeFiFoFunds functionality.
-
-Provides rate limiting, retry logic, caching, and other cross-cutting concerns.
-"""
-
 import logging
 import time
 from functools import wraps
@@ -23,20 +17,6 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 
 def rate_limit(calls_per_second: float = 1.0) -> Callable[[F], F]:
-    """
-    Rate limit decorator to prevent API throttling.
-
-    Args:
-        calls_per_second: Maximum calls per second (default: 1.0)
-
-    Returns:
-        Decorated function with rate limiting
-
-    Example:
-        @rate_limit(0.5)  # Max 1 call every 2 seconds
-        def fetch_data():
-            return api_call()
-    """
     min_interval = 1.0 / calls_per_second
     last_called = {}  # Track last call time per function
 
@@ -54,7 +34,6 @@ def rate_limit(calls_per_second: float = 1.0) -> Callable[[F], F]:
                 logger.debug(f"Rate limiting {func_key}: waiting {left_to_wait:.2f}s")
                 time.sleep(left_to_wait)
 
-            # Call function and update timestamp
             result = func(*args, **kwargs)
             last_called[func_key] = time.time()
 
@@ -71,23 +50,6 @@ def retry_with_backoff(
     max_wait: int = 60,
     exception_types: tuple | None = None,
 ) -> Callable[[F], F]:
-    """
-    Retry decorator with exponential backoff.
-
-    Args:
-        max_attempts: Maximum retry attempts (default: 3)
-        min_wait: Minimum wait time in seconds (default: 1)
-        max_wait: Maximum wait time in seconds (default: 60)
-        exception_types: Tuple of exceptions to retry on (default: all)
-
-    Returns:
-        Decorated function with retry logic
-
-    Example:
-        @retry_with_backoff(max_attempts=5, min_wait=2)
-        def unreliable_api_call():
-            return external_api.fetch()
-    """
     if exception_types is None:
         exception_types = (Exception,)
 
@@ -112,43 +74,23 @@ def retry_with_backoff(
 
 
 def cached_result(timeout: int = 300, key_prefix: str = None) -> Callable[[F], F]:
-    """
-    Cache function results using Django cache.
-
-    Args:
-        timeout: Cache timeout in seconds (default: 300)
-        key_prefix: Optional prefix for cache key
-
-    Returns:
-        Decorated function with caching
-
-    Example:
-        @cached_result(timeout=3600, key_prefix="asset_data")
-        def get_asset_coverage(asset_id: int):
-            return expensive_calculation(asset_id)
-    """
-
     def decorator(func: F) -> F:
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Generate cache key
             prefix = key_prefix or f"{func.__module__}.{func.__name__}"
             cache_key = f"{prefix}:{args}:{kwargs}"
 
-            # Try to get from cache
             result = cache.get(cache_key)
             if result is not None:
                 logger.debug(f"Cache hit for {cache_key}")
                 return result
 
-            # Call function and cache result
             result = func(*args, **kwargs)
             cache.set(cache_key, result, timeout=timeout)
             logger.debug(f"Cached result for {cache_key}")
 
             return result
 
-        # Add method to clear cache
         def clear_cache(*args, **kwargs):
             prefix = key_prefix or f"{func.__module__}.{func.__name__}"
             cache_key = f"{prefix}:{args}:{kwargs}"
@@ -166,22 +108,6 @@ def circuit_breaker(
     recovery_timeout: int = 60,
     expected_exception: type[Exception] = Exception,
 ) -> Callable[[F], F]:
-    """
-    Circuit breaker pattern to prevent cascading failures.
-
-    Args:
-        failure_threshold: Number of failures before opening circuit
-        recovery_timeout: Seconds to wait before attempting recovery
-        expected_exception: Exception type to count as failure
-
-    Returns:
-        Decorated function with circuit breaker
-
-    Example:
-        @circuit_breaker(failure_threshold=3, recovery_timeout=30)
-        def external_service_call():
-            return api.call()
-    """
     from pybreaker import CircuitBreaker as PyBreaker
 
     def decorator(func: F) -> F:
@@ -196,7 +122,6 @@ def circuit_breaker(
         def wrapper(*args, **kwargs):
             return breaker(func)(*args, **kwargs)
 
-        # Add methods to inspect breaker state
         wrapper.breaker = breaker
         wrapper.is_open = lambda: breaker.state == "open"
         wrapper.is_closed = lambda: breaker.state == "closed"
@@ -208,21 +133,6 @@ def circuit_breaker(
 
 
 def timed_execution(log_slow_threshold: float = 1.0) -> Callable[[F], F]:
-    """
-    Time function execution and log if slow.
-
-    Args:
-        log_slow_threshold: Threshold in seconds for slow execution warning
-
-    Returns:
-        Decorated function with timing
-
-    Example:
-        @timed_execution(log_slow_threshold=5.0)
-        def slow_operation():
-            time.sleep(10)
-    """
-
     def decorator(func: F) -> F:
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -250,31 +160,11 @@ def timed_execution(log_slow_threshold: float = 1.0) -> Callable[[F], F]:
 
 
 def validate_inputs(validator_class: type) -> Callable[[F], F]:
-    """
-    Validate function inputs using Pydantic model.
-
-    Args:
-        validator_class: Pydantic model class for validation
-
-    Returns:
-        Decorated function with input validation
-
-    Example:
-        from feefifofunds.validators import IngestionConfig
-
-        @validate_inputs(IngestionConfig)
-        def ingest_data(tier: str, intervals: List[int]):
-            # inputs are now validated
-            pass
-    """
-
     def decorator(func: F) -> F:
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Validate kwargs using Pydantic
             try:
                 validated = validator_class(**kwargs)
-                # Replace kwargs with validated values
                 kwargs = validated.model_dump()
             except Exception as e:
                 logger.error(f"Input validation failed for {func.__name__}: {e}")
@@ -288,22 +178,6 @@ def validate_inputs(validator_class: type) -> Callable[[F], F]:
 
 
 def batch_process(batch_size: int = 1000) -> Callable[[F], F]:
-    """
-    Process large datasets in batches.
-
-    Args:
-        batch_size: Size of each batch (default: 1000)
-
-    Returns:
-        Decorated generator function that yields batches
-
-    Example:
-        @batch_process(batch_size=500)
-        def process_records(records: List[dict]):
-            for batch in records:
-                yield process_batch(batch)
-    """
-
     def decorator(func: F) -> F:
         @wraps(func)
         def wrapper(items, *args, **kwargs):
@@ -325,20 +199,6 @@ def batch_process(batch_size: int = 1000) -> Callable[[F], F]:
 
 
 def async_task(queue_name: str = "default") -> Callable[[F], F]:
-    """
-    Mark function as async Celery task.
-
-    Args:
-        queue_name: Celery queue name (default: "default")
-
-    Returns:
-        Decorated function as Celery task
-
-    Example:
-        @async_task(queue_name="high_priority")
-        def important_task(data):
-            process_data(data)
-    """
     from celery import shared_task
 
     def decorator(func: F) -> F:
@@ -353,46 +213,22 @@ def async_task(queue_name: str = "default") -> Callable[[F], F]:
     return decorator
 
 
-# Composite decorators for common patterns
-
-
 def api_call(
     rate_limit_per_second: float = 1.0,
     max_retries: int = 3,
     cache_timeout: int = 0,
 ) -> Callable[[F], F]:
-    """
-    Composite decorator for API calls with rate limiting and retry.
-
-    Args:
-        rate_limit_per_second: API rate limit
-        max_retries: Maximum retry attempts
-        cache_timeout: Cache timeout in seconds (0 = no cache)
-
-    Returns:
-        Decorated function with full API call handling
-
-    Example:
-        @api_call(rate_limit_per_second=0.5, max_retries=5, cache_timeout=300)
-        def fetch_kraken_data(asset: str, interval: int):
-            return kraken_api.get_ohlc(asset, interval)
-    """
-
     def decorator(func: F) -> F:
-        # Apply decorators in order
         decorated = func
 
-        # Add caching if requested
         if cache_timeout > 0:
             decorated = cached_result(timeout=cache_timeout)(decorated)
 
         # Add retry logic
         decorated = retry_with_backoff(max_attempts=max_retries)(decorated)
 
-        # Add rate limiting
         decorated = rate_limit(calls_per_second=rate_limit_per_second)(decorated)
 
-        # Add timing
         decorated = timed_execution()(decorated)
 
         return decorated
@@ -401,21 +237,6 @@ def api_call(
 
 
 def database_operation(use_transaction: bool = True) -> Callable[[F], F]:
-    """
-    Decorator for database operations with transaction management.
-
-    Args:
-        use_transaction: Whether to wrap in transaction
-
-    Returns:
-        Decorated function with database safety
-
-    Example:
-        @database_operation()
-        def update_coverage(asset_id: int):
-            # Automatically wrapped in transaction
-            coverage.save()
-    """
     from django.db import transaction
 
     def decorator(func: F) -> F:

@@ -3,6 +3,7 @@ from utils.common_list_choices import get_interval_choices, get_region_choices
 from web.models import Endpoint
 from utils.models import HTTPStatusCode
 
+
 class EndpointForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop('request', None)
@@ -17,7 +18,6 @@ class EndpointForm(forms.ModelForm):
             else:
                 field.widget.attrs.update({'class': 'form-check-input'})
         
-        # Make the up_status_codes field a little bit longer
         self.fields['up_status_codes'].widget.attrs.update({'size': '10'})
         self.fields['enabled_regions'].widget.attrs.update({'size': '10'})
         

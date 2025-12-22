@@ -1,16 +1,3 @@
-"""
-Finnhub Data Source Implementation.
-
-Provides financial market data including stocks and crypto:
-- Rate Limit: 60 calls/minute (free tier)
-- Historical Data: ~1 year estimated on free tier (not explicitly documented)
-- Real-time Data: WebSocket available
-- Crypto Support: Yes
-
-API Documentation: https://finnhub.io/docs/api
-Client Library: https://github.com/Finnhub-Stock-API/finnhub-python
-"""
-
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from typing import List
@@ -40,17 +27,6 @@ class FinnhubDataSource:
         self.client = finnhub.Client(api_key=api_key)
 
     def fetch_historical_prices(self, ticker: str, start_date: date, end_date: date) -> List[dict]:
-        """
-        Fetch historical price data from Finnhub.
-
-        Args:
-            ticker: Stock/Crypto ticker (e.g., AAPL, BINANCE:BTCUSDT)
-            start_date: Start date
-            end_date: End date
-
-        Returns:
-            List of price dictionaries
-        """
         start_timestamp = int(datetime.combine(start_date, time.min).timestamp())
         end_timestamp = int(datetime.combine(end_date, time.max).timestamp())
 
@@ -71,7 +47,6 @@ class FinnhubDataSource:
             raise DataSourceError(f"Failed to fetch data from Finnhub: {str(e)}") from e
 
     def _transform_results(self, ticker: str, data: dict) -> List[dict]:
-        """Transform Finnhub response to standard format."""
         timestamps = data.get("t", [])
         opens = data.get("o", [])
         highs = data.get("h", [])

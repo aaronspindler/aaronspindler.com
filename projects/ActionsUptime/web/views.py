@@ -8,6 +8,7 @@ from web.models import Endpoint, EndpointStatus, EndpointStatusCheckRequest
 from utils.models import NotificationEmail, NotificationPhoneNumber
 from django.views.decorators.csrf import csrf_exempt
 
+
 @login_required
 def endpoints_home(request):
     data = {}
@@ -20,6 +21,7 @@ def endpoints_home(request):
             all_active = False
     data['all_active'] = all_active
     return render(request, "web/endpoints_home.html", data)
+
 
 @csrf_exempt
 def endpoint_status_webhook(request, key):
@@ -48,6 +50,7 @@ def endpoint_status_webhook(request, key):
         return HttpResponse('success')
     return HttpResponseNotAllowed(["POST"])
 
+
 @login_required
 def add_endpoint(request):
     form = EndpointForm(request=request)
@@ -64,6 +67,7 @@ def add_endpoint(request):
             messages.error(request, "Please correct the errors below.")
     return render(request, "web/add_endpoint.html", {"form": form})
 
+
 @login_required
 def edit_endpoint(request, pk):
     endpoint = get_object_or_404(Endpoint, pk=pk, owner=request.user)
@@ -78,6 +82,7 @@ def edit_endpoint(request, pk):
             messages.error(request, "Please correct the errors below.")
     return render(request, "web/edit_endpoint.html", {"form": form, "endpoint": endpoint})
 
+
 @login_required
 def endpoints_status(request):
     endpoints = Endpoint.objects.filter(owner=request.user)
@@ -90,6 +95,7 @@ def endpoints_status(request):
         "all_active": all_active
     }
     return JsonResponse(data)
+
 
 def endpoint_details(request, private_id):
     endpoint = get_object_or_404(Endpoint, private_id=private_id)
@@ -107,6 +113,7 @@ def endpoint_details(request, private_id):
         data['id'] = endpoint.id
     return JsonResponse(data)
     
+
 def endpoint_status_timeline(request, private_id):
     endpoint = get_object_or_404(Endpoint, private_id=private_id)
     timeline_type = request.GET.get('timeline_type', 'daily')
@@ -114,6 +121,7 @@ def endpoint_status_timeline(request, private_id):
         "timeline": endpoint.get_status_timeline(timeline_type),
     }
     return JsonResponse(data)
+
 
 def endpoint_latency_timeline(request, private_id):
     endpoint = get_object_or_404(Endpoint, private_id=private_id)
@@ -123,6 +131,7 @@ def endpoint_latency_timeline(request, private_id):
     }
     return JsonResponse(data)
 
+
 @login_required
 def delete_endpoint(request, pk):
     if request.method == 'POST':
@@ -130,6 +139,7 @@ def delete_endpoint(request, pk):
         endpoint.delete()
         messages.success(request, "Endpoint deleted successfully!")
     return redirect('endpoints_home')
+
 
 @login_required
 def endpoint_available_notification_methods(request, pk):
@@ -155,6 +165,7 @@ def endpoint_available_notification_methods(request, pk):
         "phone_numbers": phone_numbers,
     })
 
+
 @login_required
 def add_phone_notification(request, pk):
     if request.method == 'POST':
@@ -166,6 +177,7 @@ def add_phone_notification(request, pk):
             return JsonResponse({"success": True})
         else:
             return JsonResponse({"success": False})
+
 
 @login_required
 def remove_phone_notification(request, pk):
@@ -179,6 +191,7 @@ def remove_phone_notification(request, pk):
         else:
             return JsonResponse({"success": False})
 
+
 @login_required
 def add_email_notification(request, pk):
     if request.method == 'POST':
@@ -190,6 +203,7 @@ def add_email_notification(request, pk):
             return JsonResponse({"success": True})
         else:
             return JsonResponse({"success": False})
+
 
 @login_required
 def remove_email_notification(request, pk):

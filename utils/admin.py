@@ -19,8 +19,6 @@ from .models import (
 
 
 class HasGeoDataFilter(admin.SimpleListFilter):
-    """Filter for IPAddress records with/without geo data."""
-
     title = "geo data"
     parameter_name = "has_geo_data"
 
@@ -82,8 +80,6 @@ class NotificationPhoneNumberAdmin(admin.ModelAdmin):
 
 @admin.register(IPAddress)
 class IPAddressAdmin(admin.ModelAdmin):
-    """Admin interface for IPAddress model."""
-
     list_display = (
         "ip_address",
         "location_display",
@@ -102,7 +98,6 @@ class IPAddressAdmin(admin.ModelAdmin):
 
     @admin.display(description="Location")
     def location_display(self, obj):
-        """Display geolocation information."""
         if not obj.geo_data:
             return "Not geolocated"
         city = obj.geo_data.get("city", "")
@@ -112,18 +107,15 @@ class IPAddressAdmin(admin.ModelAdmin):
         return country or "Unknown"
 
     def get_queryset(self, request):
-        """Annotate queryset with request count for sorting."""
         queryset = super().get_queryset(request)
         return queryset.annotate(num_requests=Count("tracked_requests"))
 
     @admin.display(description="Request Count", ordering="num_requests")
     def request_count(self, obj):
-        """Count of TrackedRequest records using this IP."""
         return obj.num_requests
 
     @admin.display(description="Banned", boolean=True)
     def is_banned(self, obj):
-        """Check if this IP has an active ban."""
         from django.db import models
         from django.utils import timezone
 
@@ -138,7 +130,6 @@ class IPAddressAdmin(admin.ModelAdmin):
 
     @admin.display(description="View Requests")
     def view_requests_link(self, obj):
-        """Link to view all requests from this IP address."""
         count = obj.tracked_requests.count()
         if count == 0:
             return "No requests"
@@ -146,21 +137,17 @@ class IPAddressAdmin(admin.ModelAdmin):
         return format_html('<a href="{}">{} request{}</a>', url, count, "s" if count != 1 else "")
 
     def has_add_permission(self, request):
-        """Disable manual creation - IPs created automatically from requests."""
         return False
 
     def has_change_permission(self, request, obj=None):
-        """Make IP addresses read-only."""
         return False
 
     @admin.action(description="Ban selected IP addresses")
     def ban_ips(self, request, queryset):
-        """Create bans for selected IP addresses."""
         created_count = 0
         already_banned = 0
 
         for ip_obj in queryset:
-            # Check if already has an active ban
             existing_ban = ip_obj.bans.filter(is_active=True).first()
             if existing_ban:
                 already_banned += 1
@@ -180,7 +167,6 @@ class IPAddressAdmin(admin.ModelAdmin):
 
     @admin.action(description="Delete local/private IP addresses")
     def delete_local_ips(self, request, queryset):
-        """Delete local and private IP addresses (and all related tracked requests)."""
         from utils.security import is_local_ip
 
         local_ips = [ip for ip in queryset if is_local_ip(ip.ip_address)]
@@ -194,8 +180,6 @@ class IPAddressAdmin(admin.ModelAdmin):
 
 @admin.register(Fingerprint)
 class FingerprintAdmin(admin.ModelAdmin):
-    """Admin interface for Fingerprint model."""
-
     list_display = (
         "hash_preview",
         "request_count",
@@ -217,23 +201,19 @@ class FingerprintAdmin(admin.ModelAdmin):
     actions = ["ban_fingerprints"]
 
     def get_queryset(self, request):
-        """Annotate queryset with request count for sorting."""
         queryset = super().get_queryset(request)
         return queryset.annotate(num_requests=Count("tracked_requests"))
 
     @admin.display(description="Fingerprint")
     def hash_preview(self, obj):
-        """Display truncated fingerprint hash."""
         return obj.hash[:16] + "..."
 
     @admin.display(description="Request Count", ordering="num_requests")
     def request_count(self, obj):
-        """Count of TrackedRequest records with this fingerprint."""
         return obj.num_requests
 
     @admin.display(description="Banned", boolean=True)
     def is_banned(self, obj):
-        """Check if this fingerprint has an active ban."""
         from django.db import models
         from django.utils import timezone
 
@@ -248,7 +228,6 @@ class FingerprintAdmin(admin.ModelAdmin):
 
     @admin.display(description="View Requests")
     def view_requests_link(self, obj):
-        """Link to view all requests with this fingerprint."""
         count = obj.num_requests
         if count == 0:
             return "No requests"
@@ -257,12 +236,10 @@ class FingerprintAdmin(admin.ModelAdmin):
 
     @admin.action(description="Ban selected fingerprints")
     def ban_fingerprints(self, request, queryset):
-        """Create bans for selected fingerprints."""
         created_count = 0
         already_banned = 0
 
         for fingerprint in queryset:
-            # Check if already has an active ban
             existing_ban = fingerprint.bans.filter(is_active=True).first()
             if existing_ban:
                 already_banned += 1
@@ -281,18 +258,14 @@ class FingerprintAdmin(admin.ModelAdmin):
             messages.warning(request, f"{already_banned} fingerprint(s) were already banned.")
 
     def has_add_permission(self, request):
-        """Disable manual creation - fingerprints created automatically from requests."""
         return False
 
     def has_change_permission(self, request, obj=None):
-        """Make fingerprints read-only."""
         return False
 
 
 @admin.register(TrackedRequest)
 class TrackedRequestAdmin(admin.ModelAdmin):
-    """Admin interface for TrackedRequest model."""
-
     list_display = (
         "created_at",
         "ip_display",
@@ -348,7 +321,6 @@ class TrackedRequestAdmin(admin.ModelAdmin):
         ordering="ip_address__ip_address",
     )
     def ip_display(self, obj):
-        """Display IP address as a clickable link to filter by this IP."""
         if not obj.ip_address:
             return "Unknown"
         url = reverse("admin:utils_trackedrequest_changelist") + f"?ip_address__id__exact={obj.ip_address.id}"
@@ -356,7 +328,6 @@ class TrackedRequestAdmin(admin.ModelAdmin):
 
     @admin.display(description="Location")
     def location_display(self, obj):
-        """Display geolocation information from related IPAddress."""
         if not obj.ip_address or not obj.ip_address.geo_data:
             return "Not geolocated"
         city = obj.ip_address.geo_data.get("city", "")
@@ -367,7 +338,6 @@ class TrackedRequestAdmin(admin.ModelAdmin):
 
     @admin.display(description="Fingerprint")
     def fingerprint_preview(self, obj):
-        """Display clickable fingerprint preview."""
         if not obj.fingerprint_obj:
             return "None"
         hash_preview = obj.fingerprint_obj.hash[:16] + "..."
@@ -375,18 +345,14 @@ class TrackedRequestAdmin(admin.ModelAdmin):
         return format_html('<a href="{}">{}</a>', url, hash_preview)
 
     def has_add_permission(self, request):
-        """Disable manual creation - fingerprints should be created from requests."""
         return False
 
     def has_change_permission(self, request, obj=None):
-        """Make fingerprints read-only."""
         return False
 
 
 @admin.register(LighthouseAudit)
 class LighthouseAuditAdmin(admin.ModelAdmin):
-    """Admin interface for viewing Lighthouse audit history."""
-
     list_display = [
         "url",
         "audit_date",
@@ -412,18 +378,14 @@ class LighthouseAuditAdmin(admin.ModelAdmin):
 
     @admin.display(description="Average")
     def average_score(self, obj):
-        """Display the average score."""
         return obj.average_score
 
     def has_add_permission(self, request):
-        """Disable manual adding of audits (should be created via management command)."""
         return False
 
 
 @admin.register(LLMUsage)
 class LLMUsageAdmin(admin.ModelAdmin):
-    """Admin interface for viewing LLM usage history."""
-
     list_display = [
         "created_at",
         "provider",
@@ -446,26 +408,20 @@ class LLMUsageAdmin(admin.ModelAdmin):
 
     @admin.display(description="Prompt")
     def prompt_preview(self, obj):
-        """Display truncated prompt."""
         return obj.prompt[:100] + "..." if len(obj.prompt) > 100 else obj.prompt
 
     @admin.display(description="Response")
     def response_preview(self, obj):
-        """Display truncated response."""
         return obj.response[:100] + "..." if len(obj.response) > 100 else obj.response
 
     def has_add_permission(self, request):
-        """Disable manual creation - usage should be tracked automatically."""
         return False
 
     def has_change_permission(self, request, obj=None):
-        """Make LLM usage records read-only."""
         return False
 
 
 class BanStatusFilter(admin.SimpleListFilter):
-    """Filter bans by their effective status (active/expired/inactive)."""
-
     title = "status"
     parameter_name = "ban_status"
 
@@ -495,8 +451,6 @@ class BanStatusFilter(admin.SimpleListFilter):
 
 @admin.register(Ban)
 class BanAdmin(admin.ModelAdmin):
-    """Admin interface for managing bans."""
-
     list_display = (
         "id",
         "ban_target",
@@ -545,7 +499,6 @@ class BanAdmin(admin.ModelAdmin):
 
     @admin.display(description="Target")
     def ban_target(self, obj):
-        """Display the ban target(s)."""
         targets = []
         if obj.fingerprint:
             fp_url = reverse("admin:utils_fingerprint_change", args=[obj.fingerprint.id])
@@ -562,28 +515,23 @@ class BanAdmin(admin.ModelAdmin):
 
     @admin.display(description="Reason")
     def reason_preview(self, obj):
-        """Display truncated reason."""
         return obj.reason[:50] + "..." if len(obj.reason) > 50 else obj.reason
 
     @admin.display(description="Effective", boolean=True)
     def is_effective_display(self, obj):
-        """Display if ban is currently in effect."""
         return obj.is_effective()
 
     @admin.action(description="Activate selected bans")
     def activate_bans(self, request, queryset):
-        """Activate selected bans."""
         updated = queryset.update(is_active=True)
         messages.success(request, f"Activated {updated} ban(s).")
 
     @admin.action(description="Deactivate selected bans")
     def deactivate_bans(self, request, queryset):
-        """Deactivate selected bans."""
         updated = queryset.update(is_active=False)
         messages.success(request, f"Deactivated {updated} ban(s).")
 
     def save_model(self, request, obj, form, change):
-        """Set created_by to current user on creation."""
         if not change and not obj.created_by:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
