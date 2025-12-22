@@ -813,12 +813,17 @@ class PhotoAdmin(admin.ModelAdmin):
             photo.focal_point_override = True
             photo.save()
 
+            # Trigger async reprocess to regenerate image versions with new focal point
+            from photos.tasks import process_photo_async
+
+            process_photo_async.delay(photo.pk, force=True)
+
             return JsonResponse(
                 {
                     "success": True,
                     "focal_x": focal_x,
                     "focal_y": focal_y,
-                    "message": "Focal point updated successfully. Override enabled.",
+                    "message": "Focal point updated. Reprocessing image...",
                 }
             )
 
