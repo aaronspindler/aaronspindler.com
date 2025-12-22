@@ -146,7 +146,7 @@ def is_trusted_proxy(ip_address: str) -> bool:
                     if client_ip == trusted_ip:
                         return True
             except (ValueError, ipaddr.AddressValueError):
-                logger.warning(f"Invalid trusted proxy IP format: {trusted}")
+                logger.warning("Invalid trusted proxy IP format in TRUSTED_PROXY_IPS configuration")
                 continue
 
         return False
