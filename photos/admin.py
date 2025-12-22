@@ -93,6 +93,7 @@ class PhotoAdmin(admin.ModelAdmin):
         "image_preview",
         "all_versions_preview",
         "saliency_map_preview",
+        "focal_point_editor",
         "original_filename",
         "file_size_display",
         "dimensions_display",
@@ -121,7 +122,12 @@ class PhotoAdmin(admin.ModelAdmin):
         (
             "Image Versions",
             {
-                "fields": ("all_versions_preview", "saliency_map_preview"),
+                "fields": (
+                    "all_versions_preview",
+                    "saliency_map_preview",
+                    "focal_point_editor",
+                    "focal_point_override",
+                ),
             },
         ),
         (
@@ -310,6 +316,72 @@ class PhotoAdmin(admin.ModelAdmin):
                 "<small>File: {}<br>Error: {}: {}</small>"
                 "</div>",
                 obj.saliency_map.name if obj.saliency_map else "None",
+                type(e).__name__,
+                str(e),
+            )
+
+    @admin.display(description="Focal Point Editor")
+    def focal_point_editor(self, obj):
+        """Interactive editor for setting focal point by clicking on the image."""
+        if not obj.image_preview:
+            return format_html(
+                '<div style="background: #f9f9f9; padding: 10px; border-radius: 5px; color: #666;">'
+                "No image available for focal point editing."
+                "</div>"
+            )
+
+        try:
+            url = obj.image_preview.url
+            focal_x = obj.focal_point_x if obj.focal_point_x is not None else 0.5
+            focal_y = obj.focal_point_y if obj.focal_point_y is not None else 0.5
+
+            # Format floats
+            focal_x_str = f"{focal_x:.3f}"
+            focal_y_str = f"{focal_y:.3f}"
+
+            # Generate HTML for the interactive editor
+            return format_html(
+                '<div class="focal-point-editor-container" style="background: #f9f9f9; padding: 15px; border-radius: 5px;">'
+                "<strong>Click on the image to set focal point</strong><br>"
+                '<small style="color: #666;">The focal point determines the center of thumbnail crops. '
+                "Click anywhere on the image to set a new focal point.</small><br><br>"
+                '<div style="position: relative; display: inline-block; max-width: 600px;">'
+                '<img id="focal-point-image-{}" src="{}" '
+                'style="max-width: 100%; border: 2px solid #333; cursor: crosshair; display: block;" '
+                'data-photo-id="{}" data-focal-x="{}" data-focal-y="{}" />'
+                '<div id="focal-point-crosshair-{}" class="focal-point-crosshair" '
+                'style="position: absolute; pointer-events: none; display: none;">'
+                '<div style="position: absolute; width: 30px; height: 2px; background: red; left: -15px; top: -1px;"></div>'
+                '<div style="position: absolute; width: 2px; height: 30px; background: red; left: -1px; top: -15px;"></div>'
+                '<div style="position: absolute; width: 10px; height: 10px; border: 2px solid white; '
+                'border-radius: 50%; left: -6px; top: -6px; background: rgba(255, 0, 0, 0.5);"></div>'
+                "</div>"
+                "</div><br>"
+                '<div id="focal-point-info-{}" style="margin-top: 10px;">'
+                '<small style="color: #666;">Current Focal Point: '
+                '<span id="focal-point-coords-{}" class="focal-point-coords">({}, {})</span></small>'
+                "</div>"
+                '<script src="/static/photos/admin/focal_point_editor.js"></script>'
+                '<link rel="stylesheet" href="/static/photos/admin/focal_point_editor.css">'
+                "</div>",
+                obj.pk,
+                url,
+                obj.pk,
+                focal_x_str,
+                focal_y_str,
+                obj.pk,
+                obj.pk,
+                obj.pk,
+                focal_x_str,
+                focal_y_str,
+            )
+        except Exception as e:
+            logger.error(f"Error displaying focal point editor for photo {obj.pk}: {type(e).__name__}: {e}")
+            return format_html(
+                '<div style="background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffc107;">'
+                "<strong>⚠️ Error loading focal point editor</strong><br>"
+                "<small>Error: {}: {}</small>"
+                "</div>",
                 type(e).__name__,
                 str(e),
             )
@@ -651,13 +723,18 @@ class PhotoAdmin(admin.ModelAdmin):
             messages.warning(request, f"Skipped {skipped} photo(s) with no image file")
 
     def get_urls(self):
-        """Add custom URLs for bulk upload."""
+        """Add custom URLs for bulk upload and focal point editing."""
         urls = super().get_urls()
         custom_urls = [
             path(
                 "bulk-upload/",
                 self.admin_site.admin_view(self.bulk_upload_view),
                 name="photos_photo_bulk_upload",
+            ),
+            path(
+                "<int:photo_id>/update-focal-point/",
+                self.admin_site.admin_view(self.update_focal_point_view),
+                name="photos_photo_update_focal_point",
             ),
         ]
         return custom_urls + urls
@@ -676,6 +753,52 @@ class PhotoAdmin(admin.ModelAdmin):
             "opts": self.model._meta,
         }
         return render(request, "admin/photos/photo/bulk_upload.html", context)
+
+    def update_focal_point_view(self, request, photo_id):
+        """AJAX endpoint to update focal point coordinates and enable override."""
+        import json
+
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "POST required"}, status=405)
+
+        try:
+            photo = Photo.objects.get(pk=photo_id)
+        except Photo.DoesNotExist:
+            return JsonResponse({"success": False, "error": "Photo not found"}, status=404)
+
+        try:
+            data = json.loads(request.body)
+            focal_x = float(data.get("focal_x"))
+            focal_y = float(data.get("focal_y"))
+
+            # Validate coordinates are in 0-1 range
+            if not (0 <= focal_x <= 1 and 0 <= focal_y <= 1):
+                return JsonResponse(
+                    {"success": False, "error": "Focal point coordinates must be between 0 and 1"}, status=400
+                )
+
+            # Update focal point and enable override
+            photo.focal_point_x = focal_x
+            photo.focal_point_y = focal_y
+            photo.focal_point_override = True
+            photo.save()
+
+            return JsonResponse(
+                {
+                    "success": True,
+                    "focal_x": focal_x,
+                    "focal_y": focal_y,
+                    "message": "Focal point updated successfully. Override enabled.",
+                }
+            )
+
+        except (ValueError, KeyError, json.JSONDecodeError) as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=400)
+        except Exception as e:
+            logger.error(f"Error updating focal point for photo {photo_id}: {e}", exc_info=True)
+            return JsonResponse({"success": False, "error": "Internal server error"}, status=500)
 
     def changelist_view(self, request, extra_context=None):
         extra_context = extra_context or {}

@@ -270,6 +270,73 @@ class PhotoModelTestCase(TestCase):
         self.assertEqual(photo.gps_longitude, Decimal("-74.0060"))
         self.assertEqual(photo.gps_altitude, Decimal("10.5"))
 
+    @patch("photos.image_utils.ImageOptimizer.process_uploaded_image")
+    def test_focal_point_override_prevents_reprocessing(self, mock_process):
+        """Test that focal_point_override=True prevents automatic focal point updates."""
+        # Configure mock to return a new focal point
+        mock_process.return_value = ({}, (0.8, 0.8), None)
+
+        # Create photo with manual focal point and override enabled
+        photo = Photo(image=self.test_image)
+        photo.focal_point_x = 0.3
+        photo.focal_point_y = 0.4
+        photo.focal_point_override = True
+        photo.save()
+
+        # Verify that the existing focal point was passed to ImageOptimizer
+        call_args = mock_process.call_args
+        self.assertIsNotNone(call_args)
+        # Check that existing_focal_point parameter was passed
+        self.assertEqual(call_args.kwargs.get("existing_focal_point"), (0.3, 0.4))
+
+        # Verify focal point was NOT updated (stays at manual values)
+        self.assertEqual(photo.focal_point_x, 0.3)
+        self.assertEqual(photo.focal_point_y, 0.4)
+        self.assertTrue(photo.focal_point_override)
+
+    @patch("photos.image_utils.ImageOptimizer.process_uploaded_image")
+    def test_focal_point_override_false_allows_update(self, mock_process):
+        """Test that focal_point_override=False allows automatic focal point updates."""
+        # Configure mock to return a new focal point
+        mock_process.return_value = ({}, (0.7, 0.6), None)
+
+        # Create photo with override disabled
+        photo = Photo(image=self.test_image)
+        photo.focal_point_x = 0.3
+        photo.focal_point_y = 0.4
+        photo.focal_point_override = False
+        photo.save()
+
+        # Verify that existing_focal_point was NOT passed (should compute new one)
+        call_args = mock_process.call_args
+        self.assertIsNotNone(call_args)
+        self.assertIsNone(call_args.kwargs.get("existing_focal_point"))
+
+        # Verify focal point WAS updated to computed values
+        self.assertEqual(photo.focal_point_x, 0.7)
+        self.assertEqual(photo.focal_point_y, 0.6)
+        self.assertFalse(photo.focal_point_override)
+
+    @patch("photos.image_utils.ImageOptimizer.process_uploaded_image")
+    def test_focal_point_override_without_existing_values(self, mock_process):
+        """Test that override is ignored if no existing focal point values."""
+        # Configure mock to return a new focal point
+        mock_process.return_value = ({}, (0.5, 0.5), None)
+
+        # Create photo with override enabled but no existing focal point
+        photo = Photo(image=self.test_image)
+        photo.focal_point_override = True  # Override enabled but no values set
+        photo.save()
+
+        # Verify that existing_focal_point was NOT passed (no values to preserve)
+        call_args = mock_process.call_args
+        self.assertIsNotNone(call_args)
+        self.assertIsNone(call_args.kwargs.get("existing_focal_point"))
+
+        # Verify focal point was computed
+        self.assertEqual(photo.focal_point_x, 0.5)
+        self.assertEqual(photo.focal_point_y, 0.5)
+
 
 class PhotoAlbumModelTestCase(TestCase):
     """Test cases for the PhotoAlbum model."""

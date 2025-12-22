@@ -7,7 +7,7 @@ The photo management system provides comprehensive photo organization, automatic
 ## Features
 
 - **Multi-Resolution Images**: Automatic generation of thumbnail and preview versions
-- **Smart Cropping**: AI-powered saliency detection for intelligent thumbnail cropping
+- **Smart Cropping**: ML-based saliency detection for intelligent thumbnail cropping with manual override
 - **EXIF Metadata Extraction**: Camera, lens, GPS, exposure settings, and more
 - **Album Management**: Organize photos into public or private albums
 - **Downloadable Albums**: Generate zip files for bulk downloads
@@ -29,6 +29,7 @@ The photo management system provides comprehensive photo organization, automatic
 **Processing**:
 - `processing_status`: Status of async processing (pending, processing, complete, failed)
 - `focal_point_x`, `focal_point_y`: Detected focal point coordinates (0-1)
+- `focal_point_override`: Boolean flag to prevent automatic focal point updates
 - `original_filename`: Original filename from upload
 - `file_size`: Original file size in bytes
 - `width`, `height`: Original image dimensions
@@ -63,7 +64,7 @@ When a photo is uploaded:
 
 1. **Duplicate Check**: Computes file hash and checks for exact duplicates
 2. **Image Generation**: Creates thumbnail (400x300) and preview versions
-3. **Smart Cropping**: Uses saliency detection to determine focal point
+3. **Smart Cropping**: Uses ML-based saliency detection (Fine-Grained algorithm) to determine focal point, respects manual override if set
 4. **EXIF Extraction**: Parses metadata from original image
 5. **Perceptual Hash**: Calculates hash for similar image detection
 6. **Search Index**: Updates full-text search vector
@@ -351,7 +352,7 @@ python manage.py rebuild_search_index
 - Use case: Album covers, grid displays
 - Format: JPEG
 - Quality: 90
-- Features: AI-powered saliency detection for intelligent cropping
+- Features: ML-based saliency detection for intelligent cropping (can be manually overridden)
 
 **Preview**: Full-size (highly compressed)
 - Use case: Web display, lightbox
@@ -363,6 +364,28 @@ python manage.py rebuild_search_index
 - Use case: High-resolution display, downloads
 - Format: Original format
 - Quality: Original quality
+
+### Manual Focal Point Override
+
+The smart cropping system allows manual focal point control for fine-tuned thumbnail composition:
+
+**How It Works**:
+1. By default, photos use ML-based saliency detection to automatically determine the focal point
+2. In Django admin, use the **Focal Point Editor** to click on the image where you want the focal point
+3. Clicking automatically sets `focal_point_override=True`, preventing future reprocessing from changing it
+4. The override checkbox can be manually toggled in admin if needed
+
+**Use Cases**:
+- Portrait photography where auto-detection doesn't center on the subject's face
+- Architectural photos where you want to emphasize a specific detail
+- Product photos requiring precise composition control
+- Any scenario where the automated focal point isn't ideal
+
+**Technical Details**:
+- Focal points are stored as normalized coordinates (0-1 range)
+- When `focal_point_override=True`, reprocessing uses existing coordinates instead of computing new ones
+- Saliency maps are not generated when using override (saves processing time)
+- Manual focal points persist across thumbnail regeneration
 
 ### Responsive Images
 

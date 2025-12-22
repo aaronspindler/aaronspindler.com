@@ -100,6 +100,10 @@ class Photo(models.Model):
 
     focal_point_x = models.FloatField(null=True, blank=True, help_text="X coordinate of focal point (0-1)")
     focal_point_y = models.FloatField(null=True, blank=True, help_text="Y coordinate of focal point (0-1)")
+    focal_point_override = models.BooleanField(
+        default=False,
+        help_text="When enabled, prevents automatic focal point detection from overwriting the current focal point values",
+    )
 
     exif_data = models.JSONField(null=True, blank=True, help_text="Full EXIF data as JSON")
     camera_make = models.CharField(max_length=100, blank=True, help_text="Camera manufacturer")
@@ -284,11 +288,18 @@ class Photo(models.Model):
 
         self.image.seek(0)  # Reset file pointer before processing
         original_ext = os.path.splitext(self.original_filename)[1] or ".jpg"
+
+        # If override is enabled, use existing focal point values; otherwise compute new ones
+        existing_focal_point = None
+        if self.focal_point_override and self.focal_point_x is not None and self.focal_point_y is not None:
+            existing_focal_point = (self.focal_point_x, self.focal_point_y)
+
         variants, focal_point, saliency_map_bytes = ImageOptimizer.process_uploaded_image(
-            self.image, str(self.uuid), original_ext
+            self.image, str(self.uuid), original_ext, existing_focal_point=existing_focal_point
         )
 
-        if focal_point:
+        # Only update focal point if not using override
+        if not self.focal_point_override and focal_point:
             self.focal_point_x = focal_point[0]
             self.focal_point_y = focal_point[1]
 

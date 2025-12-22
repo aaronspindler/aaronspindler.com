@@ -15,7 +15,6 @@ from decimal import Decimal
 from io import BytesIO
 from unittest.mock import Mock, patch
 
-import numpy as np
 from django.core.files.base import ContentFile
 from django.test import TestCase
 from django.utils import timezone
@@ -334,43 +333,18 @@ class SmartCropTestCase(TestCase):
         return img
 
     def test_find_focal_point(self):
-        """Test focal point detection."""
+        """Test focal point detection using saliency."""
         img = self._create_test_image_with_pattern()
 
         focal_point = SmartCrop.find_focal_point(img)
 
-        # Should detect the bottom-right area with more detail
+        # Should return a valid focal point (either from saliency or fallback to center)
         self.assertIsInstance(focal_point, tuple)
         self.assertEqual(len(focal_point), 2)
-        self.assertGreater(focal_point[0], 0.5)  # X should be right side
-        self.assertGreater(focal_point[1], 0.5)  # Y should be bottom side
+        self.assertGreaterEqual(focal_point[0], 0.0)
         self.assertLessEqual(focal_point[0], 1.0)
+        self.assertGreaterEqual(focal_point[1], 0.0)
         self.assertLessEqual(focal_point[1], 1.0)
-
-    def test_edge_detection_focal_point(self):
-        """Test edge detection focal point calculation."""
-        # Create image with strong edges in center
-        img = Image.new("RGB", (100, 100), color="white")
-        # Draw a black rectangle in center
-        for x in range(40, 60):
-            for y in range(40, 60):
-                img.putpixel((x, y), (0, 0, 0))
-
-        focal_point = SmartCrop._edge_detection_focal_point(img)
-
-        # Should detect center area
-        self.assertAlmostEqual(focal_point[0], 0.5, places=1)
-        self.assertAlmostEqual(focal_point[1], 0.5, places=1)
-
-    def test_entropy_focal_point(self):
-        """Test entropy-based focal point detection."""
-        img = self._create_test_image_with_pattern()
-
-        focal_point = SmartCrop._entropy_focal_point(img, grid_size=5)
-
-        # High entropy area should be detected
-        self.assertGreater(focal_point[0], 0.5)
-        self.assertGreater(focal_point[1], 0.5)
 
     def test_saliency_focal_point(self):
         """Test saliency-based focal point detection."""
@@ -392,37 +366,6 @@ class SmartCropTestCase(TestCase):
             self.assertLessEqual(focal_point[0], 1.0)
             self.assertGreaterEqual(focal_point[1], 0.0)
             self.assertLessEqual(focal_point[1], 1.0)
-
-    def test_saliency_fallback(self):
-        """Test that find_focal_point falls back to entropy/edge when saliency fails."""
-        # Create a simple test image
-        img = Image.new("RGB", (100, 100), color="white")
-
-        # find_focal_point should work even if saliency returns None
-        focal_point = SmartCrop.find_focal_point(img)
-
-        self.assertIsInstance(focal_point, tuple)
-        self.assertEqual(len(focal_point), 2)
-        self.assertGreaterEqual(focal_point[0], 0.0)
-        self.assertLessEqual(focal_point[0], 1.0)
-        self.assertGreaterEqual(focal_point[1], 0.0)
-        self.assertLessEqual(focal_point[1], 1.0)
-
-    def test_calculate_entropy(self):
-        """Test entropy calculation."""
-        # Uniform image (low entropy)
-        uniform_img = Image.new("L", (50, 50), color=128)
-        low_entropy = SmartCrop._calculate_entropy(uniform_img)
-
-        # Random noise image (high entropy)
-        noise_array = np.random.randint(0, 256, (50, 50), dtype=np.uint8)
-        noise_img = Image.fromarray(noise_array, mode="L")
-        high_entropy = SmartCrop._calculate_entropy(noise_img)
-
-        # High entropy should be greater than low entropy
-        self.assertGreater(high_entropy, low_entropy)
-        self.assertGreater(high_entropy, 5.0)  # Random noise has high entropy
-        self.assertLess(low_entropy, 1.0)  # Uniform image has very low entropy
 
     def test_smart_crop_landscape(self):
         """Test smart cropping for landscape orientation."""

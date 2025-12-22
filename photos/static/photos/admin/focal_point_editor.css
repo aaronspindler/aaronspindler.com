@@ -1,0 +1,35 @@
+/**
+ * Focal Point Editor Styles for Django Admin
+ */
+
+.focal-point-editor-container {
+    font-family: "Roboto","Lucida Grande","DejaVu Sans","Bitstream Vera Sans",Verdana,Arial,sans-serif;
+}
+
+.focal-point-crosshair {
+    transition: left 0.2s ease, top 0.2s ease;
+}
+
+#focal-point-image {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.focal-point-coords {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+}
+
+/* Animation for success feedback */
+@keyframes fadeInOut {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.focal-point-editor-container .success-message {
+    animation: fadeInOut 2s ease-in-out;
+}
