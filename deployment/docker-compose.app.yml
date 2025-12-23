@@ -1,0 +1,125 @@
+# Application Services for Coolify
+# Deploy this for application updates
+# Connects to infrastructure services via external network
+
+services:
+  # =============================================================================
+  # Web - Django Application (Gunicorn)
+  # =============================================================================
+  web:
+    image: ghcr.io/aaronspindler/aaronspindler.com-web:${IMAGE_TAG:-latest}
+    container_name: aaronspindler-web
+    restart: unless-stopped
+    environment:
+      # Database
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@aaronspindler-postgres:5432/${POSTGRES_DB:-aaronspindler}
+      QUESTDB_URL: postgresql://admin:quest@aaronspindler-questdb:8812/qdb
+      # Cache & Celery
+      REDIS_URL: redis://aaronspindler-redis:6379/0
+      CELERY_BROKER_URL: redis://aaronspindler-redis:6379/1
+      CELERY_RESULT_BACKEND: redis://aaronspindler-redis:6379/2
+      # Django
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      DEBUG: ${DEBUG:-false}
+      # AWS S3
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
+      AWS_S3_REGION_NAME: ${AWS_S3_REGION_NAME:-us-east-1}
+      # AI Keys
+      OPENAI_KEY: ${OPENAI_KEY:-}
+      ANTHROPIC_KEY: ${ANTHROPIC_KEY:-}
+      # Other
+      MASSIVE_API_KEY: ${MASSIVE_API_KEY:-}
+      RESUME_ENABLED: ${RESUME_ENABLED:-true}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    labels:
+      # Coolify will use these for routing
+      - "coolify.managed=true"
+    networks:
+      - aaronspindler-network
+
+  # =============================================================================
+  # Celery Worker - Background Task Processing
+  # =============================================================================
+  celery:
+    image: ghcr.io/aaronspindler/aaronspindler.com-celery:${IMAGE_TAG:-latest}
+    container_name: aaronspindler-celery
+    restart: unless-stopped
+    environment:
+      # Database
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@aaronspindler-postgres:5432/${POSTGRES_DB:-aaronspindler}
+      QUESTDB_URL: postgresql://admin:quest@aaronspindler-questdb:8812/qdb
+      # Cache & Celery
+      REDIS_URL: redis://aaronspindler-redis:6379/0
+      CELERY_BROKER_URL: redis://aaronspindler-redis:6379/1
+      CELERY_RESULT_BACKEND: redis://aaronspindler-redis:6379/2
+      # Django
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG:-false}
+      # AWS S3 (needed for photo processing)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_STORAGE_BUCKET_NAME: ${AWS_STORAGE_BUCKET_NAME:-}
+      AWS_S3_REGION_NAME: ${AWS_S3_REGION_NAME:-us-east-1}
+      # AI Keys (needed for blog processing)
+      OPENAI_KEY: ${OPENAI_KEY:-}
+      ANTHROPIC_KEY: ${ANTHROPIC_KEY:-}
+    networks:
+      - aaronspindler-network
+
+  # =============================================================================
+  # Celery Beat - Task Scheduler
+  # =============================================================================
+  celerybeat:
+    image: ghcr.io/aaronspindler/aaronspindler.com-celerybeat:${IMAGE_TAG:-latest}
+    container_name: aaronspindler-celerybeat
+    restart: unless-stopped
+    environment:
+      # Database
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@aaronspindler-postgres:5432/${POSTGRES_DB:-aaronspindler}
+      # Cache & Celery
+      REDIS_URL: redis://aaronspindler-redis:6379/0
+      CELERY_BROKER_URL: redis://aaronspindler-redis:6379/1
+      CELERY_RESULT_BACKEND: redis://aaronspindler-redis:6379/2
+      # Django
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG:-false}
+    networks:
+      - aaronspindler-network
+
+  # =============================================================================
+  # Flower - Celery Monitoring Dashboard
+  # =============================================================================
+  flower:
+    image: ghcr.io/aaronspindler/aaronspindler.com-flower:${IMAGE_TAG:-latest}
+    container_name: aaronspindler-flower
+    restart: unless-stopped
+    environment:
+      # Celery connection
+      CELERY_BROKER_URL: redis://aaronspindler-redis:6379/1
+      # Django (needed for app config)
+      SECRET_KEY: ${SECRET_KEY}
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@aaronspindler-postgres:5432/${POSTGRES_DB:-aaronspindler}
+      # Flower auth (optional - set in Coolify)
+      FLOWER_BASIC_AUTH: ${FLOWER_BASIC_AUTH:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    labels:
+      - "coolify.managed=true"
+    networks:
+      - aaronspindler-network
+
+networks:
+  aaronspindler-network:
+    external: true
+    name: aaronspindler-network
