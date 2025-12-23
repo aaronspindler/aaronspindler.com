@@ -2,7 +2,6 @@ import logging
 
 from django.contrib import admin, messages
 from django.db.models import Count
-from django.templatetags.static import static
 from django.urls import path, reverse
 from django.utils.html import format_html
 
@@ -118,6 +117,11 @@ class PhotoAdmin(admin.ModelAdmin):
     )
     list_display_links = ("list_thumbnail", "get_display_name")
     actions = ["add_to_album", "find_duplicates_action", "reprocess_images"]
+
+    class Media:
+        js = ("photos/admin/focal_point_editor.js",)
+        css = {"all": ("photos/admin/focal_point_editor.css",)}
+
     readonly_fields = (
         "image_preview",
         "all_versions_preview",
@@ -368,11 +372,7 @@ class PhotoAdmin(admin.ModelAdmin):
             focal_x_str = f"{focal_x:.3f}"
             focal_y_str = f"{focal_y:.3f}"
 
-            # Get static URLs for JS and CSS
-            js_url = static("photos/admin/focal_point_editor.js")
-            css_url = static("photos/admin/focal_point_editor.css")
-
-            # Generate HTML for the interactive editor
+            # Generate HTML for the interactive editor (JS/CSS loaded via Media class)
             return format_html(
                 '<div class="focal-point-editor-container" style="background: #f9f9f9; padding: 15px; border-radius: 5px;">'
                 "<strong>Click on the image to set focal point</strong><br>"
@@ -394,8 +394,6 @@ class PhotoAdmin(admin.ModelAdmin):
                 '<small style="color: #666;">Current Focal Point: '
                 '<span id="focal-point-coords-{}" class="focal-point-coords">({}, {})</span></small>'
                 "</div>"
-                '<script src="{}"></script>'
-                '<link rel="stylesheet" href="{}">'
                 "</div>",
                 obj.pk,
                 url,
@@ -407,8 +405,6 @@ class PhotoAdmin(admin.ModelAdmin):
                 obj.pk,
                 focal_x_str,
                 focal_y_str,
-                js_url,
-                css_url,
             )
         except Exception as e:
             logger.error(f"Error displaying focal point editor for photo {obj.pk}: {type(e).__name__}: {e}")
