@@ -4,6 +4,7 @@
 VENV := venv
 PYTHON := $(VENV)/bin/python
 MANAGE := $(PYTHON) manage.py
+UV := $(VENV)/bin/uv
 
 # Default target
 .DEFAULT_GOAL := static
@@ -143,6 +144,30 @@ test-coverage:
 test: test-build test-run test-down
 	@echo "Test suite completed!"
 
+# Dependency Management
+.PHONY: update-deps
+update-deps:
+	@echo "Compiling requirements..."
+	@if [ ! -f "$(UV)" ]; then \
+		echo "Error: uv not found in virtual environment. Please install: source venv/bin/activate && pip install uv"; \
+		exit 1; \
+	fi
+	$(UV) pip compile requirements/base.in -o requirements/base.txt --generate-hashes
+	$(UV) pip compile requirements/dev.in -o requirements/dev.txt --generate-hashes
+	@echo "Installing dev requirements..."
+	$(UV) pip install -r requirements/dev.txt
+	@echo "Dependencies updated!"
+
+.PHONY: install
+install:
+	@echo "Installing dev requirements..."
+	@if [ ! -f "$(UV)" ]; then \
+		echo "Error: uv not found in virtual environment. Please install: source venv/bin/activate && pip install uv"; \
+		exit 1; \
+	fi
+	$(UV) pip install -r requirements/dev.txt
+	@echo "Dependencies installed!"
+
 # Help
 .PHONY: help
 help:
@@ -155,6 +180,10 @@ help:
 	@echo "  make collect        - Collect static files only"
 	@echo "  make collect-optimize - Collect and optimize static files"
 	@echo "  make clean          - Remove generated static files"
+	@echo ""
+	@echo "Dependency Management:"
+	@echo "  make update-deps    - Compile .in files to .txt and install dev requirements"
+	@echo "  make install        - Install dev requirements only (no recompile)"
 	@echo ""
 	@echo "Docker Testing Commands:"
 	@echo "  make test           - Run full test suite (build, run, cleanup)"
