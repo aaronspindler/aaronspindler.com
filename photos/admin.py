@@ -2,6 +2,7 @@ import logging
 
 from django.contrib import admin, messages
 from django.db.models import Count
+from django.templatetags.static import static
 from django.urls import path, reverse
 from django.utils.html import format_html
 
@@ -367,6 +368,10 @@ class PhotoAdmin(admin.ModelAdmin):
             focal_x_str = f"{focal_x:.3f}"
             focal_y_str = f"{focal_y:.3f}"
 
+            # Get static URLs for JS and CSS
+            js_url = static("photos/admin/focal_point_editor.js")
+            css_url = static("photos/admin/focal_point_editor.css")
+
             # Generate HTML for the interactive editor
             return format_html(
                 '<div class="focal-point-editor-container" style="background: #f9f9f9; padding: 15px; border-radius: 5px;">'
@@ -374,7 +379,7 @@ class PhotoAdmin(admin.ModelAdmin):
                 '<small style="color: #666;">The focal point determines the center of thumbnail crops. '
                 "Click anywhere on the image to set a new focal point.</small><br><br>"
                 '<div style="position: relative; display: inline-block; max-width: 600px;">'
-                '<img id="focal-point-image-{}" src="{}" '
+                '<img id="focal-point-image-{}" src="{}" crossorigin="anonymous" '
                 'style="max-width: 100%; border: 2px solid #333; cursor: crosshair; display: block;" '
                 'data-photo-id="{}" data-focal-x="{}" data-focal-y="{}" />'
                 '<div id="focal-point-crosshair-{}" class="focal-point-crosshair" '
@@ -389,8 +394,8 @@ class PhotoAdmin(admin.ModelAdmin):
                 '<small style="color: #666;">Current Focal Point: '
                 '<span id="focal-point-coords-{}" class="focal-point-coords">({}, {})</span></small>'
                 "</div>"
-                '<script src="/static/photos/admin/focal_point_editor.js"></script>'
-                '<link rel="stylesheet" href="/static/photos/admin/focal_point_editor.css">'
+                '<script src="{}"></script>'
+                '<link rel="stylesheet" href="{}">'
                 "</div>",
                 obj.pk,
                 url,
@@ -402,6 +407,8 @@ class PhotoAdmin(admin.ModelAdmin):
                 obj.pk,
                 focal_x_str,
                 focal_y_str,
+                js_url,
+                css_url,
             )
         except Exception as e:
             logger.error(f"Error displaying focal point editor for photo {obj.pk}: {type(e).__name__}: {e}")
