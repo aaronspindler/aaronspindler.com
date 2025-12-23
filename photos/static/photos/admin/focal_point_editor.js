@@ -15,8 +15,16 @@
             const crosshair = document.getElementById(`focal-point-crosshair-${photoId}`);
             const coordsDisplay = document.getElementById(`focal-point-coords-${photoId}`);
 
-            // Initialize crosshair position from current focal point
-            updateCrosshairPosition(image, crosshair, parseFloat(image.dataset.focalX), parseFloat(image.dataset.focalY));
+            // Initialize crosshair position from current focal point (after image loads)
+            const initCrosshair = () => {
+                updateCrosshairPosition(image, crosshair, parseFloat(image.dataset.focalX), parseFloat(image.dataset.focalY));
+            };
+
+            if (image.complete) {
+                initCrosshair();
+            } else {
+                image.addEventListener('load', initCrosshair);
+            }
 
             // Handle image clicks
             image.addEventListener('click', function(event) {
