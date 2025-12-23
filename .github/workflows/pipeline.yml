@@ -84,7 +84,7 @@ jobs:
           echo "✅ Test image exported"
 
       - name: Upload image as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: test-image
           path: /tmp/test-image.tar
