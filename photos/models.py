@@ -291,15 +291,17 @@ class Photo(models.Model):
 
         # If override is enabled, use existing focal point values; otherwise compute new ones
         existing_focal_point = None
+        has_existing_focal_point = False
         if self.focal_point_override and self.focal_point_x is not None and self.focal_point_y is not None:
             existing_focal_point = (self.focal_point_x, self.focal_point_y)
+            has_existing_focal_point = True
 
         variants, focal_point, saliency_map_bytes = ImageOptimizer.process_uploaded_image(
             self.image, str(self.uuid), original_ext, existing_focal_point=existing_focal_point
         )
 
-        # Only update focal point if not using override
-        if not self.focal_point_override and focal_point:
+        # Only update focal point if we're not preserving existing values
+        if not has_existing_focal_point and focal_point:
             self.focal_point_x = focal_point[0]
             self.focal_point_y = focal_point[1]
 

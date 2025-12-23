@@ -83,15 +83,15 @@
         .then(data => {
             if (data.success) {
                 // Show success message briefly
-                coordsDisplay.innerHTML = `<span style="color: green;">✓ Saved! (${focalX.toFixed(3)}, ${focalY.toFixed(3)})</span>`;
-
-                // Revert to normal display after 2 seconds
-                setTimeout(() => {
-                    coordsDisplay.innerHTML = `(${focalX.toFixed(3)}, ${focalY.toFixed(3)})`;
-                }, 2000);
+                coordsDisplay.innerHTML = `<span style="color: green;">✓ Saved! Reloading...</span>`;
 
                 // Show Django admin success message
-                showDjangoMessage('Focal point updated successfully. Override enabled.', 'success');
+                showDjangoMessage('Focal point updated. Reprocessing image...', 'success');
+
+                // Reload the page after a short delay to show the updated override flag
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
             } else {
                 coordsDisplay.innerHTML = `<span style="color: red;">Error: ${data.error}</span>`;
                 setTimeout(() => {

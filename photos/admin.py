@@ -11,6 +11,26 @@ from .models import AlbumPhoto, Photo, PhotoAlbum
 logger = logging.getLogger(__name__)
 
 
+class AlbumFilter(admin.SimpleListFilter):
+    """Filter photos by album membership."""
+
+    title = "album"
+    parameter_name = "album"
+
+    def lookups(self, request, model_admin):
+        albums = PhotoAlbum.objects.order_by("title")
+        choices = [("none", "No album")]
+        choices.extend((str(album.pk), album.title) for album in albums)
+        return choices
+
+    def queryset(self, request, queryset):
+        if self.value() == "none":
+            return queryset.filter(albums__isnull=True)
+        elif self.value():
+            return queryset.filter(albums__pk=self.value()).distinct()
+        return queryset
+
+
 class DuplicateFilter(admin.SimpleListFilter):
     """Filter photos by duplicate status matching the Duplicates column display."""
 
@@ -78,7 +98,15 @@ class PhotoAdmin(admin.ModelAdmin):
         "has_duplicates",
         "created_at",
     )
-    list_filter = ("processing_status", DuplicateFilter, "created_at", "updated_at", "camera_make", "camera_model")
+    list_filter = (
+        "processing_status",
+        AlbumFilter,
+        DuplicateFilter,
+        "created_at",
+        "updated_at",
+        "camera_make",
+        "camera_model",
+    )
     search_fields = (
         "original_filename",
         "camera_make",
@@ -785,12 +813,17 @@ class PhotoAdmin(admin.ModelAdmin):
             photo.focal_point_override = True
             photo.save()
 
+            # Trigger async reprocess to regenerate image versions with new focal point
+            from photos.tasks import process_photo_async
+
+            process_photo_async.delay(photo.pk, force=True)
+
             return JsonResponse(
                 {
                     "success": True,
                     "focal_x": focal_x,
                     "focal_y": focal_y,
-                    "message": "Focal point updated successfully. Override enabled.",
+                    "message": "Focal point updated. Reprocessing image...",
                 }
             )
 
