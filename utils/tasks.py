@@ -122,10 +122,6 @@ def run_lighthouse_audit(self):
     max_retries=3,
 )
 def geolocate_missing_ips(self):
-    """
-    Geolocate IP addresses without geo data.
-    Processes up to 200 global IPs in batches of 100. Skips non-globally-routable IPs.
-    """
     from django.db.models import Q
 
     from utils.models.security import IPAddress
@@ -150,13 +146,13 @@ def geolocate_missing_ips(self):
             logger.info("No globally-routable IP addresses found that need geolocation")
             return "No global IPs to geolocate"
 
-        ip_addresses = ip_addresses[:200]
+        ip_addresses = ip_addresses[:500]
 
         ip_count = len(ip_addresses)
         logger.info(f"Starting geolocation for {ip_count} IP addresses...")
 
-        # Geolocate in batches (100 IPs per batch, max 2 batches = 200 IPs)
-        results = geolocate_ips_batch(ip_addresses, batch_size=100, max_batches=2)
+        # Geolocate in batches (100 IPs per batch, max 5 batches = 500 IPs)
+        results = geolocate_ips_batch(ip_addresses, batch_size=100)
 
         # Update records with results
         success_count = 0

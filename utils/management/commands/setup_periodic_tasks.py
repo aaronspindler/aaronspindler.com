@@ -10,8 +10,8 @@ PERIODIC_TASKS = [
     (
         "Geolocate missing IP addresses",
         "utils.tasks.geolocate_missing_ips",
-        {"minute": "*/15", "hour": "*"},
-        "Geolocates up to 200 IP addresses without geo data every 15 minutes",
+        {"minute": "0", "hour": "0,12"},
+        "Geolocates IP addresses without geo data twice daily at midnight and noon",
     ),
     # Daily tasks
     (
