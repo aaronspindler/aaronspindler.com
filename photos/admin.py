@@ -828,7 +828,8 @@ class PhotoAdmin(admin.ModelAdmin):
             )
 
         except (ValueError, KeyError, json.JSONDecodeError) as e:
-            return JsonResponse({"success": False, "error": str(e)}, status=400)
+            logger.error(f"Invalid request data when updating focal point for photo {photo_id}: {e}", exc_info=True)
+            return JsonResponse({"success": False, "error": "Invalid request data"}, status=400)
         except Exception as e:
             logger.error(f"Error updating focal point for photo {photo_id}: {e}", exc_info=True)
             return JsonResponse({"success": False, "error": "Internal server error"}, status=500)
