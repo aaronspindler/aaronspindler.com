@@ -35,6 +35,7 @@ env:
   TEST_COMPOSE_FILES: -f deployment/docker-compose.infra.yml -f deployment/docker-compose.app.yml -f deployment/docker-compose.ci.yml
   PIP_CACHE_VERSION: v1
   DOCKER_CACHE_VERSION: v2
+  POSTGRES_PASSWORD: testpassword
 
 permissions:
   contents: read
