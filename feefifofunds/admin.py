@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Asset, AssetPrice
+from .models import Asset
 
 
 @admin.register(Asset)
@@ -30,47 +30,6 @@ class AssetAdmin(admin.ModelAdmin):
             {
                 "fields": ("created_at", "updated_at"),
                 "classes": ("collapse",),
-            },
-        ),
-    )
-
-
-@admin.register(AssetPrice)
-class AssetPriceAdmin(admin.ModelAdmin):
-    list_display = [
-        "asset_id",
-        "time",
-        "quote_currency",
-        "interval_minutes",
-        "open",
-        "high",
-        "low",
-        "close",
-        "volume",
-        "source",
-    ]
-    list_filter = ["source", "quote_currency", "interval_minutes", "time"]
-    search_fields = ["asset_id"]
-    ordering = ["-time"]
-    date_hierarchy = "time"
-
-    fieldsets = (
-        (
-            "Asset & Time",
-            {
-                "fields": ("asset_id", "time", "quote_currency", "source", "interval_minutes"),
-            },
-        ),
-        (
-            "OHLC Data",
-            {
-                "fields": ("open", "high", "low", "close"),
-            },
-        ),
-        (
-            "Volume & Trades",
-            {
-                "fields": ("volume", "trade_count"),
             },
         ),
     )
