@@ -143,7 +143,7 @@ def get_projects():
         {
             "name": "ActionsUptime",
             "description": "ActionsUptime is a platform to help you monitor your GitHub Actions and get notifications when they fail.",
-            "link": "https://actionsuptime.com",
+            "link": "https://github.com/aaronspindler/aaronspindler.com/tree/main/projects/ActionsUptime",
             "tech": ["Django", "PostgreSQL", "Celery", "Redis"],
         }
     )
