@@ -32,9 +32,10 @@ env:
   PYTHONUNBUFFERED: 1
   DOCKER_IMAGE_NAME: test-runner
   REGISTRY: ghcr.io
-  TEST_COMPOSE_FILES: -f deployment/docker-compose.test.yml -f deployment/docker-compose.test.ci.yml
+  TEST_COMPOSE_FILES: -f deployment/docker-compose.infra.yml -f deployment/docker-compose.app.yml -f deployment/docker-compose.ci.yml
   PIP_CACHE_VERSION: v1
   DOCKER_CACHE_VERSION: v2
+  POSTGRES_PASSWORD: testpassword
 
 permissions:
   contents: read

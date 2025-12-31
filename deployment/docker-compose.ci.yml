@@ -1,0 +1,23 @@
+# CI Override - Uses pre-built images instead of building
+# Usage: docker-compose -f docker-compose.infra.yml -f docker-compose.app.yml -f docker-compose.ci.yml ...
+
+services:
+  web:
+    build: null
+    image: ${WEB_IMAGE:-ghcr.io/aaronspindler/aaronspindler.com-web:latest}
+
+  celery:
+    build: null
+    image: ${CELERY_IMAGE:-ghcr.io/aaronspindler/aaronspindler.com-celery:latest}
+
+  celerybeat:
+    build: null
+    image: ${CELERYBEAT_IMAGE:-ghcr.io/aaronspindler/aaronspindler.com-celerybeat:latest}
+
+  flower:
+    build: null
+    image: ${FLOWER_IMAGE:-ghcr.io/aaronspindler/aaronspindler.com-flower:latest}
+
+  test_runner:
+    build: null
+    image: ${TEST_IMAGE:-test-runner:latest}
