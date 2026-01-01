@@ -166,7 +166,7 @@ jobs:
         run: |
           echo "Starting database services..."
           COMPOSE="${{ env.TEST_COMPOSE_FILES }}"
-          docker compose $COMPOSE up -d postgres redis questdb
+          docker compose $COMPOSE up -d postgres redis
           echo "✅ Test services started"
 
       - name: Run Django checks

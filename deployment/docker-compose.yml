@@ -55,29 +55,6 @@ services:
       retries: 5
       start_period: 5s
 
-  questdb:
-    image: questdb/questdb:8.2.1
-    restart: unless-stopped
-    ports:
-      - "${QUESTDB_HTTP_PORT:-9000}:9000"
-      - "${QUESTDB_PG_PORT:-8812}:8812"
-      - "${QUESTDB_HEALTH_PORT:-9003}:9003"
-    volumes:
-      - questdb_data:/var/lib/questdb
-      - ${QUESTDB_CONFIG:-../questdb_config.properties}:/var/lib/questdb/conf/server.conf:ro
-    environment:
-      QDB_PG_USER: ${QDB_PG_USER:-admin}
-      QDB_PG_PASSWORD: ${QDB_PG_PASSWORD:-quest}
-      QDB_HTTP_ENABLED: "true"
-      QDB_PG_ENABLED: "true"
-      QDB_TELEMETRY_ENABLED: "false"
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/9003'"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-
   # =============================================================================
   # Application Services
   # =============================================================================
@@ -213,14 +190,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      questdb:
-        condition: service_healthy
     profiles:
       - test
 
 volumes:
   postgres_data:
   redis_data:
-  questdb_data:
   static_volume:
   media_volume:
