@@ -166,7 +166,6 @@ services:
       <<: *build-config
       target: test
     volumes:
-      - ${CODE_VOLUME:-/dev/null}:/code
       - static_volume:/code/staticfiles
       - media_volume:/code/media
     environment:
