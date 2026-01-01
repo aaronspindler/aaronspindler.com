@@ -1,7 +1,18 @@
+from django.conf import settings
 from django.db import connections, migrations
 
 
+def _is_questdb_available():
+    """Check if QuestDB is actually configured (not a PostgreSQL fallback)."""
+    if getattr(settings, "TESTING", False):
+        return False
+    questdb_config = settings.DATABASES.get("questdb", {})
+    return questdb_config.get("ENGINE") == "config.db_backends.questdb"
+
+
 def create_assetprice_table_with_dedup(_apps, _schema_editor):
+    if not _is_questdb_available():
+        return
     with connections["questdb"].cursor() as cursor:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS assetprice (
@@ -25,6 +36,8 @@ def create_assetprice_table_with_dedup(_apps, _schema_editor):
 
 
 def drop_assetprice_table(_apps, _schema_editor):
+    if not _is_questdb_available():
+        return
     with connections["questdb"].cursor() as cursor:
         cursor.execute("DROP TABLE IF EXISTS assetprice;")
 
